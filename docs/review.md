@@ -67,3 +67,15 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
 - Mage bolts draw as a MultiMesh; one clip at a time for heroes (a layered upper body is polish).
 - Shots land where the shooter saw them from milestone 2, not 5.
 - unified gained `UnifiedSession.shown_time`, and `uni doc` fetches Box3D (it failed on physics in a game without it).
+- Heroes, step 1: one `HERO_HP` (100) for every class for now; class speeds Knight 5, Barbarian 4.5, Mage 4.75, Rogue
+  5.5 m/s (`tuning.odin`). The capsule floats 0.15 m on its pogo spring (`HERO_POGO_REST` 0.6), so feet are 1.25 m
+  below its centre.
+- `Action` has only `None` until the attacks land, so the hero view poses gaits only; one-shots at their age come with
+  the first action.
+- Bindings: attack is the left mouse button, Space, a pad's right trigger or X; interact is E, the right mouse button
+  or a pad's A; pause is Esc or a playing pad's Start. As in drift, any pad's Start that isn't a local player's own
+  device joins a new player, so a lone player on a pad (local player 0 reads every device) who presses Start gets a
+  second hero.
+- The camera: 55° pitch, field of view 35°, 18 to 28 m from the heroes' middle (1.2 m further per metre of spread),
+  eased at 5/s, cut on a jump past 12 m. Walls still hide heroes behind them until the cutaway (milestone 8).
+- `hero_spawn.gd` got `class_name HeroSpawn`, so the camera finds the spawns it frames before a hero is in.

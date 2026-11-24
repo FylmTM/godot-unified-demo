@@ -7,9 +7,9 @@ the rules written in Odin, Godot as the host for rendering, audio, UI and the ed
 dungeon crawler for 1–4 players, and the answer to "what does a real game built on unified look like?".
 
 > [!NOTE]
-> **In development.** Today the game you play is still the template `uni init` makes: capsules that move (arrow keys
-> or a pad's left stick) and throw balls (Space). Its art is in, posed in a look-dev scene (`./uni tool lookdev
-> --window --shots`). What it becomes, and in what order, is [`docs/plan.md`](docs/plan.md).
+> **In development.** Today up to four heroes (Knight, Barbarian, Mage, Rogue) walk Floor 1, the first floor of the
+> crypt; skeletons, attacks and props come next. The art is posed in a look-dev scene too (`./uni tool lookdev
+> --window --shots`). What the game becomes, and in what order, is [`docs/plan.md`](docs/plan.md).
 
 ## Play it
 
@@ -25,6 +25,11 @@ cd godot-unified-demo
 ./uni run -- --join 127.0.0.1:7777   # ...and join it from a second window
 ./uni help                           # every command
 ```
+
+**Controls.** Move with WASD, the arrow keys or a pad's left stick; aim with the mouse or the right stick (a hero
+that isn't aimed faces where it walks). Attack: the left mouse button, Space, or a pad's right trigger or X. Interact:
+E, the right mouse button, or a pad's A. Esc pauses the game for everyone. Couch co-op: a pad pressing Start joins as
+another player, and the keyboard and mouse stay the first player's.
 
 ## How it's built
 

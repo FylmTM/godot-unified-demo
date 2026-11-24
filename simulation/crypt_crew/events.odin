@@ -1,3 +1,5 @@
+// What the sim tells the views happened, as opposed to what is (the state, which fill_frame reads). Each event is
+// declared beside the system that emits it.
 package crypt_crew
 
 import "unified:sim"
@@ -6,12 +8,5 @@ import "unified:sim"
 Event :: union {
 	sim.Event_Player_Joined,
 	sim.Event_Player_Left,
-	Event_Ball_Thrown,
 	Event_Paused,
-}
-
-// A ball left `player`'s hand at `speed` metres per second.
-Event_Ball_Thrown :: struct {
-	player: sim.Player,
-	speed:  u8,
 }

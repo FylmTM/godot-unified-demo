@@ -1,3 +1,4 @@
+class_name HeroSpawn
 extends Marker3D
 ## Level marker: where a hero appears when nobody is up to arrive beside (a session's start, everyone down), by input
 ## slot. The sim reads one per slot (`world_create`).

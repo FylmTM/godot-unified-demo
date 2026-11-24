@@ -1,0 +1,28 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/play/play.gd" id="play"]
+[ext_resource type="Script" path="res://game/play/camera_rig.gd" id="camera_rig"]
+[ext_resource type="Environment" path="res://game/environments/crypt.tres" id="crypt"]
+[ext_resource type="PackedScene" path="res://game/play/hud.tscn" id="hud"]
+
+[node name="Play" type="Node3D"]
+script = ExtResource("play")
+
+[node name="UnifiedSession" type="UnifiedSession" parent="."]
+unique_name_in_owner = true
+
+[node name="Level" type="Node3D" parent="."]
+
+[node name="Views" type="Node3D" parent="."]
+
+[node name="CameraRig" type="Node3D" parent="."]
+script = ExtResource("camera_rig")
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+current = true
+fov = 35.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource("crypt")
+
+[node name="Hud" parent="." instance=ExtResource("hud")]

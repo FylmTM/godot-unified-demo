@@ -1,42 +1,72 @@
-// crypt_crew (README.md): 1-4 players move capsules on a floor and throw balls straight up.
+// crypt_crew (README.md): a top-down co-op dungeon crawler for 1-4 players, its rules as one deterministic sim that
+// unified runs under rollback netcode.
 //
-// The files, by feature: game (this: the descriptor and the tick), input (the input and the commands), state, events,
-// players, balls, the co-op pause (pause) and the scripted inputs (script).
+// One system per file: game (this: the descriptor and the tick, its table of contents), tuning (every rule number),
+// input (the input and the commands), state, events, world (the physics world, Floor 1's navigation and places,
+// init), presence (arrivals and leaves), heroes (facing, movement, read back), pause (the co-op pause), dev (the dev
+// commands) and script (the scripted player).
 package crypt_crew
 
+import "unified:physics"
 import "unified:sim"
 
-PLAYERS :: 4 // input slots: the most players in the game at once
-TICK_HZ :: 64
+PLAYERS :: 4 // input slots: the most heroes in the game at once
+TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
 VERSION :: "1"
 
-// The game's types for unified:sim: no World (no physics, no level).
-Game :: sim.Game(State, Input, sim.No_World, Event, Command, sim.No_Setup, sim.No_Profile, PLAYERS)
-// What every system gets: the state, the inputs and commands, the tick's player changes.
+// The game's types for unified:sim: a physics World, a Profile per player, no Setup yet.
+Game :: sim.Game(State, Input, World, Event, Command, sim.No_Setup, Profile, PLAYERS)
+// What every system gets: the state, the world, the inputs and commands, the tick's player changes.
 Tick :: sim.Tick(Game)
 
-// The game: what the headless binary, the GDExtension and the tests run. Its optional hooks are documented on
-// sim.Game's fields (`uni doc sim Game`); levels go inline (it is @(rodata)):
-// `levels = {{"meadow", #load("../../game/levels/meadow.level")}}`.
+// The game: what the headless binary, the GDExtension and the tests run (its hooks: `uni doc sim Game`).
 @(rodata)
 GAME := Game {
 	name              = "crypt_crew",
 	version           = VERSION,
 	tick_hz           = TICK_HZ,
+	levels            = {{"floor_1", #load("../../game/levels/floor_1.level")}}, // game/levels/floor_1.tscn's (uni bake)
+	world_create      = world_create,
+	world_destroy     = world_destroy,
+	extra             = extra,
+	init              = init,
 	tick              = tick,
 	scripted_input    = scripted_input,
 	scripted_commands = scripted_commands,
+	scripted_profile  = scripted_profile,
 }
 
-// One tick: the systems in their order (README.md, Systems).
+// The tick's timing zones (sim.zone): the dev UI's stacked graph, and the groups its draw toggles name.
+Zone :: enum u8 {
+	Presence,
+	Commands,
+	Heroes,
+	Physics,
+}
+
+// One tick: the systems in their order, each group a timing zone.
 tick :: proc(t: ^Tick) {
-	place_new_players(t) // presence first: people come and go while paused
-	apply_pause(t) // commands are read on paused ticks too
-	if t.paused do return // the co-op pause: no system runs (a physics game returns before physics.step)
-	move_players(t)
-	throw_balls(t)
-	move_balls(t)
+	{
+		sim.zone(t, Zone.Presence)
+		update_presence(t) // first: people come and go while paused
+		apply_pause(t) // the pause's own command is read on paused ticks too
+	}
+	if t.paused do return // the co-op pause: no system runs, physics.step included
+	{
+		sim.zone(t, Zone.Commands)
+		apply_dev_commands(t)
+	}
+	{
+		sim.zone(t, Zone.Heroes)
+		face_heroes(t)
+		move_heroes(t)
+	}
+	{
+		sim.zone(t, Zone.Physics)
+		physics.step(t.world.phys)
+		read_back_heroes(t)
+	}
 }

@@ -12,3 +12,12 @@ macos.debug = "res://.out/bin/libcrypt_crew.dylib"
 macos.release = "res://.out/bin/libcrypt_crew.dylib"
 windows.x86_64 = "res://.out/bin/crypt_crew.dll"
 linux.x86_64 = "res://.out/bin/libcrypt_crew.so"
+
+; Runtime libraries Godot loads with ours and the export ships next to it, from what the extension links (Box3D,
+; the EOS SDK): written by `uni build`, which also copies this OS's into .out/bin.
+[dependencies]
+
+macos.debug = { "res://.out/bin/libbox3d.dylib": "Contents/Frameworks" }
+macos.release = { "res://.out/bin/libbox3d.dylib": "Contents/Frameworks" }
+windows.x86_64 = { "res://.out/bin/box3d.dll": "" }
+linux.x86_64 = { "res://.out/bin/libbox3d.so": "" }

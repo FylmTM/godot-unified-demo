@@ -1,87 +1,68 @@
+// The view contract and the frame (session thread): every view the state shows, filled for each published tick from
+// its state (the newest prediction, filled again after a rollback). It reads the state and never writes it; what a
+// view shows of the rules' next move calls the sim's own proc, so the two cannot disagree (unified/docs/gameplay.md).
 package crypt_crew_extension
 
+import "unified:dmath"
 import "unified:godot"
 import "unified:sim"
 
 import g "../crypt_crew"
 
+// What fill_frame gets: the tick's state and world, and where the views go.
 Frame :: godot.Frame(g.Game, View, MultiView)
 
-// The scene views, a struct per kind: what its view's script reads as `data` (ViewPlayer).
+// The scene views, a struct per kind: what its view's script reads as `data` (ViewHero). A hero's is keyed by its
+// player (sim.player_key).
 View :: union {
-	View_Player,
+	View_Hero,
 }
 
-MultiView :: enum u8 {
-	Ball,
+// No MultiMesh views yet.
+MultiView :: enum u8 {}
+
+// A hero, posed at its feet and turned to its facing. Its animation is a function of this data (game/views/hero.gd):
+// a one-shot action at its age, else a gait picked from its velocity in its own frame.
+View_Hero :: struct {
+	velocity:       [2]f32, // metres per second in the hero's frame: x to its right, y ahead
+	action_started: sim.Game_Time, // when `action` began: the clip time is (shown_time - action_started) / tick_hz
+	hp:             i16,
+	class:          g.Class, // EnumClass: which character the view shows
+	action:         g.Action, // EnumAction
+	slot:           u8, // the input slot its player holds
+	_pad:           [3]u8,
 }
 
-PLAYER_COLORS := [g.PLAYERS]godot.Color {
-	{1, 0.4, 0.4, 1},
-	{0.7, 1, 0.4, 1},
-	{0.4, 1, 1, 1},
-	{0.7, 0.4, 1, 1},
-}
-
-GONE_COLOR :: godot.Color{0.5, 0.5, 0.5, 1}
-
-View_Player :: struct {
-	color: godot.Color,
-}
-
-Data :: union {
-	Data_Hud,
-}
-
-Data_Hud :: struct {
-	players: u32,
-	balls:   u32,
-	color:   godot.Color,
-	paused:  bool, // the co-op pause (the State's Clock)
-	_pad:    [3]u8,
-}
-
-// The views of a published tick, from its state (the newest prediction, filled again after a rollback): reads the
-// state, never writes it. What a view shows of the rules' next move calls the sim's own proc, or the two disagree
-// (unified/docs/gameplay.md).
+// Every present hero, then the HUD's data.
 fill_frame :: proc(f: ^Frame) {
-	fill_frame_players(f)
-	fill_frame_balls(f)
-	fill_frame_hud(f)
-}
-
-// A capsule per present player. Nothing here teleports; a body that does pushes its warp epoch
-// (`warp = physics.body_warp(f.world.phys, body)`), or its view glides across the map (unified/docs/gameplay.md).
-fill_frame_players :: proc(f: ^Frame) {
-	players := sim.iterate_present(&f.state.players)
-	for data, player in sim.next(&players) {
-		slot := sim.player_slot(&f.state.players, player)
-		godot.push_view(f, player, {pos = sim.position_floor(data.position)}, View_Player{color = PLAYER_COLORS[slot]})
-	}
-}
-
-fill_frame_balls :: proc(f: ^Frame) {
-	balls := sim.iterate(&f.state.balls)
-	for ball, handle in sim.next(&balls) {
-		godot.push_multi_view(f, {
-			key   = sim.handle_key(handle),
-			kind  = .Ball,
-			pos   = sim.position_floor(ball.pos, ball.height),
-			color = player_color(f, ball.thrower),
+	heroes := sim.iterate_present(&f.state.players)
+	for hero, player in sim.next(&heroes) {
+		facing := shown_facing(f, hero, player)
+		right := [2]f32{-facing.y, facing.x} // a model faces +Z: its right is -X
+		slot, _ := sim.player_slot(&f.state.players, player)
+		godot.push_view(f, player, {
+			pos  = sim.Position(hero.pos),
+			rot  = dmath.quat_yaw(facing),
+			warp = hero.warp,
+		}, View_Hero {
+			velocity       = {dmath.dot(hero.vel.xz, right), dmath.dot(hero.vel.xz, facing)},
+			action_started = hero.action_started,
+			hp             = hero.hp,
+			class          = hero.class,
+			action         = hero.action,
+			slot           = u8(slot),
 		})
 	}
+	fill_hud(f)
 }
 
-fill_frame_hud :: proc(f: ^Frame) {
-	godot.push_data(f, Data_Hud {
-		players = u32(sim.present_count(&f.state.players)),
-		balls   = u32(f.state.balls.count),
-		color   = player_color(f, f.local_players[0]),
-		paused  = f.state.clock.paused,
-	})
-}
-
-player_color :: proc(f: ^Frame, player: sim.Player) -> godot.Color {
-	slot, present := sim.player_slot(&f.state.players, player)
-	return PLAYER_COLORS[slot] if present else GONE_COLOR
+// Where a hero is shown looking: a local hero turns with its newest input sample at once (the rules' own hero_facing on
+// Frame.local_inputs, ahead of the state by the input delay), every other hero as the state has it. Paused, nobody
+// turns.
+shown_facing :: proc(f: ^Frame, hero: ^g.Hero, player: sim.Player) -> [2]f32 {
+	if f.state.clock.paused do return hero.facing
+	for local_player, local in f.local_players {
+		if local_player == player do return g.hero_facing(f.local_inputs[local], hero.facing)
+	}
+	return hero.facing
 }

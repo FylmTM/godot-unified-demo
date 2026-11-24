@@ -1,7 +1,6 @@
 // crypt_crew's end-to-end suite: the standard scenarios of unified:headless/scenarios (unified/src/headless/README.md),
 // its replay regressions (the recorded sessions in replays/), unified's determinism lint and the extension's install
-// check. The reference run is in reference_test.odin, the game's own scenarios in the other files of this package
-// (throw_test.odin).
+// check. The reference run is in reference_test.odin, the rule tests in a file per system (heroes_test.odin).
 package test_crypt_crew
 
 import "core:testing"
