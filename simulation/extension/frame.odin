@@ -34,7 +34,8 @@ MULTI_POLICY := [MultiView]godot.View_Policy {
 }
 
 // A hero, posed at its feet and turned to its facing. Its animation is a function of this data (game/views/hero.gd):
-// a one-shot action at its age (a pick-up, a throw, going down), else a gait picked from its velocity in its own frame.
+// a one-shot action at its age (an attack, a pick-up, a throw, going down), else a gait picked from its velocity in its
+// own frame.
 View_Hero :: struct {
 	velocity:       [2]f32, // metres per second in the hero's frame: x to its right, y ahead
 	action_started: sim.Game_Time, // when `action` began: the clip time is (shown_time - action_started) / tick_hz

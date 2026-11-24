@@ -100,12 +100,13 @@ A part is one piece of a kit as levels place it, never scaled. Floors and walls 
 grid line, a floor's edges on them), turned in 90° steps; everything else stands anywhere, at any angle.
 
 - **Collidable:** the root is a `StaticBody3D` with its `unified_category` and box or cylinder shapes, the model under
-  it. The categories: floor (1), wall (2: blocks walking, sight and shots), low cover (4: blocks walking only, so it
-  can be shot over; its model is at most 1.5 m tall, and anything taller is a wall). Shapes are simplified and never
-  reach past the model, except a floor's: one box under the model's whole footprint, its top at y = 0, reaching below
-  the thin tile. The level exporter turns them into the sim's static world (`unified/src/level/README.md`); a placed
-  part never overrides its category. A part may hide a piece of its model: the doorway hides its door leaf, because a
-  door is a body of its own.
+  it. The categories: floor (1), wall (2: blocks walking, sight and shots; its collider stands at least 1.4 m high,
+  above the shots' flight), low cover (4: blocks walking only, so it can be shot over; its model is at most 1.5 m
+  tall and its collider at most 1.1 m, so a bolt's orb clears it, a model's taller trim left out; anything chest-high
+  is a wall). Shapes are simplified and never reach past the model, except a floor's: one box under the model's whole
+  footprint, its top at y = 0, reaching below the thin tile. The level exporter turns them into the sim's static
+  world (`unified/src/level/README.md`); a placed part never overrides its category. A part may hide a piece of its
+  model: the doorway hides its door leaf, because a door is a body of its own.
 - **Decor:** a `Node3D` root with no body: a mounted torch, a candle or a lantern with its fire. Plain decor with
   nothing added is placed straight from its glTF.
 

@@ -18,7 +18,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "1"
+VERSION :: "2"
 
 // The game's types for unified:sim: a physics World, a Profile per player, no Setup yet.
 Game :: sim.Game(State, Input, World, Event, Command, sim.No_Setup, Profile, PLAYERS)
@@ -98,6 +98,7 @@ tick :: proc(t: ^Tick) {
 	}
 	{
 		sim.zone(t, Zone.Strikes)
+		build_grid(t) // the minions where the step left them
 		resolve_strikes(t) // after the step: a blow lands on where things are now
 		fly_bolts(t)
 		prop_hits(t)

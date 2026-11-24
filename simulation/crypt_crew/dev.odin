@@ -6,16 +6,18 @@ package crypt_crew
 import "unified:dmath"
 import "unified:sim"
 
-// Each present player's dev commands: `Command_Dev_Set_Class` turns their hero into another class,
-// `Command_Dev_Spawn_Minions` raises minions around it, `Command_Dev_Hurt` hurts a hero, `Command_Dev_Kill_Minions`
-// kills every minion (through damage_minion, as an attack will).
+// Each present player's dev commands: `Command_Dev_Set_Class` turns their hero into another class (ending an attack
+// of the old one), `Command_Dev_Spawn_Minions` raises minions around it, `Command_Dev_Hurt` hurts a hero,
+// `Command_Dev_Kill_Minions` kills every minion (through damage_minion, as the attacks do).
 apply_dev_commands :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
 		for sent in sim.commands(t, player) {
 			#partial switch command in sent {
 			case Command_Dev_Set_Class:
-				if command.class != .Any do hero.class = command.class
+				if command.class == .Any || command.class == hero.class do break
+				hero.class = command.class
+				if hero.action == .Attack do hero.action = .None // the old class's attack ends with it
 			case Command_Dev_Spawn_Minions:
 				spawn_around(t, hero.pos, int(command.count))
 			case Command_Dev_Hurt:

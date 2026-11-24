@@ -64,8 +64,8 @@ a_downed_hero_rises_beside_the_party :: proc(t: ^testing.T) {
 }
 
 // When every hero present is down at once, the floor starts over: every hero up at its spawn, the props back at their
-// markers, only the packs asleep. The refs stay clean through it, with a surge risen, one hero carrying and a throw's
-// ignore live at the wipe.
+// markers, only the packs asleep, no bolt left in flight. The refs stay clean through it, with a surge risen, one hero
+// carrying, a throw's ignore live and a bolt flying at the wipe.
 @(test)
 a_wipe_restarts_the_floor :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 2)
@@ -87,6 +87,15 @@ a_wipe_restarts_the_floor :: proc(t: ^testing.T) {
 	barrel, _ := prop_at(&run, BARREL)
 	testing.expect(t, sim.slot_data(run.simulation, 0).held != {}, "slot 0 carries at the wipe")
 	testing.expect(t, barrel.thrower_ignore != {}, "slot 1's throw ignores it at the wipe")
+	bolt, _, flying := sim.spawn(&run.simulation.state.bolts) // a bolt in flight at the wipe
+	bolt^ = {
+		pos     = spawn_of(&run, 0) + {0, g.FLIGHT_HEIGHT, 0},
+		vel     = {g.BOLT_SPEED, 0, 0},
+		cast_at = run.simulation.state.clock.time,
+		caster  = sim.player_in_slot(run.simulation, 0),
+	}
+	headless.run_pin(&run)
+	testing.expect(t, flying, "a bolt flies at the wipe")
 	wipe := headless.run_inputs(&run)
 	sim.add_command(&wipe, 0, g.Command_Dev_Hurt{sim.player_in_slot(run.simulation, 0), g.HERO_HP})
 	sim.add_command(&wipe, 0, g.Command_Dev_Hurt{sim.player_in_slot(run.simulation, 1), g.HERO_HP})
@@ -107,6 +116,7 @@ a_wipe_restarts_the_floor :: proc(t: ^testing.T) {
 		)
 	}
 	testing.expect_value(t, int(state.props.count), int(world.places.props.count))
+	testing.expect_value(t, int(state.bolts.count), 0)
 	minions := sim.iterate(&state.minions)
 	for minion in sim.next(&minions) do testing.expect_value(t, minion.phase, g.Minion_Phase.Idle)
 	for _ in 0 ..< g.TICK_HZ do headless.run_step(&run)

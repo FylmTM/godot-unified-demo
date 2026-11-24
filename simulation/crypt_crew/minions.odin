@@ -36,7 +36,8 @@ Minion :: struct {
 	pack:   u8, // its pack's index + 1 in the World's packs (0: none, a surge's or a spawned one): it wakes with them
 }
 
-// The live minions by cell on the floor plan (scratch in the World, rebuilt from the block by move_minions).
+// The live minions by cell on the floor plan (scratch in the World, rebuilt from the block by move_minions and again
+// before the strikes).
 Minion_Grid :: sim.Grid(MINION_GRID_CELLS, MAX_MINIONS)
 
 // A circle minions are pushed out of (a hero, a prop in the way), on the floor plan.

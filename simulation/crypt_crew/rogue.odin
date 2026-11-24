@@ -3,17 +3,12 @@
 // left is the input delay, which the input's sim.Seen measures. So the shot looks back sim.seen_rewind (capped at
 // MAX_REWIND_S): the shooter's eye moved back by its own velocity, each minion tested where it was (its position less
 // its velocity, which is its real displacement per second), the bodies by world_cast_ray_closest_rewound. The nearest
-// hit wins: a minion takes the bolt; a prop is shoved; a wall stops it. It never pierces. The view draws a tracer.
+// hit wins: a minion takes the bolt; a prop it meets is shoved; a wall stops it; it flies over low cover and resting
+// light props (FLIGHT_HEIGHT). It never pierces. The view draws a tracer.
 package crypt_crew
 
 import "unified:physics"
 import "unified:sim"
-
-// What a crossbow bolt stops at: walls and props (it flies over low cover).
-SHOT_FILTER :: physics.Filter {
-	category = CAT_HERO,
-	mask     = CAT_WALL | CAT_PROP,
-}
 
 // `player`'s crossbow shot from `from` to `to` (where it stopped, or its range's end), `hit` when it struck a minion.
 Event_Crossbow_Shot :: struct {
@@ -27,7 +22,7 @@ Event_Crossbow_Shot :: struct {
 rogue_strike :: proc(t: ^Tick, hero: ^Hero, player: sim.Player) {
 	spec := &CLASS_SPECS[.Rogue]
 	rewind := sim.seen_rewind(t, sim.input(t, player).seen, MAX_REWIND_S)
-	eye := hero.pos + {0, CHEST_HEIGHT, 0} - hero.vel * rewind
+	eye := hero.pos + {0, FLIGHT_HEIGHT, 0} - hero.vel * rewind
 	shot := [3]f32{hero.facing.x, 0, hero.facing.y} * CROSSBOW_RANGE
 	reach: f32 = 1 // of the shot, before something stops it
 	hit, struck := physics.world_cast_ray_closest_rewound(

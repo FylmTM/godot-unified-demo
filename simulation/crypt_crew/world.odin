@@ -76,7 +76,7 @@ World :: struct {
 	grid_columns:   int,
 	grid_rows:      int,
 	contacts:       [dynamic]physics.Contact_Event, // scratch: the step's contact events (prop_impacts)
-	grid:           Minion_Grid, // scratch: the live minions by cell, rebuilt by move_minions
+	grid:           Minion_Grid, // scratch: the live minions by cell, rebuilt by move_minions and before the strikes
 	hero_spots:     [PLAYERS]Nav_Point, // scratch: each slot's hero up on the mesh (locate_heroes), by slot
 }
 
@@ -214,9 +214,10 @@ init :: proc(t: ^Tick) {
 }
 
 // Takes the party to level `to` (init, the wipe's floor restart; the next floor later): every hero lets go and its body
-// goes, the props and the minions go, the static geometry is swapped (physics.level_change), then the new level's
-// props are made in marker order, its packs put to sleep, its surge clock started, and every present hero gets a body
-// at its slot's spawn. What the block keeps across it (the heroes' classes, the clock, the session's counts) stays.
+// goes, the props, the minions and the bolts in flight go, the static geometry is swapped (physics.level_change), then
+// the new level's props are made in marker order, its packs put to sleep, its surge clock started, and every present
+// hero gets a body at its slot's spawn. What the block keeps across it (the heroes' classes, the clock, the session's
+// counts) stays.
 enter_level :: proc(t: ^Tick, to: Level_Id) {
 	leaving := sim.iterate_present(t)
 	for hero, player in sim.next(&leaving) {
@@ -225,6 +226,7 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 	}
 	despawn_props(t)
 	sim.despawn_all(&t.state.minions)
+	sim.despawn_all(&t.state.bolts)
 	physics.level_change(t, t.world.phys, to)
 	spawn_props(t)
 	spawn_packs(t)

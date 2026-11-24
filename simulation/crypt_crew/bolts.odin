@@ -1,8 +1,9 @@
 // The Mage's bolts: rows of the State with no body, each flying straight at BOLT_SPEED from its cast. Every tick, after
 // the physics step, a bolt sweeps the segment it flies: against the live minions near it (circles on the floor plan,
-// over the grid) and against walls and props (a ray: it flies over low cover). It bursts at the first thing it meets:
-// the minion it struck takes the Mage's damage, every other minion within BURST_RADIUS a little and a knock, a prop
-// is shoved. A bolt that meets nothing fizzles after BOLT_LIFE_S.
+// over the grid) and against walls and props (a ray at FLIGHT_HEIGHT: it flies over low cover and resting light props).
+// It bursts at the first thing it meets: the minion it struck takes the Mage's damage, every other minion within
+// BURST_RADIUS that no wall shields a little and a knock; a prop it met is shoved. A bolt that meets nothing fizzles
+// after BOLT_LIFE_S.
 package crypt_crew
 
 import "unified:dmath"
@@ -22,13 +23,13 @@ Event_Bolt_Burst :: struct {
 	position: sim.Position,
 }
 
-// A bolt leaves `player`'s hero's chest, just clear of its capsule, along its facing.
+// A bolt leaves `player`'s hero at FLIGHT_HEIGHT, just clear of its capsule, along its facing.
 cast_bolt :: proc(t: ^Tick, hero: ^Hero, player: sim.Player) {
 	bolt, _, spawned := sim.spawn(&t.state.bolts)
 	if !spawned do return // a full table: the spell fizzles
 	dir := [3]f32{hero.facing.x, 0, hero.facing.y}
 	bolt^ = {
-		pos     = hero.pos + {0, CHEST_HEIGHT, 0} + dir * (HERO_RADIUS + BOLT_RADIUS),
+		pos     = hero.pos + {0, FLIGHT_HEIGHT, 0} + dir * (HERO_RADIUS + BOLT_RADIUS),
 		vel     = dir * BOLT_SPEED,
 		cast_at = t.time,
 		caster  = player,
@@ -65,23 +66,29 @@ fly_bolts :: proc(t: ^Tick) {
 			bolt.pos += step
 			continue
 		}
-		at := bolt.pos + step * reach - dmath.normalize(bolt.vel) * BOLT_RADIUS // on its side of what it met
-		if victim == {} && hit.category & CAT_PROP != 0 {
-			if prop := sim.get(&t.state.props, sim.handle_of_key(Prop, hit.tag)); prop != nil {
-				shove_prop(t, prop, dmath.normalize(bolt.vel.xz), CLASS_SPECS[.Mage].prop_knock)
+		// the orb's centre where it met it: the minion sweep counts the orb's radius, the ray met the world with its centre
+		at := bolt.pos + step * reach
+		flight := dmath.normalize(bolt.vel.xz)
+		if victim == {} {
+			at -= dmath.normalize(bolt.vel) * BOLT_RADIUS
+			if hit.category & CAT_PROP != 0 {
+				if prop := sim.get(&t.state.props, sim.handle_of_key(Prop, hit.tag)); prop != nil {
+					shove_prop(t, prop, flight, CLASS_SPECS[.Mage].prop_knock)
+				}
 			}
 		}
-		burst(t, bolt, at, victim)
+		burst(t, at, flight, bolt.caster, victim)
 		sim.despawn(&t.state.bolts, handle)
 	}
 }
 
-// A bolt bursts at `at`: `victim` (if any) takes the Mage's damage along the bolt's flight, every other live minion
-// within BURST_RADIUS that no wall shields takes BURST_DAMAGE, knocked away from the burst.
+// `caster`'s bolt bursts at `at`: `victim` (if any) takes the Mage's damage along the bolt's `flight` (unit, on the
+// floor plan), every other live minion within BURST_RADIUS that no wall shields takes BURST_DAMAGE, knocked away from
+// the burst.
 @(private = "file")
-burst :: proc(t: ^Tick, bolt: ^Bolt, at: [3]f32, victim: sim.Handle(Minion)) {
+burst :: proc(t: ^Tick, at: [3]f32, flight: [2]f32, caster: sim.Player, victim: sim.Handle(Minion)) {
 	spec := &CLASS_SPECS[.Mage]
-	if victim != {} do damage_minion(t, victim, spec.damage, dmath.normalize(bolt.vel.xz), spec.knock, bolt.caster, .Bolt)
+	if victim != {} do damage_minion(t, victim, spec.damage, flight, spec.knock, caster, .Bolt)
 	for row in sim.grid_near(&t.world.grid, at.xz) {
 		for index in row {
 			minion, handle, _ := sim.item_at(&t.state.minions, int(index))
@@ -91,7 +98,7 @@ burst :: proc(t: ^Tick, bolt: ^Bolt, at: [3]f32, victim: sim.Handle(Minion)) {
 			target := minion.pos + {0, CHEST_HEIGHT, 0}
 			if _, walled := physics.world_cast_ray_closest(t.world.phys, at, target - at, SIGHT_FILTER); walled do continue
 			away := dmath.normalize(offset)
-			damage_minion(t, handle, BURST_DAMAGE, away, BURST_KNOCK, bolt.caster, .Bolt)
+			damage_minion(t, handle, BURST_DAMAGE, away, BURST_KNOCK, caster, .Bolt)
 		}
 	}
 	sim.emit(t, Event_Bolt_Burst{position = sim.Position(at)})

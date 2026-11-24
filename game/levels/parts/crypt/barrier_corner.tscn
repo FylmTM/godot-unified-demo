@@ -3,10 +3,10 @@
 [ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/barrier_corner.gltf" id="model"]
 
 [sub_resource type="BoxShape3D" id="shape_0"]
-size = Vector3(2.39, 1.4, 0.78)
+size = Vector3(2.39, 1.1, 0.78)
 
 [sub_resource type="BoxShape3D" id="shape_1"]
-size = Vector3(0.78, 1.4, 1.61)
+size = Vector3(0.78, 1.1, 1.61)
 
 [node name="BarrierCorner" type="StaticBody3D"]
 metadata/unified_category = 4
@@ -14,9 +14,9 @@ metadata/unified_category = 4
 [node name="Model" parent="." instance=ExtResource("model")]
 
 [node name="Shape1" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.805, 0.7, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.805, 0.55, 0)
 shape = SubResource("shape_0")
 
 [node name="Shape2" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 1.195)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 1.195)
 shape = SubResource("shape_1")

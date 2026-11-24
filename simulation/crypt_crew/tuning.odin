@@ -96,13 +96,23 @@ CLASS_SPECS := #partial [Class]Class_Spec {
 	},
 }
 ATTACK_SPEED :: f32(0.6) // a hero attacking moves at this fraction of its speed
-CHEST_HEIGHT :: f32(1.2) // where a blow, a bolt and a shot leave from, and a minion is struck at, above the feet
-STRIKE_BACK :: f32(0.5) // a minion this close to a hero's centre is struck in any direction (it is against the hero)
+CHEST_HEIGHT :: f32(1.2) // where a blow looks from, and what it strikes is looked at, above the feet (walls shield)
+// Something touching a hero (its circle within this of the hero's capsule) is struck by its blow in any direction.
+STRIKE_TOUCH :: f32(0.15)
+
+// What flies over what: bolts and shots fly FLIGHT_HEIGHT above the floor, so a bolt's orb (BOLT_RADIUS) clears low
+// cover (its colliders' tops at most LOW_COVER_TOP, game/tools/art_checks.gd holds the kit to it) and resting light
+// props by FLIGHT_CLEARANCE, and meets everything that stands chest-high: walls, heavy crates, a held or flying prop,
+// a minion (swept on the floor plan, whatever its height).
+FLIGHT_HEIGHT :: f32(1.35)
+LOW_COVER_TOP :: f32(1.1)
+FLIGHT_CLEARANCE :: f32(0.05)
+#assert(FLIGHT_HEIGHT - BOLT_RADIUS >= LOW_COVER_TOP + FLIGHT_CLEARANCE)
 
 // The Mage's bolt (bolts.odin): a row flying straight, swept against minions and the world every tick.
 MAX_BOLTS :: 32
 BOLT_SPEED :: f32(14) // metres per second along the facing
-BOLT_RADIUS :: f32(0.25) // what it hits with
+BOLT_RADIUS :: f32(0.2) // what it hits with (its orb's radius)
 BOLT_LIFE_S :: f32(1.5) // it fizzles this long after its cast (21 m)
 BOLT_LIFE_TICKS :: u32(BOLT_LIFE_S * TICK_HZ)
 BURST_RADIUS :: f32(1.5) // its burst hurts every other minion this close to where it hit ...
@@ -210,7 +220,7 @@ KNOCK_DECAY :: f32(6) // a knockback's velocity decays at this rate per second
 // The minion grid's cells (metres): at least SEPARATION and the longest reach a query asks of its 3 by 3 cells (a
 // Barbarian's cleave and a minion's radius); world_create lays it over a mesh.
 MINION_GRID_CELL :: f32(3)
-MINION_GRID_CELLS :: 1024 // the most cells it may need: a level's mesh up to 90 m by 90 m
+MINION_GRID_CELLS :: 1024 // the most cells it may need: a level's mesh up to 96 m by 96 m
 
 // ---- the director: sleeping packs, and surges rising from graves
 

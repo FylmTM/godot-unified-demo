@@ -67,17 +67,18 @@ prop_in_the_way :: proc(phys: ^physics.World, prop: ^Prop) -> bool {
 
 // After the physics step: a thrown prop (its `thrown` running) flying faster than PROP_HIT_SPEED hurts each live minion
 // its footprint meets, once per throw and at most PROP_HITS_MAX, knocked along its flight, and keeps PROP_HIT_KEEP of
-// its velocity per hit. The thrower is the damage's. Props never hurt heroes.
+// its velocity per hit, hurting no more once that is under PROP_HIT_SPEED. The thrower is the damage's. Props never
+// hurt heroes.
 prop_hits :: proc(t: ^Tick) {
 	props := sim.iterate(&t.state.props)
 	for prop in sim.next(&props) {
 		if !sim.timer_running(t, prop.thrown) do continue
 		velocity := physics.body_linear_velocity(t.world.phys, prop.body)
-		if dmath.length_sq(velocity) < PROP_HIT_SPEED * PROP_HIT_SPEED do continue
 		centre := physics.body_position(t.world.phys, prop.body)
 		reach := PROP_SPECS[prop.kind].footprint + MINION_RADIUS
-		for row in sim.grid_near(&t.world.grid, centre.xz) {
+		rows: for row in sim.grid_near(&t.world.grid, centre.xz) {
 			for index in row {
+				if dmath.length_sq(velocity) < PROP_HIT_SPEED * PROP_HIT_SPEED do break rows // slowed by its hits
 				minion, handle, _ := sim.item_at(&t.state.minions, int(index))
 				bottom := centre.y - PROP_SPECS[prop.kind].half.y
 				if minion.phase == .Dying || bottom - minion.pos.y > MINION_HEIGHT do continue

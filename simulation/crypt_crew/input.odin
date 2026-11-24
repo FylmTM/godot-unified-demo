@@ -10,7 +10,7 @@ REACH_STEP :: f32(0.25) // metres per step of Input.reach
 
 // A button a player holds.
 Button :: enum u8 {
-	Attack, // its press throws what the hero carries
+	Attack, // held: the hero's class attacks; its press throws what the hero carries instead
 	Interact, // its press grabs a prop, or drops the one carried
 }
 

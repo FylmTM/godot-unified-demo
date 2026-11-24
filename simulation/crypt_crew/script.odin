@@ -46,8 +46,8 @@ scripted_input :: proc(seed: u64, slot: int, tick: u32, state: ^State) -> Input 
 }
 
 // Every slot changes its hero's class once every SCRIPT_CLASS_EVERY ticks (`Any` among the classes, which leaves it),
-// slot 1 raises minions around its hero and slot 2 kills every minion now and then (the attacks' stand-ins until
-// they land), one slot downs its own hero every SCRIPT_HURT_EVERY (every slot every third time: a wipe and the floor's
+// slot 1 raises minions around its hero and slot 2 kills every minion now and then (so the scenarios cross spawns and
+// mass deaths whatever the attacks reach), one slot downs its own hero every SCRIPT_HURT_EVERY (every slot every third time: a wipe and the floor's
 // restart), and slot 0 pauses the game for SCRIPT_PAUSE_TICKS of every SCRIPT_PAUSE_EVERY, so the standard scenarios
 // roll back over all of it.
 scripted_commands :: proc(seed: u64, slot: int, tick: u32, state: ^State, out: ^sim.Command_Out(Command)) {

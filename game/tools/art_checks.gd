@@ -9,12 +9,16 @@ extends RefCounted
 ## look-dev scene are run, not only loaded: every clip is posed on every character, and every shot is shown.
 
 ## The collision categories a kit part's `unified_category` may hold (the level exporter writes them into the sim's
-## filters): the floor, walls (block walking, sight and shots), and low cover (blocks walking only).
+## filters): the floor, walls (block walking, sight and shots), and low cover (blocks walking; shots fly over it).
 const CATEGORY_FLOOR: int = 1
 const CATEGORY_WALL: int = 2
 const CATEGORY_LOW: int = 4
-## Low cover is what can be shot over: no taller than this, in metres; a wall is taller.
+## What flies over what (tuning.odin's FLIGHT_HEIGHT): low cover's colliders reach no higher than LOW_COVER_TOP
+## (tuning.odin's), so a bolt's orb flies over them with room to spare, and its model no higher than LOW_COVER_HEIGHT;
+## a wall's collider stands at least WALL_TOP high (the flight height and its clearance), so every shot meets it.
+const LOW_COVER_TOP: float = 1.1
 const LOW_COVER_HEIGHT: float = 1.5
+const WALL_TOP: float = 1.4
 
 ## How far a part's collision may reach past its model's bounds, in metres: a shape is a simplified box, never bigger
 ## than what the player sees (the margin is the meshes' rounding).
@@ -304,9 +308,11 @@ func _check_body(body: StaticBody3D, path: String) -> void:
 		CATEGORY_LOW:
 			if bounds.end.y > LOW_COVER_HEIGHT + SHAPE_TOLERANCE:
 				_problem("low cover %.2f m tall: anything over %.1f m is a wall" % [bounds.end.y, LOW_COVER_HEIGHT], path)
+			if top > LOW_COVER_TOP + SHAPE_TOLERANCE:
+				_problem("low cover's collider %.2f m high: shots fly over at most %.1f m" % [top, LOW_COVER_TOP], path)
 		CATEGORY_WALL:
-			if top <= LOW_COVER_HEIGHT:
-				_problem("a wall %.2f m tall: anything up to %.1f m is low cover" % [top, LOW_COVER_HEIGHT], path)
+			if top < WALL_TOP - SHAPE_TOLERANCE:
+				_problem("a wall's collider %.2f m high: shots meet one from %.1f m" % [top, WALL_TOP], path)
 		_:
 			_problem("unified_category %d is none of the game's (floor, wall, low)" % category, path)
 

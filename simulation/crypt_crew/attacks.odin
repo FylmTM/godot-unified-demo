@@ -2,7 +2,8 @@
 // rogue). Attack is read held: a hero up, with its hands free of a prop and doing nothing else, starts its class's
 // attack once its cooldown ran out. The clip starts at once (the action and the game time it began) and the blow
 // lands a windup later, after the physics step, reading the facing then; so an attack answers the button at once on
-// screen and a misprediction of what it hit hides behind the swing. Every blow hurts through damage_minion.
+// screen and a misprediction of what it hit hides behind the swing. Every blow hurts through damage_minion; walls
+// shield what is behind them from blows, bursts and shots, and bolts and shots fly over low cover (FLIGHT_HEIGHT).
 package crypt_crew
 
 import "unified:dmath"
@@ -15,11 +16,22 @@ Event_Hero_Attacked :: struct {
 	class:  Class,
 }
 
-// Each present hero that holds Attack starts its class's attack when it is up, holds no prop, does nothing else and its
-// cooldown ran out (CLASS_SPECS: the cooldown runs from the attack's start).
+// What a bolt and a shot stop at: walls, low cover and props, met where they stand above FLIGHT_HEIGHT (low cover
+// and a resting light prop never do, so they are flown over).
+SHOT_FILTER :: physics.Filter {
+	category = CAT_HERO,
+	mask     = CAT_WALL | CAT_LOW | CAT_PROP,
+}
+
+// Each present hero's attack that ran its class's duration ends; then each that holds Attack starts its class's attack
+// when it is up, holds no prop, does nothing else and its cooldown ran out (CLASS_SPECS: the cooldown runs from the
+// attack's start, so a held Attack repeats every cooldown).
 start_attacks :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
+		if hero.action == .Attack && u32(t.time - hero.action_started) >= CLASS_SPECS[hero.class].duration {
+			hero.action = .None
+		}
 		if .Attack not_in sim.buttons(t, player).down || hero.action != .None || hero.held != {} do continue
 		if sim.timer_running(t, hero.attack_ready) do continue
 		hero.action, hero.action_started = .Attack, t.time
@@ -28,48 +40,37 @@ start_attacks :: proc(t: ^Tick) {
 	}
 }
 
-// After the physics step: each attacking hero's blow lands at its class's windup (its class's strike, on the grid of
-// minions rebuilt here), and its attack ends at the class's duration.
+// After the physics step, on the grid of minions rebuilt for the strikes: each attacking hero's blow lands at its
+// class's windup (its class's strike).
 resolve_strikes :: proc(t: ^Tick) {
-	build_grid(t)
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
-		if hero.action != .Attack do continue
-		spec := &CLASS_SPECS[hero.class]
-		age := u32(t.time - hero.action_started)
-		if age == spec.windup {
-			switch hero.class {
-			case .Knight:
-				knight_strike(t, hero, player)
-			case .Barbarian:
-				barbarian_strike(t, hero, player)
-			case .Mage:
-				mage_strike(t, hero, player)
-			case .Rogue:
-				rogue_strike(t, hero, player)
-			case .Any:
-			}
+		if hero.action != .Attack || u32(t.time - hero.action_started) != CLASS_SPECS[hero.class].windup do continue
+		switch hero.class {
+		case .Knight:
+			knight_strike(t, hero, player)
+		case .Barbarian:
+			barbarian_strike(t, hero, player)
+		case .Mage:
+			mage_strike(t, hero, player)
+		case .Rogue:
+			rogue_strike(t, hero, player)
+		case .Any:
 		}
-		if age >= spec.duration do hero.action = .None
 	}
 }
 
 // A melee blow of `spec`: every live minion within `spec.reach` of the hero's centre (its circle's edge) and inside the
-// arc either side of the hero's facing (or right against the hero), with no wall between their chests, takes the
-// blow's damage and knock, away from the hero; every free prop in the arc is shoved likewise. Dot products, no trig;
-// minions in the grid's order (by cell, then index).
+// arc either side of the hero's facing (or touching the hero), with no wall between their chests, takes the blow's
+// damage and knock, away from the hero; every free prop in the arc, within the height a blow sweeps and with no wall
+// between, is shoved likewise. Dot products, no trig; minions in the grid's order (by cell, then index).
 strike_arc :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, spec: ^Class_Spec) {
-	chest := hero.pos + {0, CHEST_HEIGHT, 0}
 	for row in sim.grid_near(&t.world.grid, hero.pos.xz) {
 		for index in row {
 			minion, handle, _ := sim.item_at(&t.state.minions, int(index))
 			if minion.phase == .Dying do continue
-			away, in_arc := in_arc(hero, minion.pos.xz, MINION_RADIUS, spec)
-			if !in_arc do continue
-			target := minion.pos + {0, CHEST_HEIGHT, 0}
-			if _, walled := physics.world_cast_ray_closest(t.world.phys, chest, target - chest, SIGHT_FILTER); walled {
-				continue
-			}
+			away, inside := in_arc(hero, minion.pos.xz, MINION_RADIUS, spec)
+			if !inside || walled_off(t, hero, minion.pos.xz) do continue
 			damage_minion(t, handle, spec.damage, away, spec.knock, player, .Blow)
 		}
 	}
@@ -77,22 +78,33 @@ strike_arc :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, spec: ^Class_Spec)
 	for prop in sim.next(&props) {
 		if prop.held_by != {} do continue
 		centre := physics.body_position(t.world.phys, prop.body)
-		if away, in_arc := in_arc(hero, centre.xz, PROP_SPECS[prop.kind].footprint, spec); in_arc {
-			shove_prop(t, prop, away, spec.prop_knock)
-		}
+		half := PROP_SPECS[prop.kind].half.y
+		if centre.y + half < hero.pos.y || centre.y - half - hero.pos.y > MINION_HEIGHT do continue
+		away, inside := in_arc(hero, centre.xz, PROP_SPECS[prop.kind].footprint, spec)
+		if inside && !walled_off(t, hero, centre.xz) do shove_prop(t, prop, away, spec.prop_knock)
 	}
 }
 
 // Whether something of `radius` at `at` is inside a blow's arc: its circle within `spec.reach` of the hero's centre,
-// and its centre within the arc's half angle of the facing (or within STRIKE_BACK, against the hero); and the
-// direction away from the hero (the facing, for one on the hero's centre).
+// and its centre within the arc's half angle of the facing, or its circle touching the hero's (within STRIKE_TOUCH);
+// and the direction away from the hero (the facing, for one on the hero's centre).
 @(private = "file")
 in_arc :: proc(hero: ^Hero, at: [2]f32, radius: f32, spec: ^Class_Spec) -> (away: [2]f32, inside: bool) {
 	offset := at - hero.pos.xz
 	distance := dmath.length(offset)
 	if distance - radius > spec.reach do return
 	away = offset / distance if distance > 0 else hero.facing
-	return away, distance <= STRIKE_BACK || dmath.dot(away, hero.facing) >= spec.arc_cos
+	touching := distance <= HERO_RADIUS + radius + STRIKE_TOUCH
+	return away, touching || dmath.dot(away, hero.facing) >= spec.arc_cos
+}
+
+// Whether a wall stands between the hero's chest and the chest height above `at` (low cover is struck over).
+@(private = "file")
+walled_off :: proc(t: ^Tick, hero: ^Hero, at: [2]f32) -> bool {
+	chest := hero.pos + {0, CHEST_HEIGHT, 0}
+	target := [3]f32{at.x, chest.y, at.y}
+	_, walled := physics.world_cast_ray_closest(t.world.phys, chest, target - chest, SIGHT_FILTER)
+	return walled
 }
 
 // A prop shoved along `dir` (unit, x and z): `speed` metres per second added to its velocity, whatever its mass.
