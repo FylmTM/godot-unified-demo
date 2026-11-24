@@ -53,12 +53,15 @@ Places :: struct {
 
 // The world outside the block.
 World :: struct {
-	phys:      ^physics.World,
-	mesh:      nav.Mesh, // the floor's baked navigation: where skeletons walk
-	fields:    nav.Fields, // the mesh's distance fields, memoized by goal (a pure function of the mesh and the goal)
-	agent:     level.Nav_Agent, // what the mesh was baked for
-	places:    Places,
-	hero_defs: [Class]physics.Character_Def, // each class's controller (its own max_speed); Any's is never used
+	phys:           ^physics.World,
+	mesh:           nav.Mesh, // the floor's baked navigation: where skeletons walk
+	fields:         nav.Fields, // the mesh's distance fields, memoized by goal (a pure function of the mesh and the goal)
+	agent:          level.Nav_Agent, // what the mesh was baked for
+	places:         Places,
+	hero_defs:      [Class]physics.Character_Def, // each class's controller (its own max_speed); Any's is never used
+	barrel_hull:    ^physics.Hull_Data, // the barrel's cylinder (Box3D copies it into each body's shape)
+	barrel_density: f32, // what gives the barrel's hull its PROP_SPECS mass
+	contacts:       [dynamic]physics.Contact_Event, // scratch: the step's contact events (prop_impacts)
 }
 
 // Builds the world from the levels (unified/src/level/README.md): Floor 1's static geometry, its navigation mesh and
@@ -68,7 +71,11 @@ world_create :: proc(seed: u64, levels: []sim.Level_File, _: sim.No_Setup) -> ^W
 	world := new(World)
 	problem: string
 	// a shape the level leaves uncategorized blocks everything, as a wall does
-	world.phys, problem = physics.create_with_levels({tick_hz = TICK_HZ}, levels, CAT_WALL)
+	world.phys, problem = physics.create_with_levels(
+		{tick_hz = TICK_HZ, hit_event_threshold = IMPACT_SPEED},
+		levels,
+		CAT_WALL,
+	)
 	assert(problem == "", problem) // no level, or a shape Box3D refuses
 	floor := physics.level_data(world.phys, Level_Id.Floor_1)
 	err: nav.Build_Error
@@ -89,6 +96,9 @@ world_create :: proc(seed: u64, levels: []sim.Level_File, _: sim.No_Setup) -> ^W
 		def.max_speed = CLASS_SPECS[class].max_speed
 		world.hero_defs[class] = def
 	}
+	barrel := &PROP_SPECS[.Barrel]
+	world.barrel_hull = physics.create_cylinder(2 * barrel.half.y, barrel.half.x, -barrel.half.y, PROP_CYLINDER_SIDES)
+	world.barrel_density = barrel.mass / physics.compute_hull_mass(world.barrel_hull, 1).mass
 	return world
 }
 
@@ -127,9 +137,12 @@ read_places :: proc(places: ^Places, floor: ^level.Level) {
 	assert(places.graves.count > 0, "crypt_crew: a floor needs a grave for its surges to rise from")
 }
 
-// Frees what world_create made: the physics world (the levels with it), the navigation and the World itself.
+// Frees what world_create made: the physics world (the levels with it), the barrel's hull, the navigation, the scratch
+// and the World itself.
 world_destroy :: proc(world: ^World) {
 	physics.destroy(world.phys)
+	physics.destroy_hull(world.barrel_hull)
+	delete(world.contacts)
 	nav.fields_destroy(&world.fields)
 	nav.destroy(&world.mesh)
 	free(world)
@@ -142,5 +155,22 @@ extra :: proc(world: ^World) -> sim.Extra {
 
 // The tick-0 state: the party starts on Floor 1; heroes arrive as their players do (presence.odin).
 init :: proc(t: ^Tick) {
-	physics.level_change(t, t.world.phys, Level_Id.Floor_1)
+	enter_level(t, .Floor_1)
+}
+
+// Takes the party to level `to` (init now; the wipe's floor restart and the next floor later): every hero lets go and
+// its body goes, the props go, the static geometry is swapped (physics.level_change), then the new level's props are
+// made in marker order and every present hero gets a body at its slot's spawn. What the block keeps across it (the
+// heroes' classes, the clock) stays.
+enter_level :: proc(t: ^Tick, to: Level_Id) {
+	leaving := sim.iterate_present(t)
+	for hero, player in sim.next(&leaving) {
+		release_hold(t, player)
+		destroy_hero_body(t.world.phys, hero)
+	}
+	despawn_props(t)
+	physics.level_change(t, t.world.phys, to)
+	spawn_props(t)
+	entering := sim.iterate_present(t)
+	for _, player in sim.next(&entering) do spawn_hero(t, player, t.world.places.hero_spawns[sim.player_slot(t, player)])
 }

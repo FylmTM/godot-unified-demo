@@ -91,3 +91,19 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
 - `hero_spawn.gd` got `class_name HeroSpawn`, so the camera finds the spawns it frames before a hero is in.
 - A hero's view warp is its own `Hero.warp` (which takes the old body's count when a body is made again) plus its
   body's `physics.body_warp`.
+- Props, step 2: barrel 30 kg (a 12-sided cylinder, 1.0 by 1.02 m), crate 20 kg (1 m cube), heavy crate 60 kg (1.5 m
+  cube), sizes measured from the models; carrying slows to 0.85 of the class's speed (0.65 with a heavy crate). Every
+  hero carries and throws every kind, the heavy crate too.
+- Grab reach: 1 m from the capsule to the prop's side, a 50° cone either side of the facing (or 0.25 m in any
+  direction); a hold puts the prop's centre 1.4 m above the feet, 0.1 m clear of the capsule, its force capped at 3×
+  its weight.
+- Throw on Attack's press (not held, so an attacker holding Attack doesn't throw what it just picked up): 11 m/s along
+  the facing plus 3.5 m/s up, set as a velocity, letting go 0.25 s into a 0.5 s action; the prop ignores its thrower
+  until 2.5 m clear or 1 s. No input reaches the hands while a throw winds up.
+- Actions: a pick-up lasts 0.625 s, a throw 0.5 s. The hero view starts the pick-up clip 0.25 s in and the throw clip
+  0.4 s in (past its draw-back), so the arm comes through at the release. No KayKit clip holds a load, so a carrying
+  hero walks with plain gaits.
+- The grab highlight is an additive warm overlay on the prop's meshes (`game/fx/highlight.tres`).
+- Props hit at 3 m/s or faster emit `Event_Prop_Impact` (the world's hit threshold), for a thud later.
+- `game/tools/art_checks.gd` now holds `game/levels/*.tscn` to the stages' placement rules (no category or script
+  override, unscaled, floors and walls on the grid).

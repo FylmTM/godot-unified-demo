@@ -25,6 +25,8 @@ const GAME: String = "res://game/"
 const MATERIALS: String = "res://game/materials/"
 const CHARACTERS: Array[String] = ["res://game/characters/heroes/", "res://game/characters/skeletons/"]
 const PARTS: String = "res://game/levels/parts/"
+## The game's level scenes (not its subfolders: they hold the parts and markers levels place).
+const LEVELS: String = "res://game/levels/"
 const ANIMATIONS: String = "res://game/characters/rig_animations.tscn"
 const LOOKDEV: String = "res://game/lookdev/lookdev.tscn"
 ## The stages a game camera walks: each has one walkable floor.
@@ -130,7 +132,7 @@ func _check_materials() -> void:
 	var scenes: Array[String] = [LOOKDEV, KIT_STAGE]
 	for dir: String in CHARACTERS:
 		scenes.append_array(_files(dir, "tscn"))
-	scenes.append_array(_files("res://game/levels/", "tscn"))  # the game's level scenes (their parts are in the kit stage)
+	scenes.append_array(_files(LEVELS, "tscn"))  # the game's level scenes (their parts are in the kit stage)
 	for path: String in scenes:
 		var node: Node = (load(path) as PackedScene).instantiate()
 		for found: Node in node.find_children("*", "MeshInstance3D", true, false):
@@ -323,12 +325,12 @@ func _check_floor(shapes: Array[CollisionShape3D], bounds: AABB, path: String) -
 		_problem("the floor's shape covers %s, its model %s" % [extent, bounds], path)
 
 
-## Each stage is built as a level should be: a placed part is a plain instance (it overrides neither its category nor
-## its script, which the part's scene owns) and never scaled, and in a camera's stage a floor or a wall sits on the
-## 2 m grid, turned in 90° steps. A camera's stage walks in one piece: its baked navigation mesh (`uni bake --nav`) has exactly one island
+## Each stage, and each of the game's levels (game/levels/), is built as a level should be: a placed part is a plain
+## instance (it overrides neither its category nor its script, which the part's scene owns) and never scaled, and in a
+## camera's stage or a level a floor or a wall sits on the 2 m grid, turned in 90° steps. A camera's stage walks in one piece: its baked navigation mesh (`uni bake --nav`) has exactly one island
 ## on the floor (the tops of walls and furniture bake into islands of their own, which nothing reaches).
 func _check_stages() -> void:
-	for path: String in STAGES + [KIT_STAGE]:
+	for path: String in STAGES + [KIT_STAGE] + _files(LEVELS, "tscn"):
 		var state: SceneState = (load(path) as PackedScene).get_state()
 		for node: int in state.get_node_count():
 			_check_placed(state, node, path, path != KIT_STAGE)

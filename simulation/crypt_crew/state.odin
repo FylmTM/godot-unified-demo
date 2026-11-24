@@ -11,12 +11,15 @@ State :: struct {
 	clock:   sim.Clock, // game time and the co-op pause (pause.odin): the harness advances it unless paused
 	level:   sim.Active_Level(Level_Id), // the floor the party is on (world.odin)
 	players: sim.Players(Hero, Profile, Input, PLAYERS),
+	props:   sim.Table(Prop, MAX_PROPS), // made from the floor's prop markers, in marker order (props.odin)
 }
 
 // What a hero is doing, for the view to pose (a one-shot clip at its age). The attacks append theirs (docs/plan.md,
 // Milestone 2: the design).
 Action :: enum u8 {
 	None, // walking or standing: the view picks its gait from the velocity
+	Pick_Up, // a grab, for PICK_UP_S
+	Throw, // a throw, for THROW_S: the prop leaves the hands THROW_WINDUP_S into it
 }
 
 // A player's hero (the State's sim.Players, by member): zeroed for someone new, kept while they are away. A leave
@@ -27,6 +30,8 @@ Hero :: struct {
 	pos:            [3]f32, // its feet, read back after the physics step (read_back_heroes)
 	vel:            [3]f32, // its body's velocity, read back with `pos`
 	facing:         [2]f32, // unit (x, z): where it looks
+	hold:           physics.Motor_Joint_Ref, // the joint holding `held` in front of it (hands.odin)
+	held:           sim.Handle(Prop), // the prop it carries (the null handle: none)
 	action_started: sim.Game_Time, // when `action` began (t.time): the view's clip time
 	hp:             i16,
 	class:          Class, // Any only before its first arrival

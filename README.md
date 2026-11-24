@@ -8,7 +8,7 @@ dungeon crawler for 1–4 players, and the answer to "what does a real game buil
 
 > [!NOTE]
 > **In development.** Today up to four heroes (Knight, Barbarian, Mage, Rogue) walk Floor 1, the first floor of the
-> crypt; skeletons, attacks and props come next. The art is posed in a look-dev scene too (`./uni tool lookdev
+> crypt, and carry and throw its barrels and crates; skeletons and attacks come next. The art is posed in a look-dev scene too (`./uni tool lookdev
 > --window --shots`). What the game becomes, and in what order, is [`docs/plan.md`](docs/plan.md).
 
 ## Play it
@@ -27,8 +27,9 @@ cd godot-unified-demo
 ```
 
 **Controls.** Move with WASD, the arrow keys or a pad's left stick; aim with the mouse or the right stick (a hero
-that isn't aimed faces where it walks). Attack: the left mouse button, Space, or a pad's right trigger or X. Interact:
-E, the right mouse button, or a pad's A. Esc, or Start on a pad that plays, pauses the game for everyone. Couch co-op:
+that isn't aimed faces where it walks). Interact (E, the right mouse button, or a pad's A) picks up the barrel or crate
+in front, glowing faintly, and puts it down again; Attack (the left mouse button, Space, or a pad's right trigger or
+X) throws what you carry. Esc, or Start on a pad that plays, pauses the game for everyone. Couch co-op:
 the first player's first input claims their device (the keyboard and mouse, or a pad), and any other pad pressing
 Start joins as another player.
 
@@ -51,7 +52,10 @@ What the sim shows Godot and what Godot sends back, each declared in `simulation
 - `View_Hero` (`frame.odin`, GDScript `ViewHero`, its scene `game/views/hero.tscn`): a hero, keyed by its player,
   posed at its feet and turned to its facing (a local hero's from its newest input). Its velocity in its own frame
   (x to its right, y ahead) picks the gait; its class picks the character; its action and the game time it started
-  pose a one-shot.
+  pose a one-shot (a pick-up, a throw); `carrying` says it holds a prop.
+- `View_Prop` (`frame.odin`, `ViewProp`, `game/views/prop.tscn`, pooled): a barrel or crate, keyed by its handle,
+  posed at the bottom of its body and turned with it. Its kind picks the model; `held_by` names its carrier; `aimed`
+  says a local hero's Interact would grab it now (the rules' own `grab_target`), which the view highlights.
 - `Data_Hud` (`hud.odin`, `Unified.data.hud`): each slot's hero (player, HP, class, whether it is local) and the co-op
   pause.
 - `Input_Values` (`input.odin`, `Unified.local_input(local)`): the mouse's aim, from the keyboard player's hero to

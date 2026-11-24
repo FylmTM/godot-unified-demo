@@ -28,13 +28,15 @@ face_heroes :: proc(t: ^Tick) {
 	for hero, player in sim.next(&heroes) do hero.facing = hero_facing(sim.input(t, player), hero.facing)
 }
 
-// Each present hero's controller is driven toward its stick at its class's max_speed. Heroes never jump.
+// Each present hero's controller is driven toward its stick at its class's max_speed, slowed by what it carries
+// (carry_speed). Heroes never jump.
 move_heroes :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
 		input := sim.input(t, player)
 		move := dmath.stick(input.move_x, input.move_z)
-		physics.character_update(t.world.phys, &hero.body, t.world.hero_defs[hero.class], move, false, 1)
+		def := t.world.hero_defs[hero.class]
+		physics.character_update(t.world.phys, &hero.body, def, move, false, carry_speed(t, hero))
 	}
 }
 

@@ -8,8 +8,9 @@ extends Node3D
 ## walk, run, backwards, strafes) comes from the velocity in the hero's own frame and loops on the shown time, so after
 ## a rollback or a replay seek the hero shows the frame the state says. Each hero's gait runs at its own phase (from
 ## its player's key), so a party walking together doesn't step in lockstep, and a gait changes past a margin, so a
-## speed near a threshold doesn't flicker between two. The attacks' one-shots will pose at their age,
-## (shown_time - action_started) / tick_hz seconds, once the sim has actions (docs/plan.md, Milestone 2: the design).
+## speed near a threshold doesn't flicker between two. An action (a pick-up, a throw) is a one-shot clip posed at its
+## age, (shown_time - action_started) / tick_hz seconds, from the moment of the clip its action starts at, so the
+## clip's release lands on the sim's. A hero carrying walks with plain gaits: no clip holds a load.
 
 ## A standing hero walks from this speed, and a walking one stands below the lower (metres per second).
 const WALK_FROM: float = 0.5
@@ -19,6 +20,10 @@ const RUN_FROM: float = 3.4
 const WALK_BELOW: float = 3.0
 ## Spreads the heroes' gait phases: a player's key times this, in seconds, wrapped by the clip.
 const PHASE_PER_KEY: float = 0.618034
+## Where in its clip each action starts (seconds): the pick-up past the clip's first lean, the throw past its draw-back,
+## so its arm comes through at the sim's THROW_WINDUP_S (0.25 s), when the prop leaves the hands.
+const PICK_UP_FROM: float = 0.25
+const THROW_FROM: float = 0.4
 
 ## Each class's character.
 @export var knight: PackedScene
@@ -46,8 +51,14 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	var phase: float = float(_view.player) * PHASE_PER_KEY
-	_rig.pose(_gait(), Unified.session.shown_time / Unified.tick_hz + phase)
+	var now: float = Unified.session.shown_time
+	match data.action:
+		EnumAction.PICK_UP:
+			_rig.pose(Clips.PICK_UP, PICK_UP_FROM + (now - data.action_started) / Unified.tick_hz)
+		EnumAction.THROW:
+			_rig.pose(Clips.THROW, THROW_FROM + (now - data.action_started) / Unified.tick_hz)
+		_:
+			_rig.pose(_gait(), now / Unified.tick_hz + float(_view.player) * PHASE_PER_KEY)
 
 
 ## Replaces the character with the class's.

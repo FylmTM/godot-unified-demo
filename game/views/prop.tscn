@@ -1,0 +1,24 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/views/prop.gd" id="prop"]
+[ext_resource type="Material" path="res://game/fx/highlight.tres" id="highlight"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/barrel_small.gltf" id="barrel"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/box_small.gltf" id="crate"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/box_large.gltf" id="heavy_crate"]
+
+[node name="Prop" type="Node3D"]
+script = ExtResource("prop")
+highlight = ExtResource("highlight")
+
+[node name="UnifiedView" type="UnifiedView" parent="."]
+kind = "prop"
+pool = true
+
+[node name="Barrel" parent="." instance=ExtResource("barrel")]
+visible = false
+
+[node name="Crate" parent="." instance=ExtResource("crate")]
+visible = false
+
+[node name="HeavyCrate" parent="." instance=ExtResource("heavy_crate")]
+visible = false

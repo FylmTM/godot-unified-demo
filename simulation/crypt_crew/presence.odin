@@ -7,16 +7,16 @@ package crypt_crew
 import "unified:physics"
 import "unified:sim"
 
-// Leaves, then arrivals in slot order: a leaver's body goes and its class stays; an arrival gets a class
-// (arrival_class) and a body at its slot's hero_spawn.
+// Leaves, then arrivals in slot order: a leaver drops what it carries, its body goes and its class stays; an arrival
+// gets a class (arrival_class) and a body at its slot's hero_spawn.
 update_presence :: proc(t: ^Tick) {
 	for player in t.player_changes.left {
+		drop_prop(t, player)
 		hero := sim.player_data(t, player)
-		class, warp := hero.class, hero_warp(t.world.phys, hero)
-		physics.character_destroy(t.world.phys, &hero.body)
+		destroy_hero_body(t.world.phys, hero)
 		hero^ = {
-			class = class,
-			warp  = warp,
+			class = hero.class,
+			warp  = hero.warp,
 		}
 	}
 	for player in t.player_changes.arrived {
@@ -42,11 +42,18 @@ arrival_class :: proc(t: ^Tick, played: Class, wish: Class) -> Class {
 	unreachable()
 }
 
+// The hero's body goes (a leave, a level change), its warp epoch folded into the hero's own (hero_warp), so the
+// view of its next body snaps.
+destroy_hero_body :: proc(phys: ^physics.World, hero: ^Hero) {
+	hero.warp = hero_warp(phys, hero)
+	physics.character_destroy(phys, &hero.body)
+}
+
 // A fresh body for `player`'s hero standing at `feet`, at full health, facing up the screen (-Z); its view snaps there.
 spawn_hero :: proc(t: ^Tick, player: sim.Player, feet: [3]f32) {
 	hero := sim.player_data(t, player)
-	warp := hero_warp(t.world.phys, hero) + 1
-	physics.character_destroy(t.world.phys, &hero.body)
+	destroy_hero_body(t.world.phys, hero)
+	warp := hero.warp + 1
 	hero^ = {
 		pos            = feet,
 		facing         = {0, -1},

@@ -3,8 +3,9 @@
 //
 // One system per file: game (this: the descriptor and the tick, its table of contents), tuning (every rule number),
 // input (the input and the commands), state, events, world (the physics world, Floor 1's navigation and places,
-// init), presence (arrivals and leaves), heroes (facing, movement, read back), pause (the co-op pause), dev (the dev
-// commands) and script (the scripted player).
+// init and entering a level), presence (arrivals and leaves), heroes (facing, movement, read back), hands (grab,
+// carry, drop, throw), props (their bodies, impacts and throws' ends), pause (the co-op pause), dev (the dev commands)
+// and script (the scripted player).
 package crypt_crew
 
 import "unified:physics"
@@ -45,6 +46,7 @@ Zone :: enum u8 {
 	Commands,
 	Heroes,
 	Physics,
+	Props,
 }
 
 // One tick: the systems in their order, each group a timing zone.
@@ -62,11 +64,18 @@ tick :: proc(t: ^Tick) {
 	{
 		sim.zone(t, Zone.Heroes)
 		face_heroes(t)
+		use_hands(t) // after facing: a grab takes what the hero now faces
+		update_holds(t)
 		move_heroes(t)
 	}
 	{
 		sim.zone(t, Zone.Physics)
 		physics.step(t.world.phys)
 		read_back_heroes(t)
+	}
+	{
+		sim.zone(t, Zone.Props)
+		prop_impacts(t)
+		age_throws(t)
 	}
 }

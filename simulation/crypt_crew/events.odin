@@ -9,4 +9,8 @@ Event :: union {
 	sim.Event_Player_Joined,
 	sim.Event_Player_Left,
 	Event_Paused,
+	Event_Prop_Grabbed,
+	Event_Prop_Dropped,
+	Event_Prop_Thrown,
+	Event_Prop_Impact,
 }
