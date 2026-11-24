@@ -7,11 +7,12 @@ the rules written in Odin, Godot as the host for rendering, audio, UI and the ed
 dungeon crawler for 1–4 players, and the answer to "what does a real game built on unified look like?".
 
 > [!NOTE]
-> **The first playable.** Up to four heroes, online or on one couch, fight down Floor 1 of the crypt: skeleton packs
-> asleep in its rooms and surges rising from its graves, against the Knight's quick sword, the Barbarian's wide
-> cleave, the Mage's bursting bolts and the Rogue's crossbow, and the barrels and crates any hero picks up and throws.
-> A hero at 0 HP goes down and rises beside the party; the whole party down restarts the floor. What the game becomes,
-> and in what order, is [`docs/plan.md`](docs/plan.md).
+> **The first playable.** Up to four heroes, on one couch or over the LAN (a host and its joiners, by address; online
+> lobbies come with the app layer), fight down Floor 1 of the crypt: skeleton packs asleep in its rooms and surges
+> rising from its graves, against the Knight's quick sword, the Barbarian's wide cleave, the Mage's bursting bolts and
+> the Rogue's crossbow, and the barrels and crates any hero picks up and throws. A hero at 0 HP goes down and, for
+> now, rises beside the party on its own; the whole party down restarts the floor. What the game becomes, and in what
+> order, is [`docs/plan.md`](docs/plan.md).
 
 ## Play it
 
@@ -35,7 +36,7 @@ while held, and throws what you carry. Interact (E, the right mouse button, or a
 in front, glowing faintly, and puts it down again. Esc, or Start on a pad that plays, pauses the game for everyone.
 
 **Couch co-op.** The first player's first input claims their device (the keyboard and mouse, or a pad); any other pad
-pressing Start joins as another player. Online players join the same session beside them.
+pressing Start joins as another player. Players joining over the LAN join the same session beside them.
 
 ## What it shows of unified
 
@@ -78,88 +79,54 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 4. **Heroes.** A downed hero rises beside the party after RESPAWN_S, safe for SPAWN_GRACE_S. Each hero turns to its
    aim (else its move, past TURN_STICK). Interact grabs the nearest prop in reach (GRAB_RANGE, GRAB_CONE_COS) or drops
    the one held; Attack while holding throws it (THROW_WINDUP_S, THROW_SPEED). Otherwise Attack held starts the
-   class's attack (`CLASS_SPECS`: windup, duration, cooldown). The hold's joint follows the facing (`HOLD_*`), and the
-   hero walks toward the stick's velocity at its class's speed, slowed by a carried prop or by ATTACK_SPEED.
+   class's attack (`CLASS_SPECS`: windup, duration, cooldown; held, it repeats every cooldown). The hold's joint
+   follows the facing (`HOLD_*`), and the hero walks toward the stick's velocity at its class's speed, slowed by a
+   carried prop or by ATTACK_SPEED.
 5. **Director.** A sleeping pack wakes when a hero one of its minions can see comes within AGGRO_RADIUS (each looks
    every SIGHT_S) or one of them is hit. A surge rises SURGE_FIRST_S into a floor and every SURGE_EVERY_S after:
    SURGE_BASE minions plus SURGE_PER_HERO per hero, at a grave out of sight beyond SURGE_NEAR and within SURGE_FAR of
    the party, up to MINION_CAP alive.
 6. **Minions.** Each picks the nearest hero up by path (every RETARGET_S), steers along that hero's field, keeps
-   SEPARATION from its neighbours, carries its knockback (KNOCK_DECAY), and within MINION_REACH winds up a swing
-   (MINION_WINDUP_S).
+   SEPARATION from its neighbours and carries its knockback (KNOCK_DECAY).
 7. **Physics.** Box3D steps; the heroes' feet and velocities are read back into the state.
-8. **Strikes.** A blow lands at its windup on the minions in its reach and arc (`CLASS_SPECS`, STRIKE_BACK) and shoves
-   the props it meets. Bolts fly at BOLT_SPEED for BOLT_LIFE_S and burst at the first thing they meet (BURST_RADIUS,
-   BURST_DAMAGE). The crossbow hits the first thing within CROSSBOW_RANGE on the picture its shooter saw (at most
-   MAX_REWIND_S back). A thrown prop faster than PROP_HIT_SPEED hits each minion it meets once (PROP_HIT_DAMAGE, at
-   most PROP_HITS_MAX, keeping PROP_HIT_KEEP of its velocity).
-9. **Props.** A prop landing faster than IMPACT_SPEED is an impact; a throw ends after THROWN_S, or once the prop is
-   THROW_CLEAR_DIST from its thrower.
-10. **Health.** A minion's swing lands (MINION_DAMAGE) if its hero is still in reach, in front (MINION_STRIKE_COS) and
-    in sight; the dead fall for DEATH_S. A hero at 0 HP goes down; every hero down at once restarts the floor.
+8. **Strikes.** A blow lands at its windup on the minions in its reach and arc, or touching the hero (`CLASS_SPECS`,
+   STRIKE_TOUCH), and shoves the props there. Bolts fly at BOLT_SPEED for BOLT_LIFE_S and burst at the first thing
+   they meet (BURST_RADIUS, BURST_DAMAGE). The crossbow hits the first thing within CROSSBOW_RANGE on the picture its
+   shooter saw (at most MAX_REWIND_S back). Walls shield what is behind them from blows, bursts and shots; bolts and
+   shots fly at FLIGHT_HEIGHT, over low cover and resting light props, and meet walls, heavy crates and props held or
+   in flight. A thrown prop faster than PROP_HIT_SPEED hurts each minion it meets once (PROP_HIT_DAMAGE, at most
+   PROP_HITS_MAX, keeping PROP_HIT_KEEP of its velocity) for the whole of its throw (THROWN_S).
+9. **Props.** A prop landing faster than IMPACT_SPEED is an impact. A thrown prop passes through its thrower until it
+   is THROW_CLEAR_DIST away or its throw ends.
+10. **Health.** A chasing minion within MINION_REACH winds up a swing (MINION_WINDUP_S), which lands (MINION_DAMAGE)
+    if its hero is still in reach, in front (MINION_STRIKE_COS) and in sight; the dead fall for DEATH_S. A hero at
+    0 HP goes down; every hero down at once restarts the floor.
 
 ## How it's built
 
 - `simulation/crypt_crew/`: the deterministic simulation, the game's rules (Odin), one system per file.
-- `simulation/extension/`: the GDExtension that runs the simulation inside Godot and turns its state into views.
+- `simulation/extension/`: the GDExtension that runs the simulation inside Godot and turns its state into views. Its
+  declarations are the view contract, what the sim shows Godot and what Godot sends back (`./uni doc`): views posed
+  from the state and the session's shown game time, the events the effects and the HUD play, the sim's numbers the
+  views pose by, the HUD's data and the mouse's aim.
 - `simulation/headless/`: the same simulation without Godot, for tests, sync-tests, replays and benchmarks.
-- `simulation/tests/`: every test of the sim (How it's tested).
+- `simulation/tests/`: every test of the sim.
 - `game/`: the Godot side (the project is the repo root, `project.godot`): scenes, views, effects and the HUD.
   GDScript shows the simulation and never changes it; input and commands are the only way in.
 - `assets/`: the art packs the game uses (`CREDITS.md`); how they become the game's look is `docs/ART.md`.
 - `tools/`: this game's `uni` CLI. `unified/`: unified, as a git submodule.
 
-## The view contract
-
-What the sim shows Godot and what Godot sends back, each declared in `simulation/extension/`:
-
-- `View_Hero` (`frame.odin`, GDScript `ViewHero`, its scene `game/views/hero.tscn`): a hero, keyed by its player,
-  posed at its feet and turned to its facing (a local hero's from its newest input). Its velocity in its own frame
-  (x to its right, y ahead) picks the gait; its class picks the character; its action and the game time it started
-  pose a one-shot (an attack, a pick-up, a throw, going down); `grace` says it just rose and takes no damage (it
-  blinks).
-- `View_Prop` (`frame.odin`, `ViewProp`, `game/views/prop.tscn`, pooled): a barrel or crate, keyed by its handle,
-  posed at the bottom of its body and turned with it. Its kind picks the model; `aimed` says a local hero's Interact
-  would grab it now (the rules' own `hands_target`), which the view highlights.
-- `View_Minion` (`frame.odin`, `ViewMinion`, `game/views/minion.tscn`, pooled, shown once its spawn is verified): a
-  skeleton, keyed by its handle, posed at its feet and turned to its facing; its phase (rising, asleep, chasing,
-  swinging, dying) and the game time it began pose its clip, `moving` says whether a chaser walks or stands, and the
-  game time it was `struck` flashes it.
-- The `Bolt` MultiMesh kind (`frame.odin`, `MultiView`; the play scene's `Bolts`): the Mage's bolts in flight, keyed by
-  their handles, their corrections smoothed (`MULTI_POLICY`).
-- The events the views play (each declared beside the system that emits it): a minion hit (sparks), a bolt's burst, a
-  crossbow shot (its tracer), a prop's impact (dust), a local hero hurt (the camera shakes) and a minion's death (the
-  HUD's kills).
-- `Data_Constants` (`extension.odin`, `Unified.constants`): each class's attack windup and a minion's, in seconds, so
-  a view lines its clip's blow up with the sim's.
-- `Data_Hud` (`hud.odin`, `Unified.data.hud`): each slot's hero (player, HP, class, whether it is local), the minions
-  alive and the co-op pause.
-- `Input_Values` (`input.odin`, `Unified.local_input(local)`): the mouse's aim, from the keyboard player's hero to
-  where the cursor points on the floor, set by `game/play/play.gd` on the session's `input_wanted`.
-
 ## How it's tested
 
-`./uni test` runs the sim's tests (`simulation/tests/`), `./uni test --suite godot` the Godot side's:
-
-- **Rule tests**, a file per system (`heroes_test.odin`, `hands_test.odin`, `attacks_test.odin`, ...), each on a
-  headless run whose players press buttons.
-- **unified's standard scenarios** (`suite_test.odin`): rollback every tick, players coming and going, bad networks
-  and a late joiner, played by the scripted players (`simulation/crypt_crew/script.odin`).
-- **A bot playthrough** (`bot.odin`, `playthrough_test.odin`): four bots fight and throw for a few minutes.
-- **A replay regression** (`replays/`): a recorded session of every class, throws, surges and a down, replayed tick by
-  tick against what it computed when it was blessed.
-- **The reference run** (`reference_test.odin`): four scripted players across surges and a wipe, pinned and checked
-  on every CI platform.
-- **The godot suite**: the project imports and validates, the art's own rules included (`game/tools/validate.gd`,
-  `art_checks.gd`), and a headless session computes what the headless binary does.
-- **Co-op** (`./uni coop --lan`, `game/tools/coop.gd`): a host and a joiner in two processes; the joiner's hero
-  arrives beside the host's, as each sees it.
+Every layer unified offers a game: rule tests on sync-tested headless runs, so each also rolls back over what it
+checks; unified's standard scenarios played by the scripted players (`script.odin`), which exercise every control and
+dev command; a bot playthrough of the four classes; a replay regression recorded from a real two-player LAN session;
+the pinned reference run, the cross-platform check in CI; the godot suite, which holds the art to `docs/ART.md`; and
+`./uni coop`, a host and a joiner in two processes (`game/tools/coop.gd`). Commands: `./uni help`.
 
 ## Benchmarks
 
-CI runs the simulation's benchmarks on Linux x64, Linux arm64 and Windows x64 for every push to `main` (macOS joins
-when development is done): the
-[latest push run on `main`](https://github.com/FylmTM/godot-unified-demo/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)
+The [latest push run on `main`](https://github.com/FylmTM/godot-unified-demo/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)
 has each platform's numbers in its summary. Locally: `./uni bench`.
 
 ## License

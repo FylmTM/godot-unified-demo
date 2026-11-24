@@ -71,9 +71,8 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
   5.5 m/s (`tuning.odin`). The capsule floats 0.15 m on its pogo spring (`HERO_POGO_REST` 0.6), so its centre is
   1.25 m above the feet. A hero weighs about 80 kg (`HERO_DENSITY` 66) with a 4000 N drive (`HERO_GROUND_FORCE`):
   full speed in about a tenth of a second.
-- `Action` has only `None` until the attacks land, so the hero view poses gaits only; one-shots at their age come with
-  the first action (`CharacterRig.pose` already clamps a one-shot's time to its start). Gaits get a phase per player
-  (its key) and a margin between stand, walk and run.
+- The hero view poses a one-shot at its age (`CharacterRig.pose` clamps a one-shot's time to its ends), else a gait
+  with a phase per player (its key) and a margin between stand, walk and run.
 - Bindings: attack is the left mouse button, Space, a pad's right trigger or X; interact is E, the right mouse button
   or a pad's A; pause is Esc or a playing pad's Start.
 - Devices (`game/play/couch.gd`): the first player reads every device until their first game input claims one (a pad,
@@ -123,9 +122,9 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
   above the floor.
 - `View_Hero` has no `down` field: `action == Down` says it (the death clip held). `Data_Hud` carries kills and the
   minions alive.
-- An extra dev command, `dev_kill_minions` (every live minion takes a killing blow through `damage_minion`), so the
-  tests and the script exercise dying before the attacks land; the script raises minions (slot 1) and kills them
-  (slot 2) now and then.
+- An extra dev command, `dev_kill_minions` (every live minion takes a killing blow through `damage_minion`); the
+  script raises minions (slot 1) and kills them (slot 2) now and then, so the scenarios cross spawns and mass deaths
+  whatever the attacks reach.
 - The benchmark row: "floor 1: four heroes against a held surge among the props", 40 minions held at graves.
 - Review fixes, steps 2 and 3: a downed hero isn't limp: its velocity is zeroed and its drive holds it still with no
   move (the death pose rests on the floor at its feet). A leaver ends its throws' ignores at once (end_throws_by),
@@ -145,33 +144,59 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
 - Views: flashes and the grace blink run on the shown game time; a chaser that isn't moving stands. The HUD counts kills
   from CONFIRMED `EventMinionDied` (from when the HUD began: a late joiner's count starts at 0); "Skeletons" stays the
   prediction. `View_Hero.carrying`, `View_Prop.held_by` and `State.kills` are gone.
-- The minion grid is laid over the mesh's extent in world_create (at most 1024 cells of 2 m).
+- The minion grid is laid over the mesh's extent in world_create (at most 1024 cells of 3 m: 96 m by 96 m).
 - Attacks, step 4: Knight 18 damage, 1.8 m, 50° either side, 0.25 s windup, 0.5 s cooldown; Barbarian 30, 2.3 m, 80°,
   0.44 s windup, 1 s cooldown, knock 9; Mage bolt 14 m/s for 1.5 s (21 m), 20 damage plus an 8-damage burst within
   1.5 m (walls shield it), 0.625 s cooldown; Rogue crossbow 25 m, 30 damage, 0.75 s cooldown, look-back capped at
   0.125 s. A hero attacking moves at 0.6 of its speed. Attack is read held; a hero carrying a prop throws instead.
-- A minion struck right against a hero (within 0.5 m of its centre) is hit whatever the arc. A blow, a bolt and a shot
-  shove the props they meet (a velocity change, so every mass alike). The Mage's bolt ignores `Input.reach` (it flies
-  its full range); the crossbow never pierces.
+- A blow, a bolt and a shot shove the props they strike (a velocity change, so every mass alike); what they strike is
+  under the flight rules below. The Mage's bolt ignores `Input.reach` (it flies its full range); the crossbow never
+  pierces.
 - Thrown props: faster than 4 m/s while their throw runs, each minion they meet takes 25 and a knock of 7, once per
   throw (at most 6), and the prop keeps 0.7 of its velocity per hit; a prop's bottom higher than 1.8 m passes over.
 - `Event_Minion_Hit` and `Event_Minion_Died` carry a `source` (blow, bolt, crossbow, prop, dev). The minion grid's cells
   are 3 m (the cleave's reach and a minion's radius fit a 3 by 3 query).
-- Views: each attack clip is offset so its blow, sampled from the clip (the hand's fastest moment), lands at the
-  class's windup, which the extension hands the views as constants. The bolt is one glowing orb for every class colour
-  (no per-instance colour yet). The Rogue's shoot clip stands side-on, so the rig turns a quarter while the Rogue
-  shoots (the crossbow along the facing), and its release is the recoil (0.375 s into the clip), not the raise.
+- Views: each attack clip is timed so its blow, sampled from the clip (the hand's fastest moment), lands at the class's
+  windup, which the extension hands the views as constants. Every bolt draws as the same violet orb, BOLT_RADIUS wide
+  (a colour per caster waits on per-instance colour in the MultiMesh). The Rogue's shoot clip stands side-on, so the
+  rig turns a quarter while the Rogue shoots (the crossbow along the facing), and its release is the recoil (0.375 s
+  into the clip), not the raise.
 - The crossbow's tracer is a glowing additive beam (a gradient across a flat quad) that fades in 0.15 s; Kenney's
   dotted trace texture is gone.
-- `tests/bot.odin` fights the nearest skeleton (melee walks up, Mage and Rogue stand off at 7 m), and picks up and
-  throws a prop that is within 1.6 m; slot 0 raises skeletons every 10 s. The three-minute playthrough runs in the
-  default tier (about 2.5 s).
-- Close-out, step 5: `game/tools/coop.gd` checks the joiner's hero arrives within 3.5 m of the host's (the arrival
-  ring and a metre), on each side; the joiner stands 3 s before it moves, so the host sees it where it arrived.
-- The replay regression `replays/four_classes` is a driven session of about two and a half minutes (every class in
-  turn, a throw, several surges, a dev down and the floor's restart), recorded by the dev build. A `uni drive stop`
-  quits the tree without ending the session, so nothing is recorded (this game has no Game autoload with
-  `quit_app`): the session was left first (`drive eval` of its `leave()`). Closing the window loses the recording
-  the same way, until the app layer (milestone 3) quits through a leave.
+- `tests/bot.odin` fights the nearest skeleton (melee walks up, Mage and Rogue stand off at 7 m); in every other 2 s
+  window it picks up a prop within 1.6 m that no wall hides (out of it, it gives up) and throws what it carries at the
+  nearest skeleton, or anywhere; slot 0 raises skeletons every 10 s. The playthrough checks each slot plays its
+  Profile's class and counts every hit of every tick.
+- Close-out, step 5: `game/tools/coop.gd` checks, on each side, the joiner's hero arrives within the farther arrival
+  ring and a metre of the host's (`Unified.constants.arrival_ring`, the sim's); the joiner stands 3 s first, so the
+  host sees it where it arrived. The host then raises four skeletons (a dev command) and swings until a hit is
+  confirmed.
+- The replay regression `replays/lan_pair` is the host's recording of a two-player LAN session driven by two
+  `uni drive` instances, about 90 s: Knight and Barbarian, then Mage and Rogue, three throws, kills, surges and a dev
+  down. A session ended by the app quitting keeps its recording since unified f9ccbaa.
 - The reference run is pinned at 2400 ticks with its snapshot at 1200: it crosses the script's first wipe and several
-  surges. VERSION stays "1" (nothing was pinned before).
+  surges.
+- Review fixes, steps 4 and 5 (VERSION "2"): bolts in flight go with a floor restart (`enter_level`). An attack ends in
+  `start_attacks` once its duration ran, before the press is read, so a held attack repeats every cooldown (it was
+  every cooldown and a tick).
+- A blow strikes whatever touches the hero, in any direction: within STRIKE_TOUCH (0.15 m) of its capsule
+  (STRIKE_BACK, 0.5 m from its centre, never fired: minions are pushed out to 0.85 m). Props too; a blow shoves only
+  props it sees chest to chest (no wall between) whose height overlaps a skeleton's.
+- A thrown prop stops hurting once its hits slow it under PROP_HIT_SPEED (checked before each hit): from a throw's
+  11 m/s that is three hits, so PROP_HITS_MAX (6) binds only a faster prop. A burst at a minion is centred where the
+  orb met it (the sweep counts its radius); only a wall or a prop pushes it back by BOLT_RADIUS. A class change ends
+  an attack of the old class.
+- What flies over what: bolts and shots fly at FLIGHT_HEIGHT 1.35 m and meet what stands into the ray (SHOT_FILTER
+  now holds low cover too, so geometry decides). Low cover's colliders top out at LOW_COVER_TOP 1.1 m and walls'
+  start at 1.4 m (art checks); BOLT_RADIUS is 0.2 m (was 0.25), so the orb clears low cover and resting barrels and
+  crates by at least 5 cm, and a heavy crate (1.5 m), a held or a flying prop is met.
+- Parts judged by their models: the column (a 1.4 m post) is a wall; the barrier's column and corner pieces, the
+  coffin and the grave markers are low, their colliders lowered to 1.1 m (the post caps, candles and cross tops above
+  are trim the orb may graze). The levels and the look-dev stages' navigation are re-baked.
+- Views: an attack clip whose blow comes later than the windup (Mage, Barbarian) plays its lead-in slowed over the
+  windup, so it moves from the first tick. Between held attacks the clip holds its last frame until the cooldown ends
+  (the view, from `Unified.constants.class_cooldowns`), not by stretching the duration, which would slow the hero
+  longer. Effect pools hold 48 (a cleave or a burst into a full crowd). The tracer starts at the drawn crossbow.
+- Rewind under rollback: unified zeroes a scripted input's Seen (`sim.scripted_player_input`: a script saw no screen),
+  so no standard scenario can stamp one; the crossbow test, a sync-tested Run with seen 5 and 14, runs the rewind
+  under rollback in the default tier.

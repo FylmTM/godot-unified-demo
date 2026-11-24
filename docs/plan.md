@@ -13,8 +13,8 @@ braziers, and haul its treasure up to the lift.
   the crypt wakes behind them. The lift is the save point; each hero picks a boon and the party descends.
 - **A run.** A hub between runs (the lobby), three floors, and a boss vault: 20–30 minutes. A run saves at every lift
   and continues from the menu. A player can join or rejoin at any time.
-- **Failure.** A downed hero ragdolls and can be revived by holding interact beside them. When the whole party is
-  down, the floor restarts from the last save.
+- **Failure.** A downed hero ragdolls and can be revived by holding interact beside them (today's rising on its own
+  is interim). When the whole party is down, the floor restarts from the last save.
 - **Heroes.** Four classes (the Profile): Knight (sword arc, shield charge, block), Barbarian (cleave; grabs and
   throws props, elites and allies), Mage (bolt, fireball with a physics blast), Rogue (crossbow that lands where the
   shooter saw the target, dodge roll). Heroes shove and throw each other; they never damage each other.
@@ -42,11 +42,7 @@ continue; dev commands, debug draws, the dev UI, recording and replay with seek,
 
 ## How it's built
 
-- **Sim:** one package, a file per system, the tick body as the table of contents. Minions are plain rows walking
-  the navmesh (no body each); elites, props and heroes are Box3D. Rule numbers in `tuning.odin`, with presets per
-  difficulty and a quick preset for tests.
-- **Animation from state:** a hero's view carries its action and the tick it started; Godot blends locomotion from
-  speed and seeks one-shots to the action's age, so rollback corrections and replay seeks land on the right frame.
+- **Sim:** elites are Box3D bodies; the rule numbers get presets per difficulty and a quick preset for tests.
 - **The crowd:** pooled animated scenes first, then one MultiMesh animated from a texture the minion clips are baked
   into.
 - **The crowd's mesh:** a KayKit minion is 9 meshes and about 5,000 triangles; the crowd draws a merged, lighter one.
@@ -57,11 +53,8 @@ continue; dev commands, debug draws, the dev UI, recording and replay with seek,
 
 ## How it's tested
 
-`docs/testing.md` (milestone 9) maps each layer to its command and files: rule tests on headless runs; unified's
-standard scenarios (rollback every tick, players coming and going, bad networks, a late joiner); a pinned reference
-run checked on every CI platform; replay regressions recorded from real play, including each fixed F3 note; a
-scripted bot playthrough; the Godot suite (its steps: `./uni test -h`); `uni coop` with rejoin and crash; and the
-F3 → `uni feedback` → regression loop as a walk-through.
+`docs/testing.md` (milestone 9) maps each layer to its command and files, with a replay regression for each fixed F3
+note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a walk-through.
 
 ## Milestones
 
@@ -70,7 +63,7 @@ F3 → `uni feedback` → regression loop as a walk-through.
 | 3 | App layer: theme, input prompts, rebinding, settings, saves, hero select, EOS, open to friends, both pauses |
 | 4 | The crowd at scale (about 500, baked animation), its benchmark rows |
 | 5 | Combat depth: abilities, elites, downed and revive, loot shown only when confirmed |
-| 6 | Physics set pieces: joints, plates, the lift, boons picked at it, traps, ragdolls, the hoard haul, the party wipe |
+| 6 | Physics set pieces: joints, plates, the lift, boons picked at it, traps, ragdolls, the hoard haul |
 | 7 | The run: the hub, three floors with their layouts, the boss, save and continue, difficulty, progress across runs, endless arena |
 | 8 | Polish: effects, audio, music, lighting, accessibility |
 | 9 | The testing showcase complete, `docs/testing.md` |
