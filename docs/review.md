@@ -55,3 +55,15 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
 - `godot-bindings` (unified's suite) failed its views timing test ("events arrive CONFIRMED ... never a frame late")
   in three of four runs while two other Godot jobs loaded the machine, and passed on an idle one. A timing test that
   flakes under load; not investigated further.
+
+## Milestone 2: the first playable
+
+- Joiners, rejoiners and respawns appear beside the party, not at the floor's start (the shared couch camera needs
+  it). A hero at 0 HP goes down for a few seconds, then rises beside the party; the whole party down restarts the floor.
+- Every hero carries and throws props (the hoard needs any two); the Barbarian's specialty comes with abilities.
+- Heroes walk through crowds unslowed; minions yield to heroes and props. Minions appear only once verified.
+- Throw: a press throws at a fixed speed (no charge). Classes are auto-assigned before menus exist.
+- Minion death is a phase in the sim (so milestone 4's crowd can animate it), not a view linger.
+- Mage bolts draw as a MultiMesh; one clip at a time for heroes (a layered upper body is polish).
+- Shots land where the shooter saw them from milestone 2, not 5.
+- unified gained `UnifiedSession.shown_time`, and `uni doc` fetches Box3D (it failed on physics in a game without it).
