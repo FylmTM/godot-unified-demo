@@ -1,0 +1,92 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/menu/title.gd" id="title"]
+
+[sub_resource type="Gradient" id="shade_gradient"]
+offsets = PackedFloat32Array(0, 0.45, 1)
+colors = PackedColorArray(0.01, 0.01, 0.03, 0.88, 0.01, 0.01, 0.03, 0.6, 0.01, 0.01, 0.03, 0)
+
+[sub_resource type="GradientTexture2D" id="shade"]
+gradient = SubResource("shade_gradient")
+width = 256
+height = 4
+
+[node name="Title" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("title")
+
+[node name="Shade" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 1100.0
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("shade")
+expand_mode = 1
+
+[node name="Column" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 150.0
+offset_top = -330.0
+offset_right = 850.0
+offset_bottom = 330.0
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="Name" type="Label" parent="Column"]
+layout_mode = 2
+theme_type_variation = &"Title"
+text = "Crypt
+Crew"
+
+[node name="Tagline" type="Label" parent="Column"]
+layout_mode = 2
+theme_type_variation = &"HudText"
+text = "Down into the crypt, one to four heroes."
+
+[node name="Gap" type="Control" parent="Column"]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Buttons" type="VBoxContainer" parent="Column"]
+custom_minimum_size = Vector2(440, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_constants/separation = 22
+
+[node name="NewGame" type="Button" parent="Column/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "New game"
+metadata/sfx = &"confirm"
+
+[node name="Quit" type="Button" parent="Column/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"DangerButton"
+text = "Quit"
+
+[node name="Version" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 150.0
+offset_top = -80.0
+offset_right = 650.0
+offset_bottom = -40.0
+grow_vertical = 0
+theme_type_variation = &"Dim"

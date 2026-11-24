@@ -2,7 +2,8 @@ extends UnifiedCoop
 ## Crypt Crew's co-op play (the flow is the library's, UnifiedCoop): the friend's hero must arrive beside the host's
 ## (a late join lands by the party, not at the floor's start), as each side sees it; then the host raises skeletons
 ## around itself (a dev command) and swings at them until one is hit, then walks a square, swinging as it goes, while
-## the joiner keeps moving, until the host leaves.
+## the joiner keeps moving, until the host leaves. The joiner's app then takes it back to the title and says why.
+## Both sessions start from uni's flags, so this also proves the app adopts a session its menus didn't start.
 
 ## How far past an arrival's farther ring (twice Unified.constants.arrival_ring: the nearer one may be taken) the
 ## friend's hero may stand from the host's, in metres: the capsule settling on the floor.
@@ -56,6 +57,15 @@ func _join_play() -> void:
 	step("hero in, %.2f m from the host's" % gap)
 	await seconds(STILL_S)
 	Input.action_press(&"move_down")  # keeps moving while the host plays on
+
+
+## The joiner, once the host left: back on the title, a dialog saying the game ended.
+func _host_left() -> void:
+	await wait_for(func() -> bool: return scene_is("Menu"), 5.0, "back on the title")
+	var dialog: Control = find(game, ^"Overlays/Dialog") as Control
+	await wait_for(func() -> bool: return dialog.visible, 5.0, "a dialog says the game ended")
+	await shot("c05_host_left")
+	step("back on the title: %s" % (find(dialog, ^"%Heading") as Label).text)
 
 
 ## The joiner's hero is in the crypt.

@@ -1,0 +1,30 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/play/hero_plate.gd" id="hero_plate"]
+
+[node name="HeroPlate" type="PanelContainer"]
+custom_minimum_size = Vector2(460, 0)
+size_flags_horizontal = 0
+mouse_filter = 2
+theme_type_variation = &"Plate"
+script = ExtResource("hero_plate")
+
+[node name="Row" type="HBoxContainer" parent="."]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 24
+
+[node name="Class" type="Label" parent="Row"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"Heading"
+text = "Knight"
+
+[node name="Health" type="Label" parent="Row"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 8
+theme_type_variation = &"HudText"
+text = "100 HP"
+horizontal_alignment = 2

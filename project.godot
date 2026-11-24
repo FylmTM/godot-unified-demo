@@ -10,10 +10,24 @@ config_version=5
 
 [application]
 
-config/name="crypt_crew"
+config/name="Crypt Crew"
+config/description="A top-down co-op dungeon crawler for 1-4 players: the demo game of unified."
 config/version="dev"
-run/main_scene="res://game/play/play.tscn"
+run/main_scene="res://game/menu/menu.tscn"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="crypt_crew"
 config/features=PackedStringArray("4.7")
+
+[audio]
+
+buses/default_bus_layout="res://game/app/bus_layout.tres"
+
+[autoload]
+
+LibraryCheck="*res://game/app/library_check.gd"
+Settings="*res://game/app/settings.gd"
+Sfx="*res://game/app/sfx.tscn"
+Game="*res://game/app/game.tscn"
 
 [debug]
 
@@ -30,10 +44,16 @@ gdscript/warnings/unsafe_call_argument=2
 
 [display]
 
-window/size/viewport_width=1280
-window/size/viewport_height=720
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/window_width_override=1280
+window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[gui]
+
+theme/custom="res://game/ui/theme.tres"
 
 [importer_defaults]
 

@@ -6,8 +6,9 @@ extends Node
 ## pauses). When a pad joins while the first player still reads every device, the first player takes the keyboard and
 ## mouse, and gets every device back if the session refuses the joiner.
 ##
-## It stands after the session in the tree: Godot hands an input event to later nodes first, so a device is claimed
-## before the session tracks the event that claimed it, and that first press reaches the sim.
+## It stands after the session in the tree (the session is in the Game autoload, before every scene): Godot hands an
+## input event to later nodes first, so a device is claimed before the session tracks the event that claimed it, and
+## that first press reaches the sim.
 
 ## The actions whose input claims a device for the first player.
 const PLAY_ACTIONS: Array[StringName] = [
@@ -16,11 +17,11 @@ const PLAY_ACTIONS: Array[StringName] = [
 	&"attack", &"interact",
 ]
 
-## The session whose local players this assigns devices to.
-@export var session: UnifiedSession
-
 ## The joiner whose join moved the first player onto the keyboard, until the session takes or refuses it (-1: none).
 var _joiner: int = -1
+
+## The session whose local players this assigns devices to: the app's.
+@onready var session: UnifiedSession = Unified.session
 
 
 func _ready() -> void:

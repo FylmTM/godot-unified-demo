@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/ui/widgets/toast.gd" id="toast"]
+
+[node name="Toast" type="PanelContainer"]
+size_flags_horizontal = 4
+mouse_filter = 2
+theme_type_variation = &"Plate"
+script = ExtResource("toast")
+
+[node name="Text" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HudText"
+horizontal_alignment = 1

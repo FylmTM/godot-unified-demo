@@ -39,6 +39,8 @@ relief, rocks or a decoration, is walked through). Characters face +Z.
   flash, and the fights' one-shot effects (sparks, a bolt's burst, dust, the crossbow's tracer: a glowing beam).
 - `game/environments/`: each place's Environment (fog, glow, ambient, tonemap).
 - `game/lookdev/`: the look-dev scene and its stages.
+- `game/ui/theme.tres`: the interface's one Theme (The interface, below); `game/menu/backdrop.tscn`: the menus'
+  graveyard.
 
 Everything outside `assets/` is the game's own.
 
@@ -46,7 +48,8 @@ Everything outside `assets/` is the game's own.
 
 1. Copy the file from the pack unchanged into its pack's folder (`assets/kaykit/dungeon/`), with its `.bin` for a
    `.gltf`; a new pack gets a folder, its licence as `LICENSE.txt`, and a `CREDITS.md` row.
-2. Use it from a scene: a kit part, a character, a stage. `./uni test --suite godot` imports it and checks it.
+2. Use it from a scene: a kit part, a character, a stage; a font or a piece of the UI pack from the theme, a sound
+   from `game/app/sfx.tscn`. `./uni test --suite godot` imports it and checks it.
 3. A new pack's material gets its shared material in `game/materials/` and a line in `project.godot`'s
    `[importer_defaults]`, which maps the pack's material name to it. The map is by name across every pack: a new
    pack whose material shares a name with an earlier one's gets that one's atlas, which the checks report.
@@ -60,8 +63,10 @@ each new file's `.import`:
   draws with one material we own, and its embedded texture is discarded (`gltf/embedded_image_handling`).
 - **Textures:** lossless and without mipmaps (Godot's defaults), and never switched to VRAM compression
   (`detect_3d/compress_to`): a palette atlas is swatches of flat colour, which compression bands and mipmaps blend
-  into their neighbours.
+  into their neighbours. The UI pack's pieces import the same way: a 720p window draws them at two thirds of their
+  size, which needs no mipmaps.
 - **No tangents:** nothing uses a normal map.
+- **Fonts and sounds** keep Godot's defaults.
 
 The clip files (`assets/kaykit/animations/`) import as animation libraries rather than scenes: their `.import` names
 the `animation_library` importer, and the rest of its settings are Godot's defaults. An `.import` is where a file's
@@ -135,3 +140,24 @@ an unshadowed light (`game/fx/hero_light.tscn`). The hub (`hub.tres`, and the hu
 cool, shadowed directional light, lanterns for warmth.
 
 The renderer is Forward+ with 4× MSAA and debanding (`project.godot`).
+
+## The interface
+
+One Theme, `game/ui/theme.tres`, is the project's (`gui/theme/custom`), so every menu, overlay and HUD control has it
+with no code; it is a file, edited as text or in Godot's theme editor. It is drawn from Kenney's UI Pack Adventure,
+its brown family only: the parchment panel with metal corners for what asks the player something, the dark panel
+(darkened, nearly opaque) for plates over the world, the brown button with ink lettering, the red one for what ends
+something, the hanging banner for a moment's title. The focus, the pad's cursor, is a gold frame drawn just outside
+the control, the one bright thing on a menu; a button the mouse moves over takes it, so there is never a second
+highlight. Lettering is Kenney Future for titles, headings and buttons and Kenney Future Narrow for the rest, both
+capitals only; type variations name each use (`Title`, `Heading`, `HudText`, `Dim`, and `Ink`, `InkHeading`, `InkDim`
+on parchment).
+
+The canvas is 1920×1080 (`window/size/viewport_*`; the window opens at 1280×720, and the canvas stretches to the
+window): the pack's Double PNGs draw at their own size there, so they stay sharp up to 1440p. Layouts hang from the
+centre and the corners, so a wider screen only gains room. The HUD comes after everything in the readability order:
+plates in the corners, nothing over the middle, and none of its controls takes a click or the focus.
+
+The menus stand over a graveyard at night built from the hub kit (`game/menu/backdrop.tscn`), lit as the hub is, with
+the four heroes idling at its gate. The interface's sounds are Kenney's Interface Sounds, played by `Sfx`
+(`game/app/sfx.gd`), which wires every button itself.

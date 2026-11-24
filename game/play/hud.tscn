@@ -1,16 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://game/play/hud.gd" id="hud"]
-
-[sub_resource type="LabelSettings" id="text"]
-font_size = 22
-outline_size = 6
-outline_color = Color(0, 0, 0, 0.85)
-
-[sub_resource type="LabelSettings" id="banner"]
-font_size = 40
-outline_size = 10
-outline_color = Color(0, 0, 0, 0.85)
+[ext_resource type="PackedScene" path="res://game/play/hero_plate.tscn" id="hero_plate"]
 
 [node name="Hud" type="Control"]
 layout_mode = 3
@@ -22,46 +13,106 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("hud")
 
-[node name="Heroes" type="Label" parent="."]
+[node name="Heroes" type="VBoxContainer" parent="."]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 20.0
-offset_top = 16.0
-offset_right = 320.0
-offset_bottom = 140.0
-label_settings = SubResource("text")
+offset_left = 36.0
+offset_top = 32.0
+offset_right = 496.0
+offset_bottom = 32.0
+mouse_filter = 2
+theme_override_constants/separation = 12
 
-[node name="Crypt" type="Label" parent="."]
-unique_name_in_owner = true
+[node name="HeroPlate" parent="Heroes" instance=ExtResource("hero_plate")]
+visible = false
+layout_mode = 2
+
+[node name="HeroPlate2" parent="Heroes" instance=ExtResource("hero_plate")]
+visible = false
+layout_mode = 2
+
+[node name="HeroPlate3" parent="Heroes" instance=ExtResource("hero_plate")]
+visible = false
+layout_mode = 2
+
+[node name="HeroPlate4" parent="Heroes" instance=ExtResource("hero_plate")]
+visible = false
+layout_mode = 2
+
+[node name="Crypt" type="PanelContainer" parent="."]
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -340.0
-offset_top = 16.0
-offset_right = -20.0
-offset_bottom = 50.0
+offset_left = -36.0
+offset_top = 32.0
+offset_right = -36.0
+offset_bottom = 32.0
 grow_horizontal = 0
-label_settings = SubResource("text")
-horizontal_alignment = 2
+mouse_filter = 2
+theme_type_variation = &"Plate"
 
-[node name="Paused" type="Label" parent="."]
+[node name="Stats" type="HBoxContainer" parent="Crypt"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 40
+
+[node name="Up" type="VBoxContainer" parent="Crypt/Stats"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="Skeletons" type="Label" parent="Crypt/Stats/Up"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+text = "0"
+horizontal_alignment = 1
+
+[node name="Caption" type="Label" parent="Crypt/Stats/Up"]
+layout_mode = 2
+theme_type_variation = &"Dim"
+text = "Skeletons"
+horizontal_alignment = 1
+
+[node name="Felled" type="VBoxContainer" parent="Crypt/Stats"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="Kills" type="Label" parent="Crypt/Stats/Felled"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+text = "0"
+horizontal_alignment = 1
+
+[node name="Caption" type="Label" parent="Crypt/Stats/Felled"]
+layout_mode = 2
+theme_type_variation = &"Dim"
+text = "Felled"
+horizontal_alignment = 1
+
+[node name="Paused" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -200.0
-offset_top = 24.0
-offset_right = 200.0
-offset_bottom = 80.0
+offset_top = 150.0
+offset_bottom = 150.0
 grow_horizontal = 2
+mouse_filter = 2
+theme_type_variation = &"Banner"
+
+[node name="Text" type="Label" parent="Paused"]
+layout_mode = 2
+theme_type_variation = &"Heading"
 text = "Paused"
-label_settings = SubResource("banner")
 horizontal_alignment = 1
 
-[node name="JoinHint" type="Label" parent="."]
+[node name="JoinHint" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -70,12 +121,15 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -200.0
-offset_top = -56.0
-offset_right = 200.0
-offset_bottom = -20.0
+offset_top = -40.0
+offset_bottom = -40.0
 grow_horizontal = 2
 grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"Plate"
+
+[node name="Text" type="Label" parent="JoinHint"]
+layout_mode = 2
+theme_type_variation = &"HudText"
 text = "Press Start to join"
-label_settings = SubResource("text")
 horizontal_alignment = 1

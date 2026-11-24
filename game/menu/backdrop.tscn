@@ -1,0 +1,275 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/menu/backdrop.gd" id="1_hbg21"]
+[ext_resource type="Environment" path="res://game/environments/hub.tres" id="2_36dxs"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/floor_dirt.tscn" id="3_xq11a"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/crypt.tscn" id="4_ijnun"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/fence.tscn" id="5_ymt5h"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/fence_gate.tscn" id="6_apsb3"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/fence_pillar.tscn" id="7_wbf85"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/post_lantern.tscn" id="8_2xj53"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/tree_dead_large.tscn" id="9_tafe2"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/tree_dead_medium.tscn" id="10_rx2e0"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/grave_A.tscn" id="11_22hm0"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/gravestone.tscn" id="12_yqsmn"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/grave_B.tscn" id="13_kb5c0"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/gravemarker_A.tscn" id="14_2oih1"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/gravemarker_B.tscn" id="15_d3wim"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/skull.tscn" id="16_tsuex"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/shrine_candles.tscn" id="17_6u3tc"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/lantern_standing.tscn" id="18_fte66"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/coffin.tscn" id="19_f66j6"]
+[ext_resource type="PackedScene" path="res://game/characters/heroes/knight.tscn" id="20_0epj4"]
+[ext_resource type="PackedScene" path="res://game/fx/hero_light.tscn" id="22_qjer1"]
+[ext_resource type="PackedScene" path="res://game/characters/heroes/barbarian.tscn" id="23_37dlm"]
+[ext_resource type="PackedScene" path="res://game/characters/heroes/mage.tscn" id="24_d0hiq"]
+[ext_resource type="PackedScene" path="res://game/characters/heroes/rogue.tscn" id="25_v0sun"]
+
+[node name="Backdrop" type="Node3D"]
+script = ExtResource("1_hbg21")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource("2_36dxs")
+
+[node name="Moon" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.8660254, 0.40957603, -0.28678823, 0, 0.57357645, 0.81915206, 0.5, -0.7094065, 0.49673176, 0, 20, 0)
+light_color = Color(0.62, 0.7, 0.95, 1)
+light_energy = 0.5
+shadow_enabled = true
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(0.99539554, 0.011230156, -0.09519276, 0, 0.9931131, 0.11716032, 0.0958529, -0.11662086, 0.9885403, -3.6, 3.1, 12.5)
+fov = 34.0
+
+[node name="Graveyard" type="Node3D" parent="."]
+
+[node name="FloorDirt" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, -8)
+
+[node name="FloorDirt2" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, -4)
+
+[node name="FloorDirt3" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, 0)
+
+[node name="FloorDirt4" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, 4)
+
+[node name="FloorDirt5" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, 8)
+
+[node name="FloorDirt6" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, 12)
+
+[node name="FloorDirt7" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, -8)
+
+[node name="FloorDirt8" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, -4)
+
+[node name="FloorDirt9" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, 0)
+
+[node name="FloorDirt10" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, 4)
+
+[node name="FloorDirt11" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, 8)
+
+[node name="FloorDirt12" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, 12)
+
+[node name="FloorDirt13" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, -8)
+
+[node name="FloorDirt14" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, -4)
+
+[node name="FloorDirt15" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 0)
+
+[node name="FloorDirt16" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 4)
+
+[node name="FloorDirt17" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 8)
+
+[node name="FloorDirt18" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 12)
+
+[node name="FloorDirt19" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8)
+
+[node name="FloorDirt20" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -4)
+
+[node name="FloorDirt21" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+
+[node name="FloorDirt22" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4)
+
+[node name="FloorDirt23" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 8)
+
+[node name="FloorDirt24" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 12)
+
+[node name="FloorDirt25" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, -8)
+
+[node name="FloorDirt26" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, -4)
+
+[node name="FloorDirt27" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 0)
+
+[node name="FloorDirt28" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 4)
+
+[node name="FloorDirt29" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 8)
+
+[node name="FloorDirt30" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 12)
+
+[node name="FloorDirt31" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, -8)
+
+[node name="FloorDirt32" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, -4)
+
+[node name="FloorDirt33" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 0)
+
+[node name="FloorDirt34" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 4)
+
+[node name="FloorDirt35" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 8)
+
+[node name="FloorDirt36" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 12)
+
+[node name="FloorDirt37" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, -8)
+
+[node name="FloorDirt38" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, -4)
+
+[node name="FloorDirt39" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 0)
+
+[node name="FloorDirt40" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 4)
+
+[node name="FloorDirt41" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 8)
+
+[node name="FloorDirt42" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 12)
+
+[node name="Crypt" type="StaticBody3D" parent="Graveyard" instance=ExtResource("4_ijnun")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -10)
+
+[node name="Fence" type="StaticBody3D" parent="Graveyard" instance=ExtResource("5_ymt5h")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, -6)
+
+[node name="Fence2" type="StaticBody3D" parent="Graveyard" instance=ExtResource("5_ymt5h")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, -6)
+
+[node name="Fence3" type="StaticBody3D" parent="Graveyard" instance=ExtResource("5_ymt5h")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, -6)
+
+[node name="Fence4" type="StaticBody3D" parent="Graveyard" instance=ExtResource("5_ymt5h")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, -6)
+
+[node name="Fence5" type="StaticBody3D" parent="Graveyard" instance=ExtResource("5_ymt5h")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, -6)
+
+[node name="Fence6" type="StaticBody3D" parent="Graveyard" instance=ExtResource("5_ymt5h")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, -6)
+
+[node name="FenceGate" type="StaticBody3D" parent="Graveyard" instance=ExtResource("6_apsb3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6)
+
+[node name="FencePillar" type="StaticBody3D" parent="Graveyard" instance=ExtResource("7_wbf85")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, -6)
+
+[node name="FencePillar2" type="StaticBody3D" parent="Graveyard" instance=ExtResource("7_wbf85")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, -6)
+
+[node name="FencePillar3" type="StaticBody3D" parent="Graveyard" instance=ExtResource("7_wbf85")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -6)
+
+[node name="FencePillar4" type="StaticBody3D" parent="Graveyard" instance=ExtResource("7_wbf85")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -6)
+
+[node name="FencePillar5" type="StaticBody3D" parent="Graveyard" instance=ExtResource("7_wbf85")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, -6)
+
+[node name="FencePillar6" type="StaticBody3D" parent="Graveyard" instance=ExtResource("7_wbf85")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, -6)
+
+[node name="PostLantern" type="StaticBody3D" parent="Graveyard" instance=ExtResource("8_2xj53")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0, -4.5)
+
+[node name="PostLantern2" type="StaticBody3D" parent="Graveyard" instance=ExtResource("8_2xj53")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0, -4.5)
+
+[node name="TreeDeadLarge" type="StaticBody3D" parent="Graveyard" instance=ExtResource("9_tafe2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.5, 0, -3.5)
+
+[node name="TreeDeadMedium" type="StaticBody3D" parent="Graveyard" instance=ExtResource("10_rx2e0")]
+transform = Transform3D(-0.9396926, 0, -0.34202015, 0, 1, 0, 0.34202015, 0, -0.9396926, 7.5, 0, -3)
+
+[node name="GraveA" type="StaticBody3D" parent="Graveyard" instance=ExtResource("11_22hm0")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.5, 0, -2.5)
+
+[node name="Gravestone" type="StaticBody3D" parent="Graveyard" instance=ExtResource("12_yqsmn")]
+transform = Transform3D(0.9848077, 0, 0.17364818, 0, 1, 0, -0.17364818, 0, 0.9848077, -4.2, 0, -3.2)
+
+[node name="Gravestone2" type="StaticBody3D" parent="Graveyard" instance=ExtResource("12_yqsmn")]
+transform = Transform3D(0.99026805, 0, -0.1391731, 0, 1, 0, 0.1391731, 0, 0.99026805, 5, 0, -2.8)
+
+[node name="GraveB" type="StaticBody3D" parent="Graveyard" instance=ExtResource("13_kb5c0")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0, 1)
+
+[node name="GravemarkerA" type="StaticBody3D" parent="Graveyard" instance=ExtResource("14_2oih1")]
+transform = Transform3D(0.9659258, 0, 0.25881904, 0, 1, 0, -0.25881904, 0, 0.9659258, -4.6, 0, 1.6)
+
+[node name="GravemarkerB" type="StaticBody3D" parent="Graveyard" instance=ExtResource("15_d3wim")]
+transform = Transform3D(0.9396926, 0, -0.34202012, 0, 1, 0, 0.34202012, 0, 0.9396926, 4.2, 0, 3)
+
+[node name="Skull" type="StaticBody3D" parent="Graveyard" instance=ExtResource("16_tsuex")]
+transform = Transform3D(0.8660254, 0, 0.5, 0, 1, 0, -0.5, 0, 0.8660254, -5.8, 0, 0.6)
+
+[node name="ShrineCandles" type="StaticBody3D" parent="Graveyard" instance=ExtResource("17_6u3tc")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, -4.6)
+
+[node name="LanternStanding" type="Node3D" parent="Graveyard" instance=ExtResource("18_fte66")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 1.6)
+
+[node name="Coffin" type="StaticBody3D" parent="Graveyard" instance=ExtResource("19_f66j6")]
+transform = Transform3D(0.34202015, 0, 0.9396926, 0, 1, 0, -0.9396926, 0, 0.34202015, -7.5, 0, 3.5)
+
+[node name="Heroes" type="Node3D" parent="."]
+
+[node name="Knight" type="Node3D" parent="Heroes" instance=ExtResource("20_0epj4")]
+transform = Transform3D(0.9702957, 0, 0.2419219, 0, 1, 0, -0.2419219, 0, 0.9702957, -2.3, 0, 0)
+
+[node name="HeroLight" type="OmniLight3D" parent="Heroes/Knight" instance=ExtResource("22_qjer1")]
+
+[node name="Barbarian" type="Node3D" parent="Heroes" instance=ExtResource("23_37dlm")]
+transform = Transform3D(0.9975641, 0, 0.06975647, 0, 1, 0, -0.06975647, 0, 0.9975641, -0.5, 0, 0.7)
+
+[node name="HeroLight" type="OmniLight3D" parent="Heroes/Barbarian" instance=ExtResource("22_qjer1")]
+
+[node name="Mage" type="Node3D" parent="Heroes" instance=ExtResource("24_d0hiq")]
+transform = Transform3D(0.99026805, 0, -0.1391731, 0, 1, 0, 0.1391731, 0, 0.99026805, 1.3, 0, 0.4)
+
+[node name="HeroLight" type="OmniLight3D" parent="Heroes/Mage" instance=ExtResource("22_qjer1")]
+
+[node name="Rogue" type="Node3D" parent="Heroes" instance=ExtResource("25_v0sun")]
+transform = Transform3D(0.9396926, 0, -0.34202012, 0, 1, 0, 0.34202012, 0, 0.9396926, 3, 0, -0.5)
+
+[node name="HeroLight" type="OmniLight3D" parent="Heroes/Rogue" instance=ExtResource("22_qjer1")]

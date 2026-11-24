@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/app/sfx.gd" id="sfx"]
+[ext_resource type="AudioStream" path="res://assets/kenney/interface_sounds/click_002.ogg" id="press"]
+[ext_resource type="AudioStream" path="res://assets/kenney/interface_sounds/select_002.ogg" id="select"]
+[ext_resource type="AudioStream" path="res://assets/kenney/interface_sounds/confirmation_002.ogg" id="confirm"]
+[ext_resource type="AudioStream" path="res://assets/kenney/interface_sounds/error_004.ogg" id="error"]
+[ext_resource type="AudioStream" path="res://assets/kenney/interface_sounds/maximize_003.ogg" id="joined"]
+[ext_resource type="AudioStream" path="res://assets/kenney/interface_sounds/minimize_003.ogg" id="left"]
+
+[node name="Sfx" type="Node"]
+script = ExtResource("sfx")
+sounds = Dictionary[StringName, AudioStream]({
+&"confirm": ExtResource("confirm"),
+&"error": ExtResource("error"),
+&"joined": ExtResource("joined"),
+&"left": ExtResource("left"),
+&"press": ExtResource("press"),
+&"select": ExtResource("select")
+})

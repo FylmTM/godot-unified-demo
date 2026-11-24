@@ -1,7 +1,8 @@
 class_name Hud
 extends Control
-## The minimal HUD: each local hero's class and HP (or that it is down), the skeletons up and the kills, the co-op
-## pause, and "press Start to join" while a connected pad plays nobody.
+## The HUD, quiet in the corners so the crypt keeps the middle: a plate for each local hero (its class and health, or
+## that it is down), the skeletons up and the kills, the co-op pause's banner, and "press Start to join" while a
+## connected pad plays nobody. Nothing on it takes a click or the focus: Space and a pad's A stay the game's.
 ##
 ## What it shows of the moment (the heroes, the skeletons up, the pause) is session data (Unified.data.hud), the newest
 ## prediction, which a rollback may change and the next frame puts right. The kills are a count, which must never take
@@ -9,10 +10,11 @@ extends Control
 
 var _kills: int = 0
 
-@onready var _heroes: Label = %Heroes
-@onready var _crypt: Label = %Crypt
-@onready var _paused: Label = %Paused
-@onready var _join_hint: Label = %JoinHint
+@onready var _heroes: VBoxContainer = %Heroes
+@onready var _skeletons: Label = %Skeletons
+@onready var _kills_label: Label = %Kills
+@onready var _paused: Control = %Paused
+@onready var _join_hint: Control = %JoinHint
 
 
 func _ready() -> void:
@@ -24,15 +26,18 @@ func _ready() -> void:
 	_show_join_hint()
 
 
-## A line per local hero, the crypt's count, and the pause.
+## A plate per local hero (in slot order; the spare plates hide), the crypt's counts, and the pause.
 func _show_data() -> void:
-	var lines: PackedStringArray = []
+	var plates: Array[Node] = _heroes.get_children()
+	var shown: int = 0
 	for hero: DataHudHero in Unified.data.hud.heroes:
-		if hero.player != 0 and hero.local:
-			var health: String = "%d HP" % hero.hp if hero.hp > 0 else "down"
-			lines.append("%s   %s" % [EnumClass.name(hero.class).capitalize(), health])
-	_heroes.text = "\n".join(lines)
-	_crypt.text = "Skeletons %d   Kills %d" % [Unified.data.hud.minions, _kills]
+		if hero.player != 0 and hero.local and shown < plates.size():
+			(plates[shown] as HeroPlate).show_hero(hero)
+			shown += 1
+	for i: int in plates.size():
+		(plates[i] as Control).visible = i < shown
+	_skeletons.text = str(Unified.data.hud.minions)
+	_kills_label.text = str(_kills)
 	_paused.visible = Unified.data.hud.paused
 
 

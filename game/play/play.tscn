@@ -31,11 +31,8 @@ mesh = SubResource("bolt_orb")
 [node name="Play" type="Node3D"]
 script = ExtResource("play")
 
-[node name="UnifiedSession" type="UnifiedSession" parent="."]
-
-[node name="Couch" type="Node" parent="." node_paths=PackedStringArray("session")]
+[node name="Couch" type="Node" parent="."]
 script = ExtResource("couch")
-session = NodePath("../UnifiedSession")
 
 [node name="Level" type="Node3D" parent="."]
 

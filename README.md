@@ -23,8 +23,8 @@ first time. Nothing is installed by hand. On Windows, run `uni.cmd` instead of `
 ```sh
 git clone --recursive https://github.com/FylmTM/godot-unified-demo
 cd godot-unified-demo
-./uni run                            # play it in a window
-./uni run -- --host-port 7777        # host a game on the LAN...
+./uni run                            # play it in a window: the title, then New game
+./uni run -- --host-port 7777        # host a game on the LAN, straight past the title...
 ./uni run -- --join 127.0.0.1:7777   # ...and join it from a second window
 ./uni tool lookdev --window --shots  # the art, posed in the look-dev scene
 ./uni help                           # every command
@@ -54,6 +54,10 @@ pressing Start joins as another player. Players joining over the LAN join the sa
   moves no outcome.
 - **Late join and rejoin beside the party** (`presence.odin`), a player's hero kept for their return.
 - **The co-op pause** (`pause.odin`; Esc in `game/play/play.gd`): the game clock stands for every peer.
+- **The session outlives the scenes**: the `Game` autoload owns it from boot to quit and switches between the title
+  and the crypt on its status, whoever started it: the menus, the command line's session flags (`uni run`, `uni coop`,
+  `uni drive`) or a tool. A start that fails, or a game that ends without the player leaving, comes back to the title
+  with the reason; a join or a leave is a toast; a reconnect is an overlay over the held game (`game/app/game.gd`).
 - **Views**: scene views (`game/views/`), props and minions pooled, minions shown once their spawn is verified
   (`Appear.Verified`, `frame.odin`), the Mage's bolts one MultiMesh (`MultiView`); clips posed on the session's shown
   game time, so a correction or a seek lands on the right frame (`game/views/hero.gd`, `minion.gd`).
@@ -111,8 +115,10 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
   views pose by, the HUD's data and the mouse's aim.
 - `simulation/headless/`: the same simulation without Godot, for tests, sync-tests, replays and benchmarks.
 - `simulation/tests/`: every test of the sim.
-- `game/`: the Godot side (the project is the repo root, `project.godot`): scenes, views, effects and the HUD.
-  GDScript shows the simulation and never changes it; input and commands are the only way in.
+- `game/`: the Godot side (the project is the repo root, `project.godot`): the app (`game/app/`: the `Game`,
+  `Settings`, `Sfx` and `LibraryCheck` autoloads), the title (`game/menu/`), the interface's theme, overlays and
+  widgets (`game/ui/`), and the play scene with its views, effects and HUD. GDScript shows the simulation and never
+  changes it; input and commands are the only way in.
 - `assets/`: the art packs the game uses (`CREDITS.md`); how they become the game's look is `docs/ART.md`.
 - `tools/`: this game's `uni` CLI. `unified/`: unified, as a git submodule.
 
@@ -121,8 +127,9 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 Every layer unified offers a game: rule tests on sync-tested headless runs, so each also rolls back over what it
 checks; unified's standard scenarios played by the scripted players (`script.odin`), which exercise every control and
 dev command; a bot playthrough of the four classes; a replay regression recorded from a real two-player LAN session;
-the pinned reference run, the cross-platform check in CI; the godot suite, which holds the art to `docs/ART.md`; and
-`./uni coop`, a host and a joiner in two processes (`game/tools/coop.gd`). Commands: `./uni help`.
+the pinned reference run, the cross-platform check in CI; the godot suite, which holds the art to `docs/ART.md` and the
+app layer to its contract (`game/tools/art_checks.gd`, `app_checks.gd`) and walks the app with real input events
+(`game/tools/ui_walk.gd`); and `./uni coop`, a host and a joiner in two processes (`game/tools/coop.gd`). Commands: `./uni help`.
 
 ## Benchmarks
 

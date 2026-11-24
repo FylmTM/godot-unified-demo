@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/ui/overlays/toasts.gd" id="toasts"]
+[ext_resource type="PackedScene" path="res://game/ui/widgets/toast.tscn" id="toast"]
+
+[node name="Toasts" type="VBoxContainer"]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -400.0
+offset_top = 36.0
+offset_right = 400.0
+offset_bottom = 36.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+script = ExtResource("toasts")
+toast_scene = ExtResource("toast")

@@ -1,10 +1,11 @@
 class_name Play
 extends Node3D
-## The play scene: the session, the level root it instances the floor under (its meshes are the crypt), the views
-## root it spawns the heroes under, the bolts' MultiMesh, the local players' devices (Couch), the camera, the effects,
-## the crypt's environment and the HUD. It turns the sim's events into effects as soon as they are predicted (EMITTED):
-## sparks on a hit, a bolt's burst, a crossbow's tracer (from the crossbow as drawn to where the sim's shot ended),
-## dust where a prop lands hard, and a shake when a local hero is hurt.
+## The play scene: the level root the session instances the floor under (its meshes are the crypt), the views root it
+## spawns the heroes under, the bolts' MultiMesh, the local players' devices (Couch), the camera, the effects, the
+## crypt's environment and the HUD. The session is the app's (Game's), already running when this scene loads: this
+## hands it the two roots, which leave with the scene. It turns the sim's events into effects as soon as they are
+## predicted (EMITTED): sparks on a hit, a bolt's burst, a crossbow's tracer (from the crossbow as drawn to where the
+## sim's shot ended), dust where a prop lands hard, and a shake when a local hero is hurt.
 ##
 ## The mouse's aim reaches the sim through it, as only a script knows it: just before the session samples (its
 ## input_wanted, so this frame's sample takes it), the cursor's ray meets a plane at chest height, and the direction
@@ -25,7 +26,7 @@ const HURT_SHAKE: float = 0.5
 ## Whether the mouse aims for the keyboard's player: once it has moved.
 var _mouse_aims: bool = false
 
-@onready var _session: UnifiedSession = $UnifiedSession
+@onready var _session: UnifiedSession = Unified.session
 @onready var _camera_rig: CameraRig = $CameraRig
 @onready var _effects: Effects = $Effects
 @onready var _level: Node3D = $Level
@@ -38,8 +39,8 @@ func _ready() -> void:
 	_session.level_changed.connect(_on_level_changed)
 	_session.input_wanted.connect(_set_aims)
 	_session.sim_event.connect(_on_sim_event)
-	if not _session.running:
-		_session.start_single()
+	if not _session.running and Game.flow == Game.Flow.MENU:
+		Game.start_single()  # the scene run on its own (the editor's Run Current Scene)
 
 
 func _input(event: InputEvent) -> void:
