@@ -1,0 +1,28 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/characters/character_rig.gd" id="rig"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/adventurers/Knight.glb" id="model"]
+[ext_resource type="PackedScene" path="res://game/characters/rig_animations.tscn" id="animations"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/adventurers/sword_1handed.gltf" id="right"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/adventurers/shield_badge_color.gltf" id="left"]
+
+[node name="Knight" type="Node3D"]
+script = ExtResource("rig")
+
+[node name="Model" parent="." instance=ExtResource("model")]
+
+[node name="HandR" type="BoneAttachment3D" parent="."]
+bone_name = "handslot.r"
+use_external_skeleton = true
+external_skeleton = NodePath("../Model/Rig_Medium/Skeleton3D")
+
+[node name="Weapon" parent="HandR" instance=ExtResource("right")]
+
+[node name="HandL" type="BoneAttachment3D" parent="."]
+bone_name = "handslot.l"
+use_external_skeleton = true
+external_skeleton = NodePath("../Model/Rig_Medium/Skeleton3D")
+
+[node name="Weapon" parent="HandL" instance=ExtResource("left")]
+
+[node name="AnimationPlayer" parent="." instance=ExtResource("animations")]

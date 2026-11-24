@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/torch_mounted.gltf" id="model"]
+[ext_resource type="PackedScene" path="res://game/fx/fire.tscn" id="fire"]
+
+[node name="TorchMounted" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("model")]
+
+[node name="Fire" parent="." instance=ExtResource("fire")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0.42)
+casts_shadows = false

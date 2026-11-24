@@ -217,6 +217,10 @@ jobs:
       - name: test --suite godot
         if: ${{ !cancelled() && steps.ready.outcome == 'success' }}
         run: ./uni test --suite godot 2>&1 | tee .out/test.txt
+      # The look-dev scene's frames (fires flickering, every shot shown, the cast posing), which validate only loads.
+      - name: tool lookdev (headless)
+        if: ${{ !cancelled() && steps.ready.outcome == 'success' }}
+        run: ./uni tool lookdev
       - name: Summary
         if: ${{ !cancelled() && steps.ready.outcome == 'success' }}
         run: |

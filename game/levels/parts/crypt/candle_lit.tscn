@@ -1,0 +1,13 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/candle_lit.gltf" id="model"]
+[ext_resource type="PackedScene" path="res://game/fx/fire.tscn" id="fire"]
+
+[node name="CandleLit" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("model")]
+
+[node name="Fire" parent="." instance=ExtResource("fire")]
+transform = Transform3D(0.2, 0, 0, 0, 0.2, 0, 0, 0, 0.2, 0, 0.95, 0)
+casts_shadows = false
+strength = 0.35

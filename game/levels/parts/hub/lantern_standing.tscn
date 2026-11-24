@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/kaykit/halloween/lantern_standing.gltf" id="model"]
+[ext_resource type="PackedScene" path="res://game/fx/fire.tscn" id="fire"]
+
+[node name="LanternStanding" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("model")]
+
+[node name="Fire" parent="." instance=ExtResource("fire")]
+transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, 0, 0.45, 0)
+casts_shadows = false

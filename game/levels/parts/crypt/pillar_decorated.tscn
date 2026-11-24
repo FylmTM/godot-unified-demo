@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/pillar_decorated.gltf" id="model"]
+
+[sub_resource type="BoxShape3D" id="shape_0"]
+size = Vector3(1.5, 4, 1.5)
+
+[node name="PillarDecorated" type="StaticBody3D"]
+metadata/unified_category = 2
+
+[node name="Model" parent="." instance=ExtResource("model")]
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+shape = SubResource("shape_0")

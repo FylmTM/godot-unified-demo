@@ -1,0 +1,307 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_large.tscn" id="1_yano8"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_big_grate.tscn" id="2_6faab"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_large_rocks.tscn" id="3_ioheb"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_wood_large.tscn" id="4_yyb6t"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_dirt_large.tscn" id="5_amjf7"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_small.tscn" id="6_qvqdv"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_small_broken_A.tscn" id="7_ply43"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_small_weeds_A.tscn" id="8_0x8ax"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_small_broken_B.tscn" id="9_v8ouo"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_corner.tscn" id="10_n2675"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_shelves.tscn" id="11_8jswa"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_arched.tscn" id="12_vl41l"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_cracked.tscn" id="13_wctn6"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall.tscn" id="14_sevae"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_window_closed.tscn" id="15_vsv1x"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_half.tscn" id="16_b5qrw"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_doorway.tscn" id="17_iionj"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/barrier.tscn" id="18_4j5l8"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/pillar.tscn" id="19_m1eik"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_gated.tscn" id="20_fks15"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/barrier_column.tscn" id="21_m48m8"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_endcap.tscn" id="22_ee24r"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/pillar_decorated.tscn" id="23_stsu6"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/brazier.tscn" id="24_nuoq1"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/crates_stacked.tscn" id="25_ifu2w"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/keg.tscn" id="26_7n4g0"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/table_medium.tscn" id="27_nxbby"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/barrel_large.tscn" id="28_oan15"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/column.tscn" id="29_md2gk"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/coffin_decorated.tscn" id="30_8707f"]
+[ext_resource type="PackedScene" path="res://game/fx/fire.tscn" id="31_lm6qb"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/torch_mounted.tscn" id="32_012lk"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/banner_patternA_red.gltf" id="33_l63yl"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/banner_thin_red.gltf" id="34_q8sl2"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/candle_lit.tscn" id="35_601og"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/candle_triple.gltf" id="36_y7hyr"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/plate.gltf" id="37_7t5sw"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/sword_shield_broken.gltf" id="38_amlb6"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/halloween/bone_A.gltf" id="39_o3ywv"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/halloween/ribcage.gltf" id="40_ep04v"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/chest_gold.gltf" id="41_t4jhq"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/coin_stack_small.gltf" id="42_trkhw"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/coin.gltf" id="43_riipj"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/barrel_small.gltf" id="44_mdtkc"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/box_small.gltf" id="45_ipx3d"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/box_large.gltf" id="46_phirf"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/chair.gltf" id="47_mpq7m"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/stool.gltf" id="48_pfdmv"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/trunk_medium_A.gltf" id="49_u4syk"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/bottle_A_green.gltf" id="50_gwch3"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/chest.gltf" id="51_w0buo"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/key.gltf" id="52_jk67d"]
+
+[sub_resource type="NavigationMesh" id="NavigationMesh_4oyjr"]
+vertices = PackedVector3Array(-8, 4.5, -6, -8, 4.5, -3.5, -7.5, 4.5, -5.75, -2.25, 4.5, -5.75, -6.75, 2.5, -3.75, -5.75, 2.5, -3.75, -5.75, 2.5, -4.5, -6.75, 2.5, -4.75, -5, 0.5, -2.75, -6.75, 0.5, -2.75, -5.75, 0.5, -2.25, -5.75, 0.5, -1, -6.75, 0.5, -0.75, -6.75, 0.5, 0, -4.5, 0.5, 0, 0.5, 0.5, -4.75, -0.5, 0.5, -4.75, -0.5, 0.5, -3.5, 0.75, 0.5, -3.25, -2, 0.5, -2.5, -1.25, 0.5, -3, -2.75, 0.5, -3.5, -4.5, 0.5, -2.75, -2, 0.5, -0.25, -4, 0.5, 0, -3.75, 0.5, 3, 2.5, 0.5, -2.75, 2.25, 0.5, -3.25, 2.25, 0.5, -0.25, 4, 0.5, 2.5, 3.5, 0.5, 0, -5.25, 0.5, 5.25, 4.25, 0.5, 5.25, -4.75, 0.5, -4.5, -2.75, 0.5, -4.5, -5.25, 0.5, 3.25, 2.75, 0.5, -3.5, 5, 0.5, -2.5, 4.25, 0.5, 2, 5, 0.5, -0.25, 7, 0.5, 2, 7.25, 0.5, 0.5, 7.25, 0.5, -0.25, 9.25, 0.5, 1, 15.5, 0.5, 0.75, 15, 0.5, 0.5, 5, 0.5, -4.75, 2.75, 0.5, -4.75, 5.5, 0.5, -3.25, 9, 0.5, 0.5, 15, 0.5, -0.75, 9, 0.5, -0.75, 8.75, 0.5, -0.25, 7, 0.5, -3, 6.5, 2.5, -4, 7, 2.5, -4.25, 7, 2.5, -4.75, 6, 2.5, -4.75, -3.75, 4.5, -1.75, -3.75, 4.5, -1, -3.25, 4.5, -1, -3.25, 4.5, -1.75, 3.25, 4.5, -1.75, 3.25, 4.5, -1, 3.75, 4.5, -1, 3.75, 4.5, -1.75, -6.75, 1.25, 1, -6.75, 1.25, 2.25, -5, 1.25, 2.25, -5, 1.25, 1, 5, 1.5, 3, 5, 1.5, 4, 6, 1.5, 4, 6, 1.5, 3, -6.75, 2.5, 3.75, -6.75, 2.5, 4.75, -6, 2.5, 4.25, -8.25, 4.5, 5.5, -8.25, 4.5, 6.25, -7.75, 4.5, 6.25, -7.75, 4.5, 5.5, 7.75, 4.5, 5.5, 7.75, 4.5, 6.25, 8.25, 4.5, 6.25, 8.25, 4.5, 5.5)
+polygons = [PackedInt32Array(2, 1, 0), PackedInt32Array(3, 2, 0), PackedInt32Array(5, 4, 6), PackedInt32Array(6, 4, 7), PackedInt32Array(8, 10, 9), PackedInt32Array(12, 11, 13), PackedInt32Array(13, 11, 14), PackedInt32Array(16, 15, 17), PackedInt32Array(17, 15, 18), PackedInt32Array(20, 19, 21), PackedInt32Array(21, 19, 22), PackedInt32Array(25, 24, 23), PackedInt32Array(27, 26, 18), PackedInt32Array(18, 26, 28), PackedInt32Array(18, 28, 23), PackedInt32Array(23, 28, 25), PackedInt32Array(8, 22, 10), PackedInt32Array(10, 22, 11), PackedInt32Array(11, 22, 14), PackedInt32Array(20, 17, 18), PackedInt32Array(30, 29, 28), PackedInt32Array(28, 29, 32), PackedInt32Array(28, 32, 25), PackedInt32Array(25, 32, 31), PackedInt32Array(20, 18, 19), PackedInt32Array(19, 18, 23), PackedInt32Array(8, 33, 22), PackedInt32Array(22, 33, 21), PackedInt32Array(21, 33, 34), PackedInt32Array(31, 35, 25), PackedInt32Array(27, 36, 26), PackedInt32Array(26, 36, 37), PackedInt32Array(38, 29, 30), PackedInt32Array(41, 40, 42), PackedInt32Array(42, 40, 39), PackedInt32Array(39, 40, 38), PackedInt32Array(39, 38, 30), PackedInt32Array(45, 44, 43), PackedInt32Array(48, 37, 46), PackedInt32Array(46, 37, 36), PackedInt32Array(46, 36, 47), PackedInt32Array(52, 51, 49), PackedInt32Array(49, 51, 43), PackedInt32Array(43, 51, 45), PackedInt32Array(45, 51, 50), PackedInt32Array(42, 52, 41), PackedInt32Array(41, 52, 49), PackedInt32Array(48, 53, 37), PackedInt32Array(37, 53, 39), PackedInt32Array(39, 53, 42), PackedInt32Array(55, 54, 56), PackedInt32Array(56, 54, 57), PackedInt32Array(61, 60, 58), PackedInt32Array(58, 60, 59), PackedInt32Array(65, 64, 62), PackedInt32Array(62, 64, 63), PackedInt32Array(69, 68, 66), PackedInt32Array(66, 68, 67), PackedInt32Array(73, 72, 70), PackedInt32Array(70, 72, 71), PackedInt32Array(76, 75, 74), PackedInt32Array(80, 79, 77), PackedInt32Array(77, 79, 78), PackedInt32Array(84, 83, 81), PackedInt32Array(81, 83, 82)]
+geometry_parsed_geometry_type = 1
+agent_height = 2.0
+agent_max_climb = 0.3
+
+[node name="CryptStage" type="Node3D" unique_id=1389420771]
+
+[node name="Nav" type="NavigationRegion3D" parent="." unique_id=2033462736]
+navigation_mesh = SubResource("NavigationMesh_4oyjr")
+metadata/unified_nav_bake = true
+
+[node name="FloorTileLarge" parent="Nav" unique_id=537724095 instance=ExtResource("1_yano8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, -4)
+
+[node name="FloorTileLarge2" parent="Nav" unique_id=174273319 instance=ExtResource("1_yano8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -4)
+
+[node name="FloorTileLarge3" parent="Nav" unique_id=774712342 instance=ExtResource("1_yano8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -4)
+
+[node name="FloorTileBigGrate" parent="Nav" unique_id=1520286983 instance=ExtResource("2_6faab")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, -4)
+
+[node name="FloorTileLarge4" parent="Nav" unique_id=1001478821 instance=ExtResource("1_yano8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 0)
+
+[node name="FloorTileLarge5" parent="Nav" unique_id=1570624343 instance=ExtResource("1_yano8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0)
+
+[node name="FloorTileLarge6" parent="Nav" unique_id=1850916294 instance=ExtResource("1_yano8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0)
+
+[node name="FloorTileLarge7" parent="Nav" unique_id=1777015849 instance=ExtResource("1_yano8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 0)
+
+[node name="FloorTileLargeRocks" parent="Nav" unique_id=917900051 instance=ExtResource("3_ioheb")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 4)
+
+[node name="FloorTileLarge8" parent="Nav" unique_id=1770647232 instance=ExtResource("1_yano8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 4)
+
+[node name="FloorWoodLarge" parent="Nav" unique_id=110536193 instance=ExtResource("4_yyb6t")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 4)
+
+[node name="FloorTileLarge9" parent="Nav" unique_id=614912203 instance=ExtResource("1_yano8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 0)
+
+[node name="FloorDirtLarge" parent="Nav" unique_id=1206662955 instance=ExtResource("5_amjf7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 0)
+
+[node name="FloorTileSmall" parent="Nav" unique_id=1547862439 instance=ExtResource("6_qvqdv")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 3)
+
+[node name="FloorTileSmallBrokenA" parent="Nav" unique_id=110233308 instance=ExtResource("7_ply43")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 3)
+
+[node name="FloorTileSmallWeedsA" parent="Nav" unique_id=1183327891 instance=ExtResource("8_0x8ax")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 5)
+
+[node name="FloorTileSmallBrokenB" parent="Nav" unique_id=2082699406 instance=ExtResource("9_v8ouo")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 5)
+
+[node name="WallCorner" parent="Nav" unique_id=1109115908 instance=ExtResource("10_n2675")]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -8, 0, -6)
+
+[node name="WallCorner2" parent="Nav" unique_id=1683246198 instance=ExtResource("10_n2675")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, -6)
+
+[node name="WallShelves" parent="Nav" unique_id=867655048 instance=ExtResource("11_8jswa")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, -6)
+
+[node name="WallArched" parent="Nav" unique_id=303946205 instance=ExtResource("12_vl41l")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6)
+
+[node name="WallCracked" parent="Nav" unique_id=1164137788 instance=ExtResource("13_wctn6")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, -6)
+
+[node name="Wall" parent="Nav" unique_id=1742559756 instance=ExtResource("14_sevae")]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -8, 0, -2)
+
+[node name="WallWindowClosed" parent="Nav" unique_id=543205470 instance=ExtResource("15_vsv1x")]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -8, 0, 2)
+
+[node name="WallHalf" parent="Nav" unique_id=597112600 instance=ExtResource("16_b5qrw")]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -8, 0, 4)
+
+[node name="WallHalf2" parent="Nav" unique_id=706451484 instance=ExtResource("16_b5qrw")]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 8, 0, -2)
+
+[node name="WallDoorway" parent="Nav" unique_id=1271596244 instance=ExtResource("17_iionj")]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 8, 0, 0)
+
+[node name="WallHalf3" parent="Nav" unique_id=499915175 instance=ExtResource("16_b5qrw")]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 8, 0, 2)
+
+[node name="WallHalf4" parent="Nav" unique_id=2094876733 instance=ExtResource("16_b5qrw")]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 8, 0, 4)
+
+[node name="Barrier" parent="Nav" unique_id=810727613 instance=ExtResource("18_4j5l8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 6)
+
+[node name="Barrier2" parent="Nav" unique_id=1851078068 instance=ExtResource("18_4j5l8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 6)
+
+[node name="Barrier3" parent="Nav" unique_id=57541600 instance=ExtResource("18_4j5l8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 6)
+
+[node name="Barrier4" parent="Nav" unique_id=2073514425 instance=ExtResource("18_4j5l8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 6)
+
+[node name="Pillar" parent="Nav" unique_id=236920070 instance=ExtResource("19_m1eik")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, 6)
+
+[node name="Pillar2" parent="Nav" unique_id=492052203 instance=ExtResource("19_m1eik")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 6)
+
+[node name="Wall2" parent="Nav" unique_id=1552403360 instance=ExtResource("14_sevae")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, -2)
+
+[node name="WallGated" parent="Nav" unique_id=1172948009 instance=ExtResource("20_fks15")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, -2)
+
+[node name="BarrierColumn" parent="Nav" unique_id=194928091 instance=ExtResource("21_m48m8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 2)
+
+[node name="BarrierColumn2" parent="Nav" unique_id=1204931038 instance=ExtResource("21_m48m8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 2)
+
+[node name="WallEndcap" parent="Nav" unique_id=917505851 instance=ExtResource("22_ee24r")]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 16, 0, 0)
+
+[node name="PillarDecorated" parent="Nav" unique_id=1746685464 instance=ExtResource("23_stsu6")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 0, -1.4)
+
+[node name="PillarDecorated2" parent="Nav" unique_id=1014711573 instance=ExtResource("23_stsu6")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 0, -1.4)
+
+[node name="Brazier" parent="Nav" unique_id=1341700263 instance=ExtResource("24_nuoq1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6, 0, -4.2)
+
+[node name="Brazier2" parent="Nav" unique_id=198361693 instance=ExtResource("24_nuoq1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6, 0, -4.2)
+
+[node name="CratesStacked" parent="Nav" unique_id=1309204753 instance=ExtResource("25_ifu2w")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.4, 0, -4.4)
+
+[node name="Keg" parent="Nav" unique_id=607589294 instance=ExtResource("26_7n4g0")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.6, 0, 4.2)
+
+[node name="TableMedium" parent="Nav" unique_id=448886565 instance=ExtResource("27_nxbby")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.5, 0, 3.5)
+
+[node name="BarrelLarge" parent="Nav" unique_id=1628238198 instance=ExtResource("28_oan15")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.6, 0, -4.6)
+
+[node name="Column" parent="Nav" unique_id=1239593619 instance=ExtResource("29_md2gk")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.6, 0, -1.6)
+
+[node name="CoffinDecorated" parent="Nav" unique_id=1892725575 instance=ExtResource("30_8707f")]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -6, 0, 1.6)
+
+[node name="Decor" type="Node3D" parent="." unique_id=1060506092]
+
+[node name="Fire" parent="Decor" unique_id=143310578 instance=ExtResource("31_lm6qb")]
+transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, -1.6, 3, -4.2)
+strength = 1.6
+
+[node name="Fire2" parent="Decor" unique_id=2090455203 instance=ExtResource("31_lm6qb")]
+transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, 1.6, 3, -4.2)
+strength = 1.6
+
+[node name="TorchMounted" parent="Decor" unique_id=497404778 instance=ExtResource("32_012lk")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 2.2, -5.5)
+
+[node name="TorchMounted2" parent="Decor" unique_id=640802740 instance=ExtResource("32_012lk")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 2.2, -5.5)
+
+[node name="TorchMounted3" parent="Decor" unique_id=1171313963 instance=ExtResource("32_012lk")]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -7.5, 2.2, 0)
+
+[node name="TorchMounted4" parent="Decor" unique_id=213082591 instance=ExtResource("32_012lk")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 2.2, -1.5)
+
+[node name="BannerPatternARed" parent="Decor" unique_id=1922265331 instance=ExtResource("33_l63yl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -6)
+
+[node name="BannerThinRed" parent="Decor" unique_id=1838882783 instance=ExtResource("34_q8sl2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -6)
+
+[node name="CandleLit" parent="Decor" unique_id=1563597251 instance=ExtResource("35_601og")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.2, 1, 3.3)
+
+[node name="CandleTriple" parent="Decor" unique_id=886736763 instance=ExtResource("36_y7hyr")]
+transform = Transform3D(0.76604444, 0, 0.6427876, 0, 1, 0, -0.6427876, 0, 0.76604444, 5.9, 1, 3.8)
+
+[node name="Plate" parent="Decor" unique_id=928026726 instance=ExtResource("37_7t5sw")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.4, 1, 3.9)
+
+[node name="SwordShieldBroken" parent="Decor" unique_id=1703344613 instance=ExtResource("38_amlb6")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 2, -1.5)
+
+[node name="CandleTriple2" parent="Decor" unique_id=483661100 instance=ExtResource("36_y7hyr")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.8, 0, -5.25)
+
+[node name="BoneA" parent="Decor" unique_id=754645317 instance=ExtResource("39_o3ywv")]
+transform = Transform3D(0.8660254, 0, 0.5, 0, 1, 0, -0.5, 0, 0.8660254, 3.4, 0.05, 1.2)
+
+[node name="Ribcage" parent="Decor" unique_id=1284073219 instance=ExtResource("40_ep04v")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 13.2, 0.3, 1)
+
+[node name="Props" type="Node3D" parent="." unique_id=449422899]
+
+[node name="ChestGold" parent="Props" unique_id=187984667 instance=ExtResource("41_t4jhq")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -4.4)
+
+[node name="CoinStackSmall" parent="Props" unique_id=993193661 instance=ExtResource("42_trkhw")]
+transform = Transform3D(0.9396926, 0, 0.34202012, 0, 1, 0, -0.34202012, 0, 0.9396926, 1.3, 0, -4.2)
+
+[node name="Coin" parent="Props" unique_id=722523847 instance=ExtResource("43_riipj")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0.06, -3.6)
+
+[node name="BarrelSmall" parent="Props" unique_id=1465672025 instance=ExtResource("44_mdtkc")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, -4.8)
+
+[node name="BarrelSmall2" parent="Props" unique_id=2133206299 instance=ExtResource("44_mdtkc")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.6, 0, -3.8)
+
+[node name="BoxSmall" parent="Props" unique_id=1262373985 instance=ExtResource("45_ipx3d")]
+transform = Transform3D(0.9659258, 0, 0.25881904, 0, 1, 0, -0.25881904, 0, 0.9659258, -3.2, 0, -4.7)
+
+[node name="BoxLarge" parent="Props" unique_id=1913251389 instance=ExtResource("46_phirf")]
+transform = Transform3D(0.9848077, 0, -0.17364818, 0, 1, 0, 0.17364818, 0, 0.9848077, -4.6, 0, -4.4)
+
+[node name="Chair" parent="Props" unique_id=2068795032 instance=ExtResource("47_mpq7m")]
+transform = Transform3D(0.17364822, 0, 0.9848077, 0, 1, 0, -0.9848077, 0, 0.17364822, 4.2, 0, 3.6)
+
+[node name="Stool" parent="Props" unique_id=557792045 instance=ExtResource("48_pfdmv")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.5, 0, 5)
+
+[node name="TrunkMediumA" parent="Props" unique_id=1077674685 instance=ExtResource("49_u4syk")]
+transform = Transform3D(0.9848077, 0, 0.17364818, 0, 1, 0, -0.17364818, 0, 0.9848077, -4, 0, 4.6)
+
+[node name="BottleAGreen" parent="Props" unique_id=1070724278 instance=ExtResource("50_gwch3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.8, 1, 3.1)
+
+[node name="Chest" parent="Props" unique_id=608365432 instance=ExtResource("51_w0buo")]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 14.6, 0, 0.6)
+
+[node name="Key" parent="Props" unique_id=823343442 instance=ExtResource("52_jk67d")]
+transform = Transform3D(0.8660254, 0, 0.5, 0, 1, 0, -0.5, 0, 0.8660254, 13.8, 0.1, -0.2)

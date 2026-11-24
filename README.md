@@ -7,8 +7,9 @@ the rules written in Odin, Godot as the host for rendering, audio, UI and the ed
 dungeon crawler for 1–4 players, and the answer to "what does a real game built on unified look like?".
 
 > [!NOTE]
-> **In development.** Today the game is still the template `uni init` makes: capsules that move (arrow keys or a
-> pad's left stick) and throw balls (Space). What it becomes, and in what order, is [`docs/plan.md`](docs/plan.md).
+> **In development.** Today the game you play is still the template `uni init` makes: capsules that move (arrow keys
+> or a pad's left stick) and throw balls (Space). Its art is in, posed in a look-dev scene (`./uni tool lookdev
+> --window --shots`). What it becomes, and in what order, is [`docs/plan.md`](docs/plan.md).
 
 ## Play it
 
@@ -34,6 +35,7 @@ cd godot-unified-demo
 - `simulation/tests/`: the rule tests, unified's standard rollback and network scenarios, and the determinism lint.
 - `game/`: the Godot side (the project is the repo root, `project.godot`): scenes, views and UI. GDScript shows the
   simulation and never changes it; input and commands are the only way in.
+- `assets/`: the art packs the game uses (`CREDITS.md`); how they become the game's look is `docs/ART.md`.
 - `tools/`: this game's `uni` CLI. `unified/`: unified, as a git submodule.
 
 ## Benchmarks
@@ -46,8 +48,7 @@ has each platform's numbers in its summary. Locally: `./uni bench`.
 ## License
 
 The code is licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your
-option. Art, sound and music keep their own licences (all CC0), listed with their sources in `CREDITS.md` as they
-arrive.
+option. Art, sound and music keep their own licences (all CC0), listed with their sources in `CREDITS.md`.
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as
 defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.

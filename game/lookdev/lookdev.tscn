@@ -1,0 +1,83 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/lookdev/lookdev.gd" id="1_nfcuv"]
+[ext_resource type="Environment" path="res://game/environments/crypt.tres" id="2_qh0j8"]
+[ext_resource type="PackedScene" path="res://game/lookdev/crypt_stage.tscn" id="3_osvwe"]
+[ext_resource type="PackedScene" path="res://game/lookdev/hub_stage.tscn" id="4_ucfge"]
+[ext_resource type="PackedScene" path="res://game/characters/heroes/knight.tscn" id="5_u5u4w"]
+[ext_resource type="PackedScene" path="res://game/fx/hero_light.tscn" id="6_p30y0"]
+[ext_resource type="PackedScene" path="res://game/characters/heroes/barbarian.tscn" id="7_yfbfk"]
+[ext_resource type="PackedScene" path="res://game/characters/heroes/mage.tscn" id="8_me4gl"]
+[ext_resource type="PackedScene" path="res://game/characters/heroes/rogue.tscn" id="9_kr1kp"]
+[ext_resource type="PackedScene" path="res://game/characters/skeletons/minion.tscn" id="10_cc424"]
+[ext_resource type="PackedScene" path="res://game/characters/skeletons/warrior.tscn" id="11_db516"]
+[ext_resource type="PackedScene" path="res://game/characters/skeletons/rogue.tscn" id="12_uldh0"]
+[ext_resource type="PackedScene" path="res://game/characters/skeletons/mage.tscn" id="13_x830j"]
+
+[node name="Lookdev" type="Node3D" unique_id=1967373511]
+script = ExtResource("1_nfcuv")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1816767406]
+environment = ExtResource("2_qh0j8")
+
+[node name="Camera" type="Camera3D" parent="." unique_id=1808148286]
+current = true
+fov = 35.0
+
+[node name="CryptStage" parent="." unique_id=816148604 instance=ExtResource("3_osvwe")]
+
+[node name="HubStage" parent="." unique_id=1674828004 instance=ExtResource("4_ucfge")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0, 0)
+
+[node name="Cast" type="Node3D" parent="." unique_id=928685004]
+
+[node name="Knight" parent="Cast" unique_id=988221725 instance=ExtResource("5_u5u4w")]
+transform = Transform3D(0.90630776, 0, -0.42261827, 0, 1, 0, 0.42261827, 0, 0.90630776, -2.7, 0, 2.2)
+
+[node name="HeroLight" parent="Cast/Knight" unique_id=1204844911 instance=ExtResource("6_p30y0")]
+
+[node name="Barbarian" parent="Cast" unique_id=1080796900 instance=ExtResource("7_yfbfk")]
+transform = Transform3D(0.9396926, 0, 0.34202012, 0, 1, 0, -0.34202012, 0, 0.9396926, -0.9, 0, 2.6)
+
+[node name="HeroLight" parent="Cast/Barbarian" unique_id=3241643 instance=ExtResource("6_p30y0")]
+
+[node name="Mage" parent="Cast" unique_id=1878506664 instance=ExtResource("8_me4gl")]
+transform = Transform3D(0.9848077, 0, -0.17364818, 0, 1, 0, 0.17364818, 0, 0.9848077, 0.9, 0, 2.6)
+
+[node name="HeroLight" parent="Cast/Mage" unique_id=210244245 instance=ExtResource("6_p30y0")]
+
+[node name="Rogue" parent="Cast" unique_id=676828892 instance=ExtResource("9_kr1kp")]
+transform = Transform3D(0.76604444, 0, 0.6427876, 0, 1, 0, -0.6427876, 0, 0.76604444, 2.7, 0, 2.2)
+
+[node name="HeroLight" parent="Cast/Rogue" unique_id=1912529520 instance=ExtResource("6_p30y0")]
+
+[node name="Minion" parent="Cast" unique_id=421437431 instance=ExtResource("10_cc424")]
+transform = Transform3D(-0.08715577, 0, -0.9961947, 0, 1, 0, 0.9961947, 0, -0.08715577, 5, 0, 0.6)
+
+[node name="Minion2" parent="Cast" unique_id=20085087 instance=ExtResource("10_cc424")]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 10.5, 0, 0.4)
+
+[node name="Minion3" parent="Cast" unique_id=1663842812 instance=ExtResource("10_cc424")]
+transform = Transform3D(-0.1736482, 0, -0.9848077, 0, 1, 0, 0.9848077, 0, -0.1736482, 4, 0, 2.4)
+
+[node name="Minion4" parent="Cast" unique_id=1302442120 instance=ExtResource("10_cc424")]
+transform = Transform3D(0.25881907, 0, 0.9659258, 0, 1, 0, -0.9659258, 0, 0.25881907, -4.5, 0, 2.6)
+
+[node name="Warrior" parent="Cast" unique_id=2069016866 instance=ExtResource("11_db516")]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 6.6, 0, 1.6)
+
+[node name="SkeletonRogue" parent="Cast" unique_id=1733698577 instance=ExtResource("12_uldh0")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, -4.6, 0, -0.6)
+
+[node name="SkeletonMage" parent="Cast" unique_id=54345925 instance=ExtResource("13_x830j")]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 13.5, 0, -0.6)
+
+[node name="HubKnight" parent="Cast" unique_id=1551062103 instance=ExtResource("5_u5u4w")]
+transform = Transform3D(0.9396926, 0, 0.34202012, 0, 1, 0, -0.34202012, 0, 0.9396926, 58.8, 0, 0.8)
+
+[node name="HeroLight" parent="Cast/HubKnight" unique_id=1602477036 instance=ExtResource("6_p30y0")]
+
+[node name="HubMage" parent="Cast" unique_id=1916328432 instance=ExtResource("8_me4gl")]
+transform = Transform3D(0.90630776, 0, -0.42261827, 0, 1, 0, 0.42261827, 0, 0.90630776, 61.4, 0, 1.2)
+
+[node name="HeroLight" parent="Cast/HubMage" unique_id=327529875 instance=ExtResource("6_p30y0")]

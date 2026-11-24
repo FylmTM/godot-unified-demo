@@ -1,0 +1,185 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/floor_dirt.tscn" id="1_pwo0y"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/crypt.tscn" id="2_x1ton"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/fence.tscn" id="3_wmb7w"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/fence_broken.tscn" id="4_wy0s5"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/fence_gate.tscn" id="5_8nlbs"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/fence_pillar.tscn" id="6_q3x6x"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/grave_A.tscn" id="7_1lhka"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/gravestone.tscn" id="8_dpjvs"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/grave_B.tscn" id="9_ugru7"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/coffin.tscn" id="10_i2r4j"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/tree_dead_large.tscn" id="11_iv5fi"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/tree_dead_medium.tscn" id="12_py7bn"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/tree_dead_small.tscn" id="13_p5jrt"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/post_lantern.tscn" id="14_lc8lh"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/bench.tscn" id="15_tcnc8"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/gravemarker_A.tscn" id="16_5xvwl"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/gravemarker_B.tscn" id="17_wpo26"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/skull.tscn" id="18_giuku"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/shrine_candles.tscn" id="19_jxldi"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/lantern_standing.tscn" id="20_wc64u"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/halloween/path_A.gltf" id="21_q8w5l"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/halloween/path_B.gltf" id="22_yaoy1"]
+
+[sub_resource type="NavigationMesh" id="NavigationMesh_iolss"]
+vertices = PackedVector3Array(-2.5, 8.5, -13.5, -2.5, 8.5, -6.25, 2.5, 8.5, -6.25, 2.5, 8.5, -13.5, -4.5, 0.5, 0.75, -4, 0.5, 1, -4, 0.5, 0.5, -4.75, 0.5, -0.5, 1.75, 0.5, -5, -1.75, 0.5, -5, -2, 0.5, -3.5, 2, 0.5, -3, -5.25, 0.5, -1.5, -6, 0.5, -0.75, -6, 0.5, -0.5, -2.5, 0.5, -3, -2.25, 0.5, 0, -2, 0.5, 0.75, 1.75, 0.5, 0.75, -3, 0.5, 0, -2.75, 0.5, -1.5, -4, 0.5, -3.5, -8.25, 0.5, -3, -4.25, 0.5, -5, -8.25, 0.5, -5, 2.5, 0.5, -0.25, 2.5, 0.5, -2.75, 4, 0.5, 1.25, 3.25, 0.5, 1.5, 3.25, 0.5, 1.75, 6.5, 0.5, -5, 3.25, 0.5, -5, 4.75, 0.5, -4.75, 9.5, 0.5, -5, 8, 0.5, -5, 8, 0.5, -3.75, 4.75, 0.5, -2.75, 6, 0.5, -3, 6.75, 0.5, -3.5, 5, 0.5, -1.25, 4, 0.5, 0.25, 7, 0.5, -1, 7, 0.5, -0.25, 9.5, 0.5, -0.5, 7.25, 0.5, -2.5, 7, 0.5, 3, 7.25, 0.5, 1.75, 8.5, 0.5, 3.75, 9.5, 0.5, 3.5, 9.5, 0.5, 1.75, 6.25, 0.5, 5.5, 9.5, 0.5, 5.5, 8.5, 0.5, 5, -6.5, 0.5, -0.25, -8.25, 0.5, -0.75, -4.75, 0.5, 1.5, -3.5, 0.5, 1.75, -9, 0.5, 1.75, -9.5, 0.5, -3, -9.5, 0.5, 5.5, -3.5, 0.5, 5.5, -5.75, 0.5, 3.25, -6.25, 0.5, 3.75, -6, 0.5, 1.5, -8.75, 0.5, 3.75, -6.25, 0.5, 1.5, 2.25, 0.5, 1.5, 2.5, 0.5, 2.5, -2.25, 0.5, 1.75, 2, 0.5, 4.5, 3.75, 0.5, 5.5, 5, 1.75, 4.75, 5.5, 1.75, 4.75, 5.75, 1.75, 4, 3.25, 1.75, 3.75, 5.75, 1.75, 3.5, 4.5, 1.75, 3, 3.5, 1.75, 3)
+polygons = [PackedInt32Array(3, 2, 0), PackedInt32Array(0, 2, 1), PackedInt32Array(5, 4, 6), PackedInt32Array(6, 4, 7), PackedInt32Array(9, 8, 10), PackedInt32Array(10, 8, 11), PackedInt32Array(13, 12, 14), PackedInt32Array(14, 12, 7), PackedInt32Array(15, 10, 16), PackedInt32Array(16, 10, 17), PackedInt32Array(17, 10, 18), PackedInt32Array(18, 10, 11), PackedInt32Array(6, 7, 19), PackedInt32Array(19, 7, 20), PackedInt32Array(20, 7, 12), PackedInt32Array(10, 15, 21), PackedInt32Array(21, 15, 22), PackedInt32Array(23, 21, 24), PackedInt32Array(24, 21, 22), PackedInt32Array(16, 19, 20), PackedInt32Array(26, 25, 11), PackedInt32Array(11, 25, 18), PackedInt32Array(16, 20, 15), PackedInt32Array(29, 28, 27), PackedInt32Array(32, 31, 30), PackedInt32Array(35, 34, 33), PackedInt32Array(37, 36, 38), PackedInt32Array(38, 36, 32), PackedInt32Array(38, 32, 30), PackedInt32Array(40, 25, 39), PackedInt32Array(39, 25, 36), PackedInt32Array(36, 25, 26), PackedInt32Array(41, 44, 42), PackedInt32Array(42, 44, 35), PackedInt32Array(42, 35, 43), PackedInt32Array(43, 35, 33), PackedInt32Array(37, 38, 44), PackedInt32Array(44, 38, 35), PackedInt32Array(46, 45, 42), PackedInt32Array(42, 45, 27), PackedInt32Array(27, 45, 29), PackedInt32Array(48, 47, 49), PackedInt32Array(49, 47, 45), PackedInt32Array(49, 45, 46), PackedInt32Array(50, 52, 51), PackedInt32Array(41, 42, 39), PackedInt32Array(39, 42, 40), PackedInt32Array(40, 42, 27), PackedInt32Array(47, 52, 45), PackedInt32Array(45, 52, 50), PackedInt32Array(14, 53, 13), PackedInt32Array(13, 53, 54), PackedInt32Array(4, 5, 55), PackedInt32Array(55, 5, 56), PackedInt32Array(59, 58, 57), PackedInt32Array(61, 56, 62), PackedInt32Array(62, 56, 60), PackedInt32Array(63, 55, 61), PackedInt32Array(61, 55, 56), PackedInt32Array(22, 54, 58), PackedInt32Array(58, 54, 57), PackedInt32Array(64, 62, 59), PackedInt32Array(59, 62, 60), PackedInt32Array(53, 65, 54), PackedInt32Array(54, 65, 57), PackedInt32Array(57, 64, 59), PackedInt32Array(28, 29, 66), PackedInt32Array(66, 29, 67), PackedInt32Array(68, 17, 18), PackedInt32Array(66, 67, 18), PackedInt32Array(18, 67, 69), PackedInt32Array(18, 69, 68), PackedInt32Array(68, 69, 60), PackedInt32Array(69, 70, 60), PackedInt32Array(60, 56, 68), PackedInt32Array(73, 72, 71), PackedInt32Array(73, 71, 75), PackedInt32Array(75, 71, 76), PackedInt32Array(76, 71, 77), PackedInt32Array(77, 71, 74)]
+geometry_parsed_geometry_type = 1
+agent_height = 2.0
+agent_max_climb = 0.3
+
+[node name="HubStage" type="Node3D" unique_id=465833704]
+
+[node name="Moon" type="DirectionalLight3D" parent="." unique_id=1685662574]
+transform = Transform3D(0.8660254, 0.40957603, -0.28678823, 0, 0.57357645, 0.81915206, 0.5, -0.7094065, 0.49673176, 0, 20, 0)
+light_color = Color(0.62, 0.7, 0.95, 1)
+light_energy = 0.5
+shadow_enabled = true
+
+[node name="Nav" type="NavigationRegion3D" parent="." unique_id=958192349]
+navigation_mesh = SubResource("NavigationMesh_iolss")
+metadata/unified_nav_bake = true
+
+[node name="FloorDirt" parent="Nav" unique_id=1843450100 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, -4)
+
+[node name="FloorDirt2" parent="Nav" unique_id=1887083701 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, 0)
+
+[node name="FloorDirt3" parent="Nav" unique_id=823068504 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, 4)
+
+[node name="FloorDirt4" parent="Nav" unique_id=532444214 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, -4)
+
+[node name="FloorDirt5" parent="Nav" unique_id=1102754656 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 0)
+
+[node name="FloorDirt6" parent="Nav" unique_id=404586402 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 4)
+
+[node name="FloorDirt7" parent="Nav" unique_id=1362734053 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -4)
+
+[node name="FloorDirt8" parent="Nav" unique_id=276869171 instance=ExtResource("1_pwo0y")]
+
+[node name="FloorDirt9" parent="Nav" unique_id=435633662 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4)
+
+[node name="FloorDirt10" parent="Nav" unique_id=1436120770 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, -4)
+
+[node name="FloorDirt11" parent="Nav" unique_id=1573398346 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 0)
+
+[node name="FloorDirt12" parent="Nav" unique_id=686207469 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 4)
+
+[node name="FloorDirt13" parent="Nav" unique_id=810342649 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, -4)
+
+[node name="FloorDirt14" parent="Nav" unique_id=1789786543 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 0)
+
+[node name="FloorDirt15" parent="Nav" unique_id=2112280163 instance=ExtResource("1_pwo0y")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 4)
+
+[node name="Crypt" parent="Nav" unique_id=196303286 instance=ExtResource("2_x1ton")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -10)
+
+[node name="Fence" parent="Nav" unique_id=97849650 instance=ExtResource("3_wmb7w")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, -6)
+
+[node name="Fence2" parent="Nav" unique_id=739809418 instance=ExtResource("3_wmb7w")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, -6)
+
+[node name="FenceBroken" parent="Nav" unique_id=378253269 instance=ExtResource("4_wy0s5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, -6)
+
+[node name="Fence3" parent="Nav" unique_id=454805622 instance=ExtResource("3_wmb7w")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, -6)
+
+[node name="FenceGate" parent="Nav" unique_id=769355930 instance=ExtResource("5_8nlbs")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6)
+
+[node name="FencePillar" parent="Nav" unique_id=360489091 instance=ExtResource("6_q3x6x")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, -6)
+
+[node name="FencePillar2" parent="Nav" unique_id=705278116 instance=ExtResource("6_q3x6x")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, -6)
+
+[node name="FencePillar3" parent="Nav" unique_id=1228751947 instance=ExtResource("6_q3x6x")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -6)
+
+[node name="FencePillar4" parent="Nav" unique_id=1021560688 instance=ExtResource("6_q3x6x")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -6)
+
+[node name="FencePillar5" parent="Nav" unique_id=976007628 instance=ExtResource("6_q3x6x")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, -6)
+
+[node name="FencePillar6" parent="Nav" unique_id=578309872 instance=ExtResource("6_q3x6x")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, -6)
+
+[node name="GraveA" parent="Nav" unique_id=335747607 instance=ExtResource("7_1lhka")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 0, -2)
+
+[node name="Gravestone" parent="Nav" unique_id=197894575 instance=ExtResource("8_dpjvs")]
+transform = Transform3D(0.9848077, 0, 0.17364818, 0, 1, 0, -0.17364818, 0, 0.9848077, -3.9, 0, -2.2)
+
+[node name="GraveB" parent="Nav" unique_id=92777313 instance=ExtResource("9_ugru7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.5, 0, 2.5)
+
+[node name="Gravestone2" parent="Nav" unique_id=1838868408 instance=ExtResource("8_dpjvs")]
+transform = Transform3D(0.99026805, 0, -0.1391731, 0, 1, 0, 0.1391731, 0, 0.99026805, 6, 0, -2)
+
+[node name="GraveA2" parent="Nav" unique_id=767534672 instance=ExtResource("7_1lhka")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.5, 0, 0.5)
+
+[node name="Coffin" parent="Nav" unique_id=167429133 instance=ExtResource("10_i2r4j")]
+transform = Transform3D(0.34202015, 0, 0.9396926, 0, 1, 0, -0.9396926, 0, 0.34202015, 4.5, 0, 3.8)
+
+[node name="TreeDeadLarge" parent="Nav" unique_id=305441219 instance=ExtResource("11_iv5fi")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9, 0, -4)
+
+[node name="TreeDeadMedium" parent="Nav" unique_id=1244911969 instance=ExtResource("12_py7bn")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 9.5, 0, 4.5)
+
+[node name="TreeDeadSmall" parent="Nav" unique_id=1183966313 instance=ExtResource("13_p5jrt")]
+transform = Transform3D(-0.9396926, 0, -0.34202015, 0, 1, 0, 0.34202015, 0, -0.9396926, 7, 0, -4.5)
+
+[node name="PostLantern" parent="Nav" unique_id=371943703 instance=ExtResource("14_lc8lh")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0, -4.5)
+
+[node name="PostLantern2" parent="Nav" unique_id=1966458331 instance=ExtResource("14_lc8lh")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0, -4.5)
+
+[node name="Bench" parent="Nav" unique_id=1936450817 instance=ExtResource("15_tcnc8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 0, -3.8)
+
+[node name="GravemarkerA" parent="Nav" unique_id=992258105 instance=ExtResource("16_5xvwl")]
+transform = Transform3D(0.9659258, 0, 0.25881904, 0, 1, 0, -0.25881904, 0, 0.9659258, -3, 0, 1)
+
+[node name="GravemarkerB" parent="Nav" unique_id=2139752046 instance=ExtResource("17_wpo26")]
+transform = Transform3D(0.9396926, 0, -0.34202012, 0, 1, 0, 0.34202012, 0, 0.9396926, 3, 0, 0.5)
+
+[node name="Skull" parent="Nav" unique_id=1101824134 instance=ExtResource("18_giuku")]
+transform = Transform3D(0.8660254, 0, 0.5, 0, 1, 0, -0.5, 0, 0.8660254, -5.5, 0, 0.5)
+
+[node name="ShrineCandles" parent="Nav" unique_id=1428107850 instance=ExtResource("19_jxldi")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, -4.6)
+
+[node name="Decor" type="Node3D" parent="." unique_id=19166538]
+
+[node name="LanternStanding" parent="Decor" unique_id=79534729 instance=ExtResource("20_wc64u")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0, 4.2)
+
+[node name="PathA" parent="Decor" unique_id=1459407948 instance=ExtResource("21_q8w5l")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3)
+
+[node name="PathB" parent="Decor" unique_id=849153221 instance=ExtResource("22_yaoy1")]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 0, 0, -1)
+
+[node name="PathA2" parent="Decor" unique_id=1150290818 instance=ExtResource("21_q8w5l")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 1)

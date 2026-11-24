@@ -49,7 +49,8 @@ This repo is shown to people as the example of a game on unified. Everything in 
   only way in. Animation is a function of view data (what a hero is doing and since when), so a rollback or a replay
   seek always shows the right frame.
 - **Assets.** Free CC0 packs only (KayKit, Kenney, CC0 music), and only the files the game uses, each pack's licence
-  beside them and a line in `CREDITS.md`.
+  beside them and a line in `CREDITS.md`. The look and the art pipeline are `docs/ART.md`: read it before touching
+  anything visible.
 - **No names of the games we take ideas from**, in the repo or in the game.
 - **Fast.** Builds take seconds and tests run in seconds; a slowdown in `uni bench` is a bug to explain.
 
@@ -79,8 +80,9 @@ verbs, `./uni drive -h`). A changed level: `./uni bake`.
 
 ## Docs
 
-One home per fact: README.md (what the game is, how to play, how it works, the view contract), `docs/plan.md` (what
-is decided and not built yet). History lives in git. Commit messages end with the co-author line.
+One home per fact: README.md (what the game is, how to play, how it works, the view contract), `docs/ART.md` (the
+look and the art pipeline), `docs/plan.md` (what is decided and not built yet). History lives in git. Commit messages
+end with the co-author line.
 
 <!-- unified: begin: managed by `./uni refresh`, edit outside it -->
 This game is built on unified, the pinned `unified/` submodule. Before writing code or running tools, read

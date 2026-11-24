@@ -1,0 +1,21 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/kaykit/halloween/post_lantern.gltf" id="model"]
+[ext_resource type="PackedScene" path="res://game/fx/fire.tscn" id="fire"]
+
+[sub_resource type="CylinderShape3D" id="shape_0"]
+height = 3.3
+radius = 0.21
+
+[node name="PostLantern" type="StaticBody3D"]
+metadata/unified_category = 2
+
+[node name="Model" parent="." instance=ExtResource("model")]
+
+[node name="Fire" parent="." instance=ExtResource("fire")]
+transform = Transform3D(0.35, 0, 0, 0, 0.35, 0, 0, 0, 0.35, 0, 2.1, 1)
+casts_shadows = false
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.65, 0)
+shape = SubResource("shape_0")

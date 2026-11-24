@@ -8,3 +8,9 @@
 *.level binary
 simulation/tests/testdata/*.log binary
 simulation/tests/testdata/*.snap binary
+# Art, byte for byte: a pack's files stay exactly what it ships (some have CRLF line endings); Godot's .import files
+# beside them are ours, LF like the rest.
+assets/** -text
+assets/**/*.import text eol=lf
+*.glb binary
+*.png binary

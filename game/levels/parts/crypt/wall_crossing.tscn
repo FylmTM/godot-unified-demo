@@ -1,0 +1,26 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/wall_crossing.gltf" id="model"]
+
+[sub_resource type="BoxShape3D" id="shape_0"]
+size = Vector3(4, 4, 1)
+
+[sub_resource type="BoxShape3D" id="shape_1"]
+size = Vector3(1, 4, 1.5)
+
+[node name="WallCrossing" type="StaticBody3D"]
+metadata/unified_category = 2
+
+[node name="Model" parent="." instance=ExtResource("model")]
+
+[node name="Shape1" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+shape = SubResource("shape_0")
+
+[node name="Shape2" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -1.25)
+shape = SubResource("shape_1")
+
+[node name="Shape3" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 1.25)
+shape = SubResource("shape_1")

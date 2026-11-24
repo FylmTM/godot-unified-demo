@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="AnimationLibrary" path="res://assets/kaykit/animations/Rig_Medium_General.glb" id="general"]
+[ext_resource type="AnimationLibrary" path="res://assets/kaykit/animations/Rig_Medium_MovementBasic.glb" id="movement_basic"]
+[ext_resource type="AnimationLibrary" path="res://assets/kaykit/animations/Rig_Medium_MovementAdvanced.glb" id="movement_advanced"]
+[ext_resource type="AnimationLibrary" path="res://assets/kaykit/animations/Rig_Medium_CombatMelee.glb" id="combat_melee"]
+[ext_resource type="AnimationLibrary" path="res://assets/kaykit/animations/Rig_Medium_CombatRanged.glb" id="combat_ranged"]
+[ext_resource type="AnimationLibrary" path="res://assets/kaykit/animations/Rig_Medium_Special.glb" id="special"]
+
+[node name="AnimationPlayer" type="AnimationPlayer"]
+root_node = NodePath("../Model")
+libraries/General = ExtResource("general")
+libraries/MovementBasic = ExtResource("movement_basic")
+libraries/MovementAdvanced = ExtResource("movement_advanced")
+libraries/CombatMelee = ExtResource("combat_melee")
+libraries/CombatRanged = ExtResource("combat_ranged")
+libraries/Special = ExtResource("special")
+callback_mode_process = 2

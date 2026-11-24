@@ -18,8 +18,7 @@ config/features=PackedStringArray("4.7")
 [debug]
 
 gdscript/warnings/directory_rules={
-"res://.out": 0,
-"res://game/tools": 0
+"res://.out": 0
 }
 gdscript/warnings/unused_signal=0
 gdscript/warnings/shadowed_variable=0
@@ -35,3 +34,55 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[importer_defaults]
+
+texture={
+"detect_3d/compress_to": 0
+}
+scene={
+"_subresources": {
+"materials": {
+"knight": {
+"use_external/enabled": true,
+"use_external/path": "res://game/materials/knight.tres"
+},
+"barbarian": {
+"use_external/enabled": true,
+"use_external/path": "res://game/materials/barbarian.tres"
+},
+"mage": {
+"use_external/enabled": true,
+"use_external/path": "res://game/materials/mage.tres"
+},
+"rogue": {
+"use_external/enabled": true,
+"use_external/path": "res://game/materials/rogue.tres"
+},
+"skeleton": {
+"use_external/enabled": true,
+"use_external/path": "res://game/materials/skeleton.tres"
+},
+"Glow": {
+"use_external/enabled": true,
+"use_external/path": "res://game/materials/skeleton_glow.tres"
+},
+"texture": {
+"use_external/enabled": true,
+"use_external/path": "res://game/materials/dungeon.tres"
+},
+"HalloweenBits": {
+"use_external/enabled": true,
+"use_external/path": "res://game/materials/halloween.tres"
+}
+}
+},
+"gltf/embedded_image_handling": 0,
+"meshes/ensure_tangents": false
+}
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+anti_aliasing/quality/msaa_3d=2
+anti_aliasing/quality/use_debanding=true

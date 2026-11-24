@@ -31,10 +31,8 @@ braziers, and haul its treasure up to the lift.
 
 ## The look and sound
 
-KayKit's free packs (CC0): Adventurers (the heroes), Skeletons (the enemies), Character Animations (one rig and clip
-library for both), Dungeon Remastered (the crypt kit), Halloween Bits and Forest Nature (the hub). Kenney (CC0) for
-the UI, input prompts, fonts, particles and sound effects. Music: CC0 tracks, picked by the developer from
-candidates. Dark crypts lit by torches: fog, glow and particles on KayKit's flat-shaded style.
+The look is decided and lives in `docs/ART.md`. Still to come: a cutaway of walls between the camera and the heroes
+(milestone 8). Sound: Kenney's (CC0) effects; music: CC0 tracks, picked by the developer from candidates.
 
 ## What it shows of unified
 
@@ -55,6 +53,7 @@ continue; dev commands, debug draws, the dev UI, recording and replay with seek,
   speed and seeks one-shots to the action's age, so rollback corrections and replay seeks land on the right frame.
 - **The crowd:** pooled animated scenes first, then one MultiMesh animated from a texture the minion clips are baked
   into.
+- **The crowd's mesh:** a KayKit minion is 9 meshes and about 5,000 triangles; the crowd draws a merged, lighter one.
 - **Ragdolls** drawn on the KayKit skeleton from the bones' rotations.
 - **App layer:** the game's own, written fresh (menus as scenes, one Theme from Kenney's UI pack, input prompts that
   follow the device, rebinding, settings, saves, hero select).
@@ -72,7 +71,6 @@ F3 → `uni feedback` → regression loop as a walk-through.
 
 | # | What lands |
 |---|---|
-| 1 | Assets: the used subset imported, the animation library, the crypt kit as part scenes with collision, a look-dev scene |
 | 2 | First playable: one floor, the four classes' basic attacks, minions, props, carry and throw, couch and LAN play, where a joiner appears |
 | 3 | App layer: theme, input prompts, rebinding, settings, saves, hero select, EOS, open to friends, both pauses |
 | 4 | The crowd at scale (about 500, baked animation), its benchmark rows |

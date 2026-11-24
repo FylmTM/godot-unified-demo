@@ -1,0 +1,263 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/barrel_large.tscn" id="1_utdra"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/barrier.tscn" id="2_52x8a"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/barrier_column.tscn" id="3_pq38w"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/barrier_corner.tscn" id="4_fg6vt"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/barrier_half.tscn" id="5_orrqs"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/brazier.tscn" id="6_oafay"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/candle_lit.tscn" id="7_3uyoo"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/column.tscn" id="8_necu6"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/crates_stacked.tscn" id="9_t7ket"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_dirt_large.tscn" id="10_k3c16"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_dirt_large_rocky.tscn" id="11_fdtro"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_big_grate.tscn" id="12_1u85d"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_large.tscn" id="13_fkptf"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_large_rocks.tscn" id="14_bnprw"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_small.tscn" id="15_svjc1"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_small_broken_A.tscn" id="16_25nq3"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_small_broken_B.tscn" id="17_meory"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_small_decorated.tscn" id="18_au38t"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_small_weeds_A.tscn" id="19_k4v1m"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_wood_large.tscn" id="20_rmul1"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/keg.tscn" id="21_cw5wa"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/pillar.tscn" id="22_ltkip"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/pillar_decorated.tscn" id="23_wgr5a"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/rubble_half.tscn" id="24_emn5j"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/rubble_large.tscn" id="25_0vcbj"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/table_long.tscn" id="26_of0li"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/table_medium.tscn" id="27_3ys28"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/torch_mounted.tscn" id="28_ak21x"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall.tscn" id="29_hapdk"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_Tsplit.tscn" id="30_y6yo1"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_arched.tscn" id="31_ox3mi"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_archedwindow_gated.tscn" id="32_qhqnv"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_broken.tscn" id="33_f8v2h"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_corner.tscn" id="34_7rak8"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_corner_small.tscn" id="35_e02rf"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_cracked.tscn" id="36_kx6bl"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_crossing.tscn" id="37_3mh3p"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_doorway.tscn" id="38_2k60i"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_endcap.tscn" id="39_835kl"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_gated.tscn" id="40_a1tib"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_half.tscn" id="41_emsqx"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_pillar.tscn" id="42_yv0ov"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_shelves.tscn" id="43_7uxgf"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_window_closed.tscn" id="44_lqtk4"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/bench.tscn" id="45_t6uo5"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/coffin.tscn" id="46_lg5bv"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/coffin_decorated.tscn" id="47_qrwu8"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/crypt.tscn" id="48_p02st"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/fence.tscn" id="49_dmt41"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/fence_broken.tscn" id="50_v72up"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/fence_gate.tscn" id="51_g7t36"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/fence_pillar.tscn" id="52_bp3gk"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/floor_dirt.tscn" id="53_qu6io"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/grave_A.tscn" id="54_txqxl"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/grave_B.tscn" id="55_v4pvk"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/gravemarker_A.tscn" id="56_jheed"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/gravemarker_B.tscn" id="57_0ceqc"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/gravestone.tscn" id="58_47viq"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/lantern_standing.tscn" id="59_2tgh2"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/post_lantern.tscn" id="60_0nxn4"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/shrine_candles.tscn" id="61_5tece"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/skull.tscn" id="62_2kasf"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/tree_dead_large.tscn" id="63_qet2b"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/tree_dead_medium.tscn" id="64_vawbl"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/hub/tree_dead_small.tscn" id="65_0ldae"]
+
+[node name="KitStage" type="Node3D" unique_id=2031937310]
+
+[node name="BarrelLarge" parent="." unique_id=1979996624 instance=ExtResource("1_utdra")]
+
+[node name="Barrier" parent="." unique_id=241479247 instance=ExtResource("2_52x8a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 0)
+
+[node name="BarrierColumn" parent="." unique_id=1596377643 instance=ExtResource("3_pq38w")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 0)
+
+[node name="BarrierCorner" parent="." unique_id=1081190467 instance=ExtResource("4_fg6vt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, 0)
+
+[node name="BarrierHalf" parent="." unique_id=863264645 instance=ExtResource("5_orrqs")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0, 0)
+
+[node name="Brazier" parent="." unique_id=227410726 instance=ExtResource("6_oafay")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 0, 0)
+
+[node name="CandleLit" parent="." unique_id=957401800 instance=ExtResource("7_3uyoo")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0, 0)
+
+[node name="Column" parent="." unique_id=1231970197 instance=ExtResource("8_necu6")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 0, 0)
+
+[node name="CratesStacked" parent="." unique_id=434731548 instance=ExtResource("9_t7ket")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 0, 0)
+
+[node name="FloorDirtLarge" parent="." unique_id=1176943406 instance=ExtResource("10_k3c16")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90, 0, 0)
+
+[node name="FloorDirtLargeRocky" parent="." unique_id=226242724 instance=ExtResource("11_fdtro")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 0, 0)
+
+[node name="FloorTileBigGrate" parent="." unique_id=1963911443 instance=ExtResource("12_1u85d")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 0, 0)
+
+[node name="FloorTileLarge" parent="." unique_id=348400819 instance=ExtResource("13_fkptf")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 120, 0, 0)
+
+[node name="FloorTileLargeRocks" parent="." unique_id=1050644301 instance=ExtResource("14_bnprw")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130, 0, 0)
+
+[node name="FloorTileSmall" parent="." unique_id=2024352749 instance=ExtResource("15_svjc1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 140, 0, 0)
+
+[node name="FloorTileSmallBrokenA" parent="." unique_id=333805622 instance=ExtResource("16_25nq3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 150, 0, 0)
+
+[node name="FloorTileSmallBrokenB" parent="." unique_id=643875952 instance=ExtResource("17_meory")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 0, 0)
+
+[node name="FloorTileSmallDecorated" parent="." unique_id=119721855 instance=ExtResource("18_au38t")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 170, 0, 0)
+
+[node name="FloorTileSmallWeedsA" parent="." unique_id=1788046156 instance=ExtResource("19_k4v1m")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 180, 0, 0)
+
+[node name="FloorWoodLarge" parent="." unique_id=96615996 instance=ExtResource("20_rmul1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 190, 0, 0)
+
+[node name="Keg" parent="." unique_id=719165935 instance=ExtResource("21_cw5wa")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 200, 0, 0)
+
+[node name="Pillar" parent="." unique_id=1458286748 instance=ExtResource("22_ltkip")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 210, 0, 0)
+
+[node name="PillarDecorated" parent="." unique_id=1488964074 instance=ExtResource("23_wgr5a")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 220, 0, 0)
+
+[node name="RubbleHalf" parent="." unique_id=1867505186 instance=ExtResource("24_emn5j")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 230, 0, 0)
+
+[node name="RubbleLarge" parent="." unique_id=1401833588 instance=ExtResource("25_0vcbj")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 0, 0)
+
+[node name="TableLong" parent="." unique_id=473626424 instance=ExtResource("26_of0li")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 250, 0, 0)
+
+[node name="TableMedium" parent="." unique_id=560590784 instance=ExtResource("27_3ys28")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 260, 0, 0)
+
+[node name="TorchMounted" parent="." unique_id=531419090 instance=ExtResource("28_ak21x")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 270, 0, 0)
+
+[node name="Wall" parent="." unique_id=2032535336 instance=ExtResource("29_hapdk")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 280, 0, 0)
+
+[node name="WallTsplit" parent="." unique_id=1214470941 instance=ExtResource("30_y6yo1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 290, 0, 0)
+
+[node name="WallArched" parent="." unique_id=1970828347 instance=ExtResource("31_ox3mi")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 300, 0, 0)
+
+[node name="WallArchedwindowGated" parent="." unique_id=1504686727 instance=ExtResource("32_qhqnv")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 310, 0, 0)
+
+[node name="WallBroken" parent="." unique_id=1536696498 instance=ExtResource("33_f8v2h")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 320, 0, 0)
+
+[node name="WallCorner" parent="." unique_id=493308446 instance=ExtResource("34_7rak8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 330, 0, 0)
+
+[node name="WallCornerSmall" parent="." unique_id=1947344730 instance=ExtResource("35_e02rf")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 340, 0, 0)
+
+[node name="WallCracked" parent="." unique_id=1558689866 instance=ExtResource("36_kx6bl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 350, 0, 0)
+
+[node name="WallCrossing" parent="." unique_id=508375385 instance=ExtResource("37_3mh3p")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 360, 0, 0)
+
+[node name="WallDoorway" parent="." unique_id=829052581 instance=ExtResource("38_2k60i")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 370, 0, 0)
+
+[node name="WallEndcap" parent="." unique_id=526007215 instance=ExtResource("39_835kl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 380, 0, 0)
+
+[node name="WallGated" parent="." unique_id=820974712 instance=ExtResource("40_a1tib")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 390, 0, 0)
+
+[node name="WallHalf" parent="." unique_id=583352413 instance=ExtResource("41_emsqx")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 400, 0, 0)
+
+[node name="WallPillar" parent="." unique_id=243555637 instance=ExtResource("42_yv0ov")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 410, 0, 0)
+
+[node name="WallShelves" parent="." unique_id=1516838514 instance=ExtResource("43_7uxgf")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 420, 0, 0)
+
+[node name="WallWindowClosed" parent="." unique_id=149884 instance=ExtResource("44_lqtk4")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 430, 0, 0)
+
+[node name="Bench" parent="." unique_id=983819652 instance=ExtResource("45_t6uo5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 14)
+
+[node name="Coffin" parent="." unique_id=443612282 instance=ExtResource("46_lg5bv")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 14)
+
+[node name="CoffinDecorated" parent="." unique_id=242196889 instance=ExtResource("47_qrwu8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 14)
+
+[node name="Crypt" parent="." unique_id=842001714 instance=ExtResource("48_p02st")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, 14)
+
+[node name="Fence" parent="." unique_id=528587994 instance=ExtResource("49_dmt41")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0, 14)
+
+[node name="FenceBroken" parent="." unique_id=123380504 instance=ExtResource("50_v72up")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 0, 14)
+
+[node name="FenceGate" parent="." unique_id=1430711628 instance=ExtResource("51_g7t36")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0, 14)
+
+[node name="FencePillar" parent="." unique_id=2134257856 instance=ExtResource("52_bp3gk")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 0, 14)
+
+[node name="FloorDirt" parent="." unique_id=1114563944 instance=ExtResource("53_qu6io")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 0, 14)
+
+[node name="GraveA" parent="." unique_id=1069169884 instance=ExtResource("54_txqxl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90, 0, 14)
+
+[node name="GraveB" parent="." unique_id=1081689513 instance=ExtResource("55_v4pvk")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 100, 0, 14)
+
+[node name="GravemarkerA" parent="." unique_id=1940806421 instance=ExtResource("56_jheed")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 0, 14)
+
+[node name="GravemarkerB" parent="." unique_id=937272771 instance=ExtResource("57_0ceqc")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 120, 0, 14)
+
+[node name="Gravestone" parent="." unique_id=682174247 instance=ExtResource("58_47viq")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 130, 0, 14)
+
+[node name="LanternStanding" parent="." unique_id=540089886 instance=ExtResource("59_2tgh2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 140, 0, 14)
+
+[node name="PostLantern" parent="." unique_id=2102246425 instance=ExtResource("60_0nxn4")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 150, 0, 14)
+
+[node name="ShrineCandles" parent="." unique_id=645889901 instance=ExtResource("61_5tece")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 0, 14)
+
+[node name="Skull" parent="." unique_id=1061781800 instance=ExtResource("62_2kasf")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 170, 0, 14)
+
+[node name="TreeDeadLarge" parent="." unique_id=2000785966 instance=ExtResource("63_qet2b")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 180, 0, 14)
+
+[node name="TreeDeadMedium" parent="." unique_id=1963576078 instance=ExtResource("64_vawbl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 190, 0, 14)
+
+[node name="TreeDeadSmall" parent="." unique_id=2138490488 instance=ExtResource("65_0ldae")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 200, 0, 14)

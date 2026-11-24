@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/barrier_column.gltf" id="model"]
+
+[sub_resource type="BoxShape3D" id="shape_0"]
+size = Vector3(4, 1.4, 0.7)
+
+[node name="BarrierColumn" type="StaticBody3D"]
+metadata/unified_category = 4
+
+[node name="Model" parent="." instance=ExtResource("model")]
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("shape_0")

@@ -27,3 +27,31 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
 - `odinfmt.json` is now kept at a game's root (the editor's format-on-save used a different style otherwise).
   `ols.json` and `odinfmt.json` at the root may end up in a Godot export: check at the release milestone.
 - The format hook builds odinfmt on the first edit in a fresh repo (up to a minute once) instead of skipping it.
+- `uni`'s import check now notices a changed `.import` (an asset's import settings), and unified's Godot rule no longer
+  says never to edit one: a game sets its import settings there and commits them.
+
+## Milestone 1: the art
+
+- Rogue class is the hooded Rogue model with the two-handed crossbow (the pack textures its crossbows with the rogue
+  atlas; the hood reads well from above). The Ranger and the bare-headed Rogue are not committed.
+- World scale is KayKit's native (heroes about 2.4 m, a 4 m grid).
+- The forest pack was dropped: its trees, bushes and grass looked wrong in the graveyard, and its rocks would have been
+  walk-through decor in the play area. The hub is Halloween Bits only.
+- The open-grave floor tile was dropped: its pit can't be walked over, and a floor that isn't flat needs its own design.
+- No pack has a brazier: a column holding an unlit torch head (3 m) is the stand, a part that blocks shots like a wall;
+  its fire is shown apart, since lighting braziers is the floor's goal.
+- Large barrels, kegs, stacked crates and tables are scenery parts that never move; small barrels, boxes, chests and
+  coins are what the sim will move.
+- Collision categories: floor 1, wall 2, low cover 4, with low cover's model at most 1.5 m tall (graves and fences are
+  walls; the hub's grave markers and skull are low cover parts now, not walk-through decor).
+- Lighting: the braziers' fires cast shadows; wall torches, candles and lanterns don't (cost). Each hero carries a soft
+  unshadowed light, prototyped in look-dev now rather than with the hero view. Crypt ambient raised, fog thinned.
+- The side of a room toward the camera is low cover in the look-dev crypt, so walls never hide the heroes; a wall
+  cutaway is a milestone 8 item.
+- Clip loops live in `clips.gd` (`Clips.LOOPING`) and `CharacterRig.pose()` wraps them, rather than in each clip
+  file's `.import`, which made those files about 1 MB of Godot's per-clip defaults.
+- Textures are lossless without mipmaps (palette atlases); far floors may shimmer slightly in motion. Revisit if it
+  shows in play.
+- `godot-bindings` (unified's suite) failed its views timing test ("events arrive CONFIRMED ... never a frame late")
+  in three of four runs while two other Godot jobs loaded the machine, and passed on an idle one. A timing test that
+  flakes under load; not investigated further.
