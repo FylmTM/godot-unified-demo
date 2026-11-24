@@ -29,7 +29,8 @@ sample_input :: proc(local: int, input: ^g.Input) {
 	stick := godot.action_vector("aim_left", "aim_right", "aim_up", "aim_down")
 	aim := stick * PAD_REACH
 	device := godot.local_device(local)
-	if stick == {} && (device == godot.DEVICE_ANY || device == godot.DEVICE_KEYBOARD) {
+	// the mouse's aim is play.gd's value: honour the dev UI holding the keyboard, as the actions above already do
+	if stick == {} && (device == godot.DEVICE_ANY || device == godot.DEVICE_KEYBOARD) && !godot.input_blocked() {
 		aim = godot.input_values(Input_Values).aim
 	}
 	input.aim = dmath.dir2(aim)

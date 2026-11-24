@@ -80,7 +80,7 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
   or the keyboard and mouse); an unclaimed pad's Start joins it as another player with class Any; a pad joining while
   the first player reads every device moves them onto the keyboard and mouse (undone if the session refuses the
   joiner). The mouse aims for whoever holds the keyboard, never within 0.5 m of the hero, and not while game input is
-  off. The dev UI's keyboard isn't visible to scripts, so the mouse still aims while a dev UI text field has it.
+  off, nor while the dev UI holds the keyboard (godot.input_blocked, added to unified for it).
 - A returning hero plays its Profile's class when it wishes for one, and the class it played when its wish is Any.
 - `Input.reach` (in 0.25 m steps; 0: no point) rides in the Input from now, sampled from the mouse's distance or the
   stick's push times 10 m (`PAD_REACH`), scripted, and read by no rule yet: throws and ground-targeted casts will.
