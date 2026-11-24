@@ -63,7 +63,7 @@ func run() -> void:
 
 
 ## Every pack folder (`assets/<vendor>/<pack>/`) has its licence and a CREDITS.md row; every file in it is a pack's
-## glTF, glTF buffer or PNG, or Godot's .import beside one, and something in the game uses it.
+## glTF, glTF buffer, PNG, font or sound, or Godot's .import beside one, and something in the game uses it.
 func _check_assets() -> void:
 	var credits: String = FileAccess.get_file_as_string("res://CREDITS.md")
 	var used: Dictionary[String, bool] = _used_files()
@@ -92,7 +92,7 @@ func _check_asset(path: String, used: Dictionary[String, bool]) -> void:
 				_problem("an .import whose asset is gone", path)
 			else:
 				_check_import(path)
-		"glb", "gltf", "png":
+		"glb", "gltf", "png", "ttf", "ogg":
 			if not used.has(path):
 				_problem("no scene of the game uses it (only used files are committed)", path)
 			if path.get_extension() == "gltf" and not FileAccess.file_exists(path.get_basename() + ".bin"):
@@ -101,7 +101,7 @@ func _check_asset(path: String, used: Dictionary[String, bool]) -> void:
 			if not FileAccess.file_exists(path.get_basename() + ".gltf"):
 				_problem("a .bin with no .gltf", path)
 		_:
-			_problem("not a file the art pipeline takes (glTF, its .bin, or PNG)", path)
+			_problem("not a file the art pipeline takes (glTF, its .bin, PNG, TTF or Ogg)", path)
 
 
 ## An asset's import settings are the pipeline's (docs/ART.md, Import): a texture stays lossless, without mipmaps,
@@ -481,12 +481,13 @@ func _find(parent: Dictionary[int, int], polygon: int) -> int:
 	return polygon
 
 
-## Every file a scene under game/ depends on, recursively (a glTF's texture through the shared material its import
-## maps it to).
+## Every file a scene under game/ or the project's theme (which no scene names: every Control has it) depends on,
+## recursively (a glTF's texture through the shared material its import maps it to).
 func _used_files() -> Dictionary[String, bool]:
 	var used: Dictionary[String, bool] = {}
 	var pending: Array[String] = []
 	_collect_scenes(GAME, pending)
+	pending.append(str(ProjectSettings.get_setting("gui/theme/custom")))
 	while not pending.is_empty():
 		var path: String = pending.pop_back()
 		if used.has(path):
