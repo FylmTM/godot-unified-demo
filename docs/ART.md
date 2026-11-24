@@ -146,18 +146,18 @@ The renderer is Forward+ with 4× MSAA and debanding (`project.godot`).
 One Theme, `game/ui/theme.tres`, is the project's (`gui/theme/custom`), so every menu, overlay and HUD control has it
 with no code; it is a file, edited as text or in Godot's theme editor. It is drawn from Kenney's UI Pack Adventure,
 its brown family only: the parchment panel with metal corners for what asks the player something, the dark panel
-(darkened, nearly opaque) for plates over the world, the brown button with ink lettering, the red one for what ends
-something, the hanging banner for a moment's title. The focus, the pad's cursor, is a gold frame drawn just outside
-the control, the one bright thing on a menu; a button the mouse moves over takes it, so there is never a second
-highlight. Lettering is Kenney Future for titles, headings and buttons and Kenney Future Narrow for the rest, both
-capitals only; type variations name each use (`Title`, `Heading`, `HudText`, `Dim`, and `Ink`, `InkHeading`, `InkDim`
-on parchment).
+(darkened, nearly opaque) for plates over the world, the brown button with ink lettering, the hanging banner for a
+moment's title. The focus, the pad's cursor, is a gold frame drawn just outside the control, pulsing slowly: the one
+bright thing on a menu. Lettering is Kenney Mini Square, and Kenney Future for the game's name on the title; type
+variations name each use (`Title`, `Heading`, `HudText`, `Dim`, and `Ink`, `InkHeading`, `InkDim` on parchment).
 
-The canvas is 1920×1080 (`window/size/viewport_*`; the window opens at 1280×720, and the canvas stretches to the
-window): the pack's Double PNGs draw at their own size there, so they stay sharp up to 1440p. Layouts hang from the
-centre and the corners, so a wider screen only gains room. The HUD comes after everything in the readability order:
-plates in the corners, nothing over the middle, and none of its controls takes a click or the focus.
+The canvas is 1920×1080 (`window/size/viewport_*`; the window opens at 1280×720, an export fullscreen, and the canvas
+stretches to the window): the pack's Double PNGs draw at their own size there, so they stay sharp up to 1440p.
+Layouts hang from the centre and the corners, so a wider screen only gains room. The HUD comes after everything in the
+readability order: plates in the corners, nothing over the middle, and none of its controls takes a click or the
+focus.
 
 The menus stand over a graveyard at night built from the hub kit (`game/menu/backdrop.tscn`), lit as the hub is, with
 the four heroes idling at its gate. The interface's sounds are Kenney's Interface Sounds, played by `Sfx`
-(`game/app/sfx.gd`), which wires every button itself.
+(`game/app/sfx.gd`); `Game` gives every button of the game its press sound and the focus moving its select sound, so
+no screen plays one by hand.
