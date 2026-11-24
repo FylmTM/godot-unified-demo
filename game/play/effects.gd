@@ -11,7 +11,7 @@ extends Node3D
 ## How many of each effect play at once; the next one reuses the oldest.
 const POOL_SIZE: int = 12
 ## How long a tracer takes to fade, in seconds.
-const TRACER_FADE_S: float = 0.25
+const TRACER_FADE_S: float = 0.15
 
 ## The effects' scenes (game/fx/).
 @export var sparks_scene: PackedScene

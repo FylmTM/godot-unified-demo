@@ -159,8 +159,19 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
   are 3 m (the cleave's reach and a minion's radius fit a 3 by 3 query).
 - Views: each attack clip is offset so its blow, sampled from the clip (the hand's fastest moment), lands at the
   class's windup, which the extension hands the views as constants. The bolt is one glowing orb for every class colour
-  (no per-instance colour yet). The Rogue's shoot clip turns the body, so the hero seems to aim off its facing while
-  it plays.
+  (no per-instance colour yet). The Rogue's shoot clip stands side-on, so the rig turns a quarter while the Rogue
+  shoots (the crossbow along the facing), and its release is the recoil (0.375 s into the clip), not the raise.
+- The crossbow's tracer is a glowing additive beam (a gradient across a flat quad) that fades in 0.15 s; Kenney's
+  dotted trace texture is gone.
 - `tests/bot.odin` fights the nearest skeleton (melee walks up, Mage and Rogue stand off at 7 m), and picks up and
   throws a prop that is within 1.6 m; slot 0 raises skeletons every 10 s. The three-minute playthrough runs in the
   default tier (about 2.5 s).
+- Close-out, step 5: `game/tools/coop.gd` checks the joiner's hero arrives within 3.5 m of the host's (the arrival
+  ring and a metre), on each side; the joiner stands 3 s before it moves, so the host sees it where it arrived.
+- The replay regression `replays/four_classes` is a driven session of about two and a half minutes (every class in
+  turn, a throw, several surges, a dev down and the floor's restart), recorded by the dev build. A `uni drive stop`
+  quits the tree without ending the session, so nothing is recorded (this game has no Game autoload with
+  `quit_app`): the session was left first (`drive eval` of its `leave()`). Closing the window loses the recording
+  the same way, until the app layer (milestone 3) quits through a leave.
+- The reference run is pinned at 2400 ticks with its snapshot at 1200: it crosses the script's first wipe and several
+  surges. VERSION stays "1" (nothing was pinned before).

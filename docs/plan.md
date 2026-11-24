@@ -8,14 +8,11 @@ the doc comments, and leave this file; when the game is done, this file is gone.
 A top-down co-op dungeon crawler for 1–4 players: adventurers go down a crypt full of skeletons, relight its
 braziers, and haul its treasure up to the lift.
 
-- **Camera and controls.** A fixed 3/4 angle that zooms to frame every local hero; twin-stick (move, and aim with the
-  mouse or the right stick). One shared camera, so couch co-op needs no split screen.
 - **A floor.** Light the braziers while skeleton surges come for you; the lit braziers open the vault. Then carry the
   hoard back to the lift: it has two handles, so two heroes carry it at walking speed and one alone drags it, while
   the crypt wakes behind them. The lift is the save point; each hero picks a boon and the party descends.
 - **A run.** A hub between runs (the lobby), three floors, and a boss vault: 20–30 minutes. A run saves at every lift
-  and continues from the menu. A player can join or rejoin at any time; where a newcomer's hero appears mid-floor is
-  decided with milestone 2's design.
+  and continues from the menu. A player can join or rejoin at any time.
 - **Failure.** A downed hero ragdolls and can be revived by holding interact beside them. When the whole party is
   down, the floor restarts from the last save.
 - **Heroes.** Four classes (the Profile): Knight (sword arc, shield charge, block), Barbarian (cleave; grabs and
@@ -27,7 +24,6 @@ braziers, and haul its treasure up to the lift.
 - **Depth.** Difficulty levels (the Setup); an endless arena mode (also the stress and benchmark scene); progress
   across runs (unlocks, best floors, gold hauled) that each player brings into a session through their Profile; each
   floor in 2–3 authored layouts, the run's seed picking the layout and placing spawns, props, traps and loot.
-- **Couch co-op** from the first playable: a pad presses Start to join; local and online players mix.
 
 ## The look and sound
 
@@ -67,24 +63,13 @@ run checked on every CI platform; replay regressions recorded from real play, in
 scripted bot playthrough; the Godot suite (its steps: `./uni test -h`); `uni coop` with rejoin and crash; and the
 F3 → `uni feedback` → regression loop as a walk-through.
 
-## Milestone 2: the design
-
-The first playable, as decided (two designers merged; the calls are in `docs/review.md`). Heroes, input, props,
-carrying and throwing, the four classes' attacks, minions, the director, going down and rising, the wipe, joining
-beside the party, the bolts' MultiMesh and the fights' effects are built: their facts live in the code and the README.
-What is still to come:
-
-**Tests.** The reference run pinned once the milestone's rules settle; one recorded replay regression;
-`game/tools/coop.gd` checks a joiner arrives beside the host.
-
 ## Milestones
 
 | # | What lands |
 |---|---|
-| 2 | First playable: one floor, the four classes' basic attacks, minions, props, carry and throw, couch and LAN play, where a joiner appears |
 | 3 | App layer: theme, input prompts, rebinding, settings, saves, hero select, EOS, open to friends, both pauses |
 | 4 | The crowd at scale (about 500, baked animation), its benchmark rows |
-| 5 | Combat depth: abilities, elites, shots where seen, downed and revive, loot shown only when confirmed |
+| 5 | Combat depth: abilities, elites, downed and revive, loot shown only when confirmed |
 | 6 | Physics set pieces: joints, plates, the lift, boons picked at it, traps, ragdolls, the hoard haul, the party wipe |
 | 7 | The run: the hub, three floors with their layouts, the boss, save and continue, difficulty, progress across runs, endless arena |
 | 8 | Polish: effects, audio, music, lighting, accessibility |

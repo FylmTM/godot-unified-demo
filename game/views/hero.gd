@@ -30,11 +30,15 @@ const PHASE_PER_KEY: float = 0.618034
 ## so its arm comes through at the sim's THROW_WINDUP_S (0.25 s), when the prop leaves the hands.
 const PICK_UP_FROM: float = 0.25
 const THROW_FROM: float = 0.4
-## When each class's attack clip lands its blow or loosens its shot (seconds in: where the hand moves fastest).
+## When each class's attack clip lands its blow or loosens its shot (seconds in: where the hand moves fastest; the
+## Rogue's raises the crossbow first, so its shot is the recoil after).
 const KNIGHT_BLOW_AT: float = 0.275
 const BARBARIAN_BLOW_AT: float = 0.4
 const MAGE_CAST_AT: float = 0.1
-const ROGUE_SHOT_AT: float = 0.125
+const ROGUE_SHOT_AT: float = 0.375 # the recoil: past the raise, the crossbow up
+## KayKit's two-handed shoot clip stands side-on, the crossbow out of the model's right side: the rig turns this much
+## (radians about +Y) while the Rogue shoots, so the crossbow points along the hero's facing.
+const ROGUE_SHOT_TURN: float = PI / 2
 
 ## Each class's character.
 @export var knight: PackedScene
@@ -74,6 +78,8 @@ func _process(_delta: float) -> void:
 			_pose_attack((now - data.action_started) / Unified.tick_hz)
 		_:
 			_rig.pose(_gait(), now / Unified.tick_hz + float(_view.player) * PHASE_PER_KEY)
+	var shooting: bool = data.action == EnumAction.ATTACK and data.class == EnumClass.ROGUE
+	_rig.rotation.y = ROGUE_SHOT_TURN if shooting else 0.0
 	_rig.visible = not data.grace or fposmod(now, 2.0 * GRACE_BLINK_TICKS) < GRACE_BLINK_TICKS
 
 

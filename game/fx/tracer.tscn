@@ -1,18 +1,25 @@
 [gd_scene format=3]
 
-[ext_resource type="Texture2D" path="res://assets/kenney/particles/trace_01.png" id="trace"]
+[sub_resource type="Gradient" id="across"]
+offsets = PackedFloat32Array(0, 0.35, 0.5, 0.65, 1)
+colors = PackedColorArray(1, 0.75, 0.4, 0, 1, 0.75, 0.4, 0.35, 1, 0.95, 0.85, 1, 1, 0.75, 0.4, 0.35, 1, 0.75, 0.4, 0)
 
-[sub_resource type="StandardMaterial3D" id="streak"]
+[sub_resource type="GradientTexture2D" id="beam"]
+gradient = SubResource("across")
+width = 32
+height = 4
+
+[sub_resource type="StandardMaterial3D" id="glow"]
 transparency = 1
 blend_mode = 1
 cull_mode = 2
 shading_mode = 0
-albedo_color = Color(3.2, 2.4, 1.4, 1)
-albedo_texture = ExtResource("trace")
+albedo_color = Color(3, 2.2, 1.3, 1)
+albedo_texture = SubResource("beam")
 
 [sub_resource type="QuadMesh" id="strip"]
-material = SubResource("streak")
-size = Vector2(0.18, 1)
+material = SubResource("glow")
+size = Vector2(0.2, 1)
 orientation = 1
 
 [node name="Tracer" type="MeshInstance3D"]

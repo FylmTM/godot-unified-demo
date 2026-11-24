@@ -11,4 +11,4 @@ gladly. Everything under `assets/` is a pack's own files, unchanged, with the pa
 | [KayKit Character Animations](https://kaylousberg.itch.io/kaykit-character-animations) | Kay Lousberg | 1.1 | `assets/kaykit/animations/` | every character's clips |
 | [KayKit Dungeon Pack](https://kaylousberg.itch.io/kaykit-dungeon-pack) | Kay Lousberg | 1.1 | `assets/kaykit/dungeon/` | the crypt kit and its props |
 | [KayKit Halloween Bits](https://kaylousberg.itch.io/halloween-bits) | Kay Lousberg | 1.0 | `assets/kaykit/halloween/` | the graveyard hub, bones and coffins |
-| [Particle Pack](https://kenney.nl/assets/particle-pack) | Kenney | 1.1 | `assets/kenney/particles/` | fire, sparks, bolt bursts, dust and the crossbow's tracer |
+| [Particle Pack](https://kenney.nl/assets/particle-pack) | Kenney | 1.1 | `assets/kenney/particles/` | fire, sparks, bolt bursts and dust |
