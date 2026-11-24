@@ -22,8 +22,16 @@ View :: union {
 	View_Minion,
 }
 
-// No MultiMesh views yet.
-MultiView :: enum u8 {}
+// The MultiMesh views (a MultiMeshInstance3D with a UnifiedMultiView each): the Mage's bolts, keyed by their handles.
+MultiView :: enum u8 {
+	Bolt,
+}
+
+// How each MultiMesh kind is shown: a bolt's corrections glide like a scene view's (each keyed instance a track), since
+// a bolt is few and fast and a pop would show.
+MULTI_POLICY := [MultiView]godot.View_Policy {
+	.Bolt = {smoothing = godot.SMOOTHING_DEFAULT},
+}
 
 // A hero, posed at its feet and turned to its facing. Its animation is a function of this data (game/views/hero.gd):
 // a one-shot action at its age (a pick-up, a throw, going down), else a gait picked from its velocity in its own frame.
@@ -59,7 +67,7 @@ MINION_STILL_SPEED :: f32(0.3)
 // The kinds whose policy isn't the default (Glue.view_policy): minions appear once verified.
 VIEW_POLICY := []godot.View_Kind_Policy{{View_Minion, {appear = .Verified}}}
 
-// Every present hero, every prop, every minion, then the HUD's data.
+// Every present hero, every prop, every bolt, every minion, then the HUD's data.
 fill_frame :: proc(f: ^Frame) {
 	heroes := sim.iterate_present(&f.state.players)
 	for hero, player in sim.next(&heroes) {
@@ -78,6 +86,10 @@ fill_frame :: proc(f: ^Frame) {
 		})
 	}
 	fill_props(f)
+	bolts := sim.iterate(&f.state.bolts)
+	for bolt, handle in sim.next(&bolts) {
+		godot.push_multi_view(f, {key = sim.handle_key(handle), kind = .Bolt, pos = sim.Position(bolt.pos)})
+	}
 	minions := sim.iterate(&f.state.minions)
 	for minion, handle in sim.next(&minions) {
 		godot.push_view(f, handle, {pos = sim.Position(minion.pos), rot = dmath.quat_yaw(minion.facing)}, View_Minion {

@@ -44,14 +44,15 @@ locate_heroes :: proc(t: ^Tick) {
 }
 
 // Each present hero's controller is driven toward its stick at its class's max_speed, slowed by what it carries
-// (carry_speed); a hero down is driven to a stop. Heroes never jump.
+// (carry_speed) and by attacking (ATTACK_SPEED); a hero down is driven to a stop. Heroes never jump.
 move_heroes :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
 		input := sim.input(t, player)
 		move := dmath.stick(input.move_x, input.move_z) if hero.action != .Down else {} // down: the drive holds it still
 		def := t.world.hero_defs[hero.class]
-		physics.character_update(t.world.phys, &hero.body, def, move, false, carry_speed(t, hero))
+		scale := carry_speed(t, hero) * (ATTACK_SPEED if hero.action == .Attack else 1)
+		physics.character_update(t.world.phys, &hero.body, def, move, false, scale)
 	}
 }
 

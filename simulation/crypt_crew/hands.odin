@@ -36,9 +36,9 @@ REACH_FILTER :: physics.Filter {
 	mask     = CAT_WALL,
 }
 
-// Whether a hero's hands are free to grab: up, not throwing, holding nothing.
+// Whether a hero's hands are free to grab: up, not throwing or attacking, holding nothing.
 can_grab :: proc(hero: ^Hero) -> bool {
-	return hero.action != .Down && hero.action != .Throw && hero.held == {}
+	return hero.action != .Down && hero.action != .Throw && hero.action != .Attack && hero.held == {}
 }
 
 // The prop `hero`, facing `facing`, would grab now (the null handle: none): nothing unless its hands are free
@@ -86,7 +86,7 @@ use_hands :: proc(t: ^Tick) {
 			continue
 		case .Pick_Up:
 			if age >= PICK_UP_TICKS do hero.action = .None
-		case .Down:
+		case .Down, .Attack:
 			continue
 		case .None:
 		}
@@ -188,6 +188,7 @@ throw_prop :: proc(t: ^Tick, player: sim.Player) {
 	hero := sim.player_data(t, player)
 	velocity := [3]f32{hero.facing.x * THROW_SPEED, THROW_LIFT, hero.facing.y * THROW_SPEED}
 	prop.thrown_by = player
+	sim.clear(&prop.hits) // a new throw: every minion may be hurt again
 	sim.timer_start_ticks(t, &prop.thrown, THROWN_TICKS)
 	physics.stop_ignoring(t.world.phys, &prop.thrower_ignore) // a throw of a prop still clearing its last thrower
 	prop.thrower_ignore = physics.ignore_contacts(t.world.phys, physics.link(hero.body.body), physics.link(prop.body))

@@ -51,19 +51,30 @@ SIGHT_FILTER :: physics.Filter {
 	mask     = CAT_WALL,
 }
 
-// `player` hit `minion` for `damage` (sim.Position: where).
+// What hit a minion.
+Hit_Source :: enum u8 {
+	Blow, // a Knight's or a Barbarian's swing
+	Bolt, // a Mage's bolt, or its burst
+	Crossbow, // a Rogue's shot
+	Prop, // a thrown prop
+	Dev, // dev_kill_minions
+}
+
+// `player` hit `minion` for `damage` with `source` (sim.Position: where).
 Event_Minion_Hit :: struct {
 	minion:   sim.Handle(Minion),
 	position: sim.Position,
 	damage:   i16,
 	player:   sim.Player,
+	source:   Hit_Source,
 }
 
-// `minion` died, killed by `player` ({}: nobody's).
+// `minion` died, killed by `player` ({}: nobody's) with `source`.
 Event_Minion_Died :: struct {
 	minion:   sim.Handle(Minion),
 	position: sim.Position,
 	player:   sim.Player,
+	source:   Hit_Source,
 }
 
 // A minion in `phase` at `at` (a point of `poly`), facing `facing`, at full health, of pack `pack` (0: none); false
@@ -111,9 +122,9 @@ minions_alive :: proc(minions: ^sim.Table(Minion, MAX_MINIONS)) -> int {
 	return alive
 }
 
-// `minion` takes `damage` (> 0) from `player` ({}: nobody), knocked along `knock_dir` (unit, x and z) at `knock`
-// metres per second; asleep, it wakes, and its pack with it; at 0 it dies (Dying). A dying minion takes nothing. The
-// only way a minion takes damage or dies.
+// `minion` takes `damage` (> 0) from `player` ({}: nobody) by `source`, knocked along `knock_dir` (unit, x and z) at
+// `knock` metres per second; asleep, it wakes, and its pack with it; at 0 it dies (Dying). A dying minion takes
+// nothing. The only way a minion takes damage or dies.
 damage_minion :: proc(
 	t: ^Tick,
 	handle: sim.Handle(Minion),
@@ -121,6 +132,7 @@ damage_minion :: proc(
 	knock_dir: [2]f32,
 	knock: f32,
 	player: sim.Player,
+	source: Hit_Source,
 ) {
 	minion := sim.get(&t.state.minions, handle)
 	if minion == nil || minion.phase == .Dying || damage <= 0 do return
@@ -133,11 +145,18 @@ damage_minion :: proc(
 		position = sim.Position(minion.pos),
 		damage   = damage,
 		player   = player,
+		source   = source,
 	}
 	sim.emit(t, hit)
 	if minion.hp > 0 do return
 	minion.phase, minion.since, minion.target = .Dying, t.time, {}
-	sim.emit(t, Event_Minion_Died{minion = handle, position = sim.Position(minion.pos), player = player})
+	died := Event_Minion_Died {
+		minion   = handle,
+		position = sim.Position(minion.pos),
+		player   = player,
+		source   = source,
+	}
+	sim.emit(t, died)
 }
 
 // A sleeping minion wakes and chases: every sleeper of its pack with it (a lone one, alone).
@@ -209,8 +228,7 @@ age_minions :: proc(t: ^Tick) {
 }
 
 // The live minions into the World's grid (laid over the mesh in world_create), in table order, so a cell's minions
-// come in index order.
-@(private = "file")
+// come in index order: scratch, rebuilt by each pass that asks it (the moves; the strikes after the step).
 build_grid :: proc(t: ^Tick) {
 	sim.grid_begin(&t.world.grid, t.world.grid_origin, MINION_GRID_CELL, t.world.grid_columns, t.world.grid_rows)
 	minions := sim.iterate(&t.state.minions)

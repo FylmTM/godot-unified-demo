@@ -13,6 +13,7 @@ State :: struct {
 	players: sim.Players(Hero, Profile, Input, PLAYERS),
 	props:   sim.Table(Prop, MAX_PROPS), // made from the floor's prop markers, in marker order (props.odin)
 	minions: sim.Table(Minion, MAX_MINIONS), // the skeletons, rows with no body (minions.odin)
+	bolts:   sim.Table(Bolt, MAX_BOLTS), // the Mage's bolts in flight (bolts.odin)
 	surge:   sim.Timer, // the next surge rises when it runs out (director.odin)
 	surges:  u32, // the surges risen this session (Event_Surge's count)
 	rises:   u32, // the minions the director raised this session: what each one's rolls are named by
@@ -21,13 +22,13 @@ State :: struct {
 	_pad:    u32,
 }
 
-// What a hero is doing, for the view to pose (a one-shot clip at its age). The attacks append theirs (docs/plan.md,
-// Milestone 2: the design).
+// What a hero is doing, for the view to pose (a one-shot clip at its age).
 Action :: enum u8 {
 	None, // walking or standing: the view picks its gait from the velocity
 	Pick_Up, // a grab, for PICK_UP_S
 	Throw, // a throw, for THROW_S: the prop leaves the hands THROW_WINDUP_S into it
-	Down, // at 0 HP, limp, until it rises (health.odin)
+	Down, // at 0 HP, held still, until it rises (health.odin)
+	Attack, // its class's attack, for its spec's duration: the blow lands its windup into it (attacks.odin)
 }
 
 // A player's hero (the State's sim.Players, by member): zeroed for someone new, kept while they are away. A leave
@@ -42,6 +43,7 @@ Hero :: struct {
 	held:           sim.Handle(Prop), // the prop it carries (the null handle: none)
 	respawn:        sim.Timer, // while down: it rises beside the party when this runs out
 	grace:          sim.Timer, // after rising: no damage while it runs
+	attack_ready:   sim.Timer, // no attack starts while it runs (its class's cooldown)
 	action_started: sim.Game_Time, // when `action` began (t.time): the view's clip time
 	hp:             i16,
 	class:          Class, // Any only before its first arrival

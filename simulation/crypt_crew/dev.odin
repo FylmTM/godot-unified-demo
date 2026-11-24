@@ -25,7 +25,7 @@ apply_dev_commands :: proc(t: ^Tick) {
 				minions := sim.iterate(&t.state.minions)
 				for minion, handle in sim.next(&minions) {
 					away := dmath.normalize(minion.pos.xz - hero.pos.xz)
-					damage_minion(t, handle, MINION_HP, away, DEV_KILL_KNOCK, player)
+					damage_minion(t, handle, MINION_HP, away, DEV_KILL_KNOCK, player, .Dev)
 				}
 			}
 		}

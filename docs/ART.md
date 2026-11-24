@@ -35,8 +35,8 @@ relief, rocks or a decoration, is walked through). Characters face +Z.
 - `game/characters/`: the heroes and skeletons as scenes (`heroes/`, `skeletons/`), `character_rig.gd`, the shared
   `rig_animations.tscn`, and `clips.gd`, the clips the game plays.
 - `game/levels/parts/<kit>/`: the kit parts levels are built from (`crypt/`, `hub/`).
-- `game/fx/`: fire, its flicker, the light a hero carries, the highlight on the prop a hero would grab, and a hit's
-  flash.
+- `game/fx/`: fire, its flicker, the light a hero carries, the highlight on the prop a hero would grab, a hit's
+  flash, and the fights' one-shot effects (sparks, a bolt's burst, dust, the crossbow's tracer).
 - `game/environments/`: each place's Environment (fog, glow, ambient, tonemap).
 - `game/lookdev/`: the look-dev scene and its stages.
 

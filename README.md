@@ -7,11 +7,11 @@ the rules written in Odin, Godot as the host for rendering, audio, UI and the ed
 dungeon crawler for 1–4 players, and the answer to "what does a real game built on unified look like?".
 
 > [!NOTE]
-> **In development.** Today up to four heroes (Knight, Barbarian, Mage, Rogue) walk Floor 1, the first floor of the
-> crypt, carry and throw its barrels and crates, and are hunted by its skeletons: packs asleep in its rooms, surges
-> rising from its graves. A hero at 0 HP goes down and rises beside the party; the whole party down restarts the floor.
-> The heroes' attacks come next. The art is posed in a look-dev scene too (`./uni tool lookdev
-> --window --shots`). What the game becomes, and in what order, is [`docs/plan.md`](docs/plan.md).
+> **In development.** Today up to four heroes walk Floor 1, the first floor of the crypt, and fight its skeletons
+> (packs asleep in its rooms, surges rising from its graves): the Knight's quick sword, the Barbarian's wide cleave,
+> the Mage's bursting bolts and the Rogue's crossbow, and the barrels and crates they carry and throw. A hero at 0 HP
+> goes down and rises beside the party; the whole party down restarts the floor. The art is posed in a look-dev scene
+> too (`./uni tool lookdev --window --shots`). What the game becomes, and in what order, is [`docs/plan.md`](docs/plan.md).
 
 ## Play it
 
@@ -31,7 +31,7 @@ cd godot-unified-demo
 **Controls.** Move with WASD, the arrow keys or a pad's left stick; aim with the mouse or the right stick (a hero
 that isn't aimed faces where it walks). Interact (E, the right mouse button, or a pad's A) picks up the barrel or crate
 in front, glowing faintly, and puts it down again; Attack (the left mouse button, Space, or a pad's right trigger or
-X) throws what you carry. Esc, or Start on a pad that plays, pauses the game for everyone. Couch co-op:
+X) attacks while held, and throws what you carry. Esc, or Start on a pad that plays, pauses the game for everyone. Couch co-op:
 the first player's first input claims their device (the keyboard and mouse, or a pad), and any other pad pressing
 Start joins as another player.
 
@@ -62,6 +62,10 @@ What the sim shows Godot and what Godot sends back, each declared in `simulation
   skeleton, keyed by its handle, posed at its feet and turned to its facing; its phase (rising, asleep, chasing,
   swinging, dying) and the game time it began pose its clip, `moving` says whether a chaser walks or stands, and the
   game time it was `struck` flashes it.
+- The `Bolt` MultiMesh kind (`frame.odin`, `MultiView`; the play scene's `Bolts`): the Mage's bolts in flight, keyed by
+  their handles, their corrections smoothed (`MULTI_POLICY`).
+- `Data_Constants` (`extension.odin`, `Unified.constants`): each class's attack windup and a minion's, in seconds, so
+  a view lines its clip's blow up with the sim's.
 - `Data_Hud` (`hud.odin`, `Unified.data.hud`): each slot's hero (player, HP, class, whether it is local), the minions
   alive and the co-op pause. The HUD counts kills itself, from each `EventMinionDied` once CONFIRMED.
 - `Input_Values` (`input.odin`, `Unified.local_input(local)`): the mouse's aim, from the keyboard player's hero to

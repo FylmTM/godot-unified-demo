@@ -36,18 +36,89 @@ TURN_STICK :: f32(0.1) // a hero without an aim turns to its move once the stick
 
 // What a class plays like (CLASS_SPECS).
 Class_Spec :: struct {
-	max_speed: f32, // metres per second at a full stick
+	max_speed:  f32, // metres per second at a full stick
+	// Its attack (attacks.odin): the clip starts at once and the blow lands `windup` ticks later; the attack's action
+	// lasts `duration`, and the next may start `cooldown` after this one started.
+	windup:     u32,
+	duration:   u32,
+	cooldown:   u32,
+	reach:      f32, // melee: from the hero's centre to a minion's side (metres)
+	arc_cos:    f32, // melee: the cosine of the arc's half angle either side of the facing (no trig in the sim)
+	damage:     i16, // what the blow, the bolt or the crossbow bolt takes from a minion
+	knock:      f32, // the knockback it gives (metres per second)
+	prop_knock: f32, // what it gives a prop in its way (metres per second of velocity change)
 }
 
 // Each class's numbers. `Any` is a Profile's wish only: a hero's class is resolved on arrival (presence.odin), so no
-// hero plays its zero entry.
+// hero plays its zero entry. The Knight's sword is quick and narrow; the Barbarian's cleave slow, wide and heavy; the
+// Mage's bolt (bolts.odin) and the Rogue's crossbow (rogue.odin) reach far, so their reach and arc go unread.
 @(rodata)
 CLASS_SPECS := #partial [Class]Class_Spec {
-	.Knight = {max_speed = 5},
-	.Barbarian = {max_speed = 4.5},
-	.Mage = {max_speed = 4.75},
-	.Rogue = {max_speed = 5.5},
+	.Knight = {
+		max_speed  = 5,
+		windup     = u32(0.25 * TICK_HZ),
+		duration   = u32(0.5 * TICK_HZ),
+		cooldown   = u32(0.5 * TICK_HZ),
+		reach      = 1.8,
+		arc_cos    = 0.6427876, // 50°
+		damage     = 18,
+		knock      = 5,
+		prop_knock = 3,
+	},
+	.Barbarian = {
+		max_speed  = 4.5,
+		windup     = u32(0.4375 * TICK_HZ),
+		duration   = u32(0.875 * TICK_HZ),
+		cooldown   = u32(1 * TICK_HZ),
+		reach      = 2.3,
+		arc_cos    = 0.17364818, // 80°
+		damage     = 30,
+		knock      = 9,
+		prop_knock = 6,
+	},
+	.Mage = {
+		max_speed  = 4.75,
+		windup     = u32(0.25 * TICK_HZ),
+		duration   = u32(0.5 * TICK_HZ),
+		cooldown   = u32(0.625 * TICK_HZ),
+		damage     = 20,
+		knock      = 3,
+		prop_knock = 4,
+	},
+	.Rogue = {
+		max_speed  = 5.5,
+		windup     = u32(0.1875 * TICK_HZ),
+		duration   = u32(0.625 * TICK_HZ),
+		cooldown   = u32(0.75 * TICK_HZ),
+		damage     = 30,
+		knock      = 3,
+		prop_knock = 3,
+	},
 }
+ATTACK_SPEED :: f32(0.6) // a hero attacking moves at this fraction of its speed
+CHEST_HEIGHT :: f32(1.2) // where a blow, a bolt and a shot leave from, and a minion is struck at, above the feet
+STRIKE_BACK :: f32(0.5) // a minion this close to a hero's centre is struck in any direction (it is against the hero)
+
+// The Mage's bolt (bolts.odin): a row flying straight, swept against minions and the world every tick.
+MAX_BOLTS :: 32
+BOLT_SPEED :: f32(14) // metres per second along the facing
+BOLT_RADIUS :: f32(0.25) // what it hits with
+BOLT_LIFE_S :: f32(1.5) // it fizzles this long after its cast (21 m)
+BOLT_LIFE_TICKS :: u32(BOLT_LIFE_S * TICK_HZ)
+BURST_RADIUS :: f32(1.5) // its burst hurts every other minion this close to where it hit ...
+BURST_DAMAGE :: i16(8) // ... this much
+BURST_KNOCK :: f32(4) // ... and knocks it away this fast
+
+// The Rogue's crossbow (rogue.odin): a hitscan shot where the shooter saw the target.
+CROSSBOW_RANGE :: f32(25)
+MAX_REWIND_S :: f32(0.125) // the most a shot looks back for what its shooter saw (sim.seen_rewind)
+
+// A thrown prop (props.odin, prop_hits): faster than PROP_HIT_SPEED, it hurts each minion it meets once.
+PROP_HIT_SPEED :: f32(4)
+PROP_HIT_DAMAGE :: i16(25)
+PROP_HIT_KNOCK :: f32(7)
+PROP_HIT_KEEP :: f32(0.7) // what a hit leaves of the prop's velocity
+PROP_HITS_MAX :: 6 // the most minions one throw hurts
 
 // ---- the world
 
@@ -117,6 +188,7 @@ PROP_REST_SPEED :: f32(1) // a prop slower than this (or held) is in minions' wa
 // ---- minions: skeletons walking the navigation mesh, rows with no body
 
 MINION_RADIUS :: f32(0.4)
+MINION_HEIGHT :: f32(1.8) // a thrown prop whose bottom flies higher than this above a minion's feet passes over it
 MINION_SPEED :: f32(3.2) // metres per second chasing
 MINION_HP :: i16(30)
 MINION_REACH :: f32(0.8) // a minion strikes a hero whose capsule is this close to its own circle
@@ -135,8 +207,10 @@ RETARGET_TICKS :: u32(RETARGET_S * TICK_HZ)
 SEPARATION :: f32(0.9) // minions closer than this push apart ...
 SEPARATION_SPEED :: f32(2.5) // ... at up to this speed
 KNOCK_DECAY :: f32(6) // a knockback's velocity decays at this rate per second
-MINION_GRID_CELL :: f32(2) // the separation grid's cells (metres), at least SEPARATION; world_create fits it to a mesh
-MINION_GRID_CELLS :: 1024 // the most cells it may need: a level's mesh up to 64 m by 64 m
+// The minion grid's cells (metres): at least SEPARATION and the longest reach a query asks of its 3 by 3 cells (a
+// Barbarian's cleave and a minion's radius); world_create lays it over a mesh.
+MINION_GRID_CELL :: f32(3)
+MINION_GRID_CELLS :: 1024 // the most cells it may need: a level's mesh up to 90 m by 90 m
 
 // ---- the director: sleeping packs, and surges rising from graves
 

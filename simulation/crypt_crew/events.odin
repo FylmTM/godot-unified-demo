@@ -20,4 +20,7 @@ Event :: union {
 	Event_Hero_Downed,
 	Event_Hero_Spawned,
 	Event_Floor_Restarted,
+	Event_Hero_Attacked,
+	Event_Bolt_Burst,
+	Event_Crossbow_Shot,
 }

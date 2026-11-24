@@ -16,6 +16,7 @@ Prop :: struct {
 	thrown:         sim.Timer, // its throw's while it runs (THROWN_TICKS): what a hit will be blamed on
 	held_by:        sim.Player, // the hero carrying it ({}: nobody)
 	thrown_by:      sim.Player, // who threw it last (while `thrown` runs), whether still here or not
+	hits:           sim.List(sim.Handle(Minion), PROP_HITS_MAX), // the minions its throw hurt: each once (prop_hits)
 	kind:           Prop_Kind,
 	_pad:           [3]u8,
 }
@@ -62,6 +63,49 @@ despawn_props :: proc(t: ^Tick) {
 prop_in_the_way :: proc(phys: ^physics.World, prop: ^Prop) -> bool {
 	speed := physics.body_linear_velocity(phys, prop.body)
 	return prop.held_by != {} || dmath.length_sq(speed) < PROP_REST_SPEED * PROP_REST_SPEED
+}
+
+// After the physics step: a thrown prop (its `thrown` running) flying faster than PROP_HIT_SPEED hurts each live minion
+// its footprint meets, once per throw and at most PROP_HITS_MAX, knocked along its flight, and keeps PROP_HIT_KEEP of
+// its velocity per hit. The thrower is the damage's. Props never hurt heroes.
+prop_hits :: proc(t: ^Tick) {
+	props := sim.iterate(&t.state.props)
+	for prop in sim.next(&props) {
+		if !sim.timer_running(t, prop.thrown) do continue
+		velocity := physics.body_linear_velocity(t.world.phys, prop.body)
+		if dmath.length_sq(velocity) < PROP_HIT_SPEED * PROP_HIT_SPEED do continue
+		centre := physics.body_position(t.world.phys, prop.body)
+		reach := PROP_SPECS[prop.kind].footprint + MINION_RADIUS
+		for row in sim.grid_near(&t.world.grid, centre.xz) {
+			for index in row {
+				minion, handle, _ := sim.item_at(&t.state.minions, int(index))
+				bottom := centre.y - PROP_SPECS[prop.kind].half.y
+				if minion.phase == .Dying || bottom - minion.pos.y > MINION_HEIGHT do continue
+				if dmath.length_sq(minion.pos.xz - centre.xz) > reach * reach do continue
+				if prop_hit(prop, handle) || !sim.append(&prop.hits, handle) do continue
+				damage_minion(
+					t,
+					handle,
+					PROP_HIT_DAMAGE,
+					dmath.normalize(velocity.xz),
+					PROP_HIT_KNOCK,
+					prop.thrown_by,
+					.Prop,
+				)
+				velocity *= PROP_HIT_KEEP
+				physics.body_set_linear_velocity(t.world.phys, prop.body, velocity)
+			}
+		}
+	}
+}
+
+// Whether a prop's throw already hurt `minion`.
+@(private = "file")
+prop_hit :: proc(prop: ^Prop, minion: sim.Handle(Minion)) -> bool {
+	for hit in sim.slice(&prop.hits) {
+		if hit == minion do return true
+	}
+	return false
 }
 
 // The point a prop's view stands on: the bottom of its body (its model's origin), wherever the body has turned.

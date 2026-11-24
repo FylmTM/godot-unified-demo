@@ -6,7 +6,7 @@ extends Node3D
 ## The rig stands at the middle of the local heroes' shown positions, and its camera pulls back as they spread apart,
 ## within limits. It follows with exponential smoothing, so it eases rather than jitters, and cuts where the goal jumps
 ## further than smoothing should cross (the first frame, a hero arriving across the floor). With no local hero yet it
-## frames `fallback`.
+## frames `fallback`. A shake (a local hero hurt) jolts the camera by smooth noise that dies away.
 
 ## The camera's angle down from the horizon.
 const PITCH_DEG: float = 55.0
@@ -21,12 +21,17 @@ const FOCUS_HEIGHT: float = 1.0
 const FOLLOW_RATE: float = 5.0
 ## A goal farther than this from the rig is cut to, not eased to.
 const CUT_DISTANCE: float = 12.0
+## The most a full shake moves the camera (metres), and how fast a shake dies away (its amount per second).
+const SHAKE_MAX: float = 0.35
+const SHAKE_DECAY: float = 2.5
 
 ## Where the rig looks with no local hero (the play scene sets the floor's hero spawns' middle).
 var fallback: Vector3 = Vector3.ZERO
 
 var _distance: float = DISTANCE_MIN
 var _framed: bool = false
+var _shake: float = 0.0
+var _shake_time: float = 0.0
 
 @onready var _camera: Camera3D = $Camera3D
 
@@ -53,8 +58,17 @@ func _process(delta: float) -> void:
 		_distance = lerpf(_distance, distance, weight)
 	var pitch: float = deg_to_rad(PITCH_DEG)
 	var focus := Vector3(0, FOCUS_HEIGHT, 0)
-	_camera.position = focus + Vector3(0, sin(pitch), cos(pitch)) * _distance
-	_camera.look_at(global_position + focus, Vector3.UP)
+	_shake = maxf(_shake - SHAKE_DECAY * delta, 0.0)
+	_shake_time += delta
+	var t: float = _shake_time
+	var jolt := Vector3(sin(t * 47.0), sin(t * 39.0 + 1.3), sin(t * 53.0 + 2.1)) * (_shake * _shake * SHAKE_MAX)
+	_camera.position = focus + Vector3(0, sin(pitch), cos(pitch)) * _distance + jolt
+	_camera.look_at(global_position + focus + jolt * 0.5, Vector3.UP)
+
+
+## Jolts the camera by `amount` (0 to 1; a stronger shake than the one running replaces it).
+func shake(amount: float) -> void:
+	_shake = maxf(_shake, clampf(amount, 0.0, 1.0))
 
 
 ## The views of this machine's heroes that are in the scene.

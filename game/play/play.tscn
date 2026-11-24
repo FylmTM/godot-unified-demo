@@ -5,6 +5,28 @@
 [ext_resource type="Script" path="res://game/play/camera_rig.gd" id="camera_rig"]
 [ext_resource type="Environment" path="res://game/environments/crypt.tres" id="crypt"]
 [ext_resource type="PackedScene" path="res://game/play/hud.tscn" id="hud"]
+[ext_resource type="Script" path="res://game/play/effects.gd" id="effects"]
+[ext_resource type="PackedScene" path="res://game/fx/sparks.tscn" id="sparks"]
+[ext_resource type="PackedScene" path="res://game/fx/bolt_burst.tscn" id="bolt_burst"]
+[ext_resource type="PackedScene" path="res://game/fx/dust.tscn" id="dust"]
+[ext_resource type="PackedScene" path="res://game/fx/tracer.tscn" id="tracer"]
+
+[sub_resource type="StandardMaterial3D" id="bolt_glow"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+albedo_color = Color(1.4, 0.9, 3.2, 1)
+
+[sub_resource type="SphereMesh" id="bolt_orb"]
+material = SubResource("bolt_glow")
+radius = 0.25
+height = 0.5
+radial_segments = 12
+rings = 6
+
+[sub_resource type="MultiMesh" id="bolts"]
+transform_format = 1
+mesh = SubResource("bolt_orb")
 
 [node name="Play" type="Node3D"]
 script = ExtResource("play")
@@ -18,6 +40,20 @@ session = NodePath("../UnifiedSession")
 [node name="Level" type="Node3D" parent="."]
 
 [node name="Views" type="Node3D" parent="."]
+
+[node name="Bolts" type="MultiMeshInstance3D" parent="."]
+cast_shadow = 0
+multimesh = SubResource("bolts")
+
+[node name="UnifiedMultiView" type="UnifiedMultiView" parent="Bolts"]
+kind = "bolt"
+
+[node name="Effects" type="Node3D" parent="."]
+script = ExtResource("effects")
+sparks_scene = ExtResource("sparks")
+burst_scene = ExtResource("bolt_burst")
+dust_scene = ExtResource("dust")
+tracer_scene = ExtResource("tracer")
 
 [node name="CameraRig" type="Node3D" parent="."]
 script = ExtResource("camera_rig")

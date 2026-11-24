@@ -13,6 +13,9 @@ extends Node3D
 const FLASH_TICKS: float = 8.0
 ## Where in the rise clip a minion starts: its last RISE_S (1.5 s) of 2.3, from the hand breaking the floor.
 const RISE_FROM: float = 0.8
+## When the attack clip's blow lands (seconds in: where the hand moves fastest); the clip is offset so it lands at the
+## sim's swing (Unified.constants.minion_windup).
+const BLOW_AT: float = 0.6
 ## Spreads the minions' gait phases: a key's last digits times this, in seconds, wrapped by the clip.
 const PHASE_PER_KEY: float = 0.618034
 ## How many of a key's values the phase spreads over (a handle's key holds its generation in its high bits).
@@ -48,7 +51,7 @@ func _process(_delta: float) -> void:
 		EnumMinionPhase.CHASE:
 			_rig.pose(Clips.SKELETON_WALK if data.moving else Clips.SKELETON_IDLE, looping)
 		EnumMinionPhase.ATTACK:
-			_rig.pose(Clips.SKELETON_ATTACK, age)
+			_rig.pose(Clips.SKELETON_ATTACK, BLOW_AT - Unified.constants.minion_windup + age)
 		EnumMinionPhase.DYING:
 			_rig.pose(Clips.SKELETON_DEATH, age)
 		_:

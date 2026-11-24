@@ -4,7 +4,8 @@
 // One system per file: game (this: the descriptor and the tick, its table of contents), tuning (every rule number),
 // input (the input and the commands), state, events, world (the physics world, Floor 1's navigation and places,
 // init, entering a level and restarting it), presence (arrivals, leaves, where an arrival appears), heroes (facing,
-// movement, read back), hands (grab, carry, drop, throw), props (their bodies, impacts and throws' ends), minions
+// movement, read back), hands (grab, carry, drop, throw), attacks (the shared machinery) and a file per class
+// (knight, barbarian, mage, rogue), bolts (the Mage's), props (their bodies, hits, impacts and throws' ends), minions
 // (targets, steering, swings, dying), director (sleeping packs, surges, the benchmark's population), health (damage,
 // down, rising, the wipe), pause (the co-op pause), dev (the dev commands) and script (the scripted player).
 package crypt_crew
@@ -53,6 +54,7 @@ Zone :: enum u8 {
 	Director,
 	Minions,
 	Physics,
+	Strikes,
 	Props,
 	Health,
 }
@@ -74,6 +76,7 @@ tick :: proc(t: ^Tick) {
 		rise_heroes(t)
 		face_heroes(t)
 		use_hands(t) // after facing: a grab takes what the hero now faces
+		start_attacks(t) // after the hands: a throw's Attack press starts no attack
 		update_holds(t)
 		move_heroes(t)
 	}
@@ -92,6 +95,12 @@ tick :: proc(t: ^Tick) {
 		sim.zone(t, Zone.Physics)
 		physics.step(t.world.phys)
 		read_back_heroes(t)
+	}
+	{
+		sim.zone(t, Zone.Strikes)
+		resolve_strikes(t) // after the step: a blow lands on where things are now
+		fly_bolts(t)
+		prop_hits(t)
 	}
 	{
 		sim.zone(t, Zone.Props)

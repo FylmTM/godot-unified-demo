@@ -146,3 +146,21 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
   from CONFIRMED `EventMinionDied` (from when the HUD began: a late joiner's count starts at 0); "Skeletons" stays the
   prediction. `View_Hero.carrying`, `View_Prop.held_by` and `State.kills` are gone.
 - The minion grid is laid over the mesh's extent in world_create (at most 1024 cells of 2 m).
+- Attacks, step 4: Knight 18 damage, 1.8 m, 50° either side, 0.25 s windup, 0.5 s cooldown; Barbarian 30, 2.3 m, 80°,
+  0.44 s windup, 1 s cooldown, knock 9; Mage bolt 14 m/s for 1.5 s (21 m), 20 damage plus an 8-damage burst within
+  1.5 m (walls shield it), 0.625 s cooldown; Rogue crossbow 25 m, 30 damage, 0.75 s cooldown, look-back capped at
+  0.125 s. A hero attacking moves at 0.6 of its speed. Attack is read held; a hero carrying a prop throws instead.
+- A minion struck right against a hero (within 0.5 m of its centre) is hit whatever the arc. A blow, a bolt and a shot
+  shove the props they meet (a velocity change, so every mass alike). The Mage's bolt ignores `Input.reach` (it flies
+  its full range); the crossbow never pierces.
+- Thrown props: faster than 4 m/s while their throw runs, each minion they meet takes 25 and a knock of 7, once per
+  throw (at most 6), and the prop keeps 0.7 of its velocity per hit; a prop's bottom higher than 1.8 m passes over.
+- `Event_Minion_Hit` and `Event_Minion_Died` carry a `source` (blow, bolt, crossbow, prop, dev). The minion grid's cells
+  are 3 m (the cleave's reach and a minion's radius fit a 3 by 3 query).
+- Views: each attack clip is offset so its blow, sampled from the clip (the hand's fastest moment), lands at the
+  class's windup, which the extension hands the views as constants. The bolt is one glowing orb for every class colour
+  (no per-instance colour yet). The Rogue's shoot clip turns the body, so the hero seems to aim off its facing while
+  it plays.
+- `tests/bot.odin` fights the nearest skeleton (melee walks up, Mage and Rogue stand off at 7 m), and picks up and
+  throws a prop that is within 1.6 m; slot 0 raises skeletons every 10 s. The three-minute playthrough runs in the
+  default tier (about 2.5 s).

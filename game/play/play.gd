@@ -1,8 +1,10 @@
 class_name Play
 extends Node3D
 ## The play scene: the session, the level root it instances the floor under (its meshes are the crypt), the views
-## root it spawns the heroes under, the local players' devices (Couch), the camera, the crypt's environment and the
-## HUD.
+## root it spawns the heroes under, the bolts' MultiMesh, the local players' devices (Couch), the camera, the effects,
+## the crypt's environment and the HUD. It turns the sim's events into effects as soon as they are predicted (EMITTED):
+## sparks on a hit, a bolt's burst, a crossbow's tracer, dust where a prop lands hard, and a shake when a local hero is
+## hurt.
 ##
 ## The mouse's aim reaches the sim through it, as only a script knows it: just before the session samples (its
 ## input_wanted, so this frame's sample takes it), the cursor's ray meets a plane at chest height, and the direction
@@ -13,12 +15,19 @@ extends Node3D
 const AIM_PLANE_HEIGHT: float = 1.2
 ## A cursor this close to the hero (metres, on the floor) doesn't aim: its direction would swing wildly.
 const AIM_DEAD_RADIUS: float = 0.5
+## Where on a skeleton its hit's sparks fly from, above its feet.
+const HIT_HEIGHT: float = 1.1
+## A prop landing faster than this (metres per second) raises dust.
+const DUST_SPEED: float = 5.0
+## How hard a local hero's hurt shakes the camera (0 to 1).
+const HURT_SHAKE: float = 0.5
 
 ## Whether the mouse aims for the keyboard's player: once it has moved.
 var _mouse_aims: bool = false
 
 @onready var _session: UnifiedSession = $UnifiedSession
 @onready var _camera_rig: CameraRig = $CameraRig
+@onready var _effects: Effects = $Effects
 @onready var _level: Node3D = $Level
 @onready var _views: Node3D = $Views
 
@@ -28,6 +37,7 @@ func _ready() -> void:
 	_session.view_root = _views
 	_session.level_changed.connect(_on_level_changed)
 	_session.input_wanted.connect(_set_aims)
+	_session.sim_event.connect(_on_sim_event)
 	if not _session.running:
 		_session.start_single()
 
@@ -82,3 +92,23 @@ func _on_level_changed(_level_id: int) -> void:
 			count += 1
 	if count > 0:
 		_camera_rig.fallback = sum / count
+
+
+## The effects of the sim's events, on their first showing (EMITTED).
+func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
+	if state != UnifiedSession.EVENT_EMITTED:
+		return
+	if event is EventMinionHit:
+		_effects.sparks((event as EventMinionHit).position + Vector3(0, HIT_HEIGHT, 0))
+	elif event is EventBoltBurst:
+		_effects.burst((event as EventBoltBurst).position)
+	elif event is EventCrossbowShot:
+		var shot := event as EventCrossbowShot
+		_effects.tracer(shot.from, shot.to)
+	elif event is EventPropImpact:
+		var impact := event as EventPropImpact
+		if impact.speed >= DUST_SPEED:
+			_effects.dust(impact.position)
+	elif event is EventHeroHurt:
+		if _session.get_local_index((event as EventHeroHurt).player) >= 0:
+			_camera_rig.shake(HURT_SHAKE)

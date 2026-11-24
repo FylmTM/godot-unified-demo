@@ -70,25 +70,12 @@ F3 → `uni feedback` → regression loop as a walk-through.
 ## Milestone 2: the design
 
 The first playable, as decided (two designers merged; the calls are in `docs/review.md`). Heroes, input, props,
-carrying and throwing, minions, the director, going down and rising, the wipe and joining beside the party are built:
-their facts live in the code and the README. What is still to come:
+carrying and throwing, the four classes' attacks, minions, the director, going down and rising, the wipe, joining
+beside the party, the bolts' MultiMesh and the fights' effects are built: their facts live in the code and the README.
+What is still to come:
 
-**Attacks** start at once (the clip) and land a windup later (the effect), from the class spec, in a shared
-`attacks.odin` and a file per class: Knight's sword arc (narrow, quick), Barbarian's cleave (wide, slow, big knock),
-Mage's bolt (a `Bolt` row swept per tick against minions and `physics.world_cast_ray_closest` against walls and props),
-Rogue's crossbow (hitscan where the shooter saw it: `sim.seen_rewind` capped by `MAX_REWIND_S`, the shooter's eye moved
-back by its velocity, minions tested at `pos - vel * rewind`, bodies by `physics.world_cast_ray_closest_rewound`; a
-view-only tracer). Attack is read held (repeats on the class cooldown); `speed_scale` drops while attacking. Strikes
-resolve after `physics.step`, through `damage_minion`. Shots hit `WALL | PROP` and fly over low cover. A fast thrown
-prop damages and knocks back each minion it meets once (`Prop.thrown_by`); props never hurt heroes. The tick order
-gains: start attacks after hands, resolve strikes, bolts and thrown props after the read back.
-
-**Views.** Bolts a MultiMesh kind; effects on EMITTED (hits, tracer, bursts, spawns, a prop's impact), counts on
-CONFIRMED.
-
-**Tests.** A rule test file per attack on `headless.Run` (each ends synced); the script attacks in bursts (its Attack
-presses then fight, not only throw); a bot (`tests/bot.odin`) that fights and throws; the reference run pinned at the
-end; one recorded replay regression; `game/tools/coop.gd` checks a joiner arrives beside the host.
+**Tests.** The reference run pinned once the milestone's rules settle; one recorded replay regression;
+`game/tools/coop.gd` checks a joiner arrives beside the host.
 
 ## Milestones
 
