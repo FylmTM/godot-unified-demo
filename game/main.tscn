@@ -1,0 +1,58 @@
+[gd_scene format=3 uid="uid://byprqi62jjijv"]
+
+[ext_resource type="Script" uid="uid://4aws88bjjqoj" path="res://game/main.gd" id="1"]
+[ext_resource type="PackedScene" path="res://game/hud.tscn" id="2"]
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 1
+background_color = Color(0.12, 0.13, 0.16, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.5, 0.5, 0.55, 1)
+
+[sub_resource type="StandardMaterial3D" id="floor_material"]
+albedo_color = Color(0.35, 0.4, 0.35, 1)
+
+[sub_resource type="PlaneMesh" id="floor_mesh"]
+material = SubResource("floor_material")
+size = Vector2(20, 20)
+
+[sub_resource type="StandardMaterial3D" id="ball_material"]
+vertex_color_use_as_albedo = true
+
+[sub_resource type="SphereMesh" id="ball_mesh"]
+material = SubResource("ball_material")
+radius = 0.2
+height = 0.4
+
+[sub_resource type="MultiMesh" id="balls"]
+transform_format = 1
+use_colors = true
+mesh = SubResource("ball_mesh")
+
+[node name="Main" type="Node3D" unique_id=103334146]
+script = ExtResource("1")
+
+[node name="UnifiedSession" type="UnifiedSession" parent="." unique_id=1936576675]
+unique_name_in_owner = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1997504787]
+environment = SubResource("environment")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=2142402308]
+transform = Transform3D(1, 0, 0, 0, 0.70710677, 0.70710677, 0, -0.70710677, 0.70710677, 0, 12, 12)
+current = true
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=1144112787]
+transform = Transform3D(0.87758255, -0.37554693, 0.2980157, 0, 0.62161, 0.7833269, -0.47942555, -0.687434, 0.54551405, 0, 0, 0)
+shadow_enabled = true
+
+[node name="Floor" type="MeshInstance3D" parent="." unique_id=1381479947]
+mesh = SubResource("floor_mesh")
+
+[node name="Balls" type="MultiMeshInstance3D" parent="." unique_id=145890051]
+multimesh = SubResource("balls")
+
+[node name="UnifiedMultiView" type="UnifiedMultiView" parent="Balls" unique_id=1074020740]
+kind = "ball"
+
+[node name="Hud" parent="." instance=ExtResource("2")]

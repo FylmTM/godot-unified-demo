@@ -1,0 +1,237 @@
+# One job per platform plus one for Godot, every step one uni command, as in unified's own CI: together what
+# `./uni verify` runs locally, plus `uni bench` (reported in each job's summary, not gated).
+#
+# Runs per event:
+#   push to main        linux-x64, linux-arm64, windows-x64 and godot, against the pinned unified submodule. Every
+#                       push gets its full run (no cancelling): each commit's check and benchmarks stay on record.
+#   nightly (schedule)  the canary: linux-x64 and godot against unified's `main` when it differs from the pin, so a
+#                       unified change that breaks this game shows before the bump. Once per pair of (this repo's
+#                       commit, unified's main): a red canary is not repeated every night. Nothing is committed.
+#                       GitHub pauses schedules after 60 days without commits here; re-enable it in the Actions tab.
+#   manual dispatch     the push set; `-f unified_ref=<branch, tag or full commit SHA>` tests against that unified
+#                       instead of the pin (a unified branch, before it merges).
+# macOS (macos-arm64) joins when development is done: its runners are slow to get, and it adds nothing to each push
+# while the game changes daily.
+#
+# Security: read-only, no secrets: no EOS SDK and no EOS credentials (Epic's licence keeps the SDK out). Checkouts
+# keep no credentials (a dispatch builds code from any unified ref). Actions are pinned by commit, runner images by
+# version, and every download by its SHA-256 in unified/pins.cfg.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "47 3 * * *" # 03:47 UTC
+  workflow_dispatch:
+    inputs:
+      unified_ref:
+        description: "unified branch, tag or full commit SHA to test against instead of the pinned submodule (empty: the pin)"
+        type: string
+        default: ""
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}-${{ inputs.unified_ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # Which unified to test against: the pin (an empty ref) on a push, the input on a dispatch, unified's main on the
+  # nightly, which runs only when that main differs from the pin and this pair hasn't been tested yet.
+  unified:
+    name: unified ref
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      ref: ${{ steps.pick.outputs.ref }}
+      run: ${{ steps.pick.outputs.run == 'true' && steps.tested.outputs.cache-hit != 'true' }}
+      canary_key: ${{ steps.pick.outputs.canary_key }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_REF: ${{ inputs.unified_ref }}
+          SHA: ${{ github.sha }}
+        run: |
+          pinned=$(git rev-parse HEAD:unified)
+          case "$EVENT" in
+            schedule)
+              url=$(git config -f .gitmodules submodule.unified.url)
+              main=$(git ls-remote "$url" refs/heads/main | cut -f1)
+              if [ -z "$main" ]; then
+                echo "cannot read unified's main from $url" | tee -a "$GITHUB_STEP_SUMMARY"
+                exit 1
+              fi
+              if [ "$main" = "$pinned" ]; then
+                echo "unified main is the pin ($pinned): nothing new to test" | tee -a "$GITHUB_STEP_SUMMARY"
+                echo "run=false" >> "$GITHUB_OUTPUT"
+              else
+                echo "unified main $main, pinned $pinned: testing main" | tee -a "$GITHUB_STEP_SUMMARY"
+                echo "ref=$main" >> "$GITHUB_OUTPUT"
+                echo "canary_key=canary-$SHA-$main" >> "$GITHUB_OUTPUT"
+                echo "run=true" >> "$GITHUB_OUTPUT"
+              fi ;;
+            *)
+              # A fetch matches a branch, a tag or a full commit id; an abbreviated one finds nothing.
+              if [[ "$INPUT_REF" =~ ^[0-9a-f]{7,39}$ ]]; then
+                echo "unified_ref $INPUT_REF looks like an abbreviated commit: give the full 40-character SHA" | tee -a "$GITHUB_STEP_SUMMARY"
+                exit 1
+              fi
+              echo "unified: ${INPUT_REF:-the pin, $pinned}" | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "ref=$INPUT_REF" >> "$GITHUB_OUTPUT"
+              echo "run=true" >> "$GITHUB_OUTPUT" ;;
+          esac
+      # The nightly's memory: a cache entry per tested pair, written by `canary` below.
+      - id: tested
+        if: ${{ steps.pick.outputs.canary_key != '' }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .canary
+          key: ${{ steps.pick.outputs.canary_key }}
+          lookup-only: true
+      - if: ${{ steps.tested.outputs.cache-hit == 'true' }}
+        run: echo "this pair was tested by an earlier nightly" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  ci:
+    name: ${{ matrix.platform }}
+    needs: unified
+    if: ${{ needs.unified.outputs.run == 'true' }}
+    runs-on: >-
+      ${{ fromJSON('{"linux-x64": "ubuntu-24.04", "linux-arm64": "ubuntu-24.04-arm",
+      "windows-x64": "windows-2025"}')[matrix.platform] }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: >-
+          ${{ fromJSON(github.event_name == 'schedule' && '["linux-x64"]' ||
+          '["linux-x64", "linux-arm64", "windows-x64"]') }}
+    env:
+      # Windows runs the cmd shim (it proves uni.cmd too); elsewhere the sh one.
+      UNI: ${{ matrix.platform == 'windows-x64' && './uni.cmd' || './uni' }}
+      LINUX_X64: ${{ matrix.platform == 'linux-x64' }}
+      # The odin suite again against Box3D's debug library (its asserts trap a misused body id), on one runner.
+      SUITES: ${{ matrix.platform == 'linux-arm64' && 'odin,box3d-debug' || 'odin' }}
+      UNIFIED_REF: ${{ needs.unified.outputs.ref }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          persist-credentials: false
+      - name: unified at the ref under test
+        if: ${{ env.UNIFIED_REF != '' }}
+        run: |
+          git -C unified fetch --quiet --depth 1 origin "$UNIFIED_REF"
+          git -C unified checkout --quiet --detach FETCH_HEAD
+          git -C unified log -1 --format='unified: %H %s'
+      # The per-user cache (`uni`: ~/.cache/unified; `uni.cmd`: %LOCALAPPDATA%\unified): the shims' Odin; and
+      # odinfmt. Keyed by unified's pins: the key must exist before Odin does.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/unified/odin
+            ~/AppData/Local/unified/odin
+            .out/odinfmt
+          key: uni-${{ matrix.platform }}-${{ hashFiles('unified/pins.cfg') }}
+      # The shim fetches Odin if needed and builds the CLI (tools/main.odin); every later step relies on it.
+      - id: ready
+        name: uni version (the pinned Odin, the CLI)
+        run: $UNI version
+      # Against another unified, bring what it ships into the game (AGENTS.md's section, skills, shims) in line
+      # first, as a bump would: vet checks they match.
+      - name: refresh (what unified ships into the game)
+        if: ${{ steps.ready.outcome == 'success' && env.UNIFIED_REF != '' }}
+        run: $UNI refresh
+      - name: fmt --check
+        if: ${{ !cancelled() && steps.ready.outcome == 'success' && env.LINUX_X64 == 'true' }}
+        run: ./uni fmt --check
+      - name: vet (darwin_arm64, linux_amd64, linux_arm64, windows_amd64)
+        if: ${{ !cancelled() && steps.ready.outcome == 'success' && env.LINUX_X64 == 'true' }}
+        run: ./uni vet
+      - name: test --suite ${{ env.SUITES }}
+        if: ${{ !cancelled() && steps.ready.outcome == 'success' }}
+        run: $UNI test --suite "$SUITES" 2>&1 | tee .out/test.txt
+      - name: bench (release build; reported in the summary, not gated)
+        if: ${{ !cancelled() && steps.ready.outcome == 'success' && github.event_name != 'schedule' }}
+        run: $UNI bench 2>&1 | tee .out/bench.txt
+      - name: Summary
+        if: ${{ !cancelled() && steps.ready.outcome == 'success' }}
+        run: |
+          for step in test bench; do
+            if [ -f ".out/$step.txt" ]; then printf '### %s\n```\n%s\n```\n' "$step" "$(cat ".out/$step.txt")"; fi
+          done >> "$GITHUB_STEP_SUMMARY"
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-${{ matrix.platform }}
+          path: .out/bench.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # The game under headless Godot (every step `./uni test -h` lists for the godot suite), apart from the platform
+  # jobs: its Godot launches are most of a run's time.
+  godot:
+    needs: unified
+    if: ${{ needs.unified.outputs.run == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      UNIFIED_REF: ${{ needs.unified.outputs.ref }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          persist-credentials: false
+      - name: unified at the ref under test
+        if: ${{ env.UNIFIED_REF != '' }}
+        run: |
+          git -C unified fetch --quiet --depth 1 origin "$UNIFIED_REF"
+          git -C unified checkout --quiet --detach FETCH_HEAD
+          git -C unified log -1 --format='unified: %H %s'
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/unified/odin
+            ~/.cache/unified/godot
+          key: uni-godot-${{ hashFiles('unified/pins.cfg') }}
+      - id: ready
+        name: uni version (the pinned Odin, the CLI)
+        run: ./uni version
+      - name: refresh (what unified ships into the game)
+        if: ${{ steps.ready.outcome == 'success' && env.UNIFIED_REF != '' }}
+        run: ./uni refresh
+      - name: test --suite godot
+        if: ${{ !cancelled() && steps.ready.outcome == 'success' }}
+        run: ./uni test --suite godot 2>&1 | tee .out/test.txt
+      - name: Summary
+        if: ${{ !cancelled() && steps.ready.outcome == 'success' }}
+        run: |
+          if [ -f .out/test.txt ]; then printf '### test\n```\n%s\n```\n' "$(cat .out/test.txt)"; fi >> "$GITHUB_STEP_SUMMARY"
+
+  # The nightly remembers the pair it tested, pass or fail, so the next night skips it unless either side moved.
+  canary:
+    name: canary tested
+    needs: [unified, ci, godot]
+    if: ${{ !cancelled() && needs.unified.outputs.canary_key != '' && needs.unified.outputs.run == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - run: mkdir .canary && echo "${{ needs.unified.outputs.canary_key }}" > .canary/key
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .canary
+          key: ${{ needs.unified.outputs.canary_key }}

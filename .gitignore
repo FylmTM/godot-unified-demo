@@ -1,0 +1,7 @@
+# Generated output (unified/src/cli/README.md): safe to delete.
+.out/
+.godot/
+# A background window's no-focus override, written by uni for the run (safe to delete).
+override.cfg
+# This checkout's UNIFIED_* settings (local paths): never committed.
+.env

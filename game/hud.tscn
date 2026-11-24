@@ -1,0 +1,26 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/hud.gd" id="1"]
+
+[node name="Hud" type="Control"]
+script = ExtResource("1")
+
+[node name="Row" type="HBoxContainer" parent="."]
+offset_left = 16.0
+offset_top = 16.0
+theme_override_constants/separation = 16
+
+[node name="Swatch" type="ColorRect" parent="Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(24, 24)
+
+[node name="Players" type="Label" parent="Row"]
+unique_name_in_owner = true
+
+[node name="Balls" type="Label" parent="Row"]
+unique_name_in_owner = true
+
+[node name="Paused" type="Label" parent="Row"]
+unique_name_in_owner = true
+visible = false
+text = "Paused (Esc)"

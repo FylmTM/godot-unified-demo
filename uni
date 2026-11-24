@@ -1,0 +1,14 @@
+#!/bin/sh
+# uni, the unified CLI, for this game repo: unified's own shim (unified/uni) run for this repo's root (UNI_ROOT), so
+# the bootstrap is always the pinned submodule's (unified/src/cli/README.md, Bootstrap and self-rebuild).
+case "$0" in
+*/*) root=${0%/*} ;;
+*) root=. ;;
+esac
+if [ ! -f "$root/unified/uni" ]; then
+	echo "uni: $root/unified is empty: run git submodule update --init" >&2
+	exit 1
+fi
+UNI_ROOT=$root
+export UNI_ROOT
+exec sh "$root/unified/uni" "$@"
