@@ -13,8 +13,6 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
   with `-f unified_ref=...`.
 - `.claude/settings.json` and `ols.json` come from unified's `uni refresh` (the "starters"; the agent's direct write
   of settings.json was blocked by the permission check).
-- The game's name is `crypt_crew` (a game name must be an identifier); the window title (`project.godot`,
-  `config/name`) still says `crypt_crew` until the app layer (milestone 3) sets "Crypt Crew".
 
 ## unified, changed on the way
 
@@ -200,3 +198,52 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
 - Rewind under rollback: unified zeroes a scripted input's Seen (`sim.scripted_player_input`: a script saw no screen),
   so no standard scenario can stamp one; the crossbow test, a sync-tested Run with seen 5 and 14, runs the rewind
   under rollback in the default tier.
+
+## Milestone 3: the app layer
+
+Decided by the developer from the two designs:
+
+- Font: Kenney Fonts (CC0), keeping the CC0-only rule.
+- Friends: the join code is the invite (Copy, Rejoin last game); a friends list and platform invites wait on an
+  account service (plan.md, Needed from unified).
+- Pauses: single player (couch included) pauses from the menu; online the menu is an overlay and "Pause for everyone"
+  its own button; anyone resumes; the State gains `paused_by`.
+- Save: floor, surges faced, skeletons felled, saved at each surge; one slot, written by the host or single player; a
+  joiner keeps it in memory and gets "Continue on your own".
+- Canvas base 1920×1080 with the UI pack's Double art; the window stays 1280×720.
+- Audio settings: Master and Interface now; Music and Effects with their content (milestone 8).
+- Player 0's device: free while alone, fixed only while a couch guest is in.
+- The flow autoload is `Game`, with `quit_app(exit_code)` (UnifiedTool looks it up by that name).
+- Library gaps are built in unified when a step needs them, not worked around.
+
+Step 1, the app's skeleton, calls made on the way:
+
+- Faces: Kenney Future (titles, headings, buttons) and Kenney Future Narrow (everything else), picked from shots of
+  the twelve; both are capitals only. Kenney Mini has lower case but reads as pixel art beside the 3D.
+- Pack folders `assets/kenney/ui/`, `fonts/`, `interface_sounds/`; only the Double PNGs, of the brown family:
+  `button_brown`, `button_red`, `panel_brown_corners_a` (parchment), `panel_brown_dark` (HUD plates and toasts,
+  darkened to 0.6 and 90 % opaque so they sit behind the crypt), `banner_hanging`. The focus is a gold frame
+  (a StyleBoxFlat), not a pack piece. The theme was made once by a throwaway script and is edited as text since.
+- Sounds: `select_002` (the focus moves), `click_002` (a press), `confirmation_002` (New game), `error_004` (a
+  dialog), `maximize_003` and `minimize_003` (a join, a leave). Picked by name, not by ear: worth a listen.
+- The user data folder is `crypt_crew` again through `config/use_custom_user_dir` (the window title is now "Crypt
+  Crew"): on Windows `%APPDATA%/crypt_crew`, no longer under `Godot/app_userdata/`. Nothing was there to move.
+- `Game.start_single()` is the menus' one start for now; the design's start request (kind, code, Setup, party) comes
+  with hero select, when it has more than one field.
+- The title is one screen with no screen stack yet; the stack comes with the settings screen (step 2).
+- Toasts already announce joins and leaves by name (from CONFIRMED events; the first local player's own join is no
+  news); step 3 adds the class.
+- The HUD is restyled into plates (each local hero's class and HP as text, the skeletons up and felled, the "Paused"
+  banner, the join hint); the HP bar comes with step 3's hero plates, which also need the heroes' full HP from the
+  extension.
+- Esc still sends the co-op pause in every mode until step 4's pause menu; the walk checks the banner.
+- The tagline "Down into the crypt, one to four heroes." is placeholder copy.
+- Hovering a button gives it the focus (Game, from `node_added`), so the mouse and a pad never show two highlights.
+- The play scene loads on a worker thread while the title is up (Game), collected at the switch and at a quit.
+- A run whose session quits the app at its end (`--quit-at-end`: the godot suite's session step) skips the menu:
+  going back to the title played sounds that outlived the quit (a leak the step failed on).
+- `LibraryCheck` is kept from the Fable design (the Opus one left it to milestone 10).
+- `ArtChecks` takes TTF and Ogg files and counts what the project's theme uses; `AppChecks`
+  (`game/tools/app_checks.gd`) holds the autoload order, the theme's variations, a HUD that takes no click or focus,
+  menu buttons a pad reaches, and every button's sound.
+- `coop.gd` now checks the joiner lands on the title with a dialog once the host has left.
