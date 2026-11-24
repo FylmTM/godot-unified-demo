@@ -3,8 +3,8 @@ extends Node3D
 ## The play scene: the session, the level root it instances the floor under (its meshes are the crypt), the views
 ## root it spawns the heroes under, the bolts' MultiMesh, the local players' devices (Couch), the camera, the effects,
 ## the crypt's environment and the HUD. It turns the sim's events into effects as soon as they are predicted (EMITTED):
-## sparks on a hit, a bolt's burst, a crossbow's tracer, dust where a prop lands hard, and a shake when a local hero is
-## hurt.
+## sparks on a hit, a bolt's burst, a crossbow's tracer (from the crossbow as drawn to where the sim's shot ended),
+## dust where a prop lands hard, and a shake when a local hero is hurt.
 ##
 ## The mouse's aim reaches the sim through it, as only a script knows it: just before the session samples (its
 ## input_wanted, so this frame's sample takes it), the cursor's ray meets a plane at chest height, and the direction
@@ -104,7 +104,8 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 		_effects.burst((event as EventBoltBurst).position)
 	elif event is EventCrossbowShot:
 		var shot := event as EventCrossbowShot
-		_effects.tracer(shot.from, shot.to)
+		var shooter := _session.get_player_view(EnumView.HERO, shot.player) as HeroView
+		_effects.tracer(shooter.weapon_position() if shooter != null else shot.from, shot.to)
 	elif event is EventPropImpact:
 		var impact := event as EventPropImpact
 		if impact.speed >= DUST_SPEED:

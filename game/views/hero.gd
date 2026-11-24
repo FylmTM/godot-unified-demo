@@ -10,8 +10,10 @@ extends Node3D
 ## its player's key), so a party walking together doesn't step in lockstep, and a gait changes past a margin, so a
 ## speed near a threshold doesn't flicker between two. An action (a pick-up, a throw, an attack) is a one-shot clip
 ## posed at its age, (shown_time - action_started) / tick_hz seconds, from the moment of the clip its action starts
-## at, so the clip's release or blow lands on the sim's: an attack's clip is offset so its blow (sampled from the clip)
-## comes at the class's windup (Unified.constants.class_windups). A hero carrying walks with plain gaits: no clip
+## at, so the clip's release or blow lands on the sim's: an attack's clip is timed so its blow (sampled from the clip)
+## comes at the class's windup (Unified.constants.class_windups), its lead-in stretched over the windup when the blow
+## comes later in the clip than that, and its last frame held until the cooldown lets the next attack start (a held
+## Attack then shows one swing after another, no gait between). A hero carrying walks with plain gaits: no clip
 ## holds a load. A hero down falls where its body stands (the death clip, held on its last frame), and one that just
 ## rose blinks while its grace lasts.
 
@@ -51,12 +53,16 @@ var data: ViewHero:
 	set(value):
 		var class_changed: bool = data == null or data.class != value.class
 		data = value
+		if value.action != EnumAction.NONE:
+			_last_action = value.action
 		if class_changed and is_node_ready():
 			_show_class()
 
 var _rig: CharacterRig
 var _moving: bool = false
 var _running: bool = false
+## The action the hero did last (NONE: none yet): an attack's pose holds through its cooldown.
+var _last_action: int = EnumAction.NONE
 
 @onready var _view: UnifiedView = $UnifiedView
 
@@ -77,7 +83,11 @@ func _process(_delta: float) -> void:
 		EnumAction.ATTACK:
 			_pose_attack((now - data.action_started) / Unified.tick_hz)
 		_:
-			_rig.pose(_gait(), now / Unified.tick_hz + float(_view.player) * PHASE_PER_KEY)
+			var age: float = (now - data.action_started) / Unified.tick_hz
+			if _last_action == EnumAction.ATTACK and age < Unified.constants.class_cooldowns[data.class]:
+				_pose_attack(age)
+			else:
+				_rig.pose(_gait(), now / Unified.tick_hz + float(_view.player) * PHASE_PER_KEY)
 	var shooting: bool = data.action == EnumAction.ATTACK and data.class == EnumClass.ROGUE
 	_rig.rotation.y = ROGUE_SHOT_TURN if shooting else 0.0
 	_rig.visible = not data.grace or fposmod(now, 2.0 * GRACE_BLINK_TICKS) < GRACE_BLINK_TICKS
@@ -85,16 +95,32 @@ func _process(_delta: float) -> void:
 
 ## Poses the class's attack `age` seconds in, its blow lined up with the class's windup.
 func _pose_attack(age: float) -> void:
-	var windup: float = Unified.constants.class_windups[data.class]
 	match data.class:
 		EnumClass.BARBARIAN:
-			_rig.pose(Clips.BARBARIAN_CLEAVE, BARBARIAN_BLOW_AT - windup + age)
+			_rig.pose(Clips.BARBARIAN_CLEAVE, _attack_time(age, BARBARIAN_BLOW_AT))
 		EnumClass.MAGE:
-			_rig.pose(Clips.MAGE_BOLT, MAGE_CAST_AT - windup + age)
+			_rig.pose(Clips.MAGE_BOLT, _attack_time(age, MAGE_CAST_AT))
 		EnumClass.ROGUE:
-			_rig.pose(Clips.ROGUE_SHOOT, ROGUE_SHOT_AT - windup + age)
+			_rig.pose(Clips.ROGUE_SHOOT, _attack_time(age, ROGUE_SHOT_AT))
 		_:
-			_rig.pose(Clips.KNIGHT_SLASH, KNIGHT_BLOW_AT - windup + age)
+			_rig.pose(Clips.KNIGHT_SLASH, _attack_time(age, KNIGHT_BLOW_AT))
+
+
+## The time in an attack clip whose blow is `blow_at` seconds in, `age` seconds into the attack, so the blow lands at
+## the class's windup: a clip whose blow comes sooner starts past its beginning; one whose blow comes later plays its
+## lead-in slowed over the windup, so it moves from the first tick, and runs at its own speed from the blow.
+func _attack_time(age: float, blow_at: float) -> float:
+	var windup: float = Unified.constants.class_windups[data.class]
+	if blow_at >= windup:
+		return blow_at - windup + age
+	if age < windup:
+		return age * blow_at / windup
+	return blow_at + age - windup
+
+
+## Where the hero's weapon is drawn now (its weapon hand's attachment): where the crossbow's tracer leaves from.
+func weapon_position() -> Vector3:
+	return (_rig.get_node(^"HandR/Weapon") as Node3D).global_position
 
 
 ## Replaces the character with the class's.

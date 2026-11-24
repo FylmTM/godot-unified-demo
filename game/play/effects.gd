@@ -8,8 +8,9 @@ extends Node3D
 ## Each kind is a small pool of its scene, made once and reused in turn (the oldest goes first), so a fight's hundreds
 ## of hits make no node.
 
-## How many of each effect play at once; the next one reuses the oldest.
-const POOL_SIZE: int = 12
+## How many of each effect play at once, the next one reusing the oldest: a cleave or a burst into a full crowd
+## (MINION_CAP, 40) sparks on every skeleton it hits.
+const POOL_SIZE: int = 48
 ## How long a tracer takes to fade, in seconds.
 const TRACER_FADE_S: float = 0.15
 
@@ -24,20 +25,6 @@ var _bursts: Pool
 var _dust: Pool
 var _tracers: Pool
 var _fades: Array[Tween] = []
-
-
-## A pool of one effect's nodes, taken in turn.
-class Pool:
-	extends RefCounted
-	var nodes: Array[Node3D] = []
-	## The index of the node take() gives next.
-	var next: int = 0
-
-	## The next node, the oldest in use.
-	func take() -> Node3D:
-		var node: Node3D = nodes[next]
-		next = (next + 1) % nodes.size()
-		return node
 
 
 func _ready() -> void:
@@ -95,3 +82,17 @@ func _play(pool: Pool, at: Vector3) -> void:
 	var particles: GPUParticles3D = pool.take() as GPUParticles3D
 	particles.global_position = at
 	particles.restart()
+
+
+## A pool of one effect's nodes, taken in turn.
+class Pool:
+	extends RefCounted
+	var nodes: Array[Node3D] = []
+	## The index of the node take() gives next.
+	var next: int = 0
+
+	## The next node, the oldest in use.
+	func take() -> Node3D:
+		var node: Node3D = nodes[next]
+		next = (next + 1) % nodes.size()
+		return node

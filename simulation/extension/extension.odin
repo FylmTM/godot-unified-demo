@@ -19,16 +19,22 @@ GLUE := godot.Glue(g.Game, View, MultiView) {
 }
 
 // The sim's numbers the views pose by (Unified.constants), copied once at install: what lines a clip's blow up with the
-// sim's.
+// sim's, and what game/tools/coop.gd checks an arrival by.
 Data_Constants :: struct {
-	class_windups: [len(g.Class)]f32, // each class's attack windup in seconds, by EnumClass (Any's 0)
-	minion_windup: f32, // a minion's swing's windup in seconds
+	class_windups:   [len(g.Class)]f32, // each class's attack windup in seconds, by EnumClass (Any's 0)
+	class_cooldowns: [len(g.Class)]f32, // each class's attack cooldown in seconds: from one attack's start to the next
+	minion_windup:   f32, // a minion's swing's windup in seconds
+	arrival_ring:    f32, // how far from the party an arrival's first ring of spots is (metres; the second, twice)
 }
 
-// godot.init calls it once: the windups from the sim's tuning.
+// godot.init calls it once: the numbers from the sim's tuning.
 constants :: proc() -> (constants: Data_Constants) {
-	for class in g.Class do constants.class_windups[class] = f32(g.CLASS_SPECS[class].windup) / g.TICK_HZ
+	for class in g.Class {
+		constants.class_windups[class] = f32(g.CLASS_SPECS[class].windup) / g.TICK_HZ
+		constants.class_cooldowns[class] = f32(g.CLASS_SPECS[class].cooldown) / g.TICK_HZ
+	}
 	constants.minion_windup = g.MINION_WINDUP_S
+	constants.arrival_ring = g.ARRIVAL_RING
 	return
 }
 
