@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://game/play/play.gd" id="play"]
+[ext_resource type="Script" path="res://game/play/couch.gd" id="couch"]
 [ext_resource type="Script" path="res://game/play/camera_rig.gd" id="camera_rig"]
 [ext_resource type="Environment" path="res://game/environments/crypt.tres" id="crypt"]
 [ext_resource type="PackedScene" path="res://game/play/hud.tscn" id="hud"]
@@ -9,7 +10,10 @@
 script = ExtResource("play")
 
 [node name="UnifiedSession" type="UnifiedSession" parent="."]
-unique_name_in_owner = true
+
+[node name="Couch" type="Node" parent="." node_paths=PackedStringArray("session")]
+script = ExtResource("couch")
+session = NodePath("../UnifiedSession")
 
 [node name="Level" type="Node3D" parent="."]
 

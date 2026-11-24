@@ -41,7 +41,6 @@ Prop_Def :: struct {
 	pos:  [3]f32,
 	rot:  [4]f32,
 	kind: Prop_Kind,
-	_pad: [3]u8,
 }
 
 // What the sim reads from the floor's markers, each list in the level's marker order.
@@ -83,6 +82,9 @@ world_create :: proc(seed: u64, levels: []sim.Level_File, _: sim.No_Setup) -> ^W
 		def.radius = HERO_RADIUS
 		def.half_height = HERO_HALF_HEIGHT
 		def.pogo_rest = HERO_POGO_REST
+		def.density = HERO_DENSITY
+		def.max_ground_force = HERO_GROUND_FORCE
+		def.accelerate = HERO_ACCELERATE
 		def.category = CAT_HERO
 		def.max_speed = CLASS_SPECS[class].max_speed
 		world.hero_defs[class] = def
@@ -117,6 +119,8 @@ read_places :: proc(places: ^Places, floor: ^level.Level) {
 			assert(known, "crypt_crew: a prop's kind is no Prop_Kind")
 			added := sim.append(&places.props, Prop_Def{pos = marker.pos, rot = marker.rot, kind = kind})
 			assert(added, "crypt_crew: more props than MAX_PROPS")
+		case:
+			assert(false, "crypt_crew: a marker of a kind the sim doesn't know (game/levels/markers/)")
 		}
 	}
 	for has_spawn in spawned do assert(has_spawn, "crypt_crew: a floor needs a hero_spawn per slot")

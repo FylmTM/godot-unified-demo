@@ -5,15 +5,20 @@ extends Node3D
 ##
 ## The character is the class's CharacterRig scene (game/characters/heroes/), made anew when the class changes. Its
 ## pose is a function of the view data and the session's shown time, never of a clock of its own: the gait (idle,
-## walk, run, backwards, strafes) comes from the velocity in the hero's own frame, and loops on the shown time, so
-## after a rollback or a replay seek the hero shows exactly the frame the state says. The attacks' one-shots will pose
-## at their age, (shown_time - action_started) / tick_hz seconds, once the sim has actions (docs/plan.md, Milestone 2:
-## the design).
+## walk, run, backwards, strafes) comes from the velocity in the hero's own frame and loops on the shown time, so after
+## a rollback or a replay seek the hero shows the frame the state says. Each hero's gait runs at its own phase (from
+## its player's key), so a party walking together doesn't step in lockstep, and a gait changes past a margin, so a
+## speed near a threshold doesn't flicker between two. The attacks' one-shots will pose at their age,
+## (shown_time - action_started) / tick_hz seconds, once the sim has actions (docs/plan.md, Milestone 2: the design).
 
-## Below this speed a hero stands (metres per second).
-const STAND_SPEED: float = 0.4
-## From this speed ahead a hero runs rather than walks (metres per second).
-const RUN_SPEED: float = 3.2
+## A standing hero walks from this speed, and a walking one stands below the lower (metres per second).
+const WALK_FROM: float = 0.5
+const STAND_BELOW: float = 0.3
+## A hero walking ahead runs from this speed, and a running one walks below the lower (metres per second).
+const RUN_FROM: float = 3.4
+const WALK_BELOW: float = 3.0
+## Spreads the heroes' gait phases: a player's key times this, in seconds, wrapped by the clip.
+const PHASE_PER_KEY: float = 0.618034
 
 ## Each class's character.
 @export var knight: PackedScene
@@ -30,6 +35,10 @@ var data: ViewHero:
 			_show_class()
 
 var _rig: CharacterRig
+var _moving: bool = false
+var _running: bool = false
+
+@onready var _view: UnifiedView = $UnifiedView
 
 
 func _ready() -> void:
@@ -37,7 +46,8 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	_rig.pose(_gait(), Unified.session.shown_time / Unified.tick_hz)
+	var phase: float = float(_view.player) * PHASE_PER_KEY
+	_rig.pose(_gait(), Unified.session.shown_time / Unified.tick_hz + phase)
 
 
 ## Replaces the character with the class's.
@@ -48,6 +58,7 @@ func _show_class() -> void:
 	add_child(_rig)
 
 
+## The class's character scene (the Knight's for a class no hero plays: `Any`).
 func _class_scene() -> PackedScene:
 	match data.class:
 		EnumClass.BARBARIAN:
@@ -63,12 +74,14 @@ func _class_scene() -> PackedScene:
 ## walking backwards, or strafing; the Barbarian stands with its axe ready and the Rogue runs with its crossbow up.
 func _gait() -> StringName:
 	var velocity: Vector2 = data.velocity
-	if velocity.length() < STAND_SPEED:
+	_moving = velocity.length() >= (STAND_BELOW if _moving else WALK_FROM)
+	_running = _moving and velocity.y >= (WALK_BELOW if _running else RUN_FROM)
+	if not _moving:
 		return Clips.BARBARIAN_IDLE if data.class == EnumClass.BARBARIAN else Clips.IDLE
-	if velocity.y >= absf(velocity.x):
-		if velocity.y < RUN_SPEED:
-			return Clips.WALK
+	if _running:
 		return Clips.ROGUE_RUN if data.class == EnumClass.ROGUE else Clips.RUN
+	if velocity.y >= absf(velocity.x):
+		return Clips.WALK
 	if -velocity.y >= absf(velocity.x):
 		return Clips.WALK_BACKWARDS
 	return Clips.STRAFE_RIGHT if velocity.x > 0.0 else Clips.STRAFE_LEFT

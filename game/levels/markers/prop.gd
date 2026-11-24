@@ -22,6 +22,7 @@ func _ready() -> void:
 	_show()
 
 
+## In the editor, shows the kind's model in place of the marker's children.
 func _show() -> void:
 	if not Engine.is_editor_hint() or not is_inside_tree():
 		return

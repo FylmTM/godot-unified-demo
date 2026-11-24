@@ -16,6 +16,12 @@ hero_facing :: proc(input: Input, facing: [2]f32) -> [2]f32 {
 	return facing
 }
 
+// The hero's warp epoch as its view pushes it: its own (Hero.warp) and its body's added, so a new body and a teleport
+// both move it on.
+hero_warp :: proc(phys: ^physics.World, hero: ^Hero) -> u8 {
+	return hero.warp + physics.body_warp(phys, hero.body.body)
+}
+
 // Each present hero faces its input (hero_facing).
 face_heroes :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
@@ -36,7 +42,7 @@ move_heroes :: proc(t: ^Tick) {
 read_back_heroes :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero in sim.next(&heroes) {
-		hero.pos = physics.body_position(t.world.phys, hero.body.body) - {0, HERO_FEET, 0}
+		hero.pos = physics.body_position(t.world.phys, hero.body.body) - {0, HERO_CENTRE_ABOVE_FEET, 0}
 		hero.vel = physics.body_linear_velocity(t.world.phys, hero.body.body)
 	}
 }

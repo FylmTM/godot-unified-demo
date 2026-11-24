@@ -26,11 +26,9 @@ MultiView :: enum u8 {}
 View_Hero :: struct {
 	velocity:       [2]f32, // metres per second in the hero's frame: x to its right, y ahead
 	action_started: sim.Game_Time, // when `action` began: the clip time is (shown_time - action_started) / tick_hz
-	hp:             i16,
 	class:          g.Class, // EnumClass: which character the view shows
 	action:         g.Action, // EnumAction
-	slot:           u8, // the input slot its player holds
-	_pad:           [3]u8,
+	_pad:           [2]u8,
 }
 
 // Every present hero, then the HUD's data.
@@ -39,18 +37,15 @@ fill_frame :: proc(f: ^Frame) {
 	for hero, player in sim.next(&heroes) {
 		facing := shown_facing(f, hero, player)
 		right := [2]f32{-facing.y, facing.x} // a model faces +Z: its right is -X
-		slot, _ := sim.player_slot(&f.state.players, player)
 		godot.push_view(f, player, {
 			pos  = sim.Position(hero.pos),
 			rot  = dmath.quat_yaw(facing),
-			warp = hero.warp,
+			warp = g.hero_warp(f.world.phys, hero),
 		}, View_Hero {
 			velocity       = {dmath.dot(hero.vel.xz, right), dmath.dot(hero.vel.xz, facing)},
 			action_started = hero.action_started,
-			hp             = hero.hp,
 			class          = hero.class,
 			action         = hero.action,
-			slot           = u8(slot),
 		})
 	}
 	fill_hud(f)

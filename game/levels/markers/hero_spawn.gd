@@ -1,7 +1,7 @@
 class_name HeroSpawn
 extends Marker3D
-## Level marker: where a hero appears when nobody is up to arrive beside (a session's start, everyone down), by input
-## slot. The sim reads one per slot (`world_create`).
+## Level marker: where the hero of an input slot appears when its player arrives (presence.odin). The sim reads one
+## per slot (world.odin), and the play scene's camera frames their middle until a local hero is in.
 
 const UNIFIED_KIND := "hero_spawn"
 

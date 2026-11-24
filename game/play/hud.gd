@@ -14,7 +14,7 @@ extends Control
 func _ready() -> void:
 	Unified.data.hud.changed.connect(_show_heroes)
 	Unified.session.local_players_changed.connect(_show_join_hint)
-	Input.joy_connection_changed.connect(func(_device: int, _connected: bool) -> void: _show_join_hint())
+	Input.joy_connection_changed.connect(_show_join_hint.unbind(2))
 	_show_heroes()
 	_show_join_hint()
 

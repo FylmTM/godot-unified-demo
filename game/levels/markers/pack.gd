@@ -1,5 +1,7 @@
 extends Marker3D
-## Level marker: a pack of skeletons asleep where the floor begins, woken by a hero who comes into sight.
+## Level marker: a pack of skeletons asleep where the floor begins. The sim keeps its place and size among the floor's
+## (world.odin, `Places.packs`); the skeletons themselves are milestone 2's next steps (docs/plan.md, Milestone 2: the
+## design).
 
 const UNIFIED_KIND := "pack"
 

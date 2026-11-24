@@ -68,14 +68,26 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
 - Shots land where the shooter saw them from milestone 2, not 5.
 - unified gained `UnifiedSession.shown_time`, and `uni doc` fetches Box3D (it failed on physics in a game without it).
 - Heroes, step 1: one `HERO_HP` (100) for every class for now; class speeds Knight 5, Barbarian 4.5, Mage 4.75, Rogue
-  5.5 m/s (`tuning.odin`). The capsule floats 0.15 m on its pogo spring (`HERO_POGO_REST` 0.6), so feet are 1.25 m
-  below its centre.
+  5.5 m/s (`tuning.odin`). The capsule floats 0.15 m on its pogo spring (`HERO_POGO_REST` 0.6), so its centre is
+  1.25 m above the feet. A hero weighs about 80 kg (`HERO_DENSITY` 66) with a 4000 N drive (`HERO_GROUND_FORCE`):
+  full speed in about a tenth of a second.
 - `Action` has only `None` until the attacks land, so the hero view poses gaits only; one-shots at their age come with
-  the first action.
+  the first action (`CharacterRig.pose` already clamps a one-shot's time to its start). Gaits get a phase per player
+  (its key) and a margin between stand, walk and run.
 - Bindings: attack is the left mouse button, Space, a pad's right trigger or X; interact is E, the right mouse button
-  or a pad's A; pause is Esc or a playing pad's Start. As in drift, any pad's Start that isn't a local player's own
-  device joins a new player, so a lone player on a pad (local player 0 reads every device) who presses Start gets a
-  second hero.
+  or a pad's A; pause is Esc or a playing pad's Start.
+- Devices (`game/play/couch.gd`): the first player reads every device until their first game input claims one (a pad,
+  or the keyboard and mouse); an unclaimed pad's Start joins it as another player with class Any; a pad joining while
+  the first player reads every device moves them onto the keyboard and mouse (undone if the session refuses the
+  joiner). The mouse aims for whoever holds the keyboard, never within 0.5 m of the hero, and not while game input is
+  off. The dev UI's keyboard isn't visible to scripts, so the mouse still aims while a dev UI text field has it.
+- A returning hero plays its Profile's class when it wishes for one, and the class it played when its wish is Any.
+- `Input.reach` (in 0.25 m steps; 0: no point) rides in the Input from now, sampled from the mouse's distance or the
+  stick's push times 10 m (`PAD_REACH`), scripted, and read by no rule yet: throws and ground-targeted casts will.
+- The script changes each slot's class with `Command_Dev_Set_Class` every 384 ticks (Any among them), so the scenarios
+  roll back over a class change.
 - The camera: 55° pitch, field of view 35°, 18 to 28 m from the heroes' middle (1.2 m further per metre of spread),
   eased at 5/s, cut on a jump past 12 m. Walls still hide heroes behind them until the cutaway (milestone 8).
 - `hero_spawn.gd` got `class_name HeroSpawn`, so the camera finds the spawns it frames before a hero is in.
+- A hero's view warp is its own `Hero.warp` (which takes the old body's count when a body is made again) plus its
+  body's `physics.body_warp`.

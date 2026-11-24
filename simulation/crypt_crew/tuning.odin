@@ -18,7 +18,12 @@ HERO_HALF_HEIGHT :: HERO_HEIGHT / 2 - HERO_RADIUS // the capsule's segment half 
 // The pogo spring holds the capsule's lower sphere centre this high, so its bottom floats a hand above the floor and a
 // low step slides under it.
 HERO_POGO_REST :: f32(0.6)
-HERO_FEET :: HERO_HALF_HEIGHT + HERO_POGO_REST // from the capsule's centre down to the floor it stands on
+HERO_CENTRE_ABOVE_FEET :: HERO_HALF_HEIGHT + HERO_POGO_REST // from the capsule's centre down to the floor it stands on
+// A hero weighs about 80 kg, and its drive's force cap accelerates it at 50 m/s²: full speed from a standstill, or a
+// turn about, in about a tenth of a second, so a hero answers its stick at once.
+HERO_DENSITY :: f32(66) // kg/m³ of its capsule (about 1.2 m³)
+HERO_GROUND_FORCE :: f32(4000) // newtons: the most the drive pushes with
+HERO_ACCELERATE :: f32(20) // how fast the drive's target velocity closes on the stick's, in max speeds per second
 HERO_HP :: i16(100)
 TURN_STICK :: f32(0.1) // a hero without an aim turns to its move once the stick is pushed further than this
 

@@ -7,8 +7,8 @@ import "unified:sim"
 
 // Each present player's dev commands: `Command_Dev_Set_Class` turns their hero into another class.
 apply_dev_commands :: proc(t: ^Tick) {
-	players := sim.iterate_present(t)
-	for hero, player in sim.next(&players) {
+	heroes := sim.iterate_present(t)
+	for hero, player in sim.next(&heroes) {
 		for sent in sim.commands(t, player) {
 			#partial switch command in sent {
 			case Command_Dev_Set_Class:

@@ -6,6 +6,8 @@ package crypt_crew
 import "unified:dmath"
 import "unified:sim"
 
+REACH_STEP :: f32(0.25) // metres per step of Input.reach
+
 // A button a player holds.
 Button :: enum u8 {
 	Attack, // read held: an attack repeats on the class's cooldown
@@ -15,7 +17,7 @@ Button :: enum u8 {
 // The buttons a player holds (sim.buttons derives the presses from the tick before).
 Buttons :: bit_set[Button;u8]
 
-// One player's input for one tick, 6 bytes. Directions are the world's XZ plane, which needs no camera: the camera
+// One player's input for one tick, 8 bytes. Directions are the world's XZ plane, which needs no camera: the camera
 // never turns.
 Input :: struct {
 	move_x:  i8, // the stick toward +X, -127..127 (dmath.axis_i8)
@@ -23,8 +25,19 @@ Input :: struct {
 	buttons: Buttons,
 	seen:    sim.Seen, // how late the picture the player acted on was (the host stamps it): where a crossbow looks back to
 	aim:     dmath.Dir2, // where the hero looks, (x, z); none: it faces its move
+	// How far from the hero the aim points, in REACH_STEPs (reach_steps; 0: no point): where a throw or a ground-targeted
+	// cast lands. No rule reads it yet; it is in the Input now so the layout stays put when one does.
+	reach:   u8,
+	_pad:    u8,
 }
-#assert(size_of(Input) == 6)
+#assert(size_of(Input) == 8)
+
+// A distance from the hero as Input.reach: whole REACH_STEPs, at least one for any distance (0 is no point), at most
+// 255. Client side (the sampler, the script).
+reach_steps :: proc(metres: f32) -> u8 {
+	if !(metres > 0) do return 0
+	return u8(dmath.to_i32_clamped(dmath.round(metres / REACH_STEP), 1, 255))
+}
 
 // A tick's inputs and commands, by slot.
 Inputs :: sim.Inputs(Game)

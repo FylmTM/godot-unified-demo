@@ -26,10 +26,11 @@ var clip: StringName = &""
 
 
 ## Shows `clip_name` (`Library/Clip`, one of Clips) at `seconds` into it. A looping clip (Clips.LOOPING) wraps, so
-## `seconds` may be any time since it started; a one-shot clip holds its last frame past its end.
+## `seconds` may be any time since it started; a one-shot clip holds its first frame before its start (a view between
+## the tick before an action and its first) and its last frame past its end.
 func pose(clip_name: StringName, seconds: float) -> void:
 	if clip_name != clip:
 		clip = clip_name
 		_player.play(clip_name)
 	var length: float = _player.current_animation_length
-	_player.seek(fposmod(seconds, length) if clip_name in Clips.LOOPING else minf(seconds, length), true)
+	_player.seek(fposmod(seconds, length) if clip_name in Clips.LOOPING else clampf(seconds, 0.0, length), true)

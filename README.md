@@ -28,8 +28,9 @@ cd godot-unified-demo
 
 **Controls.** Move with WASD, the arrow keys or a pad's left stick; aim with the mouse or the right stick (a hero
 that isn't aimed faces where it walks). Attack: the left mouse button, Space, or a pad's right trigger or X. Interact:
-E, the right mouse button, or a pad's A. Esc pauses the game for everyone. Couch co-op: a pad pressing Start joins as
-another player, and the keyboard and mouse stay the first player's.
+E, the right mouse button, or a pad's A. Esc, or Start on a pad that plays, pauses the game for everyone. Couch co-op:
+the first player's first input claims their device (the keyboard and mouse, or a pad), and any other pad pressing
+Start joins as another player.
 
 ## How it's built
 
@@ -42,6 +43,19 @@ another player, and the keyboard and mouse stay the first player's.
   simulation and never changes it; input and commands are the only way in.
 - `assets/`: the art packs the game uses (`CREDITS.md`); how they become the game's look is `docs/ART.md`.
 - `tools/`: this game's `uni` CLI. `unified/`: unified, as a git submodule.
+
+## The view contract
+
+What the sim shows Godot and what Godot sends back, each declared in `simulation/extension/`:
+
+- `View_Hero` (`frame.odin`, GDScript `ViewHero`, its scene `game/views/hero.tscn`): a hero, keyed by its player,
+  posed at its feet and turned to its facing (a local hero's from its newest input). Its velocity in its own frame
+  (x to its right, y ahead) picks the gait; its class picks the character; its action and the game time it started
+  pose a one-shot.
+- `Data_Hud` (`hud.odin`, `Unified.data.hud`): each slot's hero (player, HP, class, whether it is local) and the co-op
+  pause.
+- `Input_Values` (`input.odin`, `Unified.local_input(local)`): the mouse's aim, from the keyboard player's hero to
+  where the cursor points on the floor, set by `game/play/play.gd` on the session's `input_wanted`.
 
 ## Benchmarks
 

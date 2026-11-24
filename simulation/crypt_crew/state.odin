@@ -20,7 +20,8 @@ Action :: enum u8 {
 }
 
 // A player's hero (the State's sim.Players, by member): zeroed for someone new, kept while they are away. A leave
-// destroys its body and keeps only its class (presence.odin), so whoever comes back plays what they played.
+// destroys its body and keeps only its class and its warp epoch (presence.odin), so whoever comes back plays what they
+// played, and their view snaps to where they arrive.
 Hero :: struct {
 	body:           physics.Character, // zero while absent
 	pos:            [3]f32, // its feet, read back after the physics step (read_back_heroes)
@@ -30,6 +31,9 @@ Hero :: struct {
 	hp:             i16,
 	class:          Class, // Any only before its first arrival
 	action:         Action,
-	warp:           u8, // bumped where the hero is placed rather than moved (an arrival), so its view snaps there
+	// The hero's own warp epoch, which outlives its bodies: a body's (physics.body_warp) starts at 0 when it is made
+	// again, so this one takes the old body's count and one more for each new body. The view's epoch is the two added
+	// (hero_warp): a teleport of the body bumps the body's, a new body this one.
+	warp:           u8,
 	_pad:           [7]u8,
 }
