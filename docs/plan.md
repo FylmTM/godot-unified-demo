@@ -90,11 +90,6 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 - `uni release` as a public command (it is unified's own tool today), and able to build a Linux x64 zip on Linux.
   Milestone 10.
 - Rendering a recorded session to video (Godot's movie writer at a fixed frame rate), for the videos. Milestone 10.
-- unified's side of the testing ground: a skill and an AGENTS.md line there, so an agent working on unified runs its
-  change here before it is done. Next, before milestone 1.
-- `uni init` writing what a game repo needs and this one lacks: the `uni` shim staged executable (a Windows checkout
-  loses the bit; this repo's was set by hand), `.claude/settings.json` (the odinfmt hook on every edit, `uni drive`
-  permissions), and an `ols.json` for the editor. Next, before milestone 1.
 - Check that a view can read the shown game time between ticks (animation needs it); add it if not. Milestone 2.
 - Later, filed when it hurts: a shared app layer for games; composing a level from room scenes; the real-UDP net
   suite for game repos; a doc-comment lint a game's tests can run.

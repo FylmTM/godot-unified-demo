@@ -1,0 +1,21 @@
+{
+	"$schema": "https://raw.githubusercontent.com/DanielGavin/ols/master/misc/ols.schema.json",
+	"collections": [
+		{ "name": "unified", "path": "unified/src" },
+		{ "name": "box3d", "path": ".out/unified-box3d" }
+	],
+	"enable_format": true,
+	"enable_semantic_tokens": true,
+	"enable_document_symbols": true,
+	"enable_hover": true,
+	"enable_snippets": true,
+	"enable_references": true,
+	"enable_inlay_hints_params": false,
+	"checker_args": "-vet -strict-style -vet-tabs",
+	"profile": "default",
+	"profiles": [
+		{ "name": "default", "checker_path": ["simulation/headless", "simulation/extension", "simulation/tests", "tools"] },
+		{ "name": "linux", "os": "linux", "arch": "amd64", "checker_path": ["simulation/headless", "simulation/extension", "simulation/tests", "tools"] },
+		{ "name": "windows", "os": "windows", "arch": "amd64", "checker_path": ["simulation/headless", "simulation/extension", "simulation/tests", "tools"] }
+	]
+}
