@@ -14,8 +14,8 @@ State :: struct {
 	props:   sim.Table(Prop, MAX_PROPS), // made from the floor's prop markers, in marker order (props.odin)
 	minions: sim.Table(Minion, MAX_MINIONS), // the skeletons, rows with no body (minions.odin)
 	surge:   sim.Timer, // the next surge rises when it runs out (director.odin)
-	surges:  u32, // the surges risen on this floor: what a surge's rolls are named by
-	kills:   u32, // minions killed this session
+	surges:  u32, // the surges risen this session (Event_Surge's count)
+	rises:   u32, // the minions the director raised this session: what each one's rolls are named by
 	// The minions the standard benchmark holds alive (bench_prepare; 0: the director's surges, as in play).
 	held:    u32,
 	_pad:    u32,

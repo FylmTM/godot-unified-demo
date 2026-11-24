@@ -14,8 +14,7 @@ Data :: union {
 
 // What the HUD shows.
 Data_Hud :: struct {
-	kills:   u32, // minions killed this session
-	minions: u16, // minions alive
+	minions: u16, // minions alive (the newest prediction, like all of it: the HUD counts kills from CONFIRMED events)
 	paused:  bool, // the co-op pause (the State's Clock)
 	_pad:    u8,
 	heroes:  [g.PLAYERS]Hud_Hero, // by slot
@@ -32,7 +31,6 @@ Hud_Hero :: struct {
 // The HUD's data from the frame's state.
 fill_hud :: proc(f: ^Frame) {
 	hud := Data_Hud {
-		kills   = f.state.kills,
 		minions = u16(g.minions_alive(&f.state.minions)),
 		paused  = f.state.clock.paused,
 	}

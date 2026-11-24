@@ -127,3 +127,22 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
   tests and the script exercise dying before the attacks land; the script raises minions (slot 1) and kills them
   (slot 2) now and then.
 - The benchmark row: "floor 1: four heroes against a held surge among the props", 40 minions held at graves.
+- Review fixes, steps 2 and 3: a downed hero isn't limp: its velocity is zeroed and its drive holds it still with no
+  move (the death pose rests on the floor at its feet). A leaver ends its throws' ignores at once (end_throws_by),
+  paused ticks included.
+- Director rolls name state, never the tick: each raised minion's rolls are keyed by the session's count of raised
+  minions (`State.rises`, never reset); `surges` counts the session's surges too. A grave is out of sight at 10 m in a
+  straight line from every hero up, and within reach at 30 m of path from the nearest.
+- Packs: laid out in world_create on rings 1 m apart (the first of 12 turns where every member stands on the floor
+  within 0.3 m and 0.9 m from the rest), the same for every seed; a pack that doesn't fit fails the level. A pack wakes
+  as a whole, on sight or on a hit to any member (`Minion.pack`).
+- Arrival: two rings (2.5 m, then 5 m), each spot also clear of heroes and props by 0.1 m; with none, the slot's
+  hero_spawn (never inside the anchor).
+- A swinging minion keeps its target and needs sight (a wall-blocked ray misses); grabbing needs no wall between chest
+  and prop; `hands_target` gates on the hands being free (up, not throwing, not holding).
+- `dev_hurt` with player 0 hurts the sender's own hero (the stateless script downs heroes that way, all four every
+  third round, so the scenarios cross a wipe); `dev_kill_minions` deals MINION_HP to each.
+- Views: flashes and the grace blink run on the shown game time; a chaser that isn't moving stands. The HUD counts kills
+  from CONFIRMED `EventMinionDied` (from when the HUD began: a late joiner's count starts at 0); "Skeletons" stays the
+  prediction. `View_Hero.carrying`, `View_Prop.held_by` and `State.kills` are gone.
+- The minion grid is laid over the mesh's extent in world_create (at most 1024 cells of 2 m).

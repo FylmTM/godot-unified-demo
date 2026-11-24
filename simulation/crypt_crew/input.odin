@@ -10,8 +10,8 @@ REACH_STEP :: f32(0.25) // metres per step of Input.reach
 
 // A button a player holds.
 Button :: enum u8 {
-	Attack, // read held: an attack repeats on the class's cooldown
-	Interact, // read by its press: grab, drop, revive
+	Attack, // its press throws what the hero carries
+	Interact, // its press grabs a prop, or drops the one carried
 }
 
 // The buttons a player holds (sim.buttons derives the presses from the tick before).
@@ -72,13 +72,14 @@ Command_Dev_Spawn_Minions :: struct {
 	count: u8,
 }
 
-// `dev_hurt` (dev builds): `player`'s hero takes `damage`, as from a minion's swing.
+// `dev_hurt` (dev builds): `player`'s hero (0: the sender's own) takes `damage`, as from a minion's swing.
 Command_Dev_Hurt :: struct {
 	player: sim.Player,
 	damage: i16,
 }
 
-// `dev_kill_minions` (dev builds): every live minion takes a killing blow from the sender, knocked away from its hero.
+// `dev_kill_minions` (dev builds): every live minion takes MINION_HP (a killing blow) from the sender, knocked away
+// from its hero.
 Command_Dev_Kill_Minions :: struct {}
 
 // Every command a player can send.

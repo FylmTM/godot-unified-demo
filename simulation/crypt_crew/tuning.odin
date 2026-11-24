@@ -29,7 +29,9 @@ HERO_ACCELERATE :: f32(20) // how fast the drive's target velocity closes on the
 HERO_HP :: i16(100)
 HERO_NAV_REACH :: f32(1.5) // a hero's place on the navigation mesh is the mesh's nearest point within this
 RESPAWN_S :: f32(4) // a hero at 0 HP stays down this long, then rises beside the party
+RESPAWN_TICKS :: u32(RESPAWN_S * TICK_HZ)
 SPAWN_GRACE_S :: f32(2) // a hero who rises takes no damage this long
+SPAWN_GRACE_TICKS :: u32(SPAWN_GRACE_S * TICK_HZ)
 TURN_STICK :: f32(0.1) // a hero without an aim turns to its move once the stick is pushed further than this
 
 // What a class plays like (CLASS_SPECS).
@@ -83,7 +85,7 @@ PROP_FRICTION :: f32(0.6)
 PROP_RESTITUTION :: f32(0.1)
 PROP_CYLINDER_SIDES :: 12 // the barrel's hull: a 12-sided cylinder
 
-// Grabbing: Interact's press takes the nearest free prop in a cone in front of the hero (grab_target).
+// Grabbing: Interact's press takes the nearest free prop in a cone in front of the hero (hands_target).
 GRAB_RANGE :: f32(1) // the most from the hero's capsule to the prop's side, on the floor
 GRAB_CONE_COS :: f32(0.6427876) // a cone of 50° either side of the facing (cos 50°)
 GRAB_ANYWHERE :: f32(0.25) // a prop this close is in reach in any direction
@@ -106,7 +108,8 @@ THROW_WINDUP_TICKS :: u32(THROW_WINDUP_S * TICK_HZ)
 THROW_S :: f32(0.5) // the throw's action, windup included
 THROW_TICKS :: u32(THROW_S * TICK_HZ)
 THROWN_S :: f32(1) // a thrown prop is its thrower's this long (Prop.thrown)
-THROW_CLEAR_DIST :: f32(2.5) // a thrown prop passes through its thrower until it is this far from them (or `thrown` ends)
+THROWN_TICKS :: u32(THROWN_S * TICK_HZ)
+THROW_CLEAR_DIST :: f32(2.5) // a thrown prop passes through its thrower until this far from them (or `thrown` ends)
 PICK_UP_S :: f32(0.625) // the grab's action
 PICK_UP_TICKS :: u32(PICK_UP_S * TICK_HZ)
 PROP_REST_SPEED :: f32(1) // a prop slower than this (or held) is in minions' way; a faster one flies through them
@@ -132,31 +135,38 @@ RETARGET_TICKS :: u32(RETARGET_S * TICK_HZ)
 SEPARATION :: f32(0.9) // minions closer than this push apart ...
 SEPARATION_SPEED :: f32(2.5) // ... at up to this speed
 KNOCK_DECAY :: f32(6) // a knockback's velocity decays at this rate per second
-MINION_GRID_CELL :: f32(2) // the separation grid's cells (metres), at least SEPARATION
-MINION_GRID_N :: 30 // cells along each axis: 60 m, the floor with room to spare
-MINION_GRID_ORIGIN :: [2]f32{-26, -26} // its corner with the smallest x and z
+MINION_GRID_CELL :: f32(2) // the separation grid's cells (metres), at least SEPARATION; world_create fits it to a mesh
+MINION_GRID_CELLS :: 1024 // the most cells it may need: a level's mesh up to 64 m by 64 m
 
 // ---- the director: sleeping packs, and surges rising from graves
 
-PACK_RADIUS :: f32(1.6) // a pack's minions stand within this of its marker
-AGGRO_RADIUS :: f32(9) // a sleeping minion wakes when a hero it can see comes this close
-SIGHT_TICKS :: u32(0.125 * TICK_HZ) // each sleeping minion looks this often (time-sliced by its index)
+MAX_PACK_MINIONS :: 64 // the most sleeping minions a level's packs place
+PACK_SPACING :: f32(1) // a pack's minions stand on rings this far apart (more than SEPARATION, so they never shuffle)
+PACK_SNAP :: f32(0.3) // a pack's spot moves at most this far onto the floor (a level whose pack doesn't fit fails)
+PACK_TURNS :: 12 // the turns of a pack's rings tried, in order, until its members fit (pack_places)
+AGGRO_RADIUS :: f32(9) // a sleeping minion wakes (and its pack with it) when a hero it can see comes this close
+SIGHT_S :: f32(0.125) // each sleeping minion looks this often (time-sliced by its index)
+SIGHT_TICKS :: u32(SIGHT_S * TICK_HZ)
 EYE_HEIGHT :: f32(1.5) // where a minion sees from, and a hero is seen at, above the feet
 SURGE_FIRST_S :: f32(6) // the first surge rises this long after a floor begins
+SURGE_FIRST_TICKS :: u32(SURGE_FIRST_S * TICK_HZ)
 SURGE_EVERY_S :: f32(20) // and the next ones this long after each other
-SURGE_NEAR :: f32(10) // a surge rises at graves at least this far from every hero along the floor (metres of path) ...
-SURGE_FAR :: f32(30) // ... and no farther than this from the nearest
+SURGE_EVERY_TICKS :: u32(SURGE_EVERY_S * TICK_HZ)
+SURGE_NEAR :: f32(10) // a surge rises at graves at least this far from every hero up, in a straight line ...
+SURGE_FAR :: f32(30) // ... and no farther than this from the nearest along the floor (metres of path)
 SURGE_BASE :: 3 // a surge's minions ...
 SURGE_PER_HERO :: 2 // ... and this many more per hero present
 SURGE_SPREAD :: f32(1.5) // a surge's minions rise within this of their grave
 DEV_SPAWN_RING :: f32(5) // dev_spawn_minions raises its minions this far from the sender's hero
 DEV_KILL_KNOCK :: f32(4) // dev_kill_minions knocks its dead this fast (metres per second) away from the sender
-BENCH_SPREAD :: 12 // the benchmark's minions start within this many metres of slot 0's spawn, along x and z
+BENCH_SPREAD :: f32(12) // the benchmark's minions start within this many metres of slot 0's spawn, along x and z
 BENCH_TRIES :: 20 // places tried per benchmark minion (some fall off the floor)
 
 // ---- arriving beside the party
 
-ARRIVAL_RING :: f32(2.5) // the eight spots tried around the anchor hero are this far from it
+ARRIVAL_RING :: f32(2.5) // the eight spots tried around the anchor hero are this far from it, then twice as far
+ARRIVAL_SLOT_TURN :: 3 // an arrival's first spot is this many eighths of a turn on per slot, so two at once differ
 ARRIVAL_SNAP :: f32(1) // a spot counts when the navigation mesh is this close to it
 ARRIVAL_CLEAR :: f32(2) // and no live minion is this close
+ARRIVAL_ROOM :: f32(0.1) // and it clears every hero's capsule and every prop's footprint by this
 ARRIVAL_RAY_HEIGHT :: f32(0.5) // the way from the anchor is tested this high above the floor (under low cover's top)

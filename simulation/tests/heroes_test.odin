@@ -11,18 +11,6 @@ import "unified:sim"
 
 import g "../crypt_crew"
 
-// `seconds` of play by slot with these inputs (the seated members present).
-@(private = "file")
-play :: proc(run: ^headless.Run(g.Game), inputs: [g.PLAYERS]g.Input, seconds: f32 = 1) {
-	for _ in 0 ..< int(seconds * g.TICK_HZ) do headless.run_step(run, inputs)
-}
-
-// The hero faces `want` (to within a Dir2's quantization).
-@(private = "file")
-expect_facing :: proc(t: ^testing.T, hero: ^g.Hero, want: [2]f32, loc := #caller_location) {
-	testing.expectf(t, dmath.length(hero.facing - want) < 1e-3, "faces %v, not %v", hero.facing, want, loc = loc)
-}
-
 // Every hero stands on its floor: its feet stay within 2 cm of its slot's spawn after a second of standing.
 @(test)
 heroes_stand_at_their_spawns :: proc(t: ^testing.T) {

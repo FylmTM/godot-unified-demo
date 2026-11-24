@@ -4,8 +4,8 @@ extends Node3D
 ## body, turned as the body is, and the script shows the kind's model (a child each, one visible) and, while a local
 ## hero's Interact would grab it, a warm highlight drawn over the model (game/fx/highlight.tres).
 ##
-## Props are pooled (the UnifiedView's `pool`): a view a gone prop leaves is reused for the next one, so the data setter
-## takes null in between, and _sim_reused takes the highlight off what the old prop showed.
+## Props are pooled (the UnifiedView's `pool`): a view a gone prop leaves is reused for the next one. The data setter
+## takes null in between, then the new prop's data, which sets everything the view shows (its model and highlight).
 
 ## Drawn over the model's meshes while the prop is aimed at.
 @export var highlight: Material
@@ -28,11 +28,6 @@ func _ready() -> void:
 	for found: Node in find_children("*", "MeshInstance3D", true, false):
 		_meshes.append(found as MeshInstance3D)
 	_show()
-
-
-## The host reuses this view for another prop: nothing of the old one's shows.
-func _sim_reused() -> void:
-	_set_highlight(false)
 
 
 ## The kind's model, highlighted while aimed at.

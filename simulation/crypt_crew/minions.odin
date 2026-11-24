@@ -3,18 +3,19 @@
 // slot), steers along that hero's distance field (memoized in the World), keeps apart from its neighbours over a grid
 // (scratch, rebuilt from the block), is pushed out of heroes and props one way (they never feel it), carries a
 // knockback of its own that decays, and moves with nav.move, which never leaves the mesh. In reach it winds up a
-// telegraphed swing, which lands only if the hero is still in reach and in front. damage_minion is the only writer of a
-// minion's hit points and death; a dead minion falls (Dying) and its row is freed after DEATH_S.
+// telegraphed swing, which lands only if the hero is still in reach, in front and in sight. damage_minion is the only
+// way a minion takes damage and dies; a dead minion falls (Dying) and its row is freed after DEATH_S.
 package crypt_crew
 
 import "unified:dmath"
 import "unified:nav"
+import "unified:physics"
 import "unified:sim"
 
 // What a minion is doing (Minion.phase), since Minion.since.
 Minion_Phase :: enum u8 {
 	Rise, // climbing out of a grave, RISE_S, harmless; then Chase
-	Idle, // asleep in a pack until it sees a hero (director.odin)
+	Idle, // asleep in a pack until a hero comes into sight or it is hit (director.odin)
 	Chase, // walking at its target
 	Attack, // a swing: it lands MINION_WINDUP_S in, then the minion recovers until MINION_ATTACK_S
 	Dying, // falling, DEATH_S, then the row is freed
@@ -29,19 +30,25 @@ Minion :: struct {
 	poly:   nav.Poly, // the mesh polygon it stands on
 	target: sim.Player, // the hero it chases ({}: none)
 	since:  sim.Game_Time, // when `phase` began
-	struck: sim.Game_Time, // when it was last hit (the view's flash)
+	struck: sim.Game_Time, // when it was last hit (0: never; the view's flash)
 	hp:     i16,
 	phase:  Minion_Phase,
-	_pad:   u8,
+	pack:   u8, // its pack's index + 1 in the World's packs (0: none, a surge's or a spawned one): it wakes with them
 }
 
 // The live minions by cell on the floor plan (scratch in the World, rebuilt from the block by move_minions).
-Minion_Grid :: sim.Grid(MINION_GRID_N * MINION_GRID_N, MAX_MINIONS)
+Minion_Grid :: sim.Grid(MINION_GRID_CELLS, MAX_MINIONS)
 
 // A circle minions are pushed out of (a hero, a prop in the way), on the floor plan.
 Obstacle :: struct {
 	pos:    [2]f32,
 	radius: f32,
+}
+
+// What blocks a minion's swing and a sleeper's sight: walls (low cover is swung and seen over).
+SIGHT_FILTER :: physics.Filter {
+	category = CAT_HERO,
+	mask     = CAT_WALL,
 }
 
 // `player` hit `minion` for `damage` (sim.Position: where).
@@ -59,7 +66,8 @@ Event_Minion_Died :: struct {
 	player:   sim.Player,
 }
 
-// A minion in `phase` at `at` (a point of `poly`), facing `facing`, at full health; false when the table is full.
+// A minion in `phase` at `at` (a point of `poly`), facing `facing`, at full health, of pack `pack` (0: none); false
+// when the table is full.
 spawn_minion :: proc(
 	state: ^State,
 	at: [3]f32,
@@ -67,8 +75,13 @@ spawn_minion :: proc(
 	facing: [2]f32,
 	phase: Minion_Phase,
 	now: sim.Game_Time,
-) -> bool {
-	minion, _ := sim.spawn(&state.minions) or_return
+	pack: u8 = 0,
+) -> (
+	handle: sim.Handle(Minion),
+	ok: bool,
+) {
+	minion: ^Minion
+	minion, handle = sim.spawn(&state.minions) or_return
 	minion^ = {
 		pos    = at,
 		facing = facing,
@@ -76,8 +89,9 @@ spawn_minion :: proc(
 		since  = now,
 		hp     = MINION_HP,
 		phase  = phase,
+		pack   = pack,
 	}
-	return true
+	return handle, true
 }
 
 // Whether a live minion stands within `radius` of `point` (on the floor plan).
@@ -97,9 +111,9 @@ minions_alive :: proc(minions: ^sim.Table(Minion, MAX_MINIONS)) -> int {
 	return alive
 }
 
-// `minion` takes `damage` from `player` ({}: nobody), knocked along `knock_dir` (unit, x and z) at `knock` metres per
-// second; at 0 it dies (Dying), and the kill is counted. A dying minion takes nothing. The one writer of a minion's
-// hit points and death.
+// `minion` takes `damage` (> 0) from `player` ({}: nobody), knocked along `knock_dir` (unit, x and z) at `knock`
+// metres per second; asleep, it wakes, and its pack with it; at 0 it dies (Dying). A dying minion takes nothing. The
+// only way a minion takes damage or dies.
 damage_minion :: proc(
 	t: ^Tick,
 	handle: sim.Handle(Minion),
@@ -109,28 +123,42 @@ damage_minion :: proc(
 	player: sim.Player,
 ) {
 	minion := sim.get(&t.state.minions, handle)
-	if minion == nil || minion.phase == .Dying do return
+	if minion == nil || minion.phase == .Dying || damage <= 0 do return
+	if minion.phase == .Idle do wake(t, minion)
 	minion.hp -= damage
 	minion.struck = t.time
 	minion.knock += knock_dir * knock
-	sim.emit(
-		t,
-		Event_Minion_Hit{minion = handle, position = sim.Position(minion.pos), damage = damage, player = player},
-	)
+	hit := Event_Minion_Hit {
+		minion   = handle,
+		position = sim.Position(minion.pos),
+		damage   = damage,
+		player   = player,
+	}
+	sim.emit(t, hit)
 	if minion.hp > 0 do return
 	minion.phase, minion.since, minion.target = .Dying, t.time, {}
-	t.state.kills += 1
 	sim.emit(t, Event_Minion_Died{minion = handle, position = sim.Position(minion.pos), player = player})
 }
 
-// Each awake minion's target, every RETARGET_S (time-sliced by its index), and at once for one without: the hero up
-// nearest it along the floor (its field's cost; ties by slot), none when no hero up can be reached. A target that went
-// down or left is dropped at once.
+// A sleeping minion wakes and chases: every sleeper of its pack with it (a lone one, alone).
+wake :: proc(t: ^Tick, minion: ^Minion) {
+	minion.phase, minion.since = .Chase, t.time
+	if minion.pack == 0 do return
+	minions := sim.iterate(&t.state.minions)
+	for other in sim.next(&minions) {
+		if other.phase == .Idle && other.pack == minion.pack do other.phase, other.since = .Chase, t.time
+	}
+}
+
+// Each chasing minion's target, every RETARGET_S (time-sliced by its index), and at once for one without: the hero up
+// nearest it along the floor (its field's cost; ties by slot), none when no hero up can be reached. A swinging minion
+// keeps its target; a target that went down or left is dropped at once by every minion.
 target_heroes :: proc(t: ^Tick) {
 	minions := sim.iterate(&t.state.minions)
 	for minion, handle in sim.next(&minions) {
 		if minion.phase == .Idle || minion.phase == .Dying do continue
 		if !hero_up(t, minion.target) do minion.target = {}
+		if minion.phase == .Attack do continue
 		if minion.target != {} && !sim.due(t, handle.index, RETARGET_TICKS) do continue
 		best: sim.Player
 		best_cost := nav.UNREACHABLE
@@ -149,8 +177,9 @@ target_heroes :: proc(t: ^Tick) {
 move_minions :: proc(t: ^Tick) {
 	build_grid(t)
 	obstacles := obstacles_of(t)
+	decay := dmath.exp_decay(KNOCK_DECAY, t.dt)
 	minions := sim.iterate(&t.state.minions)
-	for minion, handle in sim.next(&minions) do move_minion(t, minion, handle, sim.slice(&obstacles))
+	for minion, handle in sim.next(&minions) do move_minion(t, minion, handle, sim.slice(&obstacles), decay)
 }
 
 // After the physics step, the minions' phases advance: a risen minion chases after RISE_S, a chaser with its target in
@@ -179,16 +208,16 @@ age_minions :: proc(t: ^Tick) {
 	}
 }
 
-// The live minions into the World's grid, in table order (so a cell's minions come in index order).
+// The live minions into the World's grid (laid over the mesh in world_create), in table order, so a cell's minions
+// come in index order.
 @(private = "file")
 build_grid :: proc(t: ^Tick) {
-	grid := &t.world.grid
-	sim.grid_begin(grid, MINION_GRID_ORIGIN, MINION_GRID_CELL, MINION_GRID_N, MINION_GRID_N)
+	sim.grid_begin(&t.world.grid, t.world.grid_origin, MINION_GRID_CELL, t.world.grid_columns, t.world.grid_rows)
 	minions := sim.iterate(&t.state.minions)
 	for minion, handle in sim.next(&minions) {
-		if minion.phase != .Dying do sim.grid_add(grid, i32(handle.index), minion.pos.xz)
+		if minion.phase != .Dying do sim.grid_add(&t.world.grid, i32(handle.index), minion.pos.xz)
 	}
-	sim.grid_end(grid)
+	sim.grid_end(&t.world.grid)
 }
 
 // What minions are pushed out of this tick: every present hero's capsule, and every prop held or at rest.
@@ -198,24 +227,25 @@ obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, PLAYERS + MAX_P
 	for hero in sim.next(&heroes) do sim.append(&obstacles, Obstacle{hero.pos.xz, HERO_RADIUS})
 	props := sim.iterate(&t.state.props)
 	for prop in sim.next(&props) {
-		if prop_in_the_way(t.world.phys, prop) {
-			sim.append(&obstacles, Obstacle{prop_centre(t.world.phys, prop).xz, PROP_SPECS[prop.kind].footprint})
-		}
+		if !prop_in_the_way(t.world.phys, prop) do continue
+		centre := physics.body_position(t.world.phys, prop.body)
+		sim.append(&obstacles, Obstacle{centre.xz, PROP_SPECS[prop.kind].footprint})
 	}
 	return
 }
 
-// One minion's move: its own velocity (toward its target while chasing), its neighbours' push and its knockback, along
-// the mesh; then out of what is in its way, along the mesh too. Its `vel` is what it moved.
+// One minion's move: its own velocity (toward its target while chasing), its neighbours' push and its knockback
+// (`decay` is what a tick leaves of it), along the mesh; then out of what is in its way, along the mesh too. Its `vel`
+// is what it moved.
 @(private = "file")
-move_minion :: proc(t: ^Tick, minion: ^Minion, handle: sim.Handle(Minion), obstacles: []Obstacle) {
-	mesh := &t.world.mesh
+move_minion :: proc(t: ^Tick, minion: ^Minion, handle: sim.Handle(Minion), obstacles: []Obstacle, decay: f32) {
 	from := minion.pos
 	velocity := minion.knock
-	minion.knock *= dmath.exp_decay(KNOCK_DECAY, t.dt)
+	minion.knock *= decay
 	if minion.phase == .Chase && minion.target != {} {
 		spot := t.world.hero_spots[sim.player_slot(t, minion.target)]
-		next := nav.steer(mesh, nav.field(&t.world.fields, spot.poly), minion.poly, minion.pos, spot.point)
+		field := nav.field(&t.world.fields, spot.poly)
+		next := nav.steer(&t.world.mesh, field, minion.poly, minion.pos, spot.point)
 		heading := dmath.normalize((next - minion.pos).xz)
 		if heading != {} do minion.facing = heading
 		velocity += heading * MINION_SPEED
@@ -223,7 +253,7 @@ move_minion :: proc(t: ^Tick, minion: ^Minion, handle: sim.Handle(Minion), obsta
 	if minion.phase != .Dying && minion.phase != .Rise do velocity += separation(t, minion, handle)
 	if velocity != {} {
 		to := minion.pos + {velocity.x, 0, velocity.y} * t.dt
-		minion.poly, minion.pos = nav.move(mesh, minion.poly, minion.pos, to)
+		minion.poly, minion.pos = nav.move(&t.world.mesh, minion.poly, minion.pos, to)
 	}
 	if minion.phase != .Dying {
 		out := minion.pos.xz
@@ -236,7 +266,7 @@ move_minion :: proc(t: ^Tick, minion: ^Minion, handle: sim.Handle(Minion), obsta
 			out = obstacle.pos + away * (reach / dmath.sqrt(distance_sq))
 		}
 		if out != minion.pos.xz {
-			minion.poly, minion.pos = nav.move(mesh, minion.poly, minion.pos, {out.x, minion.pos.y, out.y})
+			minion.poly, minion.pos = nav.move(&t.world.mesh, minion.poly, minion.pos, {out.x, minion.pos.y, out.y})
 		}
 	}
 	minion.vel = (minion.pos - from) * TICK_HZ
@@ -271,11 +301,15 @@ in_reach :: proc(t: ^Tick, minion: ^Minion) -> bool {
 	return dmath.length_sq(sim.player_data(t, minion.target).pos.xz - minion.pos.xz) <= reach * reach
 }
 
-// The swing lands: on the target if it is still up, in reach and in front of the facing the swing locked.
+// The swing lands: on the target if it is still up, in reach, in front of the facing the swing locked, and in sight
+// (no wall between them).
 @(private = "file")
 strike :: proc(t: ^Tick, minion: ^Minion) {
 	if !hero_up(t, minion.target) || !in_reach(t, minion) do return
-	to_hero := dmath.normalize(sim.player_data(t, minion.target).pos.xz - minion.pos.xz)
+	hero := sim.player_data(t, minion.target)
+	to_hero := dmath.normalize(hero.pos.xz - minion.pos.xz)
 	if to_hero != {} && dmath.dot(to_hero, minion.facing) < MINION_STRIKE_COS do return
+	eye, seen := minion.pos + {0, EYE_HEIGHT, 0}, hero.pos + {0, EYE_HEIGHT, 0}
+	if _, walled := physics.world_cast_ray_closest(t.world.phys, eye, seen - eye, SIGHT_FILTER); walled do return
 	damage_hero(t, minion.target, MINION_DAMAGE, minion.pos)
 }

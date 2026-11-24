@@ -54,16 +54,16 @@ What the sim shows Godot and what Godot sends back, each declared in `simulation
 - `View_Hero` (`frame.odin`, GDScript `ViewHero`, its scene `game/views/hero.tscn`): a hero, keyed by its player,
   posed at its feet and turned to its facing (a local hero's from its newest input). Its velocity in its own frame
   (x to its right, y ahead) picks the gait; its class picks the character; its action and the game time it started
-  pose a one-shot (a pick-up, a throw, going down); `carrying` says it holds a prop, `grace` that it just rose and
-  takes no damage (it blinks).
+  pose a one-shot (a pick-up, a throw, going down); `grace` says it just rose and takes no damage (it blinks).
 - `View_Prop` (`frame.odin`, `ViewProp`, `game/views/prop.tscn`, pooled): a barrel or crate, keyed by its handle,
-  posed at the bottom of its body and turned with it. Its kind picks the model; `held_by` names its carrier; `aimed`
-  says a local hero's Interact would grab it now (the rules' own `grab_target`), which the view highlights.
+  posed at the bottom of its body and turned with it. Its kind picks the model; `aimed` says a local hero's Interact
+  would grab it now (the rules' own `hands_target`), which the view highlights.
 - `View_Minion` (`frame.odin`, `ViewMinion`, `game/views/minion.tscn`, pooled, shown once its spawn is verified): a
   skeleton, keyed by its handle, posed at its feet and turned to its facing; its phase (rising, asleep, chasing,
-  swinging, dying) and the game time it began pose its clip.
+  swinging, dying) and the game time it began pose its clip, `moving` says whether a chaser walks or stands, and the
+  game time it was `struck` flashes it.
 - `Data_Hud` (`hud.odin`, `Unified.data.hud`): each slot's hero (player, HP, class, whether it is local), the minions
-  alive, the kills and the co-op pause.
+  alive and the co-op pause. The HUD counts kills itself, from each `EventMinionDied` once CONFIRMED.
 - `Input_Values` (`input.odin`, `Unified.local_input(local)`): the mouse's aim, from the keyboard player's hero to
   where the cursor points on the floor, set by `game/play/play.gd` on the session's `input_wanted`.
 

@@ -327,8 +327,9 @@ func _check_floor(shapes: Array[CollisionShape3D], bounds: AABB, path: String) -
 
 ## Each stage, and each of the game's levels (game/levels/), is built as a level should be: a placed part is a plain
 ## instance (it overrides neither its category nor its script, which the part's scene owns) and never scaled, and in a
-## camera's stage or a level a floor or a wall sits on the 2 m grid, turned in 90° steps. A camera's stage walks in one piece: its baked navigation mesh (`uni bake --nav`) has exactly one island
-## on the floor (the tops of walls and furniture bake into islands of their own, which nothing reaches).
+## camera's stage or a level a floor or a wall sits on the 2 m grid, turned in 90° steps. A camera's stage walks in one
+## piece: its baked navigation mesh (`uni bake --nav`) has exactly one island on the floor (the tops of walls and
+## furniture bake into islands of their own, which nothing reaches).
 func _check_stages() -> void:
 	for path: String in STAGES + [KIT_STAGE] + _files(LEVELS, "tscn"):
 		var state: SceneState = (load(path) as PackedScene).get_state()

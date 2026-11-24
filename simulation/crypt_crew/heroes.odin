@@ -31,27 +31,25 @@ face_heroes :: proc(t: ^Tick) {
 	}
 }
 
-// Each slot's hero up on the navigation mesh (the World's hero_spots, scratch rebuilt every tick from the block):
-// the mesh's point nearest its feet within HERO_NAV_REACH; nav.NO_POLY for an empty slot, a hero down or one off the
-// mesh. What minions chase and surges measure from.
+// Each slot's hero up on the walkable floor (the World's hero_spots, scratch rebuilt every tick from the block): the
+// floor's point nearest its feet within HERO_NAV_REACH (floor_spot); nav.NO_POLY for an empty slot, a hero down, or
+// one off the floor (on a crate's top, say). What minions chase and surges measure from.
 locate_heroes :: proc(t: ^Tick) {
 	for &spot, slot in t.world.hero_spots {
 		player := sim.player_in_slot(t, slot)
-		spot = {
-			poly = nav.NO_POLY,
-		}
-		if !hero_up(t, player) do continue
-		spot.poly, spot.point = nav.nearest(&t.world.mesh, sim.player_data(t, player).pos, HERO_NAV_REACH)
+		on_floor := false
+		if hero_up(t, player) do spot, on_floor = floor_spot(t.world, sim.player_data(t, player).pos, HERO_NAV_REACH)
+		if !on_floor do spot.poly = nav.NO_POLY
 	}
 }
 
 // Each present hero's controller is driven toward its stick at its class's max_speed, slowed by what it carries
-// (carry_speed). Heroes never jump.
+// (carry_speed); a hero down is driven to a stop. Heroes never jump.
 move_heroes :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
 		input := sim.input(t, player)
-		move := dmath.stick(input.move_x, input.move_z)
+		move := dmath.stick(input.move_x, input.move_z) if hero.action != .Down else {} // down: the drive holds it still
 		def := t.world.hero_defs[hero.class]
 		physics.character_update(t.world.phys, &hero.body, def, move, false, carry_speed(t, hero))
 	}

@@ -1,5 +1,6 @@
-// crypt_crew's reference run (unified/src/headless/README.md, Reference runs). A new game starts from it unpinned (`uni init`
-// leaves the results out): its run warns with the literal to paste until it is pinned, once the game's rules settle.
+// crypt_crew's reference run (unified/src/headless/README.md, Reference runs). A new game starts from it unpinned
+// (`uni init` leaves the results out): its run warns with the literal to paste until it is pinned, once the game's
+// rules settle.
 package test_crypt_crew
 
 import "core:testing"

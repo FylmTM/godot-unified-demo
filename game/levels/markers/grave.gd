@@ -1,5 +1,5 @@
 extends Marker3D
-## Level marker: a grave. The sim keeps its place among the floor's (world.odin, `Places.graves`); the surges that
-## rise from graves are milestone 2's next steps (docs/plan.md, Milestone 2: the design).
+## Level marker: a grave, where surges of skeletons rise (director.odin): those far enough from every hero to be out of
+## sight and near enough to reach the party. It must stand on the walkable floor, or the level fails to load.
 
 const UNIFIED_KIND := "grave"

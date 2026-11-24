@@ -13,7 +13,7 @@ Prop :: struct {
 	body:           physics.Body_Ref,
 	// Its body and its thrower's don't touch from the throw until it is clear of them (age_throws).
 	thrower_ignore: physics.Filter_Joint_Ref,
-	thrown:         sim.Timer, // its throw's while it runs (THROWN_S): what a hit will be blamed on
+	thrown:         sim.Timer, // its throw's while it runs (THROWN_TICKS): what a hit will be blamed on
 	held_by:        sim.Player, // the hero carrying it ({}: nobody)
 	thrown_by:      sim.Player, // who threw it last (while `thrown` runs), whether still here or not
 	kind:           Prop_Kind,
@@ -58,11 +58,6 @@ despawn_props :: proc(t: ^Tick) {
 	sim.despawn_all(&t.state.props)
 }
 
-// The centre of a prop's body.
-prop_centre :: proc(phys: ^physics.World, prop: ^Prop) -> [3]f32 {
-	return physics.body_position(phys, prop.body)
-}
-
 // Whether a prop is in minions' way: held, or slower than PROP_REST_SPEED (a thrown one flies through them).
 prop_in_the_way :: proc(phys: ^physics.World, prop: ^Prop) -> bool {
 	speed := physics.body_linear_velocity(phys, prop.body)
@@ -84,23 +79,37 @@ prop_impacts :: proc(t: ^Tick) {
 			if shape.category & CAT_PROP == 0 do continue
 			handle := sim.handle_of_key(Prop, shape.tag)
 			if sim.get(&t.state.props, handle) == nil do continue
-			sim.emit(t, Event_Prop_Impact{prop = handle, position = sim.Position(hit.point), speed = hit.speed})
+			impact := Event_Prop_Impact {
+				prop     = handle,
+				position = sim.Position(hit.point),
+				speed    = hit.speed,
+			}
+			sim.emit(t, impact)
 		}
 	}
 }
 
-// A thrown prop's ignore of its thrower ends once it is clear of them (THROW_CLEAR_DIST), its throw ran out
-// (THROWN_S) or the thrower left (their body went, and the ignore with it: the stale ref is zeroed here, before the tick
-// ends). From then a bounce back hits the thrower like anything else.
+// A thrown prop's ignore of its thrower ends once it is clear of them (THROW_CLEAR_DIST) or its throw ran out
+// (THROWN_TICKS). From then a bounce back hits the thrower like anything else. A thrower who leaves ends theirs at once
+// (end_throws_by).
 age_throws :: proc(t: ^Tick) {
 	props := sim.iterate(&t.state.props)
 	for prop in sim.next(&props) {
 		if prop.thrower_ignore == {} do continue
-		clear := !sim.timer_running(t, prop.thrown) || !sim.player_present(t, prop.thrown_by)
+		clear := !sim.timer_running(t, prop.thrown)
 		if !clear {
 			away := physics.body_position(t.world.phys, prop.body) - sim.player_data(t, prop.thrown_by).pos
 			clear = dmath.length_sq(away.xz) > THROW_CLEAR_DIST * THROW_CLEAR_DIST
 		}
 		if clear do physics.stop_ignoring(t.world.phys, &prop.thrower_ignore)
+	}
+}
+
+// `player` leaves: every prop they threw stops ignoring their body before it goes (presence.odin), on any tick, a
+// paused one too, so no ignore outlives the body it names.
+end_throws_by :: proc(t: ^Tick, player: sim.Player) {
+	props := sim.iterate(&t.state.props)
+	for prop in sim.next(&props) {
+		if prop.thrown_by == player do physics.stop_ignoring(t.world.phys, &prop.thrower_ignore)
 	}
 }

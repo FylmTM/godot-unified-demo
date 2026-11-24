@@ -3,6 +3,7 @@
 package test_crypt_crew
 
 import "core:testing"
+import "unified:dmath"
 import "unified:headless"
 import "unified:headless/scenarios"
 import "unified:nav"
@@ -34,23 +35,56 @@ a_surge_grows_with_the_party :: proc(t: ^testing.T) {
 	}
 }
 
-// A surge rises at graves far enough from every hero (SURGE_NEAR along the floor, less the spread around a grave):
-// no risen minion stands nearer to a hero than that.
+// A surge rises at graves out of sight of every hero (SURGE_NEAR in a straight line) and within reach of the party
+// (SURGE_FAR along the floor from the nearest hero): every risen minion stands so, give or take the spread around its
+// grave.
 @(test)
-a_surge_rises_out_of_sight :: proc(t: ^testing.T) {
+a_surge_rises_out_of_sight_and_within_reach :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
 	defer headless.run_end(&run)
 	until_the_first_surge(&run)
 	world := run.simulation.world
+	risen := 0
 	minions := sim.iterate(&run.simulation.state.minions)
 	for minion in sim.next(&minions) {
 		if minion.phase != .Rise do continue
+		risen += 1
+		nearest := nav.UNREACHABLE
 		for slot in 0 ..< g.PLAYERS {
-			hero_poly, _ := nav.nearest(&world.mesh, sim.slot_data(run.simulation, slot).pos, g.HERO_NAV_REACH)
-			cost := nav.field(&world.fields, hero_poly).cost[minion.poly]
-			testing.expectf(t, cost >= g.SURGE_NEAR - 2 * g.SURGE_SPREAD, "rose %v m from slot %d", cost, slot)
+			hero := sim.slot_data(run.simulation, slot)
+			apart := dmath.length(minion.pos.xz - hero.pos.xz)
+			testing.expectf(t, apart >= g.SURGE_NEAR - g.SURGE_SPREAD, "rose %v m from slot %d", apart, slot)
+			spot, on_floor := g.floor_spot(world, hero.pos, g.HERO_NAV_REACH)
+			if on_floor do nearest = dmath.min(nearest, nav.field(&world.fields, spot.poly).cost[minion.poly])
+		}
+		testing.expectf(t, nearest <= g.SURGE_FAR + 2 * g.SURGE_SPREAD, "rose %v m of path from the party", nearest)
+	}
+	testing.expect(t, risen > 0, "a surge rose")
+	scenarios.expect_synced(t, &run)
+}
+
+// With a hero up within SURGE_NEAR of every grave, no grave is out of sight: the surge clock runs out and nothing
+// rises.
+@(test)
+no_grave_out_of_sight_no_surge :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	clear_minions(&run) // the packs: they would down the heroes beside them
+	graves := sim.slice(&run.simulation.world.places.graves)
+	covered: [g.MAX_GRAVES]bool
+	placed := 0
+	for &grave, i in graves {
+		if covered[i] do continue
+		assert(placed < g.PLAYERS, "the floor's graves need more heroes than slots to cover")
+		place_hero(&run, placed, grave.point)
+		placed += 1
+		for &other, k in graves {
+			if dmath.length(other.point.xz - grave.point.xz) < g.SURGE_NEAR - 0.5 do covered[k] = true
 		}
 	}
+	for !sim.timer_running(run.simulation.state.clock.time, run.simulation.state.surge) do headless.run_step(&run)
+	for run.simulation.state.clock.time < sim.Game_Time(g.SURGE_FIRST_TICKS + g.TICK_HZ) do headless.run_step(&run)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Surge), 0)
 	scenarios.expect_synced(t, &run)
 }
 

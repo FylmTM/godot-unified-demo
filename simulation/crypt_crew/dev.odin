@@ -19,14 +19,13 @@ apply_dev_commands :: proc(t: ^Tick) {
 			case Command_Dev_Spawn_Minions:
 				spawn_around(t, hero.pos, int(command.count))
 			case Command_Dev_Hurt:
-				if target := sim.player_data(t, command.player); target != nil {
-					damage_hero(t, command.player, command.damage, target.pos)
-				}
+				victim := command.player if command.player != {} else player
+				if target := sim.player_data(t, victim); target != nil do damage_hero(t, victim, command.damage, target.pos)
 			case Command_Dev_Kill_Minions:
 				minions := sim.iterate(&t.state.minions)
 				for minion, handle in sim.next(&minions) {
 					away := dmath.normalize(minion.pos.xz - hero.pos.xz)
-					damage_minion(t, handle, minion.hp, away, DEV_KILL_KNOCK, player)
+					damage_minion(t, handle, MINION_HP, away, DEV_KILL_KNOCK, player)
 				}
 			}
 		}

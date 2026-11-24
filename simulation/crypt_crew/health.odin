@@ -1,6 +1,7 @@
-// A hero's health: damage_hero is the only writer of a hero's hit points and of going down. A hero at 0 HP goes down
-// (it lets go of what it carries, its body goes limp, minions stop chasing it) for RESPAWN_S, then rises beside the
-// party (arrival_spot) with SPAWN_GRACE_S in which nothing hurts it. When every hero present is down at once, the floor
+// A hero's health: damage_hero is the only way a hero takes damage and goes down (a spawn and a rise set its hit
+// points whole). A hero at 0 HP goes down: it lets go of what it carries, stops where it is (its drive holds it there,
+// so it neither slides nor sinks), and minions stop chasing it, for RESPAWN_TICKS; then it rises beside the party
+// (arrival_spot) with SPAWN_GRACE_TICKS in which nothing hurts it. When every hero present is down at once, the floor
 // starts over (restart_floor).
 package crypt_crew
 
@@ -40,26 +41,26 @@ damage_hero :: proc(t: ^Tick, player: sim.Player, damage: i16, from: [3]f32) {
 	sim.emit(t, Event_Hero_Hurt{player = player, position = sim.Position(from), damage = damage, hp = hero.hp})
 	if hero.hp > 0 do return
 	drop_prop(t, player)
-	physics.character_set_limp(t.world.phys, &hero.body, true)
+	physics.body_set_linear_velocity(t.world.phys, hero.body.body, {})
+	hero.vel = {}
 	hero.action, hero.action_started = .Down, t.time
-	sim.timer_start(t, &hero.respawn, RESPAWN_S)
+	sim.timer_start_ticks(t, &hero.respawn, RESPAWN_TICKS)
 	sim.emit(t, Event_Hero_Downed{player = player, position = sim.Position(hero.pos)})
 }
 
-// Each hero down whose RESPAWN_S ran out rises beside the party (arrival_spot): its body moved there (its view snaps),
-// up again at full health, in its grace.
+// Each hero down whose RESPAWN_TICKS ran out rises beside the party (arrival_spot): its body moved there (its view
+// snaps), up again at full health, in its grace.
 rise_heroes :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
 		if hero.action != .Down || sim.timer_running(t, hero.respawn) do continue
 		feet, beside := arrival_spot(t, player)
 		physics.character_teleport(t.world.phys, &hero.body, feet + {0, HERO_CENTRE_ABOVE_FEET, 0})
-		physics.character_set_limp(t.world.phys, &hero.body, false)
 		hero.pos, hero.vel = feet, {}
 		hero.hp = HERO_HP
 		hero.action, hero.action_started = .None, t.time
 		sim.timer_stop(&hero.respawn)
-		sim.timer_start(t, &hero.grace, SPAWN_GRACE_S)
+		sim.timer_start_ticks(t, &hero.grace, SPAWN_GRACE_TICKS)
 		sim.emit(t, Event_Hero_Spawned{player = player, position = sim.Position(feet), beside = beside})
 	}
 }

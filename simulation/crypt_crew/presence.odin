@@ -24,11 +24,12 @@ ARRIVAL_FILTER :: physics.Filter {
 	mask     = CAT_WALL | CAT_LOW,
 }
 
-// Leaves, then arrivals in slot order: a leaver drops what it carries, its body goes and its class stays; an arrival
-// gets a class (arrival_class) and a body at its arrival_spot.
+// Leaves, then arrivals in slot order: a leaver drops what it carries, ends its throws' ignores (end_throws_by), its
+// body goes and its class stays; an arrival gets a class (arrival_class) and a body at its arrival_spot.
 update_presence :: proc(t: ^Tick) {
 	for player in t.player_changes.left {
 		drop_prop(t, player)
+		end_throws_by(t, player)
 		hero := sim.player_data(t, player)
 		destroy_hero_body(t.world.phys, hero)
 		hero^ = {
@@ -44,32 +45,55 @@ update_presence :: proc(t: ^Tick) {
 	}
 }
 
-// Where `player`'s hero arrives, and whether beside the party. The anchor is the lowest-slot hero up, other than this
-// one and other than those arriving this tick (a session's first players each take their own spawn). Around it, eight
-// spots ARRIVAL_RING away, starting from one that depends on the arriver's slot: the first that is on the mesh
-// (within ARRIVAL_SNAP), joined to the anchor's floor, reachable from the anchor in a straight line over no wall or low
-// cover, and with no live minion within ARRIVAL_CLEAR; else the anchor's own place. With nobody up: the slot's
-// hero_spawn.
+// Where `player`'s hero arrives, and whether beside the party. The anchor is the lowest-slot hero up on the walkable
+// floor, other than this one and other than those arriving this tick (a session's first players each take their own
+// spawn). Around it, eight spots ARRIVAL_RING away, then eight twice as far, each ring starting from a spot that
+// depends on the arriver's slot (ARRIVAL_SLOT_TURN): the first that is on the walkable floor (within ARRIVAL_SNAP),
+// joined to the anchor's, reachable from the anchor in a straight line over no wall or low cover, with no live minion
+// within ARRIVAL_CLEAR, and clear of every hero and every prop. With no such spot, or nobody up: the slot's hero_spawn.
 arrival_spot :: proc(t: ^Tick, player: sim.Player) -> (feet: [3]f32, beside: bool) {
 	slot := sim.player_slot(t, player)
+	spawn := t.world.places.hero_spawns[slot]
 	anchor, anchored := arrival_anchor(t, player)
-	if !anchored do return t.world.places.hero_spawns[slot], false
-	mesh := &t.world.mesh
-	from := anchor.pos
-	anchor_poly, anchor_point := nav.nearest(mesh, from, HERO_NAV_REACH)
-	start := slot * 3 // a ring's start per slot, so two arrivals at once try different spots first
-	for k in 0 ..< len(dmath.DIR8) {
-		dir := dmath.DIR8[(start + k) % len(dmath.DIR8)]
-		poly, point := nav.nearest(mesh, from + {dir.x, 0, dir.y} * ARRIVAL_RING, ARRIVAL_SNAP)
-		if poly == nav.NO_POLY || !nav.connected(mesh, poly, anchor_poly) do continue
-		ray_from := from + {0, ARRIVAL_RAY_HEIGHT, 0}
-		if _, blocked := physics.world_cast_ray_closest(t.world.phys, ray_from, point + {0, ARRIVAL_RAY_HEIGHT, 0} - ray_from, ARRIVAL_FILTER); blocked do continue
-		if minion_near(t, point, ARRIVAL_CLEAR) do continue
-		return point, true
+	if !anchored do return spawn, false
+	anchor_spot, on_floor := floor_spot(t.world, anchor.pos, HERO_NAV_REACH)
+	if !on_floor do return spawn, false
+	start := slot * ARRIVAL_SLOT_TURN
+	for ring in 1 ..= 2 {
+		for k in 0 ..< len(dmath.DIR8) {
+			dir := dmath.DIR8[(start + k) % len(dmath.DIR8)]
+			at := anchor.pos + [3]f32{dir.x, 0, dir.y} * (f32(ring) * ARRIVAL_RING)
+			spot := floor_spot(t.world, at, ARRIVAL_SNAP) or_continue
+			if !nav.connected(&t.world.mesh, spot.poly, anchor_spot.poly) do continue
+			if !arrival_clear(t, anchor.pos, spot.point) do continue
+			return spot.point, true
+		}
 	}
-	return anchor_point if anchor_poly != nav.NO_POLY else from, true
+	return spawn, false
 }
 
+// Whether an arrival may stand at `point`: walkable from `from` in a straight line over no wall or low cover (tested
+// ARRIVAL_RAY_HEIGHT above the floor), no live minion within ARRIVAL_CLEAR, and ARRIVAL_ROOM clear of every hero's
+// capsule and every prop's footprint.
+@(private = "file")
+arrival_clear :: proc(t: ^Tick, from, point: [3]f32) -> bool {
+	ray_from, ray_to := from + {0, ARRIVAL_RAY_HEIGHT, 0}, point + {0, ARRIVAL_RAY_HEIGHT, 0}
+	if _, walled := physics.world_cast_ray_closest(t.world.phys, ray_from, ray_to - ray_from, ARRIVAL_FILTER); walled {
+		return false
+	}
+	if minion_near(t, point, ARRIVAL_CLEAR) do return false
+	heroes := sim.iterate_present(t)
+	for hero in sim.next(&heroes) {
+		if hero.body != {} && dmath.length(hero.pos.xz - point.xz) < 2 * HERO_RADIUS + ARRIVAL_ROOM do return false
+	}
+	props := sim.iterate(&t.state.props)
+	for prop in sim.next(&props) {
+		centre := physics.body_position(t.world.phys, prop.body)
+		room := HERO_RADIUS + PROP_SPECS[prop.kind].footprint + ARRIVAL_ROOM
+		if dmath.length(centre.xz - point.xz) < room do return false
+	}
+	return true
+}
 
 // The class an arriving hero plays: the class its Profile wishes for; with no wish (`Any`), the one it played before
 // it left, or for a new hero the first class no present hero plays. There is always one: the others present are fewer

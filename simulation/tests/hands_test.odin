@@ -1,6 +1,7 @@
 // The props' and hands' rule tests (props.odin, hands.odin), each on a sync-tested run (headless.Run) that ends
 // synced, so a hold's joint and a throw's ignore leave the physics world's refs clean (check_refs after every
-// restore). A test places a prop where it needs one (place_prop) and pins the run there.
+// restore). A test places a prop where it needs one (place_prop, support_test.odin) and pins the run there. Slot 0's
+// spawn, in the first room, has open floor for several metres toward +X.
 package test_crypt_crew
 
 import "core:testing"
@@ -11,55 +12,6 @@ import "unified:physics"
 import "unified:sim"
 
 import g "../crypt_crew"
-
-// Floor 1's props by marker order (game/levels/floor_1.tscn), the ones these tests move.
-@(private = "file")
-BARREL :: 0
-@(private = "file")
-CRATE :: 2
-@(private = "file")
-HEAVY_CRATE :: 3
-
-// Slot 0's spawn on Floor 1, in the first room: open floor for several metres toward +X.
-@(private = "file")
-SPAWN :: [3]f32{-15.5, 0, -1.2}
-
-// Moves prop `index` (in marker order) to stand at rest on `floor_point`, unturned, and pins the run there.
-@(private = "file")
-place_prop :: proc(run: ^headless.Run(g.Game), index: int, floor_point: [3]f32) {
-	prop := &run.simulation.state.props.items[index]
-	centre := floor_point + {0, g.PROP_SPECS[prop.kind].half.y, 0}
-	physics.body_teleport(run.simulation.world.phys, prop.body, centre)
-	headless.run_pin(run)
-}
-
-// The prop (in marker order) at `index`, and its handle.
-@(private = "file")
-prop_at :: proc(run: ^headless.Run(g.Game), index: int) -> (^g.Prop, sim.Handle(g.Prop)) {
-	walk := sim.iterate(&run.simulation.state.props)
-	for prop, handle in sim.next(&walk) {
-		if int(handle.index) == index do return prop, handle
-	}
-	return nil, {}
-}
-
-// One tick of slot `slot` pressing `button` with `input`, then one with the button up again (the next press is an
-// edge), the other seated slots idle.
-@(private = "file")
-press :: proc(run: ^headless.Run(g.Game), slot: int, button: g.Button, input: g.Input = {}) {
-	inputs: [g.PLAYERS]g.Input
-	inputs[slot] = input
-	inputs[slot].buttons += {button}
-	headless.run_step(run, inputs)
-	inputs[slot].buttons -= {button}
-	headless.run_step(run, inputs)
-}
-
-// `seconds` of play with these inputs by slot.
-@(private = "file")
-play :: proc(run: ^headless.Run(g.Game), inputs: [g.PLAYERS]g.Input, seconds: f32) {
-	for _ in 0 ..< int(seconds * g.TICK_HZ) do headless.run_step(run, inputs)
-}
 
 // Every prop marker makes a prop of its kind, in marker order, and two runs make the same ones (the same bodies, the
 // same bytes).
@@ -80,22 +32,20 @@ props_are_made_in_marker_order :: proc(t: ^testing.T) {
 }
 
 // Interact grabs the nearest free prop in the cone in front, never one behind, however near; the hero picks it up
-// (Action.Pick_Up), and a second press drops it where it is.
+// (Action.Pick_Up), and a second press drops it where it is. A drop during a pick-up ends the pick-up.
 @(test)
 a_hero_grabs_the_nearest_in_front_and_drops_it :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 1)
 	defer headless.run_end(&run)
 	hero := sim.slot_data(run.simulation, 0)
-	hero.facing = {1, 0}
-	place_prop(&run, BARREL, SPAWN + {1.9, 0, 0}) // in front, 0.95 m from the capsule
-	place_prop(&run, CRATE, SPAWN + {1.5, 0, 0.3}) // in front and nearer
-	place_prop(&run, HEAVY_CRATE, SPAWN + {-1.7, 0, 0}) // nearer still, but behind
+	spawn := spawn_of(&run, 0)
+	place_hero(&run, 0, spawn, {1, 0})
+	place_prop(&run, BARREL, spawn + {1.9, 0, 0}) // in front, 0.95 m from the capsule
+	place_prop(&run, CRATE, spawn + {1.5, 0, 0.3}) // in front and nearer
+	place_prop(&run, HEAVY_CRATE, spawn + {-1.7, 0, 0}) // nearer still, but behind
 	crate, crate_handle := prop_at(&run, CRATE)
-	testing.expect_value(
-		t,
-		g.grab_target(run.simulation.world.phys, &run.simulation.state.props, hero.pos, hero.facing),
-		crate_handle,
-	)
+	target := g.hands_target(run.simulation.world.phys, &run.simulation.state.props, hero, hero.facing)
+	testing.expect_value(t, target, crate_handle)
 	press(&run, 0, .Interact)
 	testing.expect_value(t, hero.held, crate_handle)
 	testing.expect_value(t, crate.held_by, sim.player_in_slot(run.simulation, 0))
@@ -109,6 +59,11 @@ a_hero_grabs_the_nearest_in_front_and_drops_it :: proc(t: ^testing.T) {
 	testing.expect_value(t, crate.held_by, sim.Player{})
 	play(&run, {}, 1)
 	testing.expect_value(t, hero.action, g.Action.None)
+
+	press(&run, 0, .Interact) // a drop during the pick-up ends it
+	testing.expect_value(t, hero.action, g.Action.Pick_Up)
+	press(&run, 0, .Interact)
+	testing.expect_value(t, hero.action, g.Action.None)
 	resting := physics.body_position(run.simulation.world.phys, crate.body)
 	testing.expectf(t, abs(resting.y - g.PROP_SPECS[.Crate].half.y) < 0.05, "the dropped crate rests at %v", resting)
 	scenarios.expect_synced(t, &run)
@@ -120,8 +75,8 @@ a_hero_grabs_nothing_out_of_reach :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 1)
 	defer headless.run_end(&run)
 	hero := sim.slot_data(run.simulation, 0)
-	hero.facing = {1, 0}
-	place_prop(&run, BARREL, SPAWN + {3, 0, 0}) // 2.05 m from the capsule
+	place_hero(&run, 0, spawn_of(&run, 0), {1, 0})
+	place_prop(&run, BARREL, spawn_of(&run, 0) + {3, 0, 0}) // 2.05 m from the capsule
 	press(&run, 0, .Interact)
 	testing.expect_value(t, hero.held, sim.Handle(g.Prop){})
 	testing.expect_value(t, headless.run_events(&run, g.Event_Prop_Grabbed), 0)
@@ -134,8 +89,8 @@ carrying_slows_the_hero :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 1)
 	defer headless.run_end(&run)
 	hero := sim.slot_data(run.simulation, 0)
-	hero.facing = {1, 0}
-	place_prop(&run, HEAVY_CRATE, SPAWN + {1.5, 0, 0})
+	place_hero(&run, 0, spawn_of(&run, 0), {1, 0})
+	place_prop(&run, HEAVY_CRATE, spawn_of(&run, 0) + {1.5, 0, 0})
 	press(&run, 0, .Interact)
 	play(&run, {0 = {move_x = 127}}, 1)
 	speed := g.CLASS_SPECS[hero.class].max_speed * g.PROP_SPECS[.Heavy_Crate].carry_speed
@@ -151,8 +106,8 @@ a_throw_flies_along_the_facing :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 1)
 	defer headless.run_end(&run)
 	hero := sim.slot_data(run.simulation, 0)
-	hero.facing = {1, 0}
-	place_prop(&run, BARREL, SPAWN + {1.4, 0, 0})
+	place_hero(&run, 0, spawn_of(&run, 0), {1, 0})
+	place_prop(&run, BARREL, spawn_of(&run, 0) + {1.4, 0, 0})
 	barrel, barrel_handle := prop_at(&run, BARREL)
 	press(&run, 0, .Interact)
 	play(&run, {}, 0.75) // the pick-up ends
@@ -189,8 +144,8 @@ a_throw_flies_along_the_facing :: proc(t: ^testing.T) {
 a_leaver_lets_go :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 2)
 	defer headless.run_end(&run)
-	sim.slot_data(run.simulation, 1).facing = {1, 0}
-	place_prop(&run, BARREL, run.simulation.world.places.hero_spawns[1] + {1.4, 0, 0})
+	place_hero(&run, 1, spawn_of(&run, 1), {1, 0})
+	place_prop(&run, BARREL, spawn_of(&run, 1) + {1.4, 0, 0})
 	barrel, barrel_handle := prop_at(&run, BARREL)
 	press(&run, 1, .Interact)
 	testing.expect_value(t, sim.slot_data(run.simulation, 1).held, barrel_handle)
@@ -199,5 +154,49 @@ a_leaver_lets_go :: proc(t: ^testing.T) {
 	testing.expect_value(t, barrel.held_by, sim.Player{})
 	testing.expect_value(t, headless.run_events(&run, g.Event_Prop_Dropped), 1)
 	play(&run, {}, 0.5)
+	scenarios.expect_synced(t, &run)
+}
+
+// A prop another hero holds is nobody else's to grab: the press takes nothing (or the next free prop).
+@(test)
+a_held_prop_is_not_grabbed :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 2)
+	defer headless.run_end(&run)
+	spawn := spawn_of(&run, 0)
+	place_hero(&run, 0, spawn, {1, 0})
+	place_prop(&run, CRATE, spawn + {1.5, 0, 0})
+	press(&run, 0, .Interact)
+	crate, crate_handle := prop_at(&run, CRATE)
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).held, crate_handle)
+	held_at := physics.body_position(run.simulation.world.phys, crate.body)
+	place_hero(&run, 1, held_at + {1.5, -held_at.y, 0}, {-1, 0}) // across the crate from its carrier, facing it
+	press(&run, 1, .Interact)
+	testing.expect_value(t, sim.slot_data(run.simulation, 1).held, sim.Handle(g.Prop){})
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).held, crate_handle)
+	scenarios.expect_synced(t, &run)
+}
+
+// A thrower who leaves (during the co-op pause, when no age_throws runs) ends the ignore between its body and its
+// throw at once, so no ref outlives the body: the paused run stays synced and its refs clean, and a player who joins
+// during that same pause arrives.
+@(test)
+a_thrower_leaving_ends_its_ignore :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 2)
+	defer headless.run_end(&run)
+	place_hero(&run, 1, spawn_of(&run, 1), {1, 0})
+	place_prop(&run, BARREL, spawn_of(&run, 1) + {1.4, 0, 0})
+	barrel, _ := prop_at(&run, BARREL)
+	press(&run, 1, .Interact)
+	play(&run, {}, 0.75)
+	press(&run, 1, .Attack)
+	for _ in 0 ..< g.THROW_WINDUP_TICKS do headless.run_step(&run)
+	testing.expect(t, barrel.thrower_ignore != {}, "the throw ignores its thrower")
+	headless.run_command(&run, 0, g.Command_Set_Paused{true})
+	headless.run_seat(&run, 1, 0)
+	headless.run_step(&run)
+	testing.expect_value(t, barrel.thrower_ignore, physics.Filter_Joint_Ref{})
+	headless.run_seat(&run, 2, 3)
+	play(&run, {}, 0.25)
+	testing.expect(t, sim.slot_data(run.simulation, 2).body != g.Hero{}.body, "a joiner arrived during the pause")
 	scenarios.expect_synced(t, &run)
 }
