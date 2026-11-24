@@ -218,10 +218,9 @@ Decided by the developer from the two designs:
 
 Step 1, the app's skeleton, calls made on the way:
 
-- Faces: Kenney Future (titles, headings, buttons) and Kenney Future Narrow (everything else), picked from shots of
-  the twelve; both are capitals only. Kenney Mini has lower case but reads as pixel art beside the 3D.
+- Faces (the review's call): Kenney Mini Square for everything, Kenney Future for the game's name on the title.
 - Pack folders `assets/kenney/ui/`, `fonts/`, `interface_sounds/`; only the Double PNGs, of the brown family:
-  `button_brown`, `button_red`, `panel_brown_corners_a` (parchment), `panel_brown_dark` (HUD plates and toasts,
+  `button_brown`, `panel_brown_corners_a` (parchment), `panel_brown_dark` (HUD plates and toasts,
   darkened to 0.6 and 90 % opaque so they sit behind the crypt), `banner_hanging`. The focus is a gold frame
   (a StyleBoxFlat), not a pack piece. The theme was made once by a throwaway script and is edited as text since.
 - Sounds: `select_002` (the focus moves), `click_002` (a press), `confirmation_002` (New game), `error_004` (a
@@ -238,12 +237,44 @@ Step 1, the app's skeleton, calls made on the way:
   extension.
 - Esc still sends the co-op pause in every mode until step 4's pause menu; the walk checks the banner.
 - The tagline "Down into the crypt, one to four heroes." is placeholder copy.
-- Hovering a button gives it the focus (Game, from `node_added`), so the mouse and a pad never show two highlights.
+- Hovering a button gives it the focus, so the mouse and a pad never show two highlights.
 - The play scene loads on a worker thread while the title is up (Game), collected at the switch and at a quit.
 - A run whose session quits the app at its end (`--quit-at-end`: the godot suite's session step) skips the menu:
   going back to the title played sounds that outlived the quit (a leak the step failed on).
 - `LibraryCheck` is kept from the Fable design (the Opus one left it to milestone 10).
 - `ArtChecks` takes TTF and Ogg files and counts what the project's theme uses; `AppChecks`
   (`game/tools/app_checks.gd`) holds the autoload order, the theme's variations, a HUD that takes no click or focus,
-  menu buttons a pad reaches, and every button's sound.
+  menu buttons that take the focus, and every button's named sound.
 - `coop.gd` now checks the joiner lands on the title with a dialog once the host has left.
+
+Step 1's review fixes, calls made on the way:
+
+- Pads press and back out: `ui_accept` and `ui_cancel` carry the pad's A and B in `project.godot`.
+- Every button's sound and hover-takes-focus live in Game, hooked from `_enter_tree` with one walk of the tree as it
+  stands, guarded against a second connection. A button is the game's when its scene (its own, or its owner's) is
+  under `res://game/`: the library's dev UI builds its controls in code, so it has neither. Sfx only plays.
+- Modals (Dialog, Connecting) share a `Modal` base: the focus wandering outside is taken back, and the control it
+  went to is where it returns; with none left, the screen's default (the `default_focus` group: New game). The
+  title takes the focus only when nothing has it. `Focus.trap` is gone; the modal's button names itself (".") as
+  every neighbour in its scene.
+- A link in trouble in play is `LinkStatus`, a plate (not Connecting): catching up shows after 0.5 s; reconnecting
+  shows at once with "Leave game", which takes the focus only on an up or down press while nothing has it. The
+  game's input stays on. Connecting is only for starts, so Esc cancels only then.
+- Cancel hides Connecting at once; a new start waits for the goodbye (Game ignores a start while the flow isn't MENU).
+- Settings are JSON (`user://settings.json`), not a ConfigFile: Godot reports a damaged ConfigFile as an engine
+  error, which no check could exercise. A file that doesn't parse is kept as `.bad` and the reason is
+  `Settings.read_problem` and a printed line, not a warning (uni fails a run on any game warning). `--settings-path=`
+  names another file; the app checks round-trip one.
+- An export opens fullscreen through `display/window/size/mode.template=3` (borderless fullscreen), the default the
+  Video setting matches, so there is no windowed first frame.
+- Toasts sit low in the middle, clear of the HUD's corners and its Paused banner, and go when the flow is back at
+  the menu.
+- The dialog's body is the library's reason as a sentence ("Online play is not available in this build."), the
+  generic sentence only without one; a disconnect keeps the app's sentence and shows the library's words small
+  under it, since only they say which it was (until step 5's end reason).
+- The title's Quit is a plain button: the red one is for confirmations (`button_red` is no longer vendored).
+- The focus frame pulses (Game, on the theme's shared stylebox); Dim captions are 26 px at 75 %.
+- Real boot (the main scene loaded by the engine) is checked by hand under `uni drive` (no flags: New game wired and
+  focused; `--join`: Cancel focused under Joining). No suite step can: the walk runs as a `-s` script, and the
+  library's drive step starts with `--autostart`. A drive step option to boot to the menu would be unified work.
+- Pause and the couch's join ignore their keys while the game's input is off; so does the couch's device claim.

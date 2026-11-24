@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="PackedScene" path="res://game/menu/backdrop.tscn" id="backdrop"]
-[ext_resource type="PackedScene" path="res://game/menu/title.tscn" id="title"]
+[ext_resource type="PackedScene" path="res://game/menu/title_screen.tscn" id="title"]
 
 [node name="Menu" type="Node"]
 
@@ -9,4 +9,4 @@
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="Title" parent="UI" instance=ExtResource("title")]
+[node name="TitleScreen" parent="UI" instance=ExtResource("title")]

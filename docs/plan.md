@@ -79,8 +79,8 @@ the flow, the title, the theme, the overlays, `Settings` (stored and applied, no
    HUD's hints. Audio has Master and Interface only: Music and Effects come with their sounds (milestone 8).
 3. **Hero select and the couch.** The Profile is the pick (Any included); every start passes hero select, last picks
    preselected; each device steers its own seat; a pad joining mid-game picks on a card in the HUD; hero plates with
-   portraits and HP bars. Player 0's device stays free (any device) while it plays alone, and is fixed only while a
-   couch guest is in.
+   portraits and HP bars, the HP leading the plate (the full HP from the extension). Player 0's device stays free
+   (any device) while it plays alone, and is fixed only while a couch guest is in.
 4. **Saves and pauses.** The save is the floor, the surges faced and the skeletons felled, saved at each surge, in
    one slot written by the host or the single player; a joiner keeps it in memory, and is offered "Continue on your
    own" when the host leaves. In single player (couch included) the pause menu pauses the clock

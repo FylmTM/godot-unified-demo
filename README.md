@@ -57,7 +57,7 @@ pressing Start joins as another player. Players joining over the LAN join the sa
 - **The session outlives the scenes**: the `Game` autoload owns it from boot to quit and switches between the title
   and the crypt on its status, whoever started it: the menus, the command line's session flags (`uni run`, `uni coop`,
   `uni drive`) or a tool. A start that fails, or a game that ends without the player leaving, comes back to the title
-  with the reason; a join or a leave is a toast; a reconnect is an overlay over the held game (`game/app/game.gd`).
+  with the reason; a join or a leave is a toast; a reconnect is a plate over the held game (`game/app/game.gd`).
 - **Views**: scene views (`game/views/`), props and minions pooled, minions shown once their spawn is verified
   (`Appear.Verified`, `frame.odin`), the Mage's bolts one MultiMesh (`MultiView`); clips posed on the session's shown
   game time, so a correction or a seek lands on the right frame (`game/views/hero.gd`, `minion.gd`).
@@ -129,7 +129,8 @@ checks; unified's standard scenarios played by the scripted players (`script.odi
 dev command; a bot playthrough of the four classes; a replay regression recorded from a real two-player LAN session;
 the pinned reference run, the cross-platform check in CI; the godot suite, which holds the art to `docs/ART.md` and the
 app layer to its contract (`game/tools/art_checks.gd`, `app_checks.gd`) and walks the app with real input events
-(`game/tools/ui_walk.gd`); and `./uni coop`, a host and a joiner in two processes (`game/tools/coop.gd`). Commands: `./uni help`.
+(`game/tools/ui_walk.gd`); and `./uni coop`, a host and a joiner in two processes (`game/tools/coop.gd`).
+Commands: `./uni help`.
 
 ## Benchmarks
 

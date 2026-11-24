@@ -23,21 +23,24 @@ const SWAY_REACH: Vector3 = Vector3(0.5, 0.12, 0.0)
 var _time: float = 0.0
 ## The camera's pose as placed in the scene: the sway's centre.
 var _camera_rest: Transform3D
+## The heroes, in the order they stand, and each one's idle.
+var _rigs: Array[CharacterRig] = []
+var _idles: Array[StringName] = []
 
 @onready var _camera: Camera3D = $Camera
-@onready var _heroes: Node3D = $Heroes
 
 
 func _ready() -> void:
 	_camera_rest = _camera.transform
+	for hero: Node in $Heroes.get_children():
+		_rigs.append(hero as CharacterRig)
+		_idles.append(IDLES[hero.name])
 
 
 func _process(delta: float) -> void:
 	_time += delta
-	var heroes: Array[Node] = _heroes.get_children()
-	for i: int in heroes.size():
-		var hero: CharacterRig = heroes[i]
-		hero.pose(IDLES[hero.name], _time + i * IDLE_STAGGER_S)
+	for i: int in _rigs.size():
+		_rigs[i].pose(_idles[i], _time + i * IDLE_STAGGER_S)
 	var phase: float = TAU * _time / SWAY_PERIOD_S
 	var sway := Vector3(sin(phase) * SWAY_REACH.x, sin(phase * 2.0) * SWAY_REACH.y, 0.0)
 	_camera.transform = _camera_rest.translated_local(sway)

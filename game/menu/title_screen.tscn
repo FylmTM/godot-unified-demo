@@ -1,6 +1,6 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://game/menu/title.gd" id="title"]
+[ext_resource type="Script" path="res://game/menu/title_screen.gd" id="title"]
 
 [sub_resource type="Gradient" id="shade_gradient"]
 offsets = PackedFloat32Array(0, 0.45, 1)
@@ -11,7 +11,7 @@ gradient = SubResource("shade_gradient")
 width = 256
 height = 4
 
-[node name="Title" type="Control"]
+[node name="TitleScreen" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -66,7 +66,7 @@ layout_mode = 2
 size_flags_horizontal = 0
 theme_override_constants/separation = 22
 
-[node name="NewGame" type="Button" parent="Column/Buttons"]
+[node name="NewGame" type="Button" parent="Column/Buttons" groups=["default_focus"]]
 unique_name_in_owner = true
 layout_mode = 2
 text = "New game"
@@ -75,7 +75,6 @@ metadata/sfx = &"confirm"
 [node name="Quit" type="Button" parent="Column/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_type_variation = &"DangerButton"
 text = "Quit"
 
 [node name="Version" type="Label" parent="."]

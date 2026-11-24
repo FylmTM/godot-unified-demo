@@ -14,7 +14,7 @@ func _play_scene() -> String:
 func _check_contract() -> String:
 	var art := ArtChecks.new(log_capture, root)
 	art.run()
-	var app := AppChecks.new(log_capture)
+	var app := AppChecks.new(log_capture, root)
 	app.run()
 	var found: PackedStringArray = []
 	if art.problems > 0:

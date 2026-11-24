@@ -49,6 +49,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not _session.game_input:
+		return  # an overlay holds the game's input: its keys aren't the game's
 	if event.is_action_pressed(&"pause"):
 		var pause := CommandSetPaused.new()
 		pause.paused = not Unified.data.hud.paused

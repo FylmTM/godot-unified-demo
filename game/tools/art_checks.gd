@@ -263,8 +263,7 @@ func _check_clips() -> void:
 ## footprint) or decor (no body at all); and the kit stage places it exactly once, so the level exporter sees it.
 func _check_parts() -> void:
 	var placed: Dictionary[String, int] = _instances(KIT_STAGE)
-	var found: Array[String] = []
-	_collect_scenes(PARTS, found)
+	var found: Array[String] = scenes(PARTS)
 	for path: String in found:
 		if path.get_base_dir().get_base_dir() + "/" != PARTS:
 			_problem("a part outside a kit folder (parts/<kit>/): the part rules can't place it", path)
@@ -485,8 +484,7 @@ func _find(parent: Dictionary[int, int], polygon: int) -> int:
 ## recursively (a glTF's texture through the shared material its import maps it to).
 func _used_files() -> Dictionary[String, bool]:
 	var used: Dictionary[String, bool] = {}
-	var pending: Array[String] = []
-	_collect_scenes(GAME, pending)
+	var pending: Array[String] = scenes(GAME)
 	pending.append(str(ProjectSettings.get_setting("gui/theme/custom")))
 	while not pending.is_empty():
 		var path: String = pending.pop_back()
@@ -510,10 +508,15 @@ func _dependencies(path: String) -> PackedStringArray:
 	return out
 
 
-func _collect_scenes(dir: String, out: Array[String]) -> void:
-	out.append_array(_files(dir, "tscn"))
+## Every scene under `dir` (a res:// folder ending in /), its subfolders' included: the walk the game's checks share.
+static func scenes(dir: String) -> Array[String]:
+	var out: Array[String] = []
+	for file: String in DirAccess.get_files_at(dir):
+		if file.get_extension() == "tscn":
+			out.append(dir + file)
 	for sub: String in DirAccess.get_directories_at(dir):
-		_collect_scenes(dir + sub + "/", out)
+		out.append_array(scenes(dir + sub + "/"))
+	return out
 
 
 func _shape_bounds(collision: CollisionShape3D) -> AABB:

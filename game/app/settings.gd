@@ -1,22 +1,26 @@
 extends Node
 ## The player's settings (the `Settings` autoload): one typed property per setting, applied by its setter the moment
-## it is set, kept in `user://settings.cfg`.
+## it is set, kept in `user://settings.json`.
 ##
 ## Each exported property is a setting and its `@export_category` its section in the file, so loading, saving and the
 ## settings screen walk one list, the property list, and a new setting is one property. A setting applies at once
 ## (there is no Apply button: a slider previews live) and is written 0.3 s after the last change, one write per drag.
 ##
-## The file is a ConfigFile, not a Resource: a .tres under user:// could carry a script, and breaks when a property
-## is renamed; a ConfigFile is text a player can read and fix, and a key that is missing or of the wrong type falls
-## back to its default on its own. Tool and drive runs pass `--no-settings`: defaults, nothing read or written, and
-## the window is left as the run opened it. The player's name is identity, not a setting: it comes with hero select.
+## The file is JSON a player can read and fix, and loading it runs nothing (a .tres under user:// could carry a script,
+## and breaks when a property is renamed). Each value is taken on its own: one that is missing, of another type or
+## outside its property's range or enum falls back to its default or is clamped, a whole number is taken for a
+## fraction, and a file that doesn't parse is kept beside as settings.json.bad, never overwritten (`read_problem`).
+## (JSON, not a ConfigFile: Godot reports a damaged ConfigFile as an engine error, JSON as a value.) Tool and drive
+## runs pass `--no-settings`: nothing is read, written or applied, so the engine stays as the run opened it;
+## `--settings-path=` names another file (the app checks round-trip one under the run's own user data).
 
 ## A setting changed (its property's name).
 signal changed(setting: StringName)
 
 enum WindowMode { WINDOWED, FULLSCREEN }
 
-const PATH: String = "user://settings.cfg"
+## The settings file, unless `--settings-path=` names another.
+const PATH: String = "user://settings.json"
 ## How long after the last change the file is written, in seconds.
 const SAVE_DELAY_S: float = 0.3
 
@@ -85,8 +89,13 @@ const SAVE_DELAY_S: float = 0.3
 		_apply_master()
 		_changed(&"mute_in_background")
 
-## Nothing is read or written (`--no-settings`).
-var _isolated: bool = false
+## The file read and written: PATH, or `--settings-path=`. Set before the node enters the tree to use another.
+var path: String = PATH
+## Nothing is read, written or applied at load (`--no-settings`). Set before the node enters the tree to change it.
+var isolated: bool = false
+## Why the file didn't read at load ("" when it did, or there was none): the settings screen tells the player once.
+var read_problem: String = ""
+
 ## The window is this process's to change: not isolated, not headless.
 var _applies_window: bool = false
 ## The window is not in front (it lost the focus).
@@ -96,22 +105,27 @@ var _loading: bool = true
 var _save_timer: Timer
 
 
+func _init() -> void:
+	isolated = "--no-settings" in OS.get_cmdline_user_args()
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--settings-path="):
+			path = arg.trim_prefix("--settings-path=")
+
+
 func _ready() -> void:
-	_isolated = "--no-settings" in OS.get_cmdline_user_args()
-	_applies_window = not _isolated and DisplayServer.get_name() != "headless"
+	_applies_window = not isolated and DisplayServer.get_name() != "headless"
 	_save_timer = Timer.new()
 	_save_timer.one_shot = true
 	_save_timer.wait_time = SAVE_DELAY_S
 	_save_timer.timeout.connect(save)
 	add_child(_save_timer)
-	var file := ConfigFile.new()
-	if not _isolated:
-		file.load(PATH)  # a missing file: every setting's default
-	var sections: Dictionary[StringName, String] = _sections()
-	for setting: StringName in sections:
-		var value: Variant = get(setting)
-		var saved: Variant = file.get_value(sections[setting], setting, value)
-		set(setting, saved if typeof(saved) == typeof(value) else value)  # applies it
+	if not isolated:
+		var saved: Dictionary = _read()
+		for setting: Dictionary in _settings():
+			var setting_name: StringName = setting["name"]
+			var section: Variant = saved.get(setting["section"])
+			var values: Dictionary = section if section is Dictionary else {}
+			set(setting_name, _valid(setting, values.get(setting_name)))  # applies it
 	_loading = false
 
 
@@ -121,29 +135,96 @@ func _notification(what: int) -> void:
 		_apply_master()
 
 
-## Writes every setting to the file now (a change does it by itself a moment later); the app's quit calls it.
+## Writes every setting to the file now (a change does it by itself a moment later); the app's quit calls it. It is
+## written beside and moved over the old one, so a crash mid-write never leaves half a file.
 func save() -> void:
 	_save_timer.stop()
-	if _isolated:
+	if isolated:
 		return
-	var file := ConfigFile.new()
-	var sections: Dictionary[StringName, String] = _sections()
-	for setting: StringName in sections:
-		file.set_value(sections[setting], setting, get(setting))
-	file.save(PATH)
+	var out: Dictionary = {}
+	for setting: Dictionary in _settings():
+		var setting_name: StringName = setting["name"]
+		var section: Dictionary = out.get_or_add(setting["section"], {})
+		section[setting_name] = get(setting_name)
+	var temp: String = path + ".tmp"
+	var file := FileAccess.open(temp, FileAccess.WRITE)
+	if file == null:
+		push_warning("Settings: can't write %s (%s)" % [temp, error_string(FileAccess.get_open_error())])
+		return
+	file.store_string(JSON.stringify(out, "	", true) + "
+")
+	file.close()
+	DirAccess.rename_absolute(temp, path)
 
 
-## Every setting (an exported property) with the category it is under: its section in the file.
-func _sections() -> Dictionary[StringName, String]:
-	var out: Dictionary[StringName, String] = {}
+## The file's sections; empty when there is none. One that doesn't parse is moved to <path>.bad, so the next save
+## starts a fresh file without losing what the player wrote, and says why in `read_problem` and the log. (Printed,
+## not a warning: uni fails a run on any warning of the game's, and the app checks make this happen on purpose.)
+func _read() -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var json := JSON.new()
+	if json.parse(FileAccess.get_file_as_string(path)) == OK and json.data is Dictionary:
+		return json.data
+	read_problem = "%s doesn't read (%s, line %d): it is kept as %s.bad, and the defaults are used" % [path,
+		json.get_error_message(), json.get_error_line() + 1, path.get_file()]
+	print("Settings: " + read_problem)
+	DirAccess.rename_absolute(path, path + ".bad")
+	return {}
+
+
+## Every setting, as its property's entry (name, type, hint, hint_string) with its `section`: the category it is
+## under.
+func _settings() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
 	var section: String = ""
 	for property: Dictionary in get_property_list():
 		var usage: int = property["usage"]
-		var property_name: String = property["name"]
 		if usage & PROPERTY_USAGE_CATEGORY:
-			section = property_name
+			section = property["name"]
 		elif usage & PROPERTY_USAGE_SCRIPT_VARIABLE and usage & PROPERTY_USAGE_EDITOR and section != "":
-			out[StringName(property_name)] = section
+			var setting: Dictionary = property.duplicate()
+			setting["section"] = section
+			out.append(setting)
+	return out
+
+
+## `saved` as a value of `setting`: of its type (a whole number taken for a fraction, and the other way when it is
+## whole), within its range (clamped) or one of its enum's values; else the setting's current value, its default.
+func _valid(setting: Dictionary, saved: Variant) -> Variant:
+	var setting_name: StringName = setting["name"]
+	var current: Variant = get(setting_name)
+	var value: Variant = saved
+	if current is float and saved is int:
+		var whole: int = saved
+		value = float(whole)
+	elif current is int and saved is float:
+		var fraction: float = saved
+		if is_equal_approx(fraction, roundf(fraction)):
+			value = roundi(fraction)
+	if typeof(value) != typeof(current):
+		return current
+	var hint: int = setting["hint"]
+	var hint_string: String = setting["hint_string"]
+	var bounds: PackedStringArray = hint_string.split(",")
+	if hint == PROPERTY_HINT_RANGE and value is float:
+		var number: float = value
+		return clampf(number, bounds[0].to_float(), bounds[1].to_float())
+	if hint == PROPERTY_HINT_RANGE and value is int:
+		var count: int = value
+		return clampi(count, bounds[0].to_int(), bounds[1].to_int())
+	if hint == PROPERTY_HINT_ENUM:
+		var member: int = value
+		return value if member in _enum_values(bounds) else current
+	return value
+
+
+## The values an enum property's hint lists (its hint string's entries, "Windowed" or "Disabled:0"): each entry's own
+## value, else its place.
+static func _enum_values(names: PackedStringArray) -> Array[int]:
+	var out: Array[int] = []
+	for i: int in names.size():
+		out.append(names[i].get_slice(":", 1).to_int() if names[i].contains(":") else i)
 	return out
 
 

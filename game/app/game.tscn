@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://game/app/game.gd" id="game"]
 [ext_resource type="PackedScene" path="res://game/ui/overlays/connecting.tscn" id="connecting"]
 [ext_resource type="PackedScene" path="res://game/ui/overlays/toasts.tscn" id="toasts"]
+[ext_resource type="PackedScene" path="res://game/ui/overlays/link_status.tscn" id="link_status"]
 [ext_resource type="PackedScene" path="res://game/ui/widgets/dialog.tscn" id="dialog"]
 
 [node name="Game" type="Node"]
@@ -12,6 +13,9 @@ script = ExtResource("game")
 layer = 50
 
 [node name="Toasts" parent="Overlays" instance=ExtResource("toasts")]
+unique_name_in_owner = true
+
+[node name="LinkStatus" parent="Overlays" instance=ExtResource("link_status")]
 unique_name_in_owner = true
 
 [node name="Connecting" parent="Overlays" instance=ExtResource("connecting")]

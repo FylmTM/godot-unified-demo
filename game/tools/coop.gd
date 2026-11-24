@@ -59,13 +59,25 @@ func _join_play() -> void:
 	Input.action_press(&"move_down")  # keeps moving while the host plays on
 
 
-## The joiner, once the host left: back on the title, a dialog saying the game ended.
+## The host, after its play: it leaves (the library's), and is back on the title with nothing to explain.
+func _host() -> void:
+	await super()
+	await wait_for(func() -> bool: return scene_is("Menu"), 5.0, "the host back on the title")
+	expect(not (find(game, ^"Overlays/Dialog") as Control).visible, "no dialog: the host left as it asked")
+	step("host back on the title")
+
+
+## The joiner, once the host left: back on the title, a dialog saying the game ended and why.
 func _host_left() -> void:
 	await wait_for(func() -> bool: return scene_is("Menu"), 5.0, "back on the title")
 	var dialog: Control = find(game, ^"Overlays/Dialog") as Control
 	await wait_for(func() -> bool: return dialog.visible, 5.0, "a dialog says the game ended")
+	var heading: String = (find(dialog, ^"%Heading") as Label).text
+	var text: String = (find(dialog, ^"%Text") as Label).text
+	expect(heading == "The game ended", "the dialog's heading: %s" % heading)
+	expect(text == "The host left, or the link to it was lost.", "the dialog's reason: %s" % text)
 	await shot("c05_host_left")
-	step("back on the title: %s" % (find(dialog, ^"%Heading") as Label).text)
+	step("back on the title: %s %s" % [heading, text])
 
 
 ## The joiner's hero is in the crypt.

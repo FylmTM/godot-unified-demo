@@ -1,19 +1,26 @@
 extends Node
 ## The app (the `Game` autoload): it owns the session for the app's whole life, switches between the menu and the
-## play scene as the session's status says, and holds the overlays that outlive a change of scene.
+## play scene as the session's status says, holds the overlays that outlive a change of scene, and keeps the rules
+## every control of the game shares.
 ##
-##   MENU --start_single()--> STARTING --STATUS_CONNECTED--> PLAYING --leave(), or the session ends--> MENU
-##   MENU --a session the menus didn't start--> STARTING or PLAYING (adopted)
+##   MENU --the session starts (the menus, the command line's flags, a tool)--> STARTING --CONNECTED--> PLAYING
+##   STARTING or PLAYING --leave(), or the session ends--> MENU
 ##   any --quit_app()--> QUITTING
 ##
 ## The session lives here, not in the play scene, because it outlives that scene: it is connecting before the floor
 ## is loaded, and a failed join has to be shown somewhere. The play scene hands over its level and views roots when
 ## it is ready (game/play/play.gd), and they leave with it.
 ##
-## Whoever starts the session, the flow follows it. The menus call start_single(); the command line's session flags
+## Whoever starts the session, the flow follows it. The title calls start_single(); the command line's session flags
 ## (`--autostart`, `--host-port`, `--join`, `--replay`, which `uni run`, `uni coop`, `uni drive` and the godot suite
-## pass) start it as it enters the tree, and a tool script may start one itself. Every edge is therefore driven by
-## status_changed, never by the button that asked: a status the menus didn't ask for is adopted.
+## pass) start it as it enters the tree; a tool script may start one itself. Every edge is therefore driven by
+## status_changed, never by the button that asked: a session's first status, whoever started it, takes the flow out
+## of MENU (the title's own start included: its status arrives inside start_single).
+##
+## The rules every control shares live here, in one place: each of the game's buttons sounds when pressed and takes
+## the focus when the mouse moves over it, so the mouse and a pad never show two highlights; the focus moving between
+## controls sounds; the focus frame pulses slowly. Buttons are wired as they enter the tree, hooked from _enter_tree,
+## so a scene that is in the tree before any _ready runs (the main scene, on a real launch) is wired too.
 ##
 ## The name and quit_app(exit_code) are a contract: UnifiedTool finds this autoload by its name and ends every tool
 ## run through quit_app, so a run quits the way a player does.
@@ -22,32 +29,81 @@ enum Flow { MENU, STARTING, PLAYING, QUITTING }
 
 const MENU_SCENE: String = "res://game/menu/menu.tscn"
 const PLAY_SCENE: String = "res://game/play/play.tscn"
+## The game's own scenes: a button from one of these is wired; the library's dev UI (built in code) is not.
+const GAME_SCENES: String = "res://game/"
+## A button's sound when it means more than a press (one of Sfx's names): its `sfx` metadata.
+const META_SOUND: StringName = &"sfx"
+## The focus frame's pulse: a full breath, in seconds, and its faintest, as a share of the frame's full strength.
+const FOCUS_PULSE_S: float = 1.6
+const FOCUS_PULSE_LOW: float = 0.55
+## The input blocks Game itself holds.
+const BLOCK_DIALOG: StringName = &"dialog"
+const BLOCK_CONNECTING: StringName = &"connecting"
+
+
+## Why a session ended when it ended on its own: what the menu says once it is back.
+class Ending:
+	## What happened, the dialog's heading.
+	var heading: String
+	## Why, as a sentence.
+	var reason: String
+	## The library's own words, when they say more than `reason` (else empty).
+	var detail: String
+
+	func _init(ending_heading: String, ending_reason: String, ending_detail: String) -> void:
+		heading = ending_heading
+		reason = ending_reason
+		detail = ending_detail
+
 
 ## The app's session, from boot to quit (also `Unified.session`).
 var session: UnifiedSession
 var flow: Flow = Flow.MENU
 
-## What the menu says once it is back, when the session ended on its own (it failed, the host left): a heading, the
-## app's sentence and the library's words. Empty when it ended as the player asked.
-var _ending: PackedStringArray = []
-## The session quits the app when it ends (`--quit-at-end`: the godot suite's session step, a replay's check): an
+## Shown on the menu once it is back (null: the session ended as the player asked).
+var _ending: Ending = null
+## The app asked to quit (quit_app): it goes through whatever else is under way.
+var _quit_asked: bool = false
+## The session quits the app when it ends (`--quit-at-end`: the godot suite's session step, a replay's check): its
 ## end is the app's quit, with no menu to go back to.
 var _quits_at_end: bool = false
-## Who wants the game's input off (the overlays over play, and later the pause menu): it is on only when nobody does.
-var _input_blocks: Array[Object] = []
+## Why the game's input is off, by name (an overlay, later the pause menu): on only when nothing holds it off. Names,
+## not objects, so a blocker that is freed can't leave it off for good.
+var _input_blocks: Array[StringName] = []
+## The control that had the focus, to tell a move between controls (a sound) from a screen taking it.
+var _focused: Control = null
+## While a modal opens and takes the focus: that move is silent (the modal plays its own sound, if any).
+var _quiet_focus: bool = false
+## The theme's focus frame, which pulses, and its full colours.
+var _focus_frame: StyleBoxFlat
+var _focus_border: Color
+var _focus_glow: Color
+var _time: float = 0.0
 
 @onready var _connecting: Connecting = %Connecting
+@onready var _link_status: LinkStatus = %LinkStatus
 @onready var _dialog: Dialog = %Dialog
 @onready var _toasts: Toasts = %Toasts
 @onready var _fps: Label = %Fps
 
 
+func _enter_tree() -> void:
+	var tree: SceneTree = get_tree()
+	if not tree.node_added.is_connected(_wire):
+		tree.node_added.connect(_wire)
+	_wire_tree(tree.root)  # what entered before this (on a real launch the whole tree is built before any _ready)
+
+
 func _ready() -> void:
 	get_tree().auto_accept_quit = false  # the window's close button quits through quit_app too
 	_quits_at_end = "--quit-at-end" in OS.get_cmdline_user_args()
-	get_tree().node_added.connect(_on_node_added)
+	get_viewport().gui_focus_changed.connect(_on_focus_changed)
+	_focus_frame = ThemeDB.get_project_theme().get_stylebox(&"focus", &"Button") as StyleBoxFlat
+	_focus_border = _focus_frame.border_color
+	_focus_glow = _focus_frame.shadow_color
 	_connecting.cancelled.connect(leave)
-	_dialog.closed.connect(unblock_input.bind(_dialog))
+	_link_status.leave_pressed.connect(leave)
+	_dialog.closed.connect(unblock_input.bind(BLOCK_DIALOG))
 	_fps.visible = Settings.show_fps
 	Settings.changed.connect(_on_setting_changed)
 	session = UnifiedSession.new()
@@ -59,7 +115,11 @@ func _ready() -> void:
 	_preload_play_scene()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_time += delta
+	var strength: float = lerpf(FOCUS_PULSE_LOW, 1.0, 0.5 + 0.5 * cos(TAU * _time / FOCUS_PULSE_S))
+	_focus_frame.border_color = Color(_focus_border, _focus_border.a * strength)
+	_focus_frame.shadow_color = Color(_focus_glow, _focus_glow.a * strength)
 	if _fps.visible:
 		_fps.text = "%d FPS" % Engine.get_frames_per_second()
 
@@ -69,16 +129,20 @@ func _notification(what: int) -> void:
 		quit_app()
 
 
-## Starts a new single-player game (couch co-op is single player too: a pad's Start adds its player).
+## Starts a new single-player game (couch co-op is single player too: a pad's Start adds its player). Ignored while
+## a game is starting or playing, or the app quits; a start that fails says why through the session's status.
 func start_single() -> void:
-	if not session.start_single():
-		_show_ending("Couldn't start the game", "The game could not start.", "")
+	if flow != Flow.MENU:
 		return
-	flow = Flow.STARTING
+	session.start_single()
 
 
-## Ends the session (the player leaves it, or cancels connecting); the menu follows once it has said goodbye.
+## Ends the session (the player leaves it, or cancels a start); the menu follows once it has said goodbye. A start
+## cancelled hides its overlay at once: the title is already under it.
 func leave() -> void:
+	if flow == Flow.QUITTING:
+		return
+	_hide_connecting()
 	if session.running:
 		session.leave()
 	elif flow != Flow.MENU:
@@ -87,10 +151,11 @@ func leave() -> void:
 
 ## Quits the app: from the menus, the window's close button, and every tool run's end. Settings are written, the
 ## interface goes quiet, and UnifiedSession.quit ends the session, stops every sound and quits once the audio server
-## has let go of them.
+## has let go of them. It always gets through, a run that quits at its session's end included.
 func quit_app(exit_code: int = 0) -> void:
-	if flow == Flow.QUITTING:
+	if _quit_asked:
 		return
+	_quit_asked = true
 	flow = Flow.QUITTING
 	Settings.save()
 	Sfx.close()
@@ -98,16 +163,17 @@ func quit_app(exit_code: int = 0) -> void:
 	session.quit(exit_code)
 
 
-## `blocker` wants the game's input off (an overlay over play): the input helpers read nothing until every blocker
-## has unblocked it, so two overlays never fight over one switch.
-func block_input(blocker: Object) -> void:
-	if blocker not in _input_blocks:
-		_input_blocks.append(blocker)
+## Turns the game's input off for `reason` (an overlay over play): the input helpers read nothing, and the game's own
+## handlers (the pause, the couch's join) ignore their keys, until every reason is unblocked.
+func block_input(reason: StringName) -> void:
+	if reason not in _input_blocks:
+		_input_blocks.append(reason)
 	session.game_input = false
 
 
-func unblock_input(blocker: Object) -> void:
-	_input_blocks.erase(blocker)
+## Drops `reason` for the game's input being off; it is on again once no reason is left.
+func unblock_input(reason: StringName) -> void:
+	_input_blocks.erase(reason)
 	session.game_input = _input_blocks.is_empty()
 
 
@@ -128,32 +194,35 @@ func _on_status_changed(status: UnifiedSession.Status, detail: String) -> void:
 	match status:
 		UnifiedSession.STATUS_CONNECTING:
 			if flow == Flow.MENU:
-				_adopt()
+				_start()
 		UnifiedSession.STATUS_CONNECTED:
 			if flow == Flow.MENU:
-				_adopt()
+				_start()
 			if flow == Flow.STARTING:
+				_hide_connecting()
 				_enter_play()
-			_hide_connecting()  # connected at last, or back from reconnecting or catching up
+			_link_status.close()  # back from reconnecting or catching up
 		UnifiedSession.STATUS_RECONNECTING:
-			_show_connecting("Reconnecting", "The link to the host was lost. Your place in the game is kept.")
+			if flow == Flow.PLAYING:
+				_link_status.show_reconnecting()
 		UnifiedSession.STATUS_RECOVERING:
-			_show_connecting("Catching up", "Putting your game back in step with the others'.")
+			if flow == Flow.PLAYING:
+				_link_status.show_recovering()
 		UnifiedSession.STATUS_FAILED:
-			if flow != Flow.PLAYING:  # a start that failed (at once: the flow may not have left the menu)
-				_end(_failed_heading(), "The game could not start.", detail)
+			if flow != Flow.PLAYING:  # a start that failed (at once, the flow never left the menu)
+				_end(Ending.new(_failed_heading(), _sentence(detail, "The game could not start."), ""))
 			else:
-				_end("The game ended", "It stopped on an error.", detail)
+				_end(Ending.new("The game ended", _sentence(detail, "It stopped on an error."), ""))
 		UnifiedSession.STATUS_DISCONNECTED:
-			_end("The game ended", "The host left, or the link to it was lost.", detail)
+			# The library's words say which of the two it was (until its end reason comes as a value).
+			_end(Ending.new("The game ended", "The host left, or the link to it was lost.", _sentence(detail, "")))
 		UnifiedSession.STATUS_LEFT:
-			_hide_connecting()
 			_go_to_menu()
 
 
-## A session the menus didn't start (the command line's flags, a tool) is the app's too: the flow takes it up where
-## it is, with the overlay a menu start would have shown.
-func _adopt() -> void:
+## The session is starting: the flow leaves the menu, with the overlay a host or a join waits under (single player
+## is up within a frame).
+func _start() -> void:
 	flow = Flow.STARTING
 	match session.mode:
 		UnifiedSession.MODE_HOST_ONLINE, UnifiedSession.MODE_HOST_DIRECT:
@@ -173,12 +242,12 @@ func _failed_heading() -> String:
 
 
 ## The session ended on its own: back to the menu, which then says why.
-func _end(heading: String, text: String, detail: String) -> void:
+func _end(ending: Ending) -> void:
 	_hide_connecting()
 	if flow == Flow.MENU:
-		_show_ending(heading, text, detail)
+		_show_ending(ending)
 		return
-	_ending = [heading, text, detail]
+	_ending = ending
 	_go_to_menu()
 
 
@@ -194,33 +263,39 @@ func _go_to_menu() -> void:
 	if flow == Flow.MENU:
 		return
 	flow = Flow.MENU
+	_link_status.close()
+	_toasts.clear()
 	if get_tree().current_scene == null or get_tree().current_scene.scene_file_path != MENU_SCENE:
 		get_tree().change_scene_to_file(MENU_SCENE)
 		await get_tree().scene_changed
-	if not _ending.is_empty():
-		_show_ending(_ending[0], _ending[1], _ending[2])
-		_ending = []
+	if _ending != null:
+		_show_ending(_ending)
+		_ending = null
 	_preload_play_scene()
 
 
-func _show_ending(heading: String, text: String, detail: String) -> void:
+func _show_ending(ending: Ending) -> void:
 	Sfx.play(&"error")
-	block_input(_dialog)
-	_dialog.open(heading, text, detail)
+	block_input(BLOCK_DIALOG)
+	_quiet_focus = true
+	_dialog.open(ending.heading, ending.reason, ending.detail)
+	_quiet_focus = false
 
 
 func _show_connecting(heading: String, text: String) -> void:
-	block_input(_connecting)
+	block_input(BLOCK_CONNECTING)
+	_quiet_focus = true
 	_connecting.open(heading, text)
+	_quiet_focus = false
 
 
 func _hide_connecting() -> void:
 	_connecting.close()
-	unblock_input(_connecting)
+	unblock_input(BLOCK_CONNECTING)
 
 
-## Loads the play scene on a worker thread while the menu is up, so its meshes and materials (and the shader compiles
-## they start) are ready before the player picks a game instead of stalling the switch. In Godot 4.7 a resource a
+## Loads the play scene on a worker thread while the flow is at the menu, so its meshes and materials (and the shader
+## compiles they start) are ready when a game starts instead of stalling the switch. In Godot 4.7 a resource a
 ## script first preloads on a worker thread is reported as leaked at exit, so the play scene's scripts load() what
 ## they need (game/tools/validate.gd names the play scene, and the check holds them to it).
 func _preload_play_scene() -> void:
@@ -255,14 +330,58 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 			toast("%s left" % session.get_player_name(left.player))
 
 
-## Every button takes the focus when the mouse moves over it, so the mouse and a pad never show two highlights.
-func _on_node_added(node: Node) -> void:
-	if node is BaseButton:
-		var button := node as BaseButton
-		if button.focus_mode != Control.FOCUS_NONE:
-			button.mouse_entered.connect(button.grab_focus)
+## Wires `node` when it is one of the game's buttons: its press sounds, and the mouse over it gives it the focus.
+## Guarded, since a node that leaves the tree and enters again comes through here again. The game's controls all come
+## from its scene files (a node from one has an owner, or is the scene's root); the library's dev UI builds its
+## controls in code, and its clicks are its own business.
+func _wire(node: Node) -> void:
+	var button := node as BaseButton
+	if button == null:
+		return
+	var from: Node = button if button.scene_file_path != "" else button.owner
+	if from == null or not from.scene_file_path.begins_with(GAME_SCENES):
+		return
+	var press: Callable = _on_button_pressed.bind(button)
+	if not button.pressed.is_connected(press):
+		button.pressed.connect(press)
+	var hover: Callable = _on_button_hovered.bind(button)
+	if not button.mouse_entered.is_connected(hover):
+		button.mouse_entered.connect(hover)
+
+
+func _wire_tree(node: Node) -> void:
+	_wire(node)
+	for child: Node in node.get_children():
+		_wire_tree(child)
+
+
+func _on_button_pressed(button: BaseButton) -> void:
+	var sound: StringName = button.get_meta(META_SOUND, &"press")
+	Sfx.play(sound)
+
+
+## The mouse over a button gives it the focus, unless it takes none (read now: a button may change it).
+func _on_button_hovered(button: BaseButton) -> void:
+	if button.focus_mode != Control.FOCUS_NONE and button.is_visible_in_tree():
+		button.grab_focus()
+
+
+## A move between two controls sounds; a screen or a modal taking the focus as it opens is silent.
+func _on_focus_changed(control: Control) -> void:
+	if not _quiet_focus and is_instance_valid(_focused) and _focused.is_visible_in_tree():
+		Sfx.play(&"select")
+	_focused = control
 
 
 func _on_setting_changed(setting: StringName) -> void:
 	if setting == &"show_fps":
 		_fps.visible = Settings.show_fps
+
+
+## `detail` (the library's words) as a sentence: a capital first, a full stop last; `otherwise` when it is empty.
+static func _sentence(detail: String, otherwise: String) -> String:
+	var text: String = detail.strip_edges()
+	if text == "":
+		return otherwise
+	text = text[0].to_upper() + text.substr(1)
+	return text if text.ends_with(".") or text.ends_with("!") or text.ends_with("?") else text + "."
