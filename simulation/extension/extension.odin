@@ -14,6 +14,7 @@ GLUE := godot.Glue(g.Game, View, MultiView) {
 	fill_frame   = fill_frame,
 	data         = Data,
 	input_values = Input_Values,
+	view_policy  = VIEW_POLICY,
 }
 
 // The extension's entry point, named by game/crypt_crew.gdextension.

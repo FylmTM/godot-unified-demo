@@ -107,3 +107,23 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
 - Props hit at 3 m/s or faster emit `Event_Prop_Impact` (the world's hit threshold), for a thud later.
 - `game/tools/art_checks.gd` now holds `game/levels/*.tscn` to the stages' placement rules (no category or script
   override, unscaled, floors and walls on the grid).
+- Minions, step 3: radius 0.4 m, 3.2 m/s chasing, 30 HP; a swing reaches 0.8 m past both circles, winds up 0.5 s,
+  lands only within 60° of the facing it locked on, for 10 HP, and the whole attack takes 1 s. Rise 1.5 s (the view
+  plays the clip's last 1.5 s), death 2 s. A minion without a target picks one at once, then every 0.25 s (sliced).
+- Minions are pushed out of every hero's capsule and every prop held or slower than 1 m/s (a footprint circle per kind:
+  barrel 0.5 m, crate 0.6, heavy crate 0.9); the circles come from the block at the start of the minions' pass, not
+  from after the step (scratch kept across ticks would break rollback).
+- Director: packs within 1.6 m of their marker (keyed rolls naming tick 0 and the marker, so a restart puts them back),
+  waking at 9 m in sight (walls block, low cover doesn't); surges every 20 s from 6 s in, 3 + 2 per hero present, at
+  graves 10 to 30 m of path from the party (no such grave: no surge), capped at 40 alive.
+- Down: 4 s, then a rise beside the party with 2 s of grace (the view blinks). A wipe is every hero present down on
+  one tick; with one hero, any downing is a wipe.
+- Arrival: the anchor is the lowest-slot hero up that didn't itself arrive this tick, so a session's first players
+  each take their own spawn; ring spots must be reachable in a straight line over no wall or low cover, tested 0.5 m
+  above the floor.
+- `View_Hero` has no `down` field: `action == Down` says it (the death clip held). `Data_Hud` carries kills and the
+  minions alive.
+- An extra dev command, `dev_kill_minions` (every live minion takes a killing blow through `damage_minion`), so the
+  tests and the script exercise dying before the attacks land; the script raises minions (slot 1) and kills them
+  (slot 2) now and then.
+- The benchmark row: "floor 1: four heroes against a held surge among the props", 40 minions held at graves.

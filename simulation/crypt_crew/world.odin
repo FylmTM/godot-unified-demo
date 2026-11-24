@@ -32,8 +32,15 @@ Prop_Kind :: enum u8 {
 
 // A pack of skeletons asleep where the floor begins (a `pack` marker).
 Pack_Def :: struct {
-	pos:   [3]f32,
-	count: i32, // how many skeletons it holds
+	pos:    [3]f32,
+	count:  i32, // how many skeletons it holds
+	marker: i32, // its marker's index: what its minions' places are rolled by (spawn_packs)
+}
+
+// A place on the walkable floor: a point of the navigation mesh and its polygon (nav.NO_POLY: none).
+Nav_Point :: struct {
+	point: [3]f32,
+	poly:  nav.Poly,
 }
 
 // A prop's place (a `prop` marker).
@@ -46,7 +53,7 @@ Prop_Def :: struct {
 // What the sim reads from the floor's markers, each list in the level's marker order.
 Places :: struct {
 	hero_spawns: [PLAYERS][3]f32, // by slot: where a hero appears with nobody up to arrive beside
-	graves:      sim.List([3]f32, MAX_GRAVES), // where surges rise
+	graves:      sim.List(Nav_Point, MAX_GRAVES), // where surges rise, on the walkable floor
 	packs:       sim.List(Pack_Def, MAX_PACKS),
 	props:       sim.List(Prop_Def, MAX_PROPS),
 }
@@ -61,7 +68,10 @@ World :: struct {
 	hero_defs:      [Class]physics.Character_Def, // each class's controller (its own max_speed); Any's is never used
 	barrel_hull:    ^physics.Hull_Data, // the barrel's cylinder (Box3D copies it into each body's shape)
 	barrel_density: f32, // what gives the barrel's hull its PROP_SPECS mass
+	floor_island:   i32, // the mesh island the hero spawns stand on: the walkable floor (wall tops bake islands of their own)
 	contacts:       [dynamic]physics.Contact_Event, // scratch: the step's contact events (prop_impacts)
+	grid:           Minion_Grid, // scratch: the live minions by cell, rebuilt by move_minions
+	hero_spots:     [PLAYERS]Nav_Point, // scratch: each slot's hero up on the mesh (locate_heroes), by slot
 }
 
 // Builds the world from the levels (unified/src/level/README.md): Floor 1's static geometry, its navigation mesh and
@@ -84,6 +94,18 @@ world_create :: proc(seed: u64, levels: []sim.Level_File, _: sim.No_Setup) -> ^W
 	world.fields = nav.fields_make(&world.mesh, MAX_FIELDS)
 	world.agent = floor.nav_agent
 	read_places(&world.places, floor)
+	spawn_poly, _ := nav.nearest(&world.mesh, world.places.hero_spawns[0], HERO_NAV_REACH)
+	assert(spawn_poly != nav.NO_POLY, "crypt_crew: slot 0's hero_spawn is off the navigation mesh")
+	world.floor_island = nav.island_of(&world.mesh, spawn_poly)
+	for spawn in world.places.hero_spawns {
+		_, on_floor := floor_spot(world, spawn, HERO_NAV_REACH)
+		assert(on_floor, "crypt_crew: a hero_spawn is off the walkable floor")
+	}
+	for &grave in sim.slice(&world.places.graves) {
+		on_floor: bool
+		grave, on_floor = floor_spot(world, grave.point, SURGE_SPREAD)
+		assert(on_floor, "crypt_crew: a grave is off the walkable floor")
+	}
 	for class in Class {
 		def := physics.CHARACTER_DEFAULT
 		def.radius = HERO_RADIUS
@@ -117,10 +139,10 @@ read_places :: proc(places: ^Places, floor: ^level.Level) {
 			spawned[slot] = true
 			places.hero_spawns[slot] = marker.pos
 		case "grave":
-			added := sim.append(&places.graves, marker.pos)
+			added := sim.append(&places.graves, Nav_Point{marker.pos, nav.NO_POLY}) // snapped to the floor in world_create
 			assert(added, "crypt_crew: more graves than MAX_GRAVES")
 		case "pack":
-			pack := Pack_Def{marker.pos, i32(level.prop_int(&marker, "count"))}
+			pack := Pack_Def{marker.pos, i32(level.prop_int(&marker, "count")), i32(marker.index)}
 			assert(pack.count > 0, "crypt_crew: a pack holds no skeleton")
 			added := sim.append(&places.packs, pack)
 			assert(added, "crypt_crew: more packs than MAX_PACKS")
@@ -135,6 +157,12 @@ read_places :: proc(places: ^Places, floor: ^level.Level) {
 	}
 	for has_spawn in spawned do assert(has_spawn, "crypt_crew: a floor needs a hero_spawn per slot")
 	assert(places.graves.count > 0, "crypt_crew: a floor needs a grave for its surges to rise from")
+}
+
+// The walkable floor's place nearest `near` within `reach` (on the floor's island: never a wall's top); false for none.
+floor_spot :: proc(world: ^World, near: [3]f32, reach: f32) -> (spot: Nav_Point, ok: bool) {
+	spot.poly, spot.point = nav.nearest(&world.mesh, near, reach)
+	return spot, spot.poly != nav.NO_POLY && nav.island_of(&world.mesh, spot.poly) == world.floor_island
 }
 
 // Frees what world_create made: the physics world (the levels with it), the barrel's hull, the navigation, the scratch
@@ -158,9 +186,10 @@ init :: proc(t: ^Tick) {
 	enter_level(t, .Floor_1)
 }
 
-// Takes the party to level `to` (init now; the wipe's floor restart and the next floor later): every hero lets go and
-// its body goes, the props go, the static geometry is swapped (physics.level_change), then the new level's props are
-// made in marker order and every present hero gets a body at its slot's spawn. What the block keeps across it (the
+// Takes the party to level `to` (init, the wipe's floor restart; the next floor later): every hero lets go and its body
+// goes, the props and the minions go, the static geometry is swapped (physics.level_change), then the new level's
+// props are made in marker order, its packs put to sleep, its surges' clock started, and every present hero gets a body
+// at its slot's spawn. What the block keeps across it (the
 // heroes' classes, the clock) stays.
 enter_level :: proc(t: ^Tick, to: Level_Id) {
 	leaving := sim.iterate_present(t)
@@ -169,8 +198,18 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 		destroy_hero_body(t.world.phys, hero)
 	}
 	despawn_props(t)
+	sim.despawn_all(&t.state.minions)
 	physics.level_change(t, t.world.phys, to)
 	spawn_props(t)
+	spawn_packs(t)
+	t.state.surges = 0
+	sim.timer_start(t, &t.state.surge, SURGE_FIRST_S)
 	entering := sim.iterate_present(t)
-	for _, player in sim.next(&entering) do spawn_hero(t, player, t.world.places.hero_spawns[sim.player_slot(t, player)])
+	for _, player in sim.next(&entering) do spawn_hero(t, player, t.world.places.hero_spawns[sim.player_slot(t, player)], false)
+}
+
+// The whole party is down: the floor starts over (enter_level, the same floor), every hero at its hero_spawn.
+restart_floor :: proc(t: ^Tick) {
+	enter_level(t, t.state.level.id)
+	sim.emit(t, Event_Floor_Restarted{})
 }

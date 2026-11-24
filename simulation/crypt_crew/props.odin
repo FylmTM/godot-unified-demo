@@ -58,6 +58,17 @@ despawn_props :: proc(t: ^Tick) {
 	sim.despawn_all(&t.state.props)
 }
 
+// The centre of a prop's body.
+prop_centre :: proc(phys: ^physics.World, prop: ^Prop) -> [3]f32 {
+	return physics.body_position(phys, prop.body)
+}
+
+// Whether a prop is in minions' way: held, or slower than PROP_REST_SPEED (a thrown one flies through them).
+prop_in_the_way :: proc(phys: ^physics.World, prop: ^Prop) -> bool {
+	speed := physics.body_linear_velocity(phys, prop.body)
+	return prop.held_by != {} || dmath.length_sq(speed) < PROP_REST_SPEED * PROP_REST_SPEED
+}
+
 // The point a prop's view stands on: the bottom of its body (its model's origin), wherever the body has turned.
 prop_base :: proc(phys: ^physics.World, prop: ^Prop) -> [3]f32 {
 	rot := physics.body_rotation(phys, prop.body)

@@ -3,9 +3,10 @@
 //
 // One system per file: game (this: the descriptor and the tick, its table of contents), tuning (every rule number),
 // input (the input and the commands), state, events, world (the physics world, Floor 1's navigation and places,
-// init and entering a level), presence (arrivals and leaves), heroes (facing, movement, read back), hands (grab,
-// carry, drop, throw), props (their bodies, impacts and throws' ends), pause (the co-op pause), dev (the dev commands)
-// and script (the scripted player).
+// init, entering a level and restarting it), presence (arrivals, leaves, where an arrival appears), heroes (facing,
+// movement, read back), hands (grab, carry, drop, throw), props (their bodies, impacts and throws' ends), minions
+// (targets, steering, swings, dying), director (sleeping packs, surges, the benchmark's population), health (damage,
+// down, rising, the wipe), pause (the co-op pause), dev (the dev commands) and script (the scripted player).
 package crypt_crew
 
 import "unified:physics"
@@ -38,6 +39,10 @@ GAME := Game {
 	scripted_input    = scripted_input,
 	scripted_commands = scripted_commands,
 	scripted_profile  = scripted_profile,
+	bench_prepare     = bench_prepare,
+	benches           = {
+		{what = "floor 1: four heroes against a held surge among the props", entities = MINION_CAP, ticks = 600},
+	},
 }
 
 // The tick's timing zones (sim.zone): the dev UI's stacked graph, and the groups its draw toggles name.
@@ -45,8 +50,11 @@ Zone :: enum u8 {
 	Presence,
 	Commands,
 	Heroes,
+	Director,
+	Minions,
 	Physics,
 	Props,
+	Health,
 }
 
 // One tick: the systems in their order, each group a timing zone.
@@ -63,10 +71,22 @@ tick :: proc(t: ^Tick) {
 	}
 	{
 		sim.zone(t, Zone.Heroes)
+		rise_heroes(t)
 		face_heroes(t)
 		use_hands(t) // after facing: a grab takes what the hero now faces
 		update_holds(t)
 		move_heroes(t)
+	}
+	{
+		sim.zone(t, Zone.Director)
+		locate_heroes(t)
+		raise_surges(t)
+		wake_packs(t)
+	}
+	{
+		sim.zone(t, Zone.Minions)
+		target_heroes(t)
+		move_minions(t)
 	}
 	{
 		sim.zone(t, Zone.Physics)
@@ -77,5 +97,10 @@ tick :: proc(t: ^Tick) {
 		sim.zone(t, Zone.Props)
 		prop_impacts(t)
 		age_throws(t)
+	}
+	{
+		sim.zone(t, Zone.Health)
+		age_minions(t) // after the step: a swing lands on where the hero is now
+		check_wipe(t)
 	}
 }

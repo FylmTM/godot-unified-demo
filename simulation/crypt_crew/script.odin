@@ -16,6 +16,11 @@ SCRIPT_REACH_MIN :: 4 // the nearest a scripted aim points, in REACH_STEPs
 SCRIPT_REACH_RANGE :: 40 // and how many steps further it may
 SCRIPT_CLASS_EVERY :: 384 // ticks between a slot's dev class changes
 SCRIPT_CLASS_AT :: 200 // the tick in each SCRIPT_CLASS_EVERY (plus the slot's offset) one is sent
+SCRIPT_SPAWN_EVERY :: 448 // ticks between slot 1's dev minion spawns ...
+SCRIPT_SPAWN_AT :: 120 // ... the tick in each a spawn is sent ...
+SCRIPT_SPAWN_COUNT :: 4 // ... and how many it raises
+SCRIPT_KILL_EVERY :: 576 // ticks between slot 2's dev kills of every minion ...
+SCRIPT_KILL_AT :: 450 // ... the tick in each one is sent
 SCRIPT_PAUSE_EVERY :: 512 // ticks between the scripted co-op pauses (slot 0's)
 SCRIPT_PAUSE_AT :: 300 // the tick in each SCRIPT_PAUSE_EVERY a pause starts
 SCRIPT_PAUSE_TICKS :: 40 // how long one lasts
@@ -39,12 +44,17 @@ scripted_input :: proc(seed: u64, slot: int, tick: u32, state: ^State) -> Input 
 }
 
 // Every slot changes its hero's class once every SCRIPT_CLASS_EVERY ticks (`Any` among the classes, which leaves it),
-// and slot 0 pauses the game for SCRIPT_PAUSE_TICKS of every SCRIPT_PAUSE_EVERY, so the standard scenarios roll back
-// over both.
+// slot 1 raises minions around its hero and slot 2 kills every minion now and then (the attacks' stand-ins until
+// they land), and slot 0 pauses the game for SCRIPT_PAUSE_TICKS of every SCRIPT_PAUSE_EVERY, so the standard scenarios
+// roll back over all of it.
 scripted_commands :: proc(seed: u64, slot: int, tick: u32, state: ^State, out: ^sim.Command_Out(Command)) {
 	if (tick + u32(slot) * SCRIPT_SLOT_OFFSET) % SCRIPT_CLASS_EVERY == SCRIPT_CLASS_AT {
 		sim.send_command(out, Command_Dev_Set_Class{Class((tick / SCRIPT_CLASS_EVERY + u32(slot)) % len(Class))})
 	}
+	if slot == 1 && tick % SCRIPT_SPAWN_EVERY == SCRIPT_SPAWN_AT {
+		sim.send_command(out, Command_Dev_Spawn_Minions{SCRIPT_SPAWN_COUNT})
+	}
+	if slot == 2 && tick % SCRIPT_KILL_EVERY == SCRIPT_KILL_AT do sim.send_command(out, Command_Dev_Kill_Minions{})
 	if slot != 0 do return
 	switch tick % SCRIPT_PAUSE_EVERY {
 	case SCRIPT_PAUSE_AT:

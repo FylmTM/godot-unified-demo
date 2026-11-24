@@ -10,7 +10,8 @@ extends Node3D
 ## its player's key), so a party walking together doesn't step in lockstep, and a gait changes past a margin, so a
 ## speed near a threshold doesn't flicker between two. An action (a pick-up, a throw) is a one-shot clip posed at its
 ## age, (shown_time - action_started) / tick_hz seconds, from the moment of the clip its action starts at, so the
-## clip's release lands on the sim's. A hero carrying walks with plain gaits: no clip holds a load.
+## clip's release lands on the sim's. A hero carrying walks with plain gaits: no clip holds a load. A hero down falls
+## (the death clip, held on its last frame), and one that just rose blinks while its grace lasts.
 
 ## A standing hero walks from this speed, and a walking one stands below the lower (metres per second).
 const WALK_FROM: float = 0.5
@@ -18,6 +19,8 @@ const STAND_BELOW: float = 0.3
 ## A hero walking ahead runs from this speed, and a running one walks below the lower (metres per second).
 const RUN_FROM: float = 3.4
 const WALK_BELOW: float = 3.0
+## How fast a hero in its grace blinks: shown, then hidden, this long each (milliseconds).
+const GRACE_BLINK_MS: int = 80
 ## Spreads the heroes' gait phases: a player's key times this, in seconds, wrapped by the clip.
 const PHASE_PER_KEY: float = 0.618034
 ## Where in its clip each action starts (seconds): the pick-up past the clip's first lean, the throw past its draw-back,
@@ -57,8 +60,11 @@ func _process(_delta: float) -> void:
 			_rig.pose(Clips.PICK_UP, PICK_UP_FROM + (now - data.action_started) / Unified.tick_hz)
 		EnumAction.THROW:
 			_rig.pose(Clips.THROW, THROW_FROM + (now - data.action_started) / Unified.tick_hz)
+		EnumAction.DOWN:
+			_rig.pose(Clips.DEATH, (now - data.action_started) / Unified.tick_hz)
 		_:
 			_rig.pose(_gait(), now / Unified.tick_hz + float(_view.player) * PHASE_PER_KEY)
+	_rig.visible = not data.grace or Time.get_ticks_msec() % (2 * GRACE_BLINK_MS) < GRACE_BLINK_MS
 
 
 ## Replaces the character with the class's.

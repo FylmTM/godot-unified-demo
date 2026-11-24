@@ -9,6 +9,8 @@ MAX_GRAVES :: 16
 MAX_PACKS :: 8
 MAX_PROPS :: 32
 MAX_FIELDS :: 8 // memoized navigation fields: one per hero chased, a few to spare
+MAX_MINIONS :: 128 // minion rows, the dying included
+MINION_CAP :: 40 // the most minions alive (not dying) the director raises
 
 // ---- heroes
 
@@ -25,6 +27,9 @@ HERO_DENSITY :: f32(66) // kg/m³ of its capsule (about 1.2 m³)
 HERO_GROUND_FORCE :: f32(4000) // newtons: the most the drive pushes with
 HERO_ACCELERATE :: f32(20) // how fast the drive's target velocity closes on the stick's, in max speeds per second
 HERO_HP :: i16(100)
+HERO_NAV_REACH :: f32(1.5) // a hero's place on the navigation mesh is the mesh's nearest point within this
+RESPAWN_S :: f32(4) // a hero at 0 HP stays down this long, then rises beside the party
+SPAWN_GRACE_S :: f32(2) // a hero who rises takes no damage this long
 TURN_STICK :: f32(0.1) // a hero without an aim turns to its move once the stick is pushed further than this
 
 // What a class plays like (CLASS_SPECS).
@@ -62,15 +67,16 @@ Prop_Spec :: struct {
 	half:        [3]f32, // its half extents, measured from its model (a cylinder: its radius in x and z)
 	mass:        f32, // kilograms
 	carry_speed: f32, // its carrier's speed, as a fraction of their class's max_speed
+	footprint:   f32, // the circle minions are pushed out of (metres): a box's reaches between its sides and corners
 	shape:       Prop_Shape,
 }
 
 // Each kind of prop, its size measured from its model (assets/kaykit/dungeon/: barrel_small, box_small, box_large).
 @(rodata)
 PROP_SPECS := [Prop_Kind]Prop_Spec {
-	.Barrel = {half = {0.5, 0.509, 0.5}, mass = 30, carry_speed = 0.85, shape = .Cylinder},
-	.Crate = {half = {0.5, 0.5, 0.5}, mass = 20, carry_speed = 0.85, shape = .Box},
-	.Heavy_Crate = {half = {0.75, 0.75, 0.75}, mass = 60, carry_speed = 0.65, shape = .Box},
+	.Barrel = {half = {0.5, 0.509, 0.5}, mass = 30, carry_speed = 0.85, footprint = 0.5, shape = .Cylinder},
+	.Crate = {half = {0.5, 0.5, 0.5}, mass = 20, carry_speed = 0.85, footprint = 0.6, shape = .Box},
+	.Heavy_Crate = {half = {0.75, 0.75, 0.75}, mass = 60, carry_speed = 0.65, footprint = 0.9, shape = .Box},
 }
 
 PROP_FRICTION :: f32(0.6)
@@ -103,3 +109,54 @@ THROWN_S :: f32(1) // a thrown prop is its thrower's this long (Prop.thrown)
 THROW_CLEAR_DIST :: f32(2.5) // a thrown prop passes through its thrower until it is this far from them (or `thrown` ends)
 PICK_UP_S :: f32(0.625) // the grab's action
 PICK_UP_TICKS :: u32(PICK_UP_S * TICK_HZ)
+PROP_REST_SPEED :: f32(1) // a prop slower than this (or held) is in minions' way; a faster one flies through them
+
+// ---- minions: skeletons walking the navigation mesh, rows with no body
+
+MINION_RADIUS :: f32(0.4)
+MINION_SPEED :: f32(3.2) // metres per second chasing
+MINION_HP :: i16(30)
+MINION_REACH :: f32(0.8) // a minion strikes a hero whose capsule is this close to its own circle
+MINION_DAMAGE :: i16(10)
+MINION_STRIKE_COS :: f32(0.5) // and in front of it: within 60° of the facing its attack locked (cos 60°)
+MINION_WINDUP_S :: f32(0.5) // an attack's telegraph: the swing lands this long after it starts
+MINION_WINDUP_TICKS :: u32(MINION_WINDUP_S * TICK_HZ)
+MINION_ATTACK_S :: f32(1) // the whole attack, its recovery included, before it chases again
+MINION_ATTACK_TICKS :: u32(MINION_ATTACK_S * TICK_HZ)
+RISE_S :: f32(1.5) // a risen minion climbs out of the floor this long, harmless, before it chases
+RISE_TICKS :: u32(RISE_S * TICK_HZ)
+DEATH_S :: f32(2) // a dead minion's row lingers this long (Dying: its fall), then is freed
+DEATH_TICKS :: u32(DEATH_S * TICK_HZ)
+RETARGET_S :: f32(0.25) // each minion picks its target again this often (time-sliced by its index, sim.due)
+RETARGET_TICKS :: u32(RETARGET_S * TICK_HZ)
+SEPARATION :: f32(0.9) // minions closer than this push apart ...
+SEPARATION_SPEED :: f32(2.5) // ... at up to this speed
+KNOCK_DECAY :: f32(6) // a knockback's velocity decays at this rate per second
+MINION_GRID_CELL :: f32(2) // the separation grid's cells (metres), at least SEPARATION
+MINION_GRID_N :: 30 // cells along each axis: 60 m, the floor with room to spare
+MINION_GRID_ORIGIN :: [2]f32{-26, -26} // its corner with the smallest x and z
+
+// ---- the director: sleeping packs, and surges rising from graves
+
+PACK_RADIUS :: f32(1.6) // a pack's minions stand within this of its marker
+AGGRO_RADIUS :: f32(9) // a sleeping minion wakes when a hero it can see comes this close
+SIGHT_TICKS :: u32(0.125 * TICK_HZ) // each sleeping minion looks this often (time-sliced by its index)
+EYE_HEIGHT :: f32(1.5) // where a minion sees from, and a hero is seen at, above the feet
+SURGE_FIRST_S :: f32(6) // the first surge rises this long after a floor begins
+SURGE_EVERY_S :: f32(20) // and the next ones this long after each other
+SURGE_NEAR :: f32(10) // a surge rises at graves at least this far from every hero along the floor (metres of path) ...
+SURGE_FAR :: f32(30) // ... and no farther than this from the nearest
+SURGE_BASE :: 3 // a surge's minions ...
+SURGE_PER_HERO :: 2 // ... and this many more per hero present
+SURGE_SPREAD :: f32(1.5) // a surge's minions rise within this of their grave
+DEV_SPAWN_RING :: f32(5) // dev_spawn_minions raises its minions this far from the sender's hero
+DEV_KILL_KNOCK :: f32(4) // dev_kill_minions knocks its dead this fast (metres per second) away from the sender
+BENCH_SPREAD :: 12 // the benchmark's minions start within this many metres of slot 0's spawn, along x and z
+BENCH_TRIES :: 20 // places tried per benchmark minion (some fall off the floor)
+
+// ---- arriving beside the party
+
+ARRIVAL_RING :: f32(2.5) // the eight spots tried around the anchor hero are this far from it
+ARRIVAL_SNAP :: f32(1) // a spot counts when the navigation mesh is this close to it
+ARRIVAL_CLEAR :: f32(2) // and no live minion is this close
+ARRIVAL_RAY_HEIGHT :: f32(0.5) // the way from the anchor is tested this high above the floor (under low cover's top)

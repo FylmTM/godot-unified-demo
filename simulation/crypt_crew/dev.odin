@@ -3,9 +3,12 @@
 // Otherwise ordinary commands: relayed, logged and replayed, the same tick on every peer.
 package crypt_crew
 
+import "unified:dmath"
 import "unified:sim"
 
-// Each present player's dev commands: `Command_Dev_Set_Class` turns their hero into another class.
+// Each present player's dev commands: `Command_Dev_Set_Class` turns their hero into another class,
+// `Command_Dev_Spawn_Minions` raises minions around it, `Command_Dev_Hurt` hurts a hero, `Command_Dev_Kill_Minions`
+// kills every minion (through damage_minion, as an attack will).
 apply_dev_commands :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
@@ -13,7 +16,31 @@ apply_dev_commands :: proc(t: ^Tick) {
 			#partial switch command in sent {
 			case Command_Dev_Set_Class:
 				if command.class != .Any do hero.class = command.class
+			case Command_Dev_Spawn_Minions:
+				spawn_around(t, hero.pos, int(command.count))
+			case Command_Dev_Hurt:
+				if target := sim.player_data(t, command.player); target != nil {
+					damage_hero(t, command.player, command.damage, target.pos)
+				}
+			case Command_Dev_Kill_Minions:
+				minions := sim.iterate(&t.state.minions)
+				for minion, handle in sim.next(&minions) {
+					away := dmath.normalize(minion.pos.xz - hero.pos.xz)
+					damage_minion(t, handle, minion.hp, away, DEV_KILL_KNOCK, player)
+				}
 			}
 		}
+	}
+}
+
+// `count` minions rising on a ring DEV_SPAWN_RING around `centre`, evenly spaced, each on the walkable floor, while
+// fewer than MINION_CAP are alive.
+@(private = "file")
+spawn_around :: proc(t: ^Tick, centre: [3]f32, count: int) {
+	for i in 0 ..< count {
+		if minions_alive(&t.state.minions) >= MINION_CAP do return
+		dir := dmath.angle_vec(f32(i) / f32(count))
+		spot := floor_spot(t.world, centre + {dir.x, 0, dir.y} * DEV_SPAWN_RING, DEV_SPAWN_RING) or_continue
+		spawn_minion(t.state, spot.point, spot.poly, -dir, .Rise, t.time)
 	}
 }

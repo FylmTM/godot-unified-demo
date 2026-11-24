@@ -15,10 +15,11 @@ import g "../crypt_crew"
 Frame :: godot.Frame(g.Game, View, MultiView)
 
 // The scene views, a struct per kind: what its view's script reads as `data` (ViewHero). A hero's is keyed by its
-// player (sim.player_key), a prop's by its handle (its events' `prop`).
+// player (sim.player_key), a prop's and a minion's by their handles (their events' `prop`, `minion`).
 View :: union {
 	View_Hero,
 	View_Prop,
+	View_Minion,
 }
 
 // No MultiMesh views yet.
@@ -32,7 +33,7 @@ View_Hero :: struct {
 	class:          g.Class, // EnumClass: which character the view shows
 	action:         g.Action, // EnumAction
 	carrying:       bool, // it holds a prop
-	_pad:           u8,
+	grace:          bool, // it rose a moment ago and takes no damage: the view flickers
 }
 
 // A prop, posed at the bottom of its body (its model's origin) and turned as its body is; a pooled kind (prop.tscn).
@@ -42,7 +43,19 @@ View_Prop :: struct {
 	aimed:   bool, // a local hero's Interact would grab it now (grab_target): the view highlights it
 }
 
-// Every present hero, every prop, then the HUD's data.
+// A minion, posed at its feet and turned to its facing; a pooled kind (minion.tscn) shown only once its spawn is
+// verified (VIEW_POLICY), since a minion a misprediction raised would flash and vanish. Its animation is a function of
+// its phase and when that began (game/views/minion.gd).
+View_Minion :: struct {
+	since: sim.Game_Time,
+	phase: g.Minion_Phase, // EnumMinionPhase
+	_pad:  [3]u8,
+}
+
+// The kinds whose policy isn't the default (Glue.view_policy): minions appear once verified.
+VIEW_POLICY := []godot.View_Kind_Policy{{View_Minion, {appear = .Verified}}}
+
+// Every present hero, every prop, every minion, then the HUD's data.
 fill_frame :: proc(f: ^Frame) {
 	heroes := sim.iterate_present(&f.state.players)
 	for hero, player in sim.next(&heroes) {
@@ -58,9 +71,17 @@ fill_frame :: proc(f: ^Frame) {
 			class          = hero.class,
 			action         = hero.action,
 			carrying       = hero.held != {},
+			grace          = sim.timer_running(f.time, hero.grace),
 		})
 	}
 	fill_props(f)
+	minions := sim.iterate(&f.state.minions)
+	for minion, handle in sim.next(&minions) {
+		godot.push_view(f, handle, {pos = sim.Position(minion.pos), rot = dmath.quat_yaw(minion.facing)}, View_Minion {
+			since = minion.since,
+			phase = minion.phase,
+		})
+	}
 	fill_hud(f)
 }
 

@@ -13,4 +13,11 @@ Event :: union {
 	Event_Prop_Dropped,
 	Event_Prop_Thrown,
 	Event_Prop_Impact,
+	Event_Minion_Hit,
+	Event_Minion_Died,
+	Event_Surge,
+	Event_Hero_Hurt,
+	Event_Hero_Downed,
+	Event_Hero_Spawned,
+	Event_Floor_Restarted,
 }

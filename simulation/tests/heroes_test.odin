@@ -118,7 +118,7 @@ any_class_resolves_to_one_nobody_plays :: proc(t: ^testing.T) {
 }
 
 // A leaver's body is gone at once and its class kept: back in another slot with no wish (Any), it plays the one it
-// played, with a body at that slot's spawn; back with a wish, it plays that.
+// played, with a body beside the party; back with a wish, it plays that.
 @(test)
 a_leaver_comes_back_as_it_was :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 2) // the scripted Profiles: a Knight and a Barbarian
@@ -136,8 +136,9 @@ a_leaver_comes_back_as_it_was :: proc(t: ^testing.T) {
 	testing.expect_value(t, sim.player_in_slot(run.simulation, 3), leaver)
 	testing.expect_value(t, hero.class, g.Class.Barbarian)
 	testing.expect(t, hero.body != g.Hero{}.body, "it has a body again")
-	spawn := run.simulation.world.places.hero_spawns[3]
-	testing.expectf(t, dmath.length(hero.pos.xz - spawn.xz) < 0.01, "arrived at %v, its spawn is %v", hero.pos, spawn)
+	anchor := sim.slot_data(run.simulation, 0).pos // the party: it arrives beside slot 0's hero (arrival_spot)
+	beside := dmath.length(hero.pos.xz - anchor.xz)
+	testing.expectf(t, abs(beside - g.ARRIVAL_RING) < g.ARRIVAL_SNAP, "arrived %v m from the party", beside)
 	headless.run_seat(&run, 3, 0)
 	headless.run_step(&run)
 	headless.run_seat(&run, 2, 2, g.Profile{class = .Rogue})

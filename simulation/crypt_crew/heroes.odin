@@ -4,6 +4,7 @@
 package crypt_crew
 
 import "unified:dmath"
+import "unified:nav"
 import "unified:physics"
 import "unified:sim"
 
@@ -22,10 +23,26 @@ hero_warp :: proc(phys: ^physics.World, hero: ^Hero) -> u8 {
 	return hero.warp + physics.body_warp(phys, hero.body.body)
 }
 
-// Each present hero faces its input (hero_facing).
+// Each present hero that is up faces its input (hero_facing).
 face_heroes :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
-	for hero, player in sim.next(&heroes) do hero.facing = hero_facing(sim.input(t, player), hero.facing)
+	for hero, player in sim.next(&heroes) {
+		if hero.action != .Down do hero.facing = hero_facing(sim.input(t, player), hero.facing)
+	}
+}
+
+// Each slot's hero up on the navigation mesh (the World's hero_spots, scratch rebuilt every tick from the block):
+// the mesh's point nearest its feet within HERO_NAV_REACH; nav.NO_POLY for an empty slot, a hero down or one off the
+// mesh. What minions chase and surges measure from.
+locate_heroes :: proc(t: ^Tick) {
+	for &spot, slot in t.world.hero_spots {
+		player := sim.player_in_slot(t, slot)
+		spot = {
+			poly = nav.NO_POLY,
+		}
+		if !hero_up(t, player) do continue
+		spot.poly, spot.point = nav.nearest(&t.world.mesh, sim.player_data(t, player).pos, HERO_NAV_REACH)
+	}
 }
 
 // Each present hero's controller is driven toward its stick at its class's max_speed, slowed by what it carries

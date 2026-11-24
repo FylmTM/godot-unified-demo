@@ -8,7 +8,9 @@ dungeon crawler for 1–4 players, and the answer to "what does a real game buil
 
 > [!NOTE]
 > **In development.** Today up to four heroes (Knight, Barbarian, Mage, Rogue) walk Floor 1, the first floor of the
-> crypt, and carry and throw its barrels and crates; skeletons and attacks come next. The art is posed in a look-dev scene too (`./uni tool lookdev
+> crypt, carry and throw its barrels and crates, and are hunted by its skeletons: packs asleep in its rooms, surges
+> rising from its graves. A hero at 0 HP goes down and rises beside the party; the whole party down restarts the floor.
+> The heroes' attacks come next. The art is posed in a look-dev scene too (`./uni tool lookdev
 > --window --shots`). What the game becomes, and in what order, is [`docs/plan.md`](docs/plan.md).
 
 ## Play it
@@ -52,12 +54,16 @@ What the sim shows Godot and what Godot sends back, each declared in `simulation
 - `View_Hero` (`frame.odin`, GDScript `ViewHero`, its scene `game/views/hero.tscn`): a hero, keyed by its player,
   posed at its feet and turned to its facing (a local hero's from its newest input). Its velocity in its own frame
   (x to its right, y ahead) picks the gait; its class picks the character; its action and the game time it started
-  pose a one-shot (a pick-up, a throw); `carrying` says it holds a prop.
+  pose a one-shot (a pick-up, a throw, going down); `carrying` says it holds a prop, `grace` that it just rose and
+  takes no damage (it blinks).
 - `View_Prop` (`frame.odin`, `ViewProp`, `game/views/prop.tscn`, pooled): a barrel or crate, keyed by its handle,
   posed at the bottom of its body and turned with it. Its kind picks the model; `held_by` names its carrier; `aimed`
   says a local hero's Interact would grab it now (the rules' own `grab_target`), which the view highlights.
-- `Data_Hud` (`hud.odin`, `Unified.data.hud`): each slot's hero (player, HP, class, whether it is local) and the co-op
-  pause.
+- `View_Minion` (`frame.odin`, `ViewMinion`, `game/views/minion.tscn`, pooled, shown once its spawn is verified): a
+  skeleton, keyed by its handle, posed at its feet and turned to its facing; its phase (rising, asleep, chasing,
+  swinging, dying) and the game time it began pose its clip.
+- `Data_Hud` (`hud.odin`, `Unified.data.hud`): each slot's hero (player, HP, class, whether it is local), the minions
+  alive, the kills and the co-op pause.
 - `Input_Values` (`input.odin`, `Unified.local_input(local)`): the mouse's aim, from the keyboard player's hero to
   where the cursor points on the floor, set by `game/play/play.gd` on the session's `input_wanted`.
 

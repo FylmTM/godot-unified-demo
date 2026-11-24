@@ -1,12 +1,13 @@
 class_name Hud
 extends Control
-## The minimal HUD: each local hero's class and HP, the co-op pause, and "press Start to join" while a connected pad
-## plays nobody.
+## The minimal HUD: each local hero's class and HP (or that it is down), the skeletons up and the kills, the co-op
+## pause, and "press Start to join" while a connected pad plays nobody.
 ##
 ## It shows session data (Unified.data.hud), the newest prediction, which a rollback can change; nothing here is final,
 ## so nothing waits for a CONFIRMED event.
 
 @onready var _heroes: Label = %Heroes
+@onready var _crypt: Label = %Crypt
 @onready var _paused: Label = %Paused
 @onready var _join_hint: Label = %JoinHint
 
@@ -19,13 +20,15 @@ func _ready() -> void:
 	_show_join_hint()
 
 
-## A line per local hero, and the pause.
+## A line per local hero, the crypt's count, and the pause.
 func _show_heroes() -> void:
 	var lines: PackedStringArray = []
 	for hero: DataHudHero in Unified.data.hud.heroes:
 		if hero.player != 0 and hero.local:
-			lines.append("%s   %d HP" % [EnumClass.name(hero.class).capitalize(), hero.hp])
+			var health: String = "%d HP" % hero.hp if hero.hp > 0 else "down"
+			lines.append("%s   %s" % [EnumClass.name(hero.class).capitalize(), health])
 	_heroes.text = "\n".join(lines)
+	_crypt.text = "Skeletons %d   Kills %d" % [Unified.data.hud.minions, Unified.data.hud.kills]
 	_paused.visible = Unified.data.hud.paused
 
 

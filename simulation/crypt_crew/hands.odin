@@ -70,6 +70,8 @@ use_hands :: proc(t: ^Tick) {
 			continue
 		case .Pick_Up:
 			if age >= PICK_UP_TICKS do hero.action = .None
+		case .Down:
+			continue
 		case .None:
 		}
 		pressed := sim.buttons(t, player).pressed

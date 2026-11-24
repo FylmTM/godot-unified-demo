@@ -67,8 +67,25 @@ Command_Dev_Set_Class :: struct {
 	class: Class,
 }
 
+// `dev_spawn_minions` (dev builds): `count` minions rise around the sender's hero (at most up to MINION_CAP alive).
+Command_Dev_Spawn_Minions :: struct {
+	count: u8,
+}
+
+// `dev_hurt` (dev builds): `player`'s hero takes `damage`, as from a minion's swing.
+Command_Dev_Hurt :: struct {
+	player: sim.Player,
+	damage: i16,
+}
+
+// `dev_kill_minions` (dev builds): every live minion takes a killing blow from the sender, knocked away from its hero.
+Command_Dev_Kill_Minions :: struct {}
+
 // Every command a player can send.
 Command :: union {
 	Command_Set_Paused,
 	Command_Dev_Set_Class,
+	Command_Dev_Spawn_Minions,
+	Command_Dev_Hurt,
+	Command_Dev_Kill_Minions,
 }
