@@ -25,7 +25,7 @@ play_on_the_mesh :: proc(t: ^testing.T, run: ^headless.Run(g.Game), inputs: [g.P
 		headless.run_step(run, inputs)
 		minions := sim.iterate(&run.simulation.state.minions)
 		for minion in sim.next(&minions) {
-			if nav.locate(&run.simulation.world.mesh, minion.pos, 0.1) == nav.NO_POLY {
+			if nav.locate(&floor_of(run).mesh, minion.pos, 0.1) == nav.NO_POLY {
 				testing.expectf(t, false, "a minion left the mesh at %v", minion.pos)
 				return
 			}
@@ -194,7 +194,7 @@ packs_sleep_until_a_hero_is_in_sight :: proc(t: ^testing.T) {
 	play_on_the_mesh(t, &run, {}, 2)
 	minions := sim.iterate(&state.minions)
 	for minion in sim.next(&minions) do testing.expect_value(t, minion.phase, g.Minion_Phase.Idle)
-	pack := sim.slice(&run.simulation.world.places.packs)[0]
+	pack := sim.slice(&floor_of(&run).places.packs)[0]
 	place_hero(&run, 0, pack.pos + {0, 0, 3.5})
 	play_on_the_mesh(t, &run, {}, 0.5)
 	minions = sim.iterate(&state.minions)

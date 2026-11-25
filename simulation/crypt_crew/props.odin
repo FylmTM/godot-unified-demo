@@ -30,7 +30,7 @@ Event_Prop_Impact :: struct {
 
 // A body for each of the floor's prop markers, in marker order, resting where the marker stands.
 spawn_props :: proc(t: ^Tick) {
-	for &def in sim.slice(&t.world.places.props) {
+	for &def in sim.slice(&floor_of(t).places.props) {
 		prop, handle, ok := sim.spawn(&t.state.props)
 		assert(ok, "crypt_crew: more props than MAX_PROPS") // world_create's list holds as many
 		spec := &PROP_SPECS[def.kind]

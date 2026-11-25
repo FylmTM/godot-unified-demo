@@ -17,9 +17,14 @@ BARREL :: 0
 CRATE :: 2
 HEAVY_CRATE :: 3
 
+// The run's active floor (its navigation, places and cap).
+floor_of :: proc(run: ^headless.Run(g.Game)) -> ^g.Floor {
+	return &run.simulation.world.floors[run.simulation.state.level.id]
+}
+
 // Slot `slot`'s hero_spawn on the run's floor.
 spawn_of :: proc(run: ^headless.Run(g.Game), slot: int) -> [3]f32 {
-	return run.simulation.world.places.hero_spawns[slot]
+	return floor_of(run).places.hero_spawns[slot]
 }
 
 // `seconds` of play with these inputs by slot (the seated members present).
@@ -81,7 +86,7 @@ place_minion :: proc(
 	facing := [2]f32{0, 1},
 	pack: u8 = 0,
 ) -> sim.Handle(g.Minion) {
-	spot, on_floor := g.floor_spot(run.simulation.world, near, 2)
+	spot, on_floor := g.floor_spot(floor_of(run), near, 2)
 	assert(on_floor, "a test's minion is off the floor")
 	state := &run.simulation.state
 	handle, spawned := g.spawn_minion(state, spot.point, spot.poly, facing, phase, state.clock.time, pack)

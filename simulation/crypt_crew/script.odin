@@ -1,6 +1,8 @@
 // The scripted player, for the headless modes, the tests and Godot's `--scripted` sessions: pure functions of (seed,
 // slot, tick), so any tick can be asked for in any order and every client of a session, every offline run and a Godot
-// scripted session play the same players. It exercises every control the rules read.
+// scripted session play the same players. It exercises every control the rules read. Under a held crowd it plays the
+// crowd's part instead (director.odin, Crowd), read from the state's `crowd`: the Setup's, the same in every state of
+// a session, so the answer still depends on (seed, slot, tick) alone.
 package crypt_crew
 
 import "unified:dmath"
@@ -29,7 +31,9 @@ SCRIPT_PAUSE_TICKS :: 40 // how long one lasts
 
 // The player in `slot` walks one of 8 directions or stands (a draw every SCRIPT_PERIOD ticks), aims one of 8
 // directions at a reach, or none (other draws), holds Attack in bursts and presses Interact now and then.
+// Under a held crowd: standing still (Idle), walking and aiming only (Chase), or holding Attack throughout (Fight).
 scripted_input :: proc(seed: u64, slot: int, tick: u32, state: ^State) -> Input {
+	if state.crowd == .Idle do return {}
 	bits := sim.script_bits(seed, slot, tick, SCRIPT_PERIOD)
 	input: Input
 	if step := bits % 9; step < 8 { 	// the ninth: stand still
@@ -38,6 +42,14 @@ scripted_input :: proc(seed: u64, slot: int, tick: u32, state: ^State) -> Input 
 	if (bits >> 8) % 3 != 0 { 	// a third of the time: no aim
 		input.aim = dmath.dir2(dmath.DIR8[(bits >> 12) % 8])
 		input.reach = u8(SCRIPT_REACH_MIN + (bits >> 16) % SCRIPT_REACH_RANGE)
+	}
+	switch state.crowd {
+	case .None:
+	case .Idle, .Chase:
+		return input
+	case .Fight:
+		input.buttons += {.Attack}
+		return input
 	}
 	phase := tick + u32(slot) * SCRIPT_SLOT_OFFSET
 	if phase % SCRIPT_ATTACK_EVERY < SCRIPT_ATTACK_TICKS do input.buttons += {.Attack}
@@ -49,8 +61,9 @@ scripted_input :: proc(seed: u64, slot: int, tick: u32, state: ^State) -> Input 
 // slot 1 raises minions around its hero and slot 2 kills every minion now and then (so the scenarios cross spawns and
 // mass deaths whatever the attacks reach), one slot downs its own hero every SCRIPT_HURT_EVERY (every slot every third time: a wipe and the floor's
 // restart), and slot 0 pauses the game for SCRIPT_PAUSE_TICKS of every SCRIPT_PAUSE_EVERY, so the standard scenarios
-// roll back over all of it.
+// roll back over all of it. Under a held crowd, nothing: the population stays what was asked.
 scripted_commands :: proc(seed: u64, slot: int, tick: u32, state: ^State, out: ^sim.Command_Out(Command)) {
+	if state.crowd != .None do return
 	if (tick + u32(slot) * SCRIPT_SLOT_OFFSET) % SCRIPT_CLASS_EVERY == SCRIPT_CLASS_AT {
 		sim.send_command(out, Command_Dev_Set_Class{Class((tick / SCRIPT_CLASS_EVERY + u32(slot)) % len(Class))})
 	}

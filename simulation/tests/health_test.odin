@@ -102,20 +102,20 @@ a_wipe_restarts_the_floor :: proc(t: ^testing.T) {
 	headless.run_step(&run, &wipe)
 	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 1)
 	state := &run.simulation.state
-	world := run.simulation.world
+	floor := floor_of(&run)
 	for slot in 0 ..< 2 {
 		hero := sim.slot_data(run.simulation, slot)
 		testing.expect_value(t, hero.action, g.Action.None)
 		testing.expect_value(t, hero.hp, g.HERO_HP)
 		testing.expectf(
 			t,
-			dmath.length(hero.pos - world.places.hero_spawns[slot]) < 0.05,
+			dmath.length(hero.pos - floor.places.hero_spawns[slot]) < 0.05,
 			"slot %d at %v",
 			slot,
 			hero.pos,
 		)
 	}
-	testing.expect_value(t, int(state.props.count), int(world.places.props.count))
+	testing.expect_value(t, int(state.props.count), int(floor.places.props.count))
 	testing.expect_value(t, int(state.bolts.count), 0)
 	minions := sim.iterate(&state.minions)
 	for minion in sim.next(&minions) do testing.expect_value(t, minion.phase, g.Minion_Phase.Idle)
@@ -133,7 +133,7 @@ a_joiner_arrives_beside_the_party :: proc(t: ^testing.T) {
 	anchor := sim.slot_data(run.simulation, 0).pos
 	first := dmath.DIR8[(1 * g.ARRIVAL_SLOT_TURN) % len(dmath.DIR8)] // slot 1's first spot (arrival_spot)
 	blocked_at := anchor + [3]f32{first.x, 0, first.y} * g.ARRIVAL_RING
-	spot, on_floor := g.floor_spot(run.simulation.world, blocked_at, g.ARRIVAL_SNAP)
+	spot, on_floor := g.floor_spot(floor_of(&run), blocked_at, g.ARRIVAL_SNAP)
 	testing.expect(t, on_floor, "slot 1's first spot is on the floor")
 	state := &run.simulation.state
 	g.spawn_minion(state, spot.point, spot.poly, {0, 1}, .Idle, state.clock.time)
@@ -159,6 +159,6 @@ a_joiner_arrives_beside_the_party :: proc(t: ^testing.T) {
 	headless.run_step(&alone)
 	first_arrival, _ := headless.run_last_event(&alone, g.Event_Hero_Spawned)
 	testing.expect(t, !first_arrival.beside, "nobody up: its slot's spawn")
-	testing.expect_value(t, sim.slot_data(alone.simulation, 2).pos, alone.simulation.world.places.hero_spawns[2])
+	testing.expect_value(t, sim.slot_data(alone.simulation, 2).pos, floor_of(&alone).places.hero_spawns[2])
 	scenarios.expect_synced(t, &alone)
 }

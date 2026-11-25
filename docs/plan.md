@@ -39,10 +39,30 @@ recording and replay with seek, F3 notes; and every way of testing (below). What
 ## How it's built
 
 - **Sim:** elites are Box3D bodies; the rule numbers get presets per difficulty and a quick preset for tests.
-- **The crowd:** pooled animated scenes first, then one MultiMesh animated from a texture the minion clips are baked
-  into.
-- **The crowd's mesh:** a KayKit minion is 9 meshes and about 5,000 triangles; the crowd draws a merged, lighter one.
 - **Ragdolls** drawn on the KayKit skeleton from the bones' rotations.
+
+## Milestone 4: the crowd at scale
+
+About 500 skeletons alive, drawn as one MultiMesh, and the benchmark rows that prove the sim holds them. Decided:
+
+1. **The bake:** each minion clip's bone matrices baked into a texture, the vertex shader skinning a merged, lighter
+   mesh (a KayKit minion is 9 meshes and about 5,000 triangles), rather than per-vertex positions. Step 4.
+2. **Where 500 fit:** the arena (built, reached by the Setup: `floor=arena`); the endless mode around it stays
+   milestone 7's. A floor's cap comes from its walkable area (built: Floor 1 about 110, the arena 500).
+3. **Sim speed** (step 2): one minion grid of 1 m cells, wider queries by `sim.grid_box`; the steering of minions
+   beyond about 3 m from their target every 4 ticks, the heading kept in state; a surge a quota in the state, raised a
+   few a tick; one radial knock for blasts and charges, clamped. (The director counting free rows: built.)
+4. **Crowd rules** (step 3): queueing (the back rows stop compressing the front) and a stagger while knocked.
+5. **Bench rows:** today's kept; crowd_idle, crowd_chase and crowd_fight on the arena through the Setup (built);
+   target frame p99 at most 3 ms on the developer's machine, half the library's line.
+6. **The bake tool** lives here first and moves into unified's `tools_godot` by the milestone's end. Crowd shadows are
+   decided from shots and frame times in step 4.
+7. **From unified:** `View_Policy.ages` for the crowd's clip times (step 5), scenarios and reference runs on a Setup
+   (the crowd's scale tests: built).
+
+Steps: 1 the arena, held crowds and honest rows (done); 2 the sim at 500 (above); 3 the crowd's rules; 4 the bake
+and its look-dev shots; 5 minions become the MultiMesh (the pooled minion view goes); 6 the tool lifted into unified,
+the README, the reviews.
 
 ## How it's tested
 

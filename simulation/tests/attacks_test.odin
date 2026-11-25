@@ -102,7 +102,7 @@ a_blow_strikes_what_touches_the_hero :: proc(t: ^testing.T) {
 @(private = "file")
 mesh_extent :: proc(run: ^headless.Run(g.Game)) -> (low, high: [2]f32) {
 	low, high = {max(f32), max(f32)}, {-max(f32), -max(f32)}
-	for vertex in run.simulation.world.mesh.vertices {
+	for vertex in floor_of(run).mesh.vertices {
 		low = {dmath.min(low.x, vertex.x), dmath.min(low.y, vertex.z)}
 		high = {dmath.max(high.x, vertex.x), dmath.max(high.y, vertex.z)}
 	}
@@ -122,7 +122,7 @@ blocked_pair :: proc(
 	dir: [2]f32,
 	found: bool,
 ) {
-	world := run.simulation.world
+	floor := floor_of(run)
 	filter := physics.Filter {
 		category = g.CAT_HERO,
 		mask     = mask,
@@ -135,10 +135,10 @@ blocked_pair :: proc(
 	for across in ([][2]f32{{1, 0}, {0, 1}}) {
 		for x := low.x; x < high.x; x += 0.5 {
 			for z := low.y; z < high.y; z += 0.5 {
-				near := g.floor_spot(world, {x, 0, z}, 0.1) or_continue
-				far := g.floor_spot(world, near.point + [3]f32{across.x, 0, across.y} * step, 0.1) or_continue
+				near := g.floor_spot(floor, {x, 0, z}, 0.1) or_continue
+				far := g.floor_spot(floor, near.point + [3]f32{across.x, 0, across.y} * step, 0.1) or_continue
 				_, blocked := physics.world_cast_ray_closest(
-					world.phys,
+					run.simulation.world.phys,
 					near.point + {0, height, 0},
 					far.point - near.point,
 					filter,
@@ -148,7 +148,7 @@ blocked_pair :: proc(
 					walled := false
 					for above in ([]f32{g.CHEST_HEIGHT, g.FLIGHT_HEIGHT}) {
 						_, hit := physics.world_cast_ray_closest(
-							world.phys,
+							run.simulation.world.phys,
 							near.point + {0, above, 0},
 							far.point - near.point,
 							walls,
@@ -426,7 +426,7 @@ the_crossbow_shoots_where_the_shooter_saw :: proc(t: ^testing.T) {
 		for _ in 0 ..< g.CLASS_SPECS[.Rogue].windup do headless.run_step(&run, seen)
 		minion := sim.get(&run.simulation.state.minions, crossing)
 		knock := [2]f32{0, 6}
-		at, on_floor := g.floor_spot(run.simulation.world, spawn + {4, 0, shot.past - knock.y / g.TICK_HZ}, 0.2)
+		at, on_floor := g.floor_spot(floor_of(&run), spawn + {4, 0, shot.past - knock.y / g.TICK_HZ}, 0.2)
 		testing.expect(t, on_floor, "the crossing minion stands on the floor")
 		minion.pos, minion.poly, minion.knock = at.point, at.poly, knock // it moves knock / TICK_HZ on the strike tick
 		headless.run_pin(&run)

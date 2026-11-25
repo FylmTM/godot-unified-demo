@@ -17,13 +17,14 @@ State :: struct {
 	surge:       sim.Timer, // the next surge rises when it runs out (director.odin)
 	surges:      u32, // the surges the party has faced, a save's included (Event_Surge's count)
 	rises:       u32, // the minions the director raised this session: what each one's rolls are named by
-	// The minions the standard benchmark holds alive (bench_prepare; 0: the director's surges, as in play).
+	// The minions a held population keeps alive (a held crowd, a benchmark's; 0: the director's surges, as in play).
 	held:        u32,
 	kills:       u32, // the skeletons the party has felled, a save's included
 	saved_kills: u32, // `kills` when the last surge rose: what the save holds (saves.odin)
 	paused_by:   sim.Player, // who paused the game for everyone (pause.odin; {}: nobody, or it runs)
 	saved_floor: Level_Id, // the floor the party was on when the last surge rose: what the save holds
-	_pad:        [7]u8,
+	crowd:       Crowd, // the Setup's held crowd (director.odin), kept for the scripted player, which reads the state
+	_pad:        [6]u8,
 }
 
 // What a hero is doing, for the view to pose (a one-shot clip at its age).

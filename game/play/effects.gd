@@ -9,7 +9,7 @@ extends Node3D
 ## of hits make no node.
 
 ## How many of each effect play at once, the next one reusing the oldest: a cleave or a burst into a full crowd
-## (MINION_CAP, 40) sparks on every skeleton it hits.
+## sparks on every skeleton it hits.
 const POOL_SIZE: int = 48
 ## How long a tracer takes to fade, in seconds.
 const TRACER_FADE_S: float = 0.15

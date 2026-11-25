@@ -67,7 +67,8 @@ Command_Dev_Set_Class :: struct {
 	class: Class,
 }
 
-// `dev_spawn_minions` (dev builds): `count` minions rise around the sender's hero (at most up to MINION_CAP alive).
+// `dev_spawn_minions` (dev builds): `count` minions rise around the sender's hero (at most up to the floor's cap
+// alive).
 Command_Dev_Spawn_Minions :: struct {
 	count: u8,
 }

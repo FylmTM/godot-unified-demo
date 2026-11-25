@@ -9,8 +9,10 @@ MAX_GRAVES :: 16
 MAX_PACKS :: 8
 MAX_PROPS :: 32
 MAX_FIELDS :: 8 // memoized navigation fields: one per hero chased, a few to spare
-MAX_MINIONS :: 128 // minion rows, the dying included
-MINION_CAP :: 40 // the most minions alive (not dying) the director raises
+// Minion rows, the dying included: the most alive and the dying of a fight felling 70 a second for DEATH_S.
+MAX_MINIONS :: 640
+MINION_CAP :: 500 // the most minions alive (not dying) any floor holds: a floor's own cap is its CROWD_DENSITY's
+CROWD_DENSITY :: f32(0.4) // a floor's minion cap per square metre of walkable floor (Floor.minion_cap)
 
 // ---- heroes
 
@@ -243,8 +245,13 @@ SURGE_PER_HERO :: 2 // ... and this many more per hero present
 SURGE_SPREAD :: f32(1.5) // a surge's minions rise within this of their grave
 DEV_SPAWN_RING :: f32(5) // dev_spawn_minions raises its minions this far from the sender's hero
 DEV_KILL_KNOCK :: f32(4) // dev_kill_minions knocks its dead this fast (metres per second) away from the sender
-BENCH_SPREAD :: f32(12) // the benchmark's minions start within this many metres of slot 0's spawn, along x and z
+BENCH_FLOOR_MINIONS :: 40 // the floor's benchmark row holds this many: the first floor's old cap, so the row compares
+BENCH_SPREAD :: f32(12) // Floor 1's row's minions start within this many metres of slot 0's spawn, along x and z
 BENCH_TRIES :: 20 // places tried per benchmark minion (some fall off the floor)
+CROWD_CLEAR :: f32(6) // a held crowd's chasers start at least this far from every hero_spawn ...
+CROWD_IDLE_CLEAR :: AGGRO_RADIUS + 3 // ... and its sleepers this far: out of sight of the heroes standing there
+CROWD_SNAP :: f32(0.5) // a held crowd's drawn place counts when the walkable floor is this close
+CROWD_TRIES :: 8 // places drawn per held minion before the floor counts as full
 
 // ---- arriving beside the party
 

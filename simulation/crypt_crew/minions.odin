@@ -1,4 +1,4 @@
-// The skeleton minions: rows of the State with no physics body, walking Floor 1's navigation mesh (unified:nav), so a
+// The skeleton minions: rows of the State with no physics body, walking the floor's navigation mesh (unified:nav), so a
 // crowd costs no Box3D bodies. Each tick: every minion picks its target (sliced: the nearest hero up by path, ties by
 // slot), steers along that hero's distance field (memoized in the World), keeps apart from its neighbours over a grid
 // (scratch, rebuilt from the block), is pushed out of heroes and props one way (they never feel it), carries a
@@ -175,6 +175,7 @@ wake :: proc(t: ^Tick, minion: ^Minion) {
 // nearest it along the floor (its field's cost; ties by slot), none when no hero up can be reached. A swinging minion
 // keeps its target; a target that went down or left is dropped at once by every minion.
 target_heroes :: proc(t: ^Tick) {
+	fields := &floor_of(t).fields
 	minions := sim.iterate(&t.state.minions)
 	for minion, handle in sim.next(&minions) {
 		if minion.phase == .Idle || minion.phase == .Dying do continue
@@ -187,7 +188,7 @@ target_heroes :: proc(t: ^Tick) {
 		for _, player in sim.next(&heroes) {
 			spot := t.world.hero_spots[sim.player_slot(t, player)]
 			if spot.poly == nav.NO_POLY do continue
-			cost := nav.field(&t.world.fields, spot.poly).cost[minion.poly]
+			cost := nav.field(fields, spot.poly).cost[minion.poly]
 			if cost < best_cost do best, best_cost = player, cost
 		}
 		minion.target = best
@@ -199,8 +200,9 @@ move_minions :: proc(t: ^Tick) {
 	build_grid(t)
 	obstacles := obstacles_of(t)
 	decay := dmath.exp_decay(KNOCK_DECAY, t.dt)
+	floor := floor_of(t)
 	minions := sim.iterate(&t.state.minions)
-	for minion, handle in sim.next(&minions) do move_minion(t, minion, handle, sim.slice(&obstacles), decay)
+	for minion, handle in sim.next(&minions) do move_minion(t, floor, minion, handle, sim.slice(&obstacles), decay)
 }
 
 // After the physics step, the minions' phases advance: a risen minion chases after RISE_S, a chaser with its target in
@@ -232,7 +234,8 @@ age_minions :: proc(t: ^Tick) {
 // The live minions into the World's grid (laid over the mesh in world_create), in table order, so a cell's minions
 // come in index order: scratch, rebuilt by each pass that asks it (the moves; the strikes after the step).
 build_grid :: proc(t: ^Tick) {
-	sim.grid_begin(&t.world.grid, t.world.grid_origin, MINION_GRID_CELL, t.world.grid_columns, t.world.grid_rows)
+	floor := floor_of(t)
+	sim.grid_begin(&t.world.grid, floor.grid_origin, MINION_GRID_CELL, floor.grid_columns, floor.grid_rows)
 	minions := sim.iterate(&t.state.minions)
 	for minion, handle in sim.next(&minions) {
 		if minion.phase != .Dying do sim.grid_add(&t.world.grid, i32(handle.index), minion.pos.xz)
@@ -258,14 +261,21 @@ obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, PLAYERS + MAX_P
 // (`decay` is what a tick leaves of it), along the mesh; then out of what is in its way, along the mesh too. Its `vel`
 // is what it moved.
 @(private = "file")
-move_minion :: proc(t: ^Tick, minion: ^Minion, handle: sim.Handle(Minion), obstacles: []Obstacle, decay: f32) {
+move_minion :: proc(
+	t: ^Tick,
+	floor: ^Floor,
+	minion: ^Minion,
+	handle: sim.Handle(Minion),
+	obstacles: []Obstacle,
+	decay: f32,
+) {
 	from := minion.pos
 	velocity := minion.knock
 	minion.knock *= decay
 	if minion.phase == .Chase && minion.target != {} {
 		spot := t.world.hero_spots[sim.player_slot(t, minion.target)]
-		field := nav.field(&t.world.fields, spot.poly)
-		next := nav.steer(&t.world.mesh, field, minion.poly, minion.pos, spot.point)
+		field := nav.field(&floor.fields, spot.poly)
+		next := nav.steer(&floor.mesh, field, minion.poly, minion.pos, spot.point)
 		heading := dmath.normalize((next - minion.pos).xz)
 		if heading != {} do minion.facing = heading
 		velocity += heading * MINION_SPEED
@@ -273,7 +283,7 @@ move_minion :: proc(t: ^Tick, minion: ^Minion, handle: sim.Handle(Minion), obsta
 	if minion.phase != .Dying && minion.phase != .Rise do velocity += separation(t, minion, handle)
 	if velocity != {} {
 		to := minion.pos + {velocity.x, 0, velocity.y} * t.dt
-		minion.poly, minion.pos = nav.move(&t.world.mesh, minion.poly, minion.pos, to)
+		minion.poly, minion.pos = nav.move(&floor.mesh, minion.poly, minion.pos, to)
 	}
 	if minion.phase != .Dying {
 		out := minion.pos.xz
@@ -286,7 +296,7 @@ move_minion :: proc(t: ^Tick, minion: ^Minion, handle: sim.Handle(Minion), obsta
 			out = obstacle.pos + away * (reach / dmath.sqrt(distance_sq))
 		}
 		if out != minion.pos.xz {
-			minion.poly, minion.pos = nav.move(&t.world.mesh, minion.poly, minion.pos, {out.x, minion.pos.y, out.y})
+			minion.poly, minion.pos = nav.move(&floor.mesh, minion.poly, minion.pos, {out.x, minion.pos.y, out.y})
 		}
 	}
 	minion.vel = (minion.pos - from) * TICK_HZ

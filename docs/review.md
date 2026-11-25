@@ -446,3 +446,44 @@ Checks:
   1 ("Friend +1") are checked across the two processes.
 - `online_check` hosts online from the menus where online play can start (the pending code, the copy, Stop inviting,
   inviting again); elsewhere it says why and passes.
+
+## Milestone 4: the crowd at scale
+
+Decided with the developer (docs/plan.md, Milestone 4), one line each:
+
+- The crowd's bake is bone matrices in a texture, skinned in the shader, not per-vertex positions.
+- 500 skeletons live on the arena, reached by the Setup now; a floor's cap comes from its walkable area: MAX_MINIONS
+  640, the cap per floor (Floor 1 111, the arena 500).
+- Sim speed: one 1 m grid with `sim.grid_box` for wider queries, far minions' steering every 4 ticks, the director
+  counting free rows, surges a quota raised a few a tick, one clamped radial knock for blasts and charges.
+- Crowd rules: queueing and a stagger while knocked (step 3).
+- Bench rows: Floor 1's kept; crowd_idle, crowd_chase, crowd_fight on the arena through the Setup; target frame p99
+  at most 3 ms; CI publishes them in its existing bench step.
+- The bake tool starts in the demo and moves into unified's tools_godot by the milestone's end; shadows decided from
+  shots and frame times.
+- From unified: `View_Policy.ages` (step 5) and scenarios on a Setup (the crowd's scale tests).
+
+Calls made in step 1:
+
+- A held crowd is a Setup field, `crowd` (None, Idle, Chase, Fight; `--setup floor=arena,crowd=fight`), copied into
+  the State so the scripted player reads it: idle heroes stand still, chasing ones walk, fighting ones walk holding
+  Attack; under any crowd the script sends no dev command and no pause, heroes take no damage (a wipe would empty the
+  floor), and the floor's packs aren't placed. A save never holds one. bench_prepare re-holds the crowd at the row's
+  count; init holds it at the floor's cap, so the scenarios play it without a bench.
+- crowd_idle's heroes stand still instead of walking out of sight: no place in the arena keeps 500 sleepers out of
+  sight of heroes walking for ten seconds. Its sleepers start CROWD_IDLE_CLEAR (12 m) from every spawn.
+- A new game starts on `Setup.floor` (Floor 1 unless set), which a save already named; the World builds every level's
+  floor up front (`Floor`, indexed by Level_Id), so a level change builds nothing.
+- CROWD_DENSITY is 0.4 per walkable square metre: Floor 1's walkable floor holds 111 (was 40), the arena's 1,533 m² the
+  MINION_CAP of 500. Floor 1's benchmark row keeps 40 (BENCH_FLOOR_MINIONS) so it compares across milestones.
+- The walkable area is summed in the demo from `nav.Mesh`'s public fields (`island_area` in world.odin) instead of
+  asking unified for `nav.island_area`: a dozen lines on data the mesh already exposes. Ask for it if a second game
+  needs it.
+- The arena (`game/levels/arena.tscn`): a 48 m by 40 m hall, walls north, west and east, low cover south (the camera's
+  side), a colonnade of eight decorated pillars around an open floor, four shadowed braziers (Floor 1 has two), twelve
+  graves along the rim with KayKit grave markers behind them, ten props, no packs (its skeletons all rise).
+- A held crowd's places are drawn from a stream keyed by the seed over the whole floor, SEPARATION apart and clear of
+  the props (a minion placed inside a prop's footprint is pushed out onto its neighbour on the first tick).
+- `uni bake --nav` exits failed on this machine with an error line from loading `game/play/play.tscn`
+  (`game/fx/sparks.tscn:30` "Parse Error") although every scene bakes and exports; it does so on the commit before
+  this milestone too. `uni bake --check` passes.

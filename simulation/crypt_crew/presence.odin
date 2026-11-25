@@ -53,18 +53,19 @@ update_presence :: proc(t: ^Tick) {
 // within ARRIVAL_CLEAR, and clear of every hero and every prop. With no such spot, or nobody up: the slot's hero_spawn.
 arrival_spot :: proc(t: ^Tick, player: sim.Player) -> (feet: [3]f32, beside: bool) {
 	slot := sim.player_slot(t, player)
-	spawn := t.world.places.hero_spawns[slot]
+	floor := floor_of(t)
+	spawn := floor.places.hero_spawns[slot]
 	anchor, anchored := arrival_anchor(t, player)
 	if !anchored do return spawn, false
-	anchor_spot, on_floor := floor_spot(t.world, anchor.pos, HERO_NAV_REACH)
+	anchor_spot, on_floor := floor_spot(floor, anchor.pos, HERO_NAV_REACH)
 	if !on_floor do return spawn, false
 	start := slot * ARRIVAL_SLOT_TURN
 	for ring in 1 ..= 2 {
 		for k in 0 ..< len(dmath.DIR8) {
 			dir := dmath.DIR8[(start + k) % len(dmath.DIR8)]
 			at := anchor.pos + [3]f32{dir.x, 0, dir.y} * (f32(ring) * ARRIVAL_RING)
-			spot := floor_spot(t.world, at, ARRIVAL_SNAP) or_continue
-			if !nav.connected(&t.world.mesh, spot.poly, anchor_spot.poly) do continue
+			spot := floor_spot(floor, at, ARRIVAL_SNAP) or_continue
+			if !nav.connected(&floor.mesh, spot.poly, anchor_spot.poly) do continue
 			if !arrival_clear(t, anchor.pos, spot.point) do continue
 			return spot.point, true
 		}

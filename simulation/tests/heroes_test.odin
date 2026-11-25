@@ -19,7 +19,7 @@ heroes_stand_at_their_spawns :: proc(t: ^testing.T) {
 	play(&run, {})
 	for slot in 0 ..< g.PLAYERS {
 		feet := sim.slot_data(run.simulation, slot).pos
-		spawn := run.simulation.world.places.hero_spawns[slot]
+		spawn := floor_of(&run).places.hero_spawns[slot]
 		testing.expectf(
 			t,
 			dmath.length(feet - spawn) < 0.02,

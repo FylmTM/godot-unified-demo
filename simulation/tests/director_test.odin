@@ -43,7 +43,7 @@ a_surge_rises_out_of_sight_and_within_reach :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
 	defer headless.run_end(&run)
 	until_the_first_surge(&run)
-	world := run.simulation.world
+	floor := floor_of(&run)
 	risen := 0
 	minions := sim.iterate(&run.simulation.state.minions)
 	for minion in sim.next(&minions) {
@@ -54,8 +54,8 @@ a_surge_rises_out_of_sight_and_within_reach :: proc(t: ^testing.T) {
 			hero := sim.slot_data(run.simulation, slot)
 			apart := dmath.length(minion.pos.xz - hero.pos.xz)
 			testing.expectf(t, apart >= g.SURGE_NEAR - g.SURGE_SPREAD, "rose %v m from slot %d", apart, slot)
-			spot, on_floor := g.floor_spot(world, hero.pos, g.HERO_NAV_REACH)
-			if on_floor do nearest = dmath.min(nearest, nav.field(&world.fields, spot.poly).cost[minion.poly])
+			spot, on_floor := g.floor_spot(floor, hero.pos, g.HERO_NAV_REACH)
+			if on_floor do nearest = dmath.min(nearest, nav.field(&floor.fields, spot.poly).cost[minion.poly])
 		}
 		testing.expectf(t, nearest <= g.SURGE_FAR + 2 * g.SURGE_SPREAD, "rose %v m of path from the party", nearest)
 	}
@@ -70,7 +70,7 @@ no_grave_out_of_sight_no_surge :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
 	defer headless.run_end(&run)
 	clear_minions(&run) // the packs: they would down the heroes beside them
-	graves := sim.slice(&run.simulation.world.places.graves)
+	graves := sim.slice(&floor_of(&run).places.graves)
 	covered: [g.MAX_GRAVES]bool
 	placed := 0
 	for &grave, i in graves {
@@ -88,32 +88,32 @@ no_grave_out_of_sight_no_surge :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// However many are asked for, no more than MINION_CAP minions are alive at once, surges included; and every minion
-// stands on the walkable floor's island, never on a wall's top.
+// However many are asked for, no more than the floor's cap (its CROWD_DENSITY's) are alive at once, surges included;
+// and every minion stands on the walkable floor's island, never on a wall's top.
 @(test)
 the_cap_holds_and_minions_stay_on_the_floor :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 2)
 	defer headless.run_end(&run)
 	headless.run_command(&run, 0, g.Command_Dev_Spawn_Minions{255})
-	world := run.simulation.world
+	floor := floor_of(&run)
 	most := 0
 	for _ in 0 ..< 10 * g.TICK_HZ { 	// the first surge's time included
 		headless.run_step(&run)
 		state := &run.simulation.state
 		alive := g.minions_alive(&state.minions)
 		most = max(most, alive)
-		if alive > g.MINION_CAP {
+		if alive > floor.minion_cap {
 			testing.expectf(t, false, "%d minions alive", alive)
 			break
 		}
 		minions := sim.iterate(&state.minions)
 		for minion in sim.next(&minions) {
-			if nav.island_of(&world.mesh, minion.poly) != world.floor_island {
+			if nav.island_of(&floor.mesh, minion.poly) != floor.island {
 				testing.expectf(t, false, "a minion on another island at %v", minion.pos)
 				return
 			}
 		}
 	}
-	testing.expect_value(t, most, g.MINION_CAP) // the spawn filled it
+	testing.expect_value(t, most, floor.minion_cap) // the spawn filled it
 	scenarios.expect_synced(t, &run)
 }

@@ -21,7 +21,7 @@ props_are_made_in_marker_order :: proc(t: ^testing.T) {
 	defer headless.run_end(&first)
 	second := headless.run_begin(&g.GAME, 2)
 	defer headless.run_end(&second)
-	places := sim.slice(&first.simulation.world.places.props)
+	places := sim.slice(&floor_of(&first).places.props)
 	testing.expect_value(t, int(first.simulation.state.props.count), len(places))
 	for def, i in places {
 		prop, _ := prop_at(&first, i)

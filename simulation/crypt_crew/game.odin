@@ -2,13 +2,13 @@
 // unified runs under rollback netcode.
 //
 // One system per file: game (this: the descriptor and the tick, its table of contents), tuning (every rule number),
-// input (the input and the commands), state, events, world (the physics world, Floor 1's navigation and places,
-// init, entering a level and restarting it), presence (arrivals, leaves, where an arrival appears), heroes (facing,
-// movement, read back), hands (grab, carry, drop, throw), attacks (the shared machinery) and a file per class
+// input (the input and the commands), state, events, world (the physics world, each level's floor: its navigation and
+// places; init, entering a level and restarting it), presence (arrivals, leaves, where an arrival appears), heroes
+// (facing, movement, read back), hands (grab, carry, drop, throw), attacks (the shared machinery) and a file per class
 // (knight, barbarian, mage, rogue), bolts (the Mage's), props (their bodies, hits, impacts and throws' ends), minions
-// (targets, steering, swings, dying), director (sleeping packs, surges, the benchmark's population), health (damage,
-// down, rising, the wipe), pause (the co-op pause), saves (the Setup a save is, and the tally it carries), dev (the
-// dev commands) and script (the scripted player).
+// (targets, steering, swings, dying), director (sleeping packs, surges, held crowds and the benchmarks' populations),
+// health (damage, down, rising, the wipe), pause (the co-op pause), saves (the Setup a save is, and the tally it
+// carries), dev (the dev commands) and script (the scripted player).
 package crypt_crew
 
 import "unified:physics"
@@ -19,7 +19,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "4"
+VERSION :: "5"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -32,7 +32,11 @@ GAME := Game {
 	name              = "crypt_crew",
 	version           = VERSION,
 	tick_hz           = TICK_HZ,
-	levels            = {{"floor_1", #load("../../game/levels/floor_1.level")}}, // game/levels/floor_1.tscn's (uni bake)
+	// game/levels/<name>.tscn's (uni bake), in Level_Id's order
+	levels            = {
+		{"floor_1", #load("../../game/levels/floor_1.level")},
+		{"arena", #load("../../game/levels/arena.level")},
+	},
 	world_create      = world_create,
 	world_destroy     = world_destroy,
 	extra             = extra,
@@ -43,8 +47,35 @@ GAME := Game {
 	scripted_profile  = scripted_profile,
 	save              = save,
 	bench_prepare     = bench_prepare,
+	// The game's row (today's play on Floor 1), and the crowd's on the arena (director.odin, Crowd): what sleepers,
+	// a crowd on the move and a crowd in a fight cost at the most any floor holds.
 	benches           = {
-		{what = "floor 1: four heroes against a held surge among the props", entities = MINION_CAP, ticks = 600},
+		{
+			what     = "floor 1: four heroes against a held surge among the props",
+			entities = BENCH_FLOOR_MINIONS,
+			ticks    = 600,
+		},
+		{
+			name     = "crowd_idle",
+			what     = "the arena: a crowd asleep out of sight of four heroes standing still",
+			setup    = "floor=arena,crowd=idle",
+			entities = MINION_CAP,
+			ticks    = 600,
+		},
+		{
+			name     = "crowd_chase",
+			what     = "the arena: a crowd chasing four heroes who walk and never attack",
+			setup    = "floor=arena,crowd=chase",
+			entities = MINION_CAP,
+			ticks    = 600,
+		},
+		{
+			name     = "crowd_fight",
+			what     = "the arena: a crowd around four heroes who hold Attack, the felled rising again",
+			setup    = "floor=arena,crowd=fight",
+			entities = MINION_CAP,
+			ticks    = 600,
+		},
 	},
 }
 

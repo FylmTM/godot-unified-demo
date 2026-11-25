@@ -35,10 +35,11 @@ face_heroes :: proc(t: ^Tick) {
 // floor's point nearest its feet within HERO_NAV_REACH (floor_spot); nav.NO_POLY for an empty slot, a hero down, or
 // one off the floor (on a crate's top, say). What minions chase and surges measure from.
 locate_heroes :: proc(t: ^Tick) {
+	floor := floor_of(t)
 	for &spot, slot in t.world.hero_spots {
 		player := sim.player_in_slot(t, slot)
 		on_floor := false
-		if hero_up(t, player) do spot, on_floor = floor_spot(t.world, sim.player_data(t, player).pos, HERO_NAV_REACH)
+		if hero_up(t, player) do spot, on_floor = floor_spot(floor, sim.player_data(t, player).pos, HERO_NAV_REACH)
 		if !on_floor do spot.poly = nav.NO_POLY
 	}
 }

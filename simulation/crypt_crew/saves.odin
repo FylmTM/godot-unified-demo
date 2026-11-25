@@ -14,8 +14,11 @@ SAVE_VERSION :: u8(1)
 // The session's Setup: a new game (version 0, the zero Setup) or the save it continues (Game.save).
 Setup :: struct {
 	version: u8, // SAVE_VERSION for a save; 0: a new game
-	floor:   Level_Id, // the floor the party continues on
-	_pad:    [2]u8,
+	floor:   Level_Id, // the floor the party starts on: a new game's (Floor 1 unless set), the one a save continues on
+	// A held crowd instead of the director's packs and surges (director.odin, Crowd): the benchmark rows', the scale
+	// tests', a look at a crowd (`--setup floor=arena,crowd=fight`). Never in a save.
+	crowd:   Crowd,
+	_pad:    [1]u8,
 	surges:  u32, // the surges it had faced by the save
 	kills:   u32, // the skeletons it had felled when the last surge rose
 }
@@ -35,16 +38,13 @@ save :: proc(state: ^State, setup: ^Setup) -> bool {
 	return true
 }
 
-// The floor a session starts on, with its tally (init): a save's, or Floor 1 and none for a new game.
+// The floor a session starts on, with its tally (init): a save's, or a new game's with none.
 start_from_setup :: proc(t: ^Tick) -> Level_Id {
-	if t.setup.version != SAVE_VERSION {
-		t.state.saved_floor = .Floor_1
-		return .Floor_1
-	}
+	t.state.saved_floor = t.setup.floor
+	if t.setup.version != SAVE_VERSION do return t.setup.floor
 	t.state.surges = t.setup.surges
 	t.state.kills = t.setup.kills
 	t.state.saved_kills = t.setup.kills
-	t.state.saved_floor = t.setup.floor
 	return t.setup.floor
 }
 

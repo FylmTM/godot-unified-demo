@@ -131,8 +131,9 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
   unified's input helpers read (`game/app/bindings.gd`).
 - **Dev commands** (`dev.odin`): a class swap, spawning, hurting and killing, as dev UI forms and
   `uni drive command`.
-- **A benchmark row**: four heroes against a held surge among the props (`game.odin`, `bench_prepare` in
-  `director.odin`).
+- **Benchmark rows**: four heroes against a held surge among Floor 1's props, and a crowd of 500 on the arena asleep,
+  chasing and fighting, each row's population chosen by its Setup (`benches` in `game.odin`; `Crowd`, `hold_crowd`
+  and `bench_prepare` in `director.odin`).
 
 ## The rules
 
@@ -153,7 +154,10 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 5. **Director.** A sleeping pack wakes when a hero one of its minions can see comes within AGGRO_RADIUS (each looks
    every SIGHT_S) or one of them is hit. A surge rises SURGE_FIRST_S into a floor and every SURGE_EVERY_S after:
    SURGE_BASE minions plus SURGE_PER_HERO per hero, at a grave out of sight beyond SURGE_NEAR and within SURGE_FAR of
-   the party, up to MINION_CAP alive.
+   the party, up to the floor's cap alive (CROWD_DENSITY to the square metre of walkable floor, at most MINION_CAP)
+   and never into more rows than the table has free. A Setup may hold a crowd instead (`floor=arena,crowd=fight`): the
+   floor's cap placed on the first tick, asleep, chasing or fighting, the felled rising again at the graves, its heroes
+   taking no damage; the benchmark rows and the scale tests play it.
 6. **Minions.** Each picks the nearest hero up by path (every RETARGET_S), steers along that hero's field, keeps
    SEPARATION from its neighbours and carries its knockback (KNOCK_DECAY).
 7. **Physics.** Box3D steps; the heroes' feet and velocities are read back into the state.
@@ -192,7 +196,8 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 Every layer unified offers a game: rule tests on sync-tested headless runs, so each also rolls back over what it
 checks; unified's standard scenarios played by the scripted players (`script.odin`), which exercise every control and
 dev command; a bot playthrough of the four classes; a replay regression recorded from a real two-player LAN session;
-the pinned reference run, the cross-platform check in CI; the godot suite, which holds the art to `docs/ART.md` and the
+the pinned reference runs (the scripted party on Floor 1, and a crowd of 500 fighting on the arena: `crowd_test.odin`,
+which also plays the standard scenarios at that size), the cross-platform check in CI; the godot suite, which holds the art to `docs/ART.md` and the
 app layer to its contract (`game/tools/art_checks.gd`, `app_checks.gd`) and walks the app with real input events
 (`game/tools/ui_walk.gd`); and `./uni coop`, a host and a joiner in two processes, from session flags or, with
 `--menus`, each side through the game's own menus (`UnifiedCoop._start_host`, `_start_join`: `game/tools/coop.gd`).

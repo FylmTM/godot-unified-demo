@@ -1,8 +1,10 @@
-// The World, everything outside the state block: the Box3D world (its rollback state is the Extra), Floor 1's
-// navigation mesh with its memo of fields, the places the sim reads from the floor's markers (and the packs' sleeping
-// places laid out from them), the heroes' controller tuning, and per-tick scratch. It holds only what world_create
-// builds, what physics rolls back and scratch each pass rebuilds from the block, so a rollback, a late join or a replay
-// finds it as every other peer does (unified/src/sim/README.md, World). `init` enters the floor.
+// The World, everything outside the state block: the Box3D world (its rollback state is the Extra), each level's floor
+// (its navigation mesh with its memo of fields, the places the sim reads from its markers and the packs' sleeping
+// places laid out from them, its minion cap and grid), the heroes' controller tuning, and per-tick scratch. It holds
+// only what world_create builds, what physics rolls back and scratch each pass rebuilds from the block, so a rollback,
+// a late join or a replay finds it as every other peer does (unified/src/sim/README.md, World). Every level's floor is
+// built up front, so the active level (state) picks one by its id and a level change builds nothing. `init` enters the
+// Setup's floor.
 package crypt_crew
 
 import "unified:dmath"
@@ -23,6 +25,7 @@ CAT_PROP :: u64(1 << 4)
 // The game's levels, in GAME.levels' order (the State's `level` says which is active).
 Level_Id :: enum u8 {
 	Floor_1,
+	Arena, // one great hall where a crowd of hundreds fits: the crowd's benchmark rows and scale tests play it
 }
 
 // What a prop marker places (game/levels/markers/prop.gd's `kind`, by name).
@@ -60,29 +63,38 @@ Places :: struct {
 	props:       sim.List(Prop_Def, MAX_PROPS),
 }
 
+// A level's floor as the sim reads it, built once in world_create.
+Floor :: struct {
+	mesh:         nav.Mesh, // its baked navigation: where skeletons walk
+	fields:       nav.Fields, // the mesh's distance fields, memoized by goal (a pure function of the mesh and the goal)
+	places:       Places,
+	pack_places:  sim.List(Pack_Place, MAX_PACK_MINIONS), // every pack's sleeping minions' places (pack_places)
+	// The mesh island the hero spawns stand on: the walkable floor (wall and furniture tops bake islands of their own).
+	island:       i32,
+	area:         f32, // the walkable floor's area seen from above, square metres
+	// The most minions alive the director raises here: CROWD_DENSITY to the square metre of walkable floor, at most
+	// MINION_CAP, so a small floor never holds a crush and a great hall holds a crowd.
+	minion_cap:   int,
+	grid_origin:  [2]f32, // the minion grid's corner, its columns and rows: laid over the mesh's extent
+	grid_columns: int,
+	grid_rows:    int,
+}
+
 // The world outside the block.
 World :: struct {
 	phys:           ^physics.World,
-	mesh:           nav.Mesh, // the floor's baked navigation: where skeletons walk
-	fields:         nav.Fields, // the mesh's distance fields, memoized by goal (a pure function of the mesh and the goal)
-	places:         Places,
-	pack_places:    sim.List(Pack_Place, MAX_PACK_MINIONS), // every pack's sleeping minions' places (pack_places)
+	floors:         [Level_Id]Floor, // each level's (floor_of: the active one's)
 	hero_defs:      [Class]physics.Character_Def, // each class's controller (its own max_speed); Any's is never used
 	barrel_hull:    ^physics.Hull_Data, // the barrel's cylinder (Box3D copies it into each body's shape)
 	barrel_density: f32, // what gives the barrel's hull its PROP_SPECS mass
-	// The mesh island the hero spawns stand on: the walkable floor (wall and furniture tops bake islands of their own).
-	floor_island:   i32,
-	grid_origin:    [2]f32, // the minion grid's corner, its columns and rows: laid over the mesh's extent
-	grid_columns:   int,
-	grid_rows:      int,
 	contacts:       [dynamic]physics.Contact_Event, // scratch: the step's contact events (prop_impacts)
 	grid:           Minion_Grid, // scratch: the live minions by cell, rebuilt by move_minions and before the strikes
 	hero_spots:     [PLAYERS]Nav_Point, // scratch: each slot's hero up on the mesh (locate_heroes), by slot
 }
 
-// Builds the world from the levels (unified/src/level/README.md): Floor 1's static geometry, its navigation mesh and
-// its places. A marker property's default lives in its marker script (game/levels/markers/), which the export writes
-// whole, so the sim reads the properties without defaults of its own and asserts what its rules need.
+// Builds the world from the levels (unified/src/level/README.md): their static geometry, and each level's floor
+// (build_floor). A marker property's default lives in its marker script (game/levels/markers/), which the export
+// writes whole, so the sim reads the properties without defaults of its own and asserts what its rules need.
 world_create :: proc(seed: u64, levels: []sim.Level_File, _: Setup) -> ^World {
 	world := new(World)
 	problem: string
@@ -93,26 +105,7 @@ world_create :: proc(seed: u64, levels: []sim.Level_File, _: Setup) -> ^World {
 		CAT_WALL,
 	)
 	assert(problem == "", problem) // no level, or a shape Box3D refuses
-	floor := physics.level_data(world.phys, Level_Id.Floor_1)
-	err: nav.Build_Error
-	world.mesh, err = nav.build(floor.nav_vertices, floor.nav_polygons)
-	assert(err == .None, "crypt_crew: Floor 1's navigation mesh doesn't build (bake it: uni bake --nav)")
-	world.fields = nav.fields_make(&world.mesh, MAX_FIELDS)
-	lay_grid(world)
-	read_places(&world.places, floor)
-	spawn_poly, _ := nav.nearest(&world.mesh, world.places.hero_spawns[0], HERO_NAV_REACH)
-	assert(spawn_poly != nav.NO_POLY, "crypt_crew: slot 0's hero_spawn is off the navigation mesh")
-	world.floor_island = nav.island_of(&world.mesh, spawn_poly)
-	for spawn in world.places.hero_spawns {
-		_, on_floor := floor_spot(world, spawn, HERO_NAV_REACH)
-		assert(on_floor, "crypt_crew: a hero_spawn is off the walkable floor")
-	}
-	for &grave in sim.slice(&world.places.graves) {
-		on_floor: bool
-		grave, on_floor = floor_spot(world, grave.point, SURGE_SPREAD)
-		assert(on_floor, "crypt_crew: a grave is off the walkable floor")
-	}
-	pack_places(world, seed)
+	for &floor, id in world.floors do build_floor(&floor, physics.level_data(world.phys, id), seed)
 	for class in Class {
 		def := physics.CHARACTER_DEFAULT
 		def.radius = HERO_RADIUS
@@ -132,21 +125,71 @@ world_create :: proc(seed: u64, levels: []sim.Level_File, _: Setup) -> ^World {
 	return world
 }
 
+// The active level's floor.
+floor_of :: proc(t: ^Tick) -> ^Floor {
+	return &t.world.floors[t.state.level.id]
+}
+
+// A level's floor from its baked data: the navigation mesh, its places, the walkable island (the one slot 0's
+// hero_spawn stands on: every spawn and grave must too), its area and minion cap, its grid and its packs' places.
+@(private = "file")
+build_floor :: proc(floor: ^Floor, data: ^level.Level, seed: u64) {
+	err: nav.Build_Error
+	floor.mesh, err = nav.build(data.nav_vertices, data.nav_polygons)
+	assert(err == .None, "crypt_crew: a level's navigation mesh doesn't build (bake it: uni bake --nav)")
+	floor.fields = nav.fields_make(&floor.mesh, MAX_FIELDS)
+	lay_grid(floor)
+	read_places(&floor.places, data)
+	spawn_poly, _ := nav.nearest(&floor.mesh, floor.places.hero_spawns[0], HERO_NAV_REACH)
+	assert(spawn_poly != nav.NO_POLY, "crypt_crew: slot 0's hero_spawn is off the navigation mesh")
+	floor.island = nav.island_of(&floor.mesh, spawn_poly)
+	floor.area = island_area(&floor.mesh, floor.island)
+	floor.minion_cap = int(dmath.to_i32_clamped(floor.area * CROWD_DENSITY, 0, MINION_CAP))
+	for spawn in floor.places.hero_spawns {
+		_, on_floor := floor_spot(floor, spawn, HERO_NAV_REACH)
+		assert(on_floor, "crypt_crew: a hero_spawn is off the walkable floor")
+	}
+	for &grave in sim.slice(&floor.places.graves) {
+		on_floor: bool
+		grave, on_floor = floor_spot(floor, grave.point, SURGE_SPREAD)
+		assert(on_floor, "crypt_crew: a grave is off the walkable floor")
+	}
+	pack_places(floor, seed)
+}
+
+// The area of a mesh island seen from above (square metres): the sum of its polygons' (the shoelace formula), in
+// polygon and corner order, so every platform adds the same f32s in the same order.
+@(private = "file")
+island_area :: proc(mesh: ^nav.Mesh, island: i32) -> f32 {
+	area: f32
+	for p in 0 ..< nav.poly_count(mesh) {
+		if mesh.islands[p] != island do continue
+		corners := mesh.corners[mesh.first[p]:mesh.first[p + 1]]
+		twice: f32
+		for corner, k in corners {
+			a, b := mesh.vertices[corner], mesh.vertices[corners[(k + 1) % len(corners)]]
+			twice += a.x * b.z - b.x * a.z
+		}
+		area += abs(twice) / 2
+	}
+	return area
+}
+
 // The minion grid's cells, MINION_GRID_CELL square, laid over the mesh's extent on the floor plan with a cell to spare
 // on every side (a minion never leaves the mesh, so none falls off the grid).
 @(private = "file")
-lay_grid :: proc(world: ^World) {
+lay_grid :: proc(floor: ^Floor) {
 	low, high := [2]f32{max(f32), max(f32)}, [2]f32{-max(f32), -max(f32)}
-	for vertex in world.mesh.vertices {
+	for vertex in floor.mesh.vertices {
 		low = {dmath.min(low.x, vertex.x), dmath.min(low.y, vertex.z)}
 		high = {dmath.max(high.x, vertex.x), dmath.max(high.y, vertex.z)}
 	}
-	world.grid_origin = low - MINION_GRID_CELL
+	floor.grid_origin = low - MINION_GRID_CELL
 	cells := (high - low) / MINION_GRID_CELL + 3
-	world.grid_columns = int(dmath.to_i32_clamped(cells.x, 1, MINION_GRID_CELLS))
-	world.grid_rows = int(dmath.to_i32_clamped(cells.y, 1, MINION_GRID_CELLS))
+	floor.grid_columns = int(dmath.to_i32_clamped(cells.x, 1, MINION_GRID_CELLS))
+	floor.grid_rows = int(dmath.to_i32_clamped(cells.y, 1, MINION_GRID_CELLS))
 	assert(
-		world.grid_columns * world.grid_rows <= MINION_GRID_CELLS,
+		floor.grid_columns * floor.grid_rows <= MINION_GRID_CELLS,
 		"crypt_crew: a level larger than the minion grid",
 	)
 }
@@ -187,19 +230,21 @@ read_places :: proc(places: ^Places, floor: ^level.Level) {
 }
 
 // The walkable floor's place nearest `near` within `reach` (on the floor's island: never a wall's top); false for none.
-floor_spot :: proc(world: ^World, near: [3]f32, reach: f32) -> (spot: Nav_Point, ok: bool) {
-	spot.poly, spot.point = nav.nearest(&world.mesh, near, reach)
-	return spot, spot.poly != nav.NO_POLY && nav.island_of(&world.mesh, spot.poly) == world.floor_island
+floor_spot :: proc(floor: ^Floor, near: [3]f32, reach: f32) -> (spot: Nav_Point, ok: bool) {
+	spot.poly, spot.point = nav.nearest(&floor.mesh, near, reach)
+	return spot, spot.poly != nav.NO_POLY && nav.island_of(&floor.mesh, spot.poly) == floor.island
 }
 
-// Frees what world_create made: the physics world (the levels with it), the barrel's hull, the navigation, the scratch
-// and the World itself.
+// Frees what world_create made: the physics world (the levels with it), the barrel's hull, each floor's navigation,
+// the scratch and the World itself.
 world_destroy :: proc(world: ^World) {
 	physics.destroy(world.phys)
 	physics.destroy_hull(world.barrel_hull)
 	delete(world.contacts)
-	nav.fields_destroy(&world.fields)
-	nav.destroy(&world.mesh)
+	for &floor in world.floors {
+		nav.fields_destroy(&floor.fields)
+		nav.destroy(&floor.mesh)
+	}
 	free(world)
 }
 
@@ -208,15 +253,18 @@ extra :: proc(world: ^World) -> sim.Extra {
 	return physics.extra(world.phys, State)
 }
 
-// The tick-0 state: the party starts on Floor 1, or a save's floor with its tally (saves.odin); heroes arrive as their
-// players do (presence.odin).
+// The tick-0 state: the party starts on the Setup's floor, a save's with its tally (saves.odin), holding the Setup's
+// crowd if it names one (director.odin); heroes arrive as their players do (presence.odin).
 init :: proc(t: ^Tick) {
+	t.state.crowd = t.setup.crowd // first: entering the floor reads it
 	enter_level(t, start_from_setup(t))
+	hold_setup_crowd(t)
 }
 
 // Takes the party to level `to` (init, the wipe's floor restart; the next floor later): every hero lets go and its body
 // goes, the props, the minions and the bolts in flight go, the static geometry is swapped (physics.level_change), then
-// the new level's props are made in marker order, its packs put to sleep, its surge clock started, and every present
+// the new level's props are made in marker order, its packs put to sleep (none under a held crowd), its surge clock
+// started, and every present
 // hero gets a body at its slot's spawn. What the block keeps across it (the heroes' classes, the clock, the session's
 // counts) stays.
 enter_level :: proc(t: ^Tick, to: Level_Id) {
@@ -230,11 +278,11 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 	sim.despawn_all(&t.state.bolts)
 	physics.level_change(t, t.world.phys, to)
 	spawn_props(t)
-	spawn_packs(t)
+	if t.state.crowd == .None do spawn_packs(t) // a held crowd is the floor's whole population
 	sim.timer_start_ticks(t, &t.state.surge, SURGE_FIRST_TICKS)
 	entering := sim.iterate_present(t)
 	for _, player in sim.next(&entering) {
-		spawn_hero(t, player, t.world.places.hero_spawns[sim.player_slot(t, player)], false)
+		spawn_hero(t, player, floor_of(t).places.hero_spawns[sim.player_slot(t, player)], false)
 	}
 }
 
