@@ -26,6 +26,12 @@ var _hints_until: int = 0
 @onready var _hints: GridContainer = %Hints
 
 
+func _ready() -> void:
+	Settings.changed.connect(func(setting: StringName) -> void:
+		if setting == &"hints":
+			_show_hints())  # at once, as every setting applies
+
+
 func _process(_delta: float) -> void:
 	_show_hints()
 
