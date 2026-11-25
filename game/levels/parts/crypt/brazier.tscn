@@ -15,6 +15,9 @@ metadata/unified_category = 2
 [node name="Torch" parent="." instance=ExtResource("model_1")]
 transform = Transform3D(1.6, 0, 0, 0, 1.6, 0, 0, 0, 1.6, 0, 2.04, 0)
 
+[node name="torch" parent="Torch" index="0"]
+cast_shadow = 0
+
 [node name="Shape" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.54, 0)
 shape = SubResource("shape_0")

@@ -135,8 +135,9 @@ The crypt (`game/environments/crypt.tres`): a near-black background, a cool ambi
 a threshold of 1 (so only fire, magic and eyes bloom), and a thin fog. A fire (`game/fx/fire.tscn`) is additive
 particles over a warm OmniLight3D whose energy and position drift (`Flicker`, seeded by its position, so neighbours
 never pulse in step). The braziers' fires cast shadows, which ground everything near them; wall torches, candles and
-lanterns don't, because a shadowed light redraws a cube map every frame and a room affords a few. Each hero carries
-an unshadowed light (`game/fx/hero_light.tscn`). The hub (`hub.tres`, and the hub stage's `Moon`) is moonlit: a weak,
+lanterns don't, because a shadowed light redraws a cube map every frame and a room affords a few. A brazier's bowl
+casts no shadow: its own fire burns just above it and would throw the bowl's shape across the floor. Each hero
+carries an unshadowed light (`game/fx/hero_light.tscn`). The hub (`hub.tres`, and the hub stage's `Moon`) is moonlit: a weak,
 cool, shadowed directional light, lanterns for warmth.
 
 The renderer is Forward+ with 4× MSAA and debanding (`project.godot`).
