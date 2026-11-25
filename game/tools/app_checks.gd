@@ -356,8 +356,8 @@ func _check_names(settings: Node) -> void:
 	var cases: Array[Array] = [
 		["  Bell	ringer
  ", "Bellringer"],
-		["A".repeat(40), "A".repeat(Settings.NAME_BYTES)],
-		["Я".repeat(20), "Я".repeat(15)],  # two bytes each: 15 fit in NAME_BYTES (31)
+		["A".repeat(40), "A".repeat(UnifiedSession.NAME_MAX)],
+		["Я".repeat(20), "Я".repeat(15)],  # two bytes each: 15 fit in UnifiedSession.NAME_MAX (31)
 	]
 	for case: Array in cases:
 		settings.set(&"player_name", case[0])

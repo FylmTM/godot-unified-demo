@@ -382,8 +382,8 @@ Step 3, hero select and the couch, calls made on the way (as they stand after it
 - The player's name is never read from the system (it goes to every peer, and into every shot and log): a first run
   picks one of the game's own (Sexton, Lantern, Gravedigger, ...) and saves it at once; a tool run's is "Adventurer".
   The field says the other players see it. A name is stripped of control characters and its edges' spaces and cut to
-  31 bytes of UTF-8 (unified's NAME_MAX, mirrored as Settings.NAME_BYTES: unified doesn't expose it) on a character's
-  boundary, so the field shows what the peers get; a blank one is a game's name again.
+  31 bytes of UTF-8 (UnifiedSession.NAME_MAX, from unified f2c7548) on a character's boundary, so the field shows what
+  the peers get; a blank one is a game's name again.
 - The name field is passed over until asked: the focus doesn't start editing (a click does), so the d-pad, Q and E
   move on; accept edits, Enter applies, Esc puts the setting back.
 - Only a pad joins mid-game. Its Start opens its card on the HUD's right, at the middle: "[A] Join", its left and
@@ -408,4 +408,4 @@ Step 3, hero select and the couch, calls made on the way (as they stand after it
   prompts use it too. An ActionPrompt can show one device's glyphs, the keyboard's included (`device`).
 - `uni coop --host-profile/--join-profile` (unified b06ba4f) gives each side its own Profile; the coop play checks
   each side's hero is its own Profile's class, and names its joiner "Friend" itself (uni's USERNAME=Friend no longer
-  matters to this game).
+  matters to this game; unified dropped it in f2c7548).

@@ -31,9 +31,6 @@ enum Hints { BRIEFLY, ALWAYS, NEVER }
 
 ## The settings file, unless `--settings-path=` names another.
 const PATH: String = "user://settings.json"
-## The most bytes of a player's name (UTF-8) the session sends (unified's netcode NAME_MAX): a longer one is cut here,
-## on a character's boundary, so the field shows what the other players get.
-const NAME_BYTES: int = 31
 ## A new player's name, one picked at random, until they choose their own.
 const NAMES: Array[String] = ["Sexton", "Lantern", "Gravedigger", "Bellringer", "Mourner", "Lamplighter", "Ferryman",
 	"Torchbearer", "Candlewick", "Bonepicker"]
@@ -133,7 +130,7 @@ const SAVE_DELAY_S: float = 0.3
 
 @export_category("player")
 ## The name the other players see (the session's local_name): control characters dropped, the edges' spaces trimmed,
-## cut to NAME_BYTES; nothing left is the default name again.
+## cut to UnifiedSession.NAME_MAX bytes (what the other players get); nothing left is the default name again.
 @export var player_name: String = "":
 	set(value):
 		var clean: String = clean_name(value)
@@ -332,8 +329,8 @@ func _apply_master() -> void:
 		AudioServer.set_bus_mute(AudioServer.get_bus_index(&"Master"), true)
 
 
-## `text` as a player's name: control characters dropped, the edges' spaces trimmed, cut to NAME_BYTES of UTF-8 on a
-## character's boundary ("" when nothing is left).
+## `text` as a player's name: control characters dropped, the edges' spaces trimmed, cut to UnifiedSession.NAME_MAX
+## bytes of UTF-8 on a character's boundary ("" when nothing is left).
 static func clean_name(text: String) -> String:
 	var kept: String = ""
 	for i: int in text.length():
@@ -341,7 +338,7 @@ static func clean_name(text: String) -> String:
 		if code >= 0x20 and not (code >= 0x7f and code < 0xa0):
 			kept += text[i]
 	kept = kept.strip_edges()
-	while kept.to_utf8_buffer().size() > NAME_BYTES:
+	while kept.to_utf8_buffer().size() > UnifiedSession.NAME_MAX:
 		kept = kept.left(-1)
 	return kept.strip_edges()
 
