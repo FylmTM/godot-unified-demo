@@ -1,7 +1,7 @@
 // The skeleton minions: rows of the State with no physics body, walking the floor's navigation mesh (unified:nav), so a
 // crowd costs no Box3D bodies. Each tick: every minion picks its target (sliced: the nearest hero up by path, ties by
-// slot), steers along that hero's distance field (memoized in the World), keeps apart from its neighbours over a grid
-// (scratch, rebuilt from the block), is pushed out of heroes and props one way (they never feel it), carries a
+// slot), steers along that hero's distance field (memoized in the World; sliced too while it is far off), keeps apart
+// from its neighbours over a grid (scratch, rebuilt from the block), is pushed out of heroes and props one way (they never feel it), carries a
 // knockback of its own that decays, and moves with nav.move, which never leaves the mesh. In reach it winds up a
 // telegraphed swing, which lands only if the hero is still in reach, in front and in sight. damage_minion is the only
 // way a minion takes damage and dies; a dead minion falls (Dying) and its row is freed after DEATH_S.
@@ -287,11 +287,18 @@ move_minion :: proc(
 	velocity := minion.knock
 	minion.knock *= decay
 	if minion.phase == .Chase && minion.target != {} {
+		// Steered every tick within STEER_NEAR of its target (the last turns are quick), and farther off every
+		// STEER_TICKS (sliced by its index), walking its facing between: the heading a tick-old steer gave, kept in the
+		// state, so a rollback resumes it.
 		spot := t.world.hero_spots[sim.player_slot(t, minion.target)]
-		field := nav.field(&floor.fields, spot.poly)
-		next := nav.steer(&floor.mesh, field, minion.poly, minion.pos, spot.point)
-		heading := dmath.normalize((next - minion.pos).xz)
-		if heading != {} do minion.facing = heading
+		heading := minion.facing
+		near := dmath.length_sq(spot.point.xz - minion.pos.xz) < STEER_NEAR * STEER_NEAR
+		if near || sim.due(t, handle.index, STEER_TICKS) {
+			field := nav.field(&floor.fields, spot.poly)
+			next := nav.steer(&floor.mesh, field, minion.poly, minion.pos, spot.point)
+			heading = dmath.normalize((next - minion.pos).xz)
+			if heading != {} do minion.facing = heading
+		}
 		velocity += heading * MINION_SPEED
 	}
 	if minion.phase != .Dying && minion.phase != .Rise do velocity += separation(t, minion, handle)

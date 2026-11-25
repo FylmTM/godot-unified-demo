@@ -516,3 +516,7 @@ Calls made in step 2 (the sim at 500):
 - Separation's test is a crush on open floor (sixty sleepers within 2 m pushed apart past SEPARATION less 0.1 m in
   10 s, no hero to wake them): a crowd chasing heroes who stand still still packs onto them (closest pairs about
   1 cm apart, step 3's queueing), so no test can hold that crowd apart yet.
+- A far chaser's steering is sliced: beyond STEER_NEAR (3 m, straight line) of its target it steers every
+  STEER_TICKS (4) by its index and walks its facing (state) between; within 3 m every tick. It pays about 6 % of the
+  crowd rows' re-sim means; a test walks Floor 1's cap round its corners and finds no step off the floor or through a
+  wall or low cover.

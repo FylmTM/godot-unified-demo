@@ -216,6 +216,9 @@ DEATH_S :: f32(2) // a dead minion's row lingers this long (Dying: its fall), th
 DEATH_TICKS :: u32(DEATH_S * TICK_HZ)
 RETARGET_S :: f32(0.25) // each minion picks its target again this often (time-sliced by its index, sim.due)
 RETARGET_TICKS :: u32(RETARGET_S * TICK_HZ)
+STEER_NEAR :: f32(3) // a chaser this close to its target steers every tick ...
+STEER_S :: f32(0.0625) // ... and a farther one this often (time-sliced by its index), walking its facing between
+STEER_TICKS :: u32(STEER_S * TICK_HZ)
 SEPARATION :: f32(0.9) // minions closer than this push apart ...
 SEPARATION_SPEED :: f32(2.5) // ... at up to this speed
 KNOCK_DECAY :: f32(6) // a knockback's velocity decays at this rate per second

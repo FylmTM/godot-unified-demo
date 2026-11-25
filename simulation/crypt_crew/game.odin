@@ -19,7 +19,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "7"
+VERSION :: "8"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
