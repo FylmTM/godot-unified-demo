@@ -1,10 +1,10 @@
 class_name Saves
 extends RefCounted
-## The one save slot, `user://save.json`: the Setup that continues the party's crypt, as its JSON
-## (UnifiedSetup.to_json) and nothing else, so a later build reads it back by field name. Game keeps one Saves: it writes
-## each save the session hands over (save_changed) when this machine hosts or plays alone, and the title offers
-## Continue from it. Written through UserFile: beside first, then moved over the old file, so a crash or a full disk
-## never leaves half a save; a write that fails keeps the session's copy (`setup`) and says so in the log.
+## The one save slot, `user://save.json`: the Setup that continues the party's crypt, as its JSON (UnifiedSetup.to_json)
+## and nothing else, so a later build reads it back by field name. Game keeps one Saves: it writes each save the session
+## hands over (save_changed) when this machine hosts or plays alone, and the title offers Continue from it. Written
+## through UserFile: beside first, then moved over the old file, so a crash or a full disk never leaves half a save; a
+## write that fails keeps the session's copy (`setup`) and says so in the log.
 ##
 ## A save that doesn't read (json_problem), or that another version of the game made (its version isn't this build's
 ## Unified.constants.save_version), is never dropped: it is moved aside to `save.bad.json` and `problem` says why, once

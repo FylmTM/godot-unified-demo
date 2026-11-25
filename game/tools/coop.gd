@@ -1,13 +1,13 @@
 extends UnifiedCoop
-## Crypt Crew's co-op play (the flow is the library's, UnifiedCoop): the friend's hero must arrive beside the host's
-## (a late join lands by the party, not at the floor's start), as each side sees it; then the host raises skeletons
-## around itself (a dev command) and swings at them until one is hit, then walks a square, swinging as it goes, while
-## the joiner keeps moving. Once a surge has risen (it saves the crypt), the host pauses the game for everyone (the
-## co-op pause) from its pause menu, and its Leave asks "End the game for everyone?" (Stay); the joiner sees who paused
-## (the State's paused_by, the HUD's banner, its own menu's heading) and resumes it from its menu, and the host leaves.
-## The joiner's app then takes it back to the title, says why, and offers to continue the host's last save on its own,
-## which it does, through hero select, from the surge it saw. Both sessions start from uni's flags, so this also proves the app adopts a session its
-## menus didn't start.
+## Crypt Crew's co-op play (the flow is the library's, UnifiedCoop): the friend's hero must arrive beside the host's (a
+## late join lands by the party, not at the floor's start), as each side sees it; then the host raises skeletons around
+## itself (a dev command) and swings at them until one is hit, then walks a square, swinging as it goes, while the
+## joiner keeps moving. Once a surge has risen (it saves the crypt), the host pauses the game for everyone (the co-op
+## pause) from its pause menu, and its Leave asks "End the game for everyone?" (Stay); the joiner sees who paused (the
+## State's paused_by, the HUD's banner, its own menu's heading) and resumes it from its menu, and the host leaves. The
+## joiner's app then takes it back to the title, says why, and offers to continue the host's last save on its own, which
+## it does, through hero select, from the surge it saw. Both sessions start from uni's flags, so this also proves the
+## app adopts a session its menus didn't start.
 ##
 ## With `uni coop --menus` (and `--lan`), neither side starts from session flags: each goes through the game's own menus
 ## (_start_host, _start_join: Play together, Host or Join, a code or an address typed with key events, hero select
@@ -142,7 +142,8 @@ func _host_play() -> void:
 	if failed():
 		return
 	await press_action(&"pause")
-	expect((_menu_control("Heading") as Label).text == "The game runs on", "with a friend in, the pause menu is an overlay")
+	expect((_menu_control("Heading") as Label).text == "The game runs on",
+		"with a friend in, the pause menu is an overlay")
 	await click(_menu_control("PauseAll"))
 	await wait_for(func() -> bool: return Unified.data.hud.paused, 3.0, "the host pauses the game for everyone")
 	step("paused for everyone, from the pause menu")

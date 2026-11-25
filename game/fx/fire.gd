@@ -4,8 +4,8 @@ extends Node3D
 ## are all this scene, scaled: the node's scale sizes the flames, `strength` the light.
 ##
 ## Shadows are on by default because a fire that grounds what stands near it is what makes a dark room read; the small
-## fires (torches on walls, candles, lanterns) turn them off. Each shadowed light costs a cube shadow map redrawn every frame (its flicker
-## moves it), so a room keeps them to a few (docs/ART.md, Lighting).
+## fires (torches on walls, candles, lanterns) turn them off. Each shadowed light costs a cube shadow map redrawn every
+## frame (its flicker moves it), so a room keeps them to a few (docs/ART.md, Lighting).
 
 ## Whether the light casts shadows.
 @export var casts_shadows: bool = true

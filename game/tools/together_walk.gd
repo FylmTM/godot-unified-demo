@@ -91,8 +91,9 @@ func _walk_join_code() -> void:
 
 
 ## A LAN host from the menus on a free port, over a save: A new crypt asks first (Back keeps the save), Continue your
-## crypt hosts it through hero select ("Host a crypt"), at its surge; the session panel shows the address and one player; Invite friends shows it, Copy copies it (to the run's own
-## clipboard) and says "Copied"; Stop inviting: the panel says "Closed"; inviting again opens it. Leave asks first.
+## crypt hosts it through hero select ("Host a crypt"), at its surge; the session panel shows the address and one
+## player; Invite friends shows it, Copy copies it (to the run's own clipboard) and says "Copied"; Stop inviting: the
+## panel says "Closed"; inviting again opens it. Leave asks first.
 func _walk_lan_host() -> void:
 	game.set(&"lan_port", _free_port())
 	await click(title_control("PlayTogether"))

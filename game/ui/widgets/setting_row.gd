@@ -1,12 +1,12 @@
 class_name SettingRow
 extends FocusRow
 ## One player setting on the settings screen, bound by name to the Settings property it shows: its label, and the
-## control its type calls for, read from the property itself (Settings' property list), so a new setting is a
-## property and a row naming it. A ranged number is a slider shown as a percentage (every ranged setting is a share);
-## a bool (On, Off) and an enum are a choice, stepped with left and right, a press, or a click on either half; a text
-## (the player's name) is a field. The row's scene holds every control and shows the one it needs. A change applies at
-## once (Settings saves it a moment later), except a slider with `on_release` while it is dragged (the interface's size, which would move the slider
-## under the mouse); the row follows Settings.changed, so a change made elsewhere shows.
+## control its type calls for, read from the property itself (Settings' property list), so a new setting is a property
+## and a row naming it. A ranged number is a slider shown as a percentage (every ranged setting is a share); a bool (On,
+## Off) and an enum are a choice, stepped with left and right, a press, or a click on either half; a text (the player's
+## name) is a field. The row's scene holds every control and shows the one it needs. A change applies at once (Settings
+## saves it a moment later), except a slider with `on_release` while it is dragged (the interface's size, which would
+## move the slider under the mouse); the row follows Settings.changed, so a change made elsewhere shows.
 ##
 ## The field is passed over like any row until the player asks to type: the focus reaching it doesn't start editing
 ## (a click does), so the d-pad, Q and E move on; accept starts editing, Enter applies and stops, Esc puts the setting's
