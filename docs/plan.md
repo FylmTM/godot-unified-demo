@@ -65,8 +65,9 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 
 Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 
-- `uni release` as a public command (it is unified's own tool today), and able to build a Linux x64 zip on Linux.
-  Milestone 10.
+- A Linux x64 zip from `uni release` on Linux. (`uni release` itself works in a game repo since unified 830b012:
+  macOS arm64 and Windows x64 zips from the game's export_presets.cfg, the unified-release skill; the demo has no
+  export preset yet, milestone 10's.) Milestone 10.
 - Rendering a recorded session to video (Godot's movie writer at a fixed frame rate), for the videos. Milestone 10.
 - `uni drive pad` and `uni drive type` with a device (a second pad's own events), so a play-check drives a couch as
   the walk's tool scripts do (`UnifiedTool.pad_button`). Later.

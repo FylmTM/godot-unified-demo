@@ -261,6 +261,11 @@ The app's frame:
   write is printed and the session keeps its copy; a missing file is read from its `.tmp`. Two read problems at boot
   are told one after the other.
 - Pause and the couch's join ignore their keys while the game's input is off.
+- The party's guests are seated again each frame (up to 60) while add_local_player says -1: since unified 830b012 it
+  does while a start waits for the last session's goodbye. A pad's mid-game join can't meet that (the play scene
+  exists only while a session runs).
+- A hold's joint is live whenever a hero's `held` is set (every way a prop or a body goes lets go first), so
+  update_holds needs no guard under unified 830b012's live-ref asserts; hands.odin says so.
 - A node that listens to the session's or Game's signals does it through `Game.listen`, which drops the connection as
   the node leaves the tree: a menu closing or the app quitting never hears a signal it can't answer (online_check
   over EOS caught Invite friends hearing join_code_changed at quit).
@@ -430,9 +435,10 @@ Checks:
 - The walk drives pads with unified's `UnifiedTool.pad_button(button, device)` and `pad_axis` (745e023).
 - The short scenarios' run crosses a surge (`the_suite_runs_cross_a_save`), so unified's save checks cover Game.save
   under rollback, churn and a late join.
-- `replays/lan_pair` (the host's recording, about 57 s): Barbarian host and Knight joiner grabbing and throwing props,
-  skeletons raised and attacked, the co-op pause and resume, class swaps, every skeleton killed, the host downed, three
-  surges.
+- `replays/lan_pair` (the host's recording, ticks 2 to 3205, about 50 s; recorded again for unified 830b012's
+  layouts): a Knight host and a Barbarian joiner (both asked for Any), each grabbing, carrying and throwing a prop
+  twice; eight skeletons raised (dev) and attacked by both; the joiner's co-op pause and the host's resume; the host a
+  Mage and the joiner a Rogue (dev), both attacking; every skeleton killed (dev); the host downed (dev); three surges.
 - `uni coop --host-profile/--join-profile` (unified b06ba4f) gives each side its Profile; coop.gd checks each class
   against its flag (a joiner asking Any plays a class the host doesn't), names its joiner "Friend", works both pause
   menus, and the joiner continues on its own after the host leaves. With `--menus` each side goes through the menus
