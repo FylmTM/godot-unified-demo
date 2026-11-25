@@ -21,7 +21,21 @@ func played(sound: StringName, from: int) -> int:
 
 ## The title screen, while the menu is the current scene (else null).
 func title() -> Control:
-	return current_scene.get_node_or_null(^"UI/TitleScreen") as Control if scene_is("Menu") else null
+	return current_scene.get_node_or_null(^"UI/Stack/TitleScreen") as Control if scene_is("Menu") else null
+
+
+## The menu's screen on top (the title, the settings), while the menu is the current scene (else null).
+func top_screen() -> Control:
+	var stack: Node = current_scene.get_node_or_null(^"UI/Stack") if scene_is("Menu") else null
+	if stack == null:
+		return null
+	var top: Control = stack.call(&"top")
+	return top
+
+
+## The interface's last device kind (Prompts.last_kind): Bindings.Kind.KEYBOARD or PAD.
+func last_kind() -> int:
+	return root.get_node(^"Prompts").get(&"last_kind")
 
 
 ## The title screen's control `unique_name` (null, failing the run, when it isn't there).
@@ -42,9 +56,14 @@ func flow_name() -> String:
 	return str(flows.find_key(flow))
 
 
-## Sets a player setting, as the settings screen will.
+## Sets a player setting, as the settings screen does.
 func set_setting(setting_name: StringName, value: Variant) -> void:
 	root.get_node(^"Settings").set(setting_name, value)
+
+
+## A player setting's value.
+func setting(setting_name: StringName) -> Variant:
+	return root.get_node(^"Settings").get(setting_name)
 
 
 ## The local player's hero view (null until it has one).

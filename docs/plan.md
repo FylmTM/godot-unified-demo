@@ -71,22 +71,23 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 
 ## Milestone 3: the app layer
 
-Six steps, each landing on its own. The first, the app's skeleton, is in: the `Game` autoload owns the session and
-the flow, the title, the theme, the overlays, `Settings` (stored and applied, no screen yet) and `Sfx`. Still to come:
+Six steps, each landing on its own. The first two are in: the app's skeleton (the `Game` autoload owns the session
+and the flow; the title, the theme, the overlays, `Sfx`) and the settings, bindings and prompts (the settings screen
+over the menu's screen stack, rebinding, the input prompts following the device, the HUD's hints, the first player's
+device free while alone). Audio has Master and Interface only: Music and Effects come with their sounds (milestone 8).
+Still to come:
 
-2. **Settings, bindings and prompts.** The settings screen (video, audio, controls, gameplay) over a screen stack;
-   rebinding, stored as text tokens; Kenney Input Prompts that follow the device last used; the prompt bar and the
-   HUD's hints. Audio has Master and Interface only: Music and Effects come with their sounds (milestone 8).
 3. **Hero select and the couch.** The Profile is the pick (Any included); every start passes hero select, last picks
    preselected; each device steers its own seat; a pad joining mid-game picks on a card in the HUD; hero plates with
-   portraits and HP bars, the HP leading the plate (the full HP from the extension). Player 0's device stays free
-   (any device) while it plays alone, and is fixed only while a couch guest is in.
+   portraits and HP bars, the HP leading the plate (the full HP from the extension); the player's name (a Gameplay
+   setting, identity in the profile).
 4. **Saves and pauses.** The save is the floor, the surges faced and the skeletons felled, saved at each surge, in
    one slot written by the host or the single player; a joiner keeps it in memory, and is offered "Continue on your
    own" when the host leaves. In single player (couch included) the pause menu pauses the clock
    (`UnifiedSession.paused`); online it is an overlay over the running game, with "Pause for everyone" (the co-op
    pause command) its own button and anyone free to resume; the State gains `paused_by`, so everyone, a late joiner
-   too, sees who paused.
+   too, sees who paused. The settings open from the pause menu too (on its own screen stack), and single player
+   pauses when the window loses the focus (a Gameplay setting).
 5. **Playing together.** Host online or on the LAN, join by code or address, open to friends from the pause menu,
    reconnect and slow-link states, every end's reason, the extension's EOS lobby. The join code is the invite: Copy,
    and Rejoin last game.
@@ -94,7 +95,8 @@ the flow, the title, the theme, the overlays, `Settings` (stored and applied, no
 
 What a step needs from unified is built there (pushed to unified's `main`, then the submodule bumped in its own
 commit), not worked around: `online_problem` and an end-reason enum (step 5); a device on `UnifiedTool.pad_button`,
-`uni drive pad` and `uni drive type` (steps 2 and 3); `uni coop` driving the game's menus, or `--open` (step 5).
+`uni drive pad` and `uni drive type` (step 3: a second pad's own events); `uni coop` driving the game's menus, or
+`--open` (step 5).
 
 ## Needed from unified
 
@@ -102,6 +104,8 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 
 - `uni release` as a public command (it is unified's own tool today), and able to build a Linux x64 zip on Linux.
   Milestone 10.
+- The export takes the input prompts' glyph maps (`assets/kenney/input_prompts/*_map.txt`, read as files, which Godot
+  leaves out of an export unless its filter names them). Milestone 10, with the export presets.
 - Rendering a recorded session to video (Godot's movie writer at a fixed frame rate), for the videos. Milestone 10.
 - A friends list and platform invites, behind an account service (EOS's login today is anonymous): the join code is
   the invite until then. Later.

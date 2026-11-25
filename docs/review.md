@@ -278,3 +278,39 @@ Step 1's review fixes, calls made on the way:
   focused; `--join`: Cancel focused under Joining). No suite step can: the walk runs as a `-s` script, and the
   library's drive step starts with `--autostart`. A drive step option to boot to the menu would be unified work.
 - Pause and the couch's join ignore their keys while the game's input is off; so does the couch's device claim.
+
+Step 2, settings, bindings and prompts, calls made on the way:
+
+- Prompt glyphs are Kenney Input Prompts' fonts with their glyph maps (the Opus design), not its PNGs (the Fable
+  one): four fonts and four maps cover every bindable key, crisp at any interface size and in a label's colour. Four
+  families: keyboard and mouse, Xbox, PlayStation, Switch (no Steam Deck: an unknown pad is drawn as Xbox). The maps
+  are read as files, which a Godot export leaves out unless its filter names them (plan.md, Needed from unified).
+- `Prompts` is an autoload (`prompts.tscn`, the fonts as its exports) between Sfx and Game.
+- Rebindable: on the keyboard the four moves, attack and interact; on a pad attack and interact (its stick and D-pad
+  move, fixed; no "Swap sticks"). Two slots per action per scheme, one scheme per machine. Reserved: Esc, Enter,
+  numpad Enter, F1, F3; a pad's Start, Back and Guide. A pad slot takes a button or a trigger past half.
+- A slot listening: Esc or a pad's Start cancels; Delete, Backspace or a pad's Back clears it. A binding another
+  action held swaps; Reset resets the scheme shown.
+- Bindings are stored in `settings.json` (`controls.bindings`) as tokens, the whole list of an action's kind only
+  where it differs from `project.godot` (`key:<physical key name>`, `mouse:1`, `button:2`, `axis:5+`).
+- The Controls tab opens on the scheme of the device used last, and has the pads' glyphs (Auto, Xbox, PlayStation,
+  Switch) and a move-stick dead zone (10 to 50 %, default 25 %; the aim stick keeps project.godot's 20 %).
+- Video: Window (windowed, fullscreen), V-Sync, Frame limit (off, 60, 120, 144, 240), 3D resolution 50 to 100 %,
+  Anti-aliasing (off, 2x, 4x), Interface size 80 to 130 %, Show FPS. Audio: Master, Interface, Mute in the
+  background. Gameplay: Screen shake 0 to 100 % (the hurt shake scales by it) and Control hints on the HUD. Pause on
+  focus loss waits for step 4's pause menu, the player's name for step 3's profile.
+- Rows read their control from the property (a bool a toggle, a ranged number a slider shown in percent, an enum a
+  choice stepped with left and right); their labels are in the tab scenes. Each tab scrolls (a bigger interface size
+  still fits); Q and E, or a pad's shoulders, switch tabs (new actions `menu_tab_prev`, `menu_tab_next`).
+- The screen stack (`MenuStack`) keeps a covered screen hidden with the focus it had and frees a popped one; each
+  screen names its first focus (also the modals' default) and its prompt bar hints.
+- A settings file that didn't read is told once, as a dialog on the menu (Game), then forgotten.
+- The first player alone plays with every device; a pad's Start joins unless it is the pad the first player used
+  last (that Start pauses); with a guest in, the first player is fixed to the device it used last, and every device
+  again once alone. Milestone 2's "the first input claims a device" is gone.
+- The HUD's hints sit on each hero plate (Move, Aim, Attack, Grab) in that player's device's glyphs; the join hint is
+  "[Start] Join the game", always in a pad's glyphs.
+- A prompt glyph sits in a box of its row's height and overflows it, since the prompt fonts' lines are twice a glyph.
+- No unified API was needed: the walk's pad is device 0 (`UnifiedTool.pad_button`) and a guest's device comes from
+  `add_local_player`. A second pad's own events stay untested until step 3 (the in-game join card).
+

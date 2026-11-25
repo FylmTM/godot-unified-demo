@@ -34,9 +34,12 @@ cd godot-unified-demo
 that isn't aimed faces where it walks). Attack (the left mouse button, Space, or a pad's right trigger or X) attacks
 while held, and throws what you carry. Interact (E, the right mouse button, or a pad's A) picks up the barrel or crate
 in front, glowing faintly, and puts it down again. Esc, or Start on a pad that plays, pauses the game for everyone.
+Every control can be rebound (Settings, Controls: two bindings per action, the keyboard and mouse and the gamepad
+apart); the HUD shows each player's controls in the glyphs of the device they use.
 
-**Couch co-op.** The first player's first input claims their device (the keyboard and mouse, or a pad); any other pad
-pressing Start joins as another player. Players joining over the LAN join the same session beside them.
+**Couch co-op.** Alone, the first player plays with any device, the keyboard and mouse or a pad, and can switch at
+will; any other pad pressing Start joins as another player, and from then on the first player keeps the device they
+used last. Players joining over the LAN join the same session beside them.
 
 ## What it shows of unified
 
@@ -64,7 +67,8 @@ pressing Start joins as another player. Players joining over the LAN join the sa
 - **Events**: effects play as soon as they are predicted (EMITTED: `game/play/play.gd`, `effects.gd`); the HUD counts
   a kill only once it is CONFIRMED (`game/play/hud.gd`).
 - **Couch co-op**: devices claimed and pads joining (`game/play/couch.gd`), every local hero framed by one camera
-  (`camera_rig.gd`).
+  (`camera_rig.gd`); each local player's prompts in the glyphs of the device the session gives them
+  (`game/app/prompts.gd`).
 - **Dev commands** (`dev.odin`): a class swap, spawning, hurting and killing, as dev UI forms and
   `uni drive command`.
 - **A benchmark row**: four heroes against a held surge among the props (`game.odin`, `bench_prepare` in
@@ -116,8 +120,9 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 - `simulation/headless/`: the same simulation without Godot, for tests, sync-tests, replays and benchmarks.
 - `simulation/tests/`: every test of the sim.
 - `game/`: the Godot side (the project is the repo root, `project.godot`): the app (`game/app/`: the `Game`,
-  `Settings`, `Sfx` and `LibraryCheck` autoloads), the title (`game/menu/`), the interface's theme, overlays and
-  widgets (`game/ui/`), and the play scene with its views, effects and HUD. GDScript shows the simulation and never
+  `Settings`, `Sfx`, `Prompts` and `LibraryCheck` autoloads, and `Bindings`), the title (`game/menu/`), the
+  interface's theme, screens, settings, overlays and widgets (`game/ui/`), and the play scene with its views, effects
+  and HUD. GDScript shows the simulation and never
   changes it; input and commands are the only way in.
 - `assets/`: the art packs the game uses (`CREDITS.md`); how they become the game's look is `docs/ART.md`.
 - `tools/`: this game's `uni` CLI. `unified/`: unified, as a git submodule.

@@ -3,9 +3,13 @@ extends MenuTool
 ## step (`./uni tool ui_walk`; with `--window --shots` it saves a PNG at each moment worth looking at, into
 ## .out/shots/ui_walk/):
 ##   the title (New game focused; the mouse over a button takes the focus and sounds; a screen that enters the tree
-##   again is wired once; the d-pad moves the focus) -> pad A on New game -> the crypt (a hero, the HUD; Esc pauses
-##   and resumes; the reconnecting plate takes nothing) -> a couch guest joins and leaves (the toasts) -> a setting
-##   applies -> leave -> the title (toasts gone) -> New game again, and leave -> a join that waits (the Connecting
+##   again is wired once; the d-pad moves the focus) -> the settings (every tab, on the keyboard's prompts and on a
+##   pad's; a toggle applies; Q, E and the shoulders switch tabs; rebinding: a key, a swap, Esc cancelling, a pad
+##   button, the resets; Back gives the title its focus back) -> pad A on New game -> the crypt (a hero, the HUD and
+##   its hints following the device; Esc pauses and resumes; the reconnecting plate takes nothing) -> a couch guest
+##   joins and leaves (the toasts; the first player's device fixed while it is in) -> a setting applies -> leave ->
+##   the title (toasts gone; a settings file that didn't read is told once) -> New game again, and leave -> a join
+##   that waits (the Connecting
 ##   overlay; Esc cancels it at once, and so does its Cancel) -> a join that fails at once (one dialog, one error
 ##   sound, the reason as a sentence; pad B closes it), and again (pad A on OK) -> the run ends through Game.quit_app.
 ## That the app adopts a session its menus didn't start is coop.gd's: both its processes start from uni's flags.
@@ -25,6 +29,7 @@ func _run() -> void:
 	step("the title")
 	await _walk_title_wiring()
 	await _walk_pad()
+	await _walk_settings()
 	await _walk_new_game()
 	await _walk_couch_guest()
 	_walk_setting()
@@ -57,10 +62,110 @@ func _walk_title_wiring() -> void:
 ## A pad moves the focus between the title's buttons, and back.
 func _walk_pad() -> void:
 	await pad_button(JOY_BUTTON_DPAD_DOWN)
-	expect(root.gui_get_focus_owner() == title_control("Quit"), "the d-pad moves the focus to Quit")
+	expect(root.gui_get_focus_owner() == title_control("Settings"), "the d-pad moves the focus to Settings")
 	await pad_button(JOY_BUTTON_DPAD_UP)
 	expect(root.gui_get_focus_owner() == title_control("NewGame"), "and back to New game")
 	step("pad navigation")
+
+
+## The settings screen over the title: each tab shot with the keyboard's prompts and with a pad's, a toggle that
+## applies at once, the tabs switched by Q and E and by the shoulders, rebinding on both schemes, and Back.
+func _walk_settings() -> void:
+	await click(title_control("Settings"))
+	var screen: Control = top_screen()
+	expect(screen != null and screen.name == "SettingsScreen", "Settings opens the settings screen")
+	if failed():
+		return
+	expect(last_kind() == Bindings.Kind.KEYBOARD, "a click: the keyboard and mouse's prompts")
+	var tabs: TabContainer = find(screen, ^"%Tabs") as TabContainer
+	var fps: Control = find(tabs, ^"Video/Rows/ShowFps/Toggle") as Control
+	await click(fps)
+	var shown: bool = setting(&"show_fps")
+	expect(shown, "the Show FPS toggle turns it on")
+	expect((find(game, ^"Overlays/Fps") as Control).visible, "and the frame rate shows at once")
+	await click(fps)
+	shown = setting(&"show_fps")
+	expect(not shown, "and off again")
+	for tab: String in ["Video", "Audio", "Controls", "Gameplay"]:
+		expect(tabs.get_current_tab_control().name == tab, "the %s tab (E steps through)" % tab)
+		await frames(2)
+		await shot("10_settings_%s_keyboard" % tab.to_lower())
+		await press_key(KEY_E)
+	expect(tabs.current_tab == 0, "E past the last tab wraps to the first")
+	for tab: String in ["Video", "Audio", "Controls", "Gameplay"]:
+		if tab == "Controls":
+			var scheme: Control = find(tabs, ^"Controls/Content/SchemeRow/Scheme") as Control
+			expect(root.gui_get_focus_owner() == scheme, "the Controls tab's scheme has the focus")
+			await pad_button(JOY_BUTTON_A)  # the gamepad's scheme
+		await frames(2)
+		await shot("11_settings_%s_pad" % tab.to_lower())
+		await pad_button(JOY_BUTTON_RIGHT_SHOULDER)
+	expect(last_kind() == Bindings.Kind.PAD, "a pad: its prompts")
+	step("the settings' tabs, on both devices' prompts")
+	await _walk_rebinding(screen)
+	await press_key(KEY_ESCAPE)
+	expect(top_screen() == title(), "Esc closes the settings")
+	expect(root.gui_get_focus_owner() == title_control("Settings"), "Settings has the focus back")
+	title_control("NewGame").grab_focus()
+	step("back to the title")
+
+
+## Rebinding on the Controls tab: a key bound to attack, the same key bound to interact (attack takes interact's old
+## one), Esc cancelling a slot that listens (the screen stays), a pad button on the gamepad scheme, and each scheme
+## reset.
+func _walk_rebinding(screen: Control) -> void:
+	var controls: Node = screen.call(&"show_tab", "Controls")
+	controls.call(&"show_scheme", Bindings.Kind.KEYBOARD)
+	var attack_row: Node = controls.call(&"row_of", &"attack")
+	var interact_row: Node = controls.call(&"row_of", &"interact")
+	var attack: Button = attack_row.call(&"first_slot")
+	var interact: Button = interact_row.call(&"first_slot")
+	await _reveal(attack)
+	await click(attack)
+	var waiting: bool = attack.call(&"is_listening")
+	expect(waiting, "a click on a slot makes it listen")
+	await shot("12_rebinding")
+	await press_key(KEY_F)
+	expect(_first_binding(&"attack", Bindings.Kind.KEYBOARD) == "key:F",
+		"F binds to attack (%s)" % _first_binding(&"attack", Bindings.Kind.KEYBOARD))
+	await _reveal(interact)
+	await click(interact)
+	await press_key(KEY_F)
+	expect(_first_binding(&"interact", Bindings.Kind.KEYBOARD) == "key:F", "F binds to interact")
+	expect(_first_binding(&"attack", Bindings.Kind.KEYBOARD) == "key:E", "and attack takes interact's E")
+	await frames(2)
+	await shot("13_rebound")
+	await _reveal(attack)
+	await click(attack)
+	await press_key(KEY_ESCAPE)
+	var listening: bool = attack.call(&"is_listening")
+	expect(not listening and top_screen() == screen, "Esc cancels the slot, not the screen")
+	expect(_first_binding(&"attack", Bindings.Kind.KEYBOARD) == "key:E", "a cancelled slot keeps its binding")
+	await _reveal(find(controls, ^"%Reset") as Control)
+	await click(find(controls, ^"%Reset") as Control)
+	expect(_first_binding(&"attack", Bindings.Kind.KEYBOARD) == "mouse:1", "Reset puts the keyboard's back")
+	controls.call(&"show_scheme", Bindings.Kind.PAD)
+	await _reveal(attack)
+	await click(attack)
+	await pad_button(JOY_BUTTON_Y)
+	expect(_first_binding(&"attack", Bindings.Kind.PAD) == "button:3", "a pad's Y binds to attack")
+	await _reveal(find(controls, ^"%Reset") as Control)
+	await click(find(controls, ^"%Reset") as Control)
+	var bindings: Dictionary = setting(&"bindings")
+	expect(bindings.is_empty(), "Reset puts the pad's back too: %s" % bindings)
+	step("rebinding: a key, a swap, a cancel, a pad button, the resets")
+
+
+## Gives `control` the focus, so its tab scrolls it into view, as the d-pad would.
+func _reveal(control: Control) -> void:
+	control.grab_focus()
+	await frames(3)
+
+
+## The token of `action`'s first binding of `kind` ("" without one).
+func _first_binding(action: StringName, kind: Bindings.Kind) -> String:
+	var events: Array[InputEvent] = Bindings.events(action, kind)
+	return Bindings.to_token(events[0]) if not events.is_empty() else ""
 
 
 ## Pad A on New game: the app goes to the crypt once the session is up, the local hero arrives with the HUD over it,
@@ -76,8 +181,21 @@ func _walk_new_game() -> void:
 	var hud: Control = find(current_scene, ^"Hud") as Control
 	expect(hud != null and hud.is_visible_in_tree(), "the HUD shows")
 	await seconds(1.5)
-	await shot("02_play")
-	step("pad A on New game: the crypt, tick %d" % session.tick)
+	await shot("02_play_pad")
+	var hints: Control = find(hud, ^"Heroes/HeroPlate/Rows/Hints") as Control
+	expect(hints.is_visible_in_tree(), "the hero's plate shows its hints")
+	var attack_glyph: Label = find(hints, ^"Attack/GlyphBox/Glyphs") as Label
+	var pad_glyph: String = attack_glyph.text
+	await press_key(KEY_SHIFT)
+	expect(attack_glyph.text != pad_glyph, "a key turns the hints to the keyboard's glyphs")
+	await frames(2)
+	await shot("02_play_keyboard")
+	await pad_button(JOY_BUTTON_Y)
+	expect(attack_glyph.text == pad_glyph, "a pad turns them back")
+	set_setting(&"show_hints", false)
+	expect(not hints.visible, "the hints setting hides them")
+	set_setting(&"show_hints", true)
+	step("pad A on New game: the crypt and its hints, tick %d" % session.tick)
 	await press_key(KEY_ESCAPE)
 	await wait_for(func() -> bool: return Unified.data.hud.paused, 2.0, "Esc pauses the game")
 	expect((find(hud, ^"%Paused") as Control).visible, "the HUD's banner says so")
@@ -107,13 +225,17 @@ func _walk_link_status() -> void:
 ## A couch guest joining and leaving is news: a toast each, once the join is certain.
 func _walk_couch_guest() -> void:
 	var toasts: Control = overlay("Toasts")
+	expect(session.get_local_device(0) == UnifiedSession.DEVICE_ANY, "alone, the first player plays with every device")
 	var guest: int = session.add_local_player(3, "Guest", null)
 	expect(guest > 0, "a couch guest joins on pad 3")
 	await wait_for(func() -> bool: return _toast_shows("Guest joined"), 5.0, "a toast: Guest joined")
+	expect(session.get_local_device(0) == 0, "with a guest in, the first player is fixed to the pad it used last")
 	await seconds(0.4)  # the toast faded in
 	await shot("03_guest_joined")
 	session.remove_local_player(guest)
 	await wait_for(func() -> bool: return _toast_shows("Guest left"), 5.0, "a toast: Guest left")
+	await wait_for(func() -> bool: return session.get_local_device(0) == UnifiedSession.DEVICE_ANY, 2.0,
+		"the guest gone, the first player plays with every device again")
 	step("a couch guest joined and left: %d toasts" % toasts.get_child_count())
 
 
@@ -145,7 +267,19 @@ func _walk_new_game_again() -> void:
 	await wait_for_scene("Play", 5.0)
 	await wait_for(func() -> bool: return local_hero() != null, 8.0, "the local hero, again")
 	step("New game again")
-	await _walk_leave()
+	root.get_node(^"Settings").set(&"read_problem", "user://settings.json doesn't read (Expected key, line 1)")
+	game.call(&"leave")
+	await wait_for_scene("Menu", 5.0)
+	var dialog: Control = overlay("Dialog")
+	await wait_for(func() -> bool: return dialog.visible, 2.0, "the title says the settings didn't read")
+	var heading: String = (find(dialog, ^"%Heading") as Label).text
+	expect(heading == "Your settings didn't read", "the dialog's heading: %s" % heading)
+	await shot("06_settings_problem")
+	await press_key(KEY_ESCAPE)
+	var problem: String = setting(&"read_problem")
+	expect(not dialog.visible and problem == "", "told once: the problem is cleared")
+	expect(root.gui_get_focus_owner() == title_control("NewGame"), "New game has the focus")
+	step("left again: a settings file that didn't read, told once")
 
 
 ## A join that waits shows the Connecting overlay over the title, Cancel focused; Esc cancels it, and the overlay goes

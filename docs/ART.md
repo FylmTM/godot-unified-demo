@@ -157,6 +157,12 @@ Layouts hang from the centre and the corners, so a wider screen only gains room.
 readability order: plates in the corners, nothing over the middle, and none of its controls takes a click or the
 focus.
 
+Control prompts are Kenney's Input Prompts fonts, one per family (keyboard and mouse, Xbox, PlayStation, Switch),
+with the glyph map each ships (`<font>_map.txt`, read by `Prompts`); a glyph takes its label's colour, cream over the
+world and ink on parchment. A prompt font sets its glyph in the middle of a line twice its height, so a glyph sits in a
+box of its row's height and overflows it (`game/ui/widgets/action_prompt.tscn`). The settings screen is the parchment
+panel with the brown buttons as tabs, the pack's brown checkbox for a toggle, and an ink slider with a cream knob.
+
 The menus stand over a graveyard at night built from the hub kit (`game/menu/backdrop.tscn`), lit as the hub is, with
 the four heroes idling at its gate. The interface's sounds are Kenney's Interface Sounds, played by `Sfx`
 (`game/app/sfx.gd`); `Game` gives every button of the game its press sound and the focus moving its select sound, so

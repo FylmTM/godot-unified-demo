@@ -4,19 +4,22 @@ extends RefCounted
 ## checks, so a broken promise between the app's parts fails the suite instead of a player's evening.
 ##
 ## - The autoloads stand in the order they need each other: LibraryCheck first (it must run without the library),
-##   then Settings and Sfx, then Game, which uses both. The buses the code names exist.
+##   then Settings, Sfx and Prompts, then Game, which uses them. The buses the code names exist.
 ## - A pad can press and back out: ui_accept and ui_cancel each carry a pad button.
 ## - The project's theme is game/ui/theme.tres, and every type variation a scene names is in it: Godot silently draws a
 ##   missing one with the plain type's look.
 ## - Every control of the HUD lets clicks through and never takes the focus, so the mouse aims and a pad's A plays.
 ## - Every button of the menus and overlays can take the focus (the d-pad reaches it only if it can).
 ## - Every sound a button names (its `sfx` metadata) is one Sfx has. (That the buttons sound at all is the walk's.)
+## - Bindings: every default binding's token reads back as itself; binding swaps with the action that held the key,
+##   clearing and resetting work, and the InputMap follows.
+## - Prompts: every glyph the prompts' tables name, and every default binding's, is in its family's map.
 ## - Settings round-trip a file: saved values read back; a value missing, of the wrong type or out of range falls back
 ##   or is clamped, a whole number is taken for a fraction; a file that doesn't parse is kept as .bad, defaults used.
 ##
 ## Each problem is reported through the validate run's log capture, named by the file it is in.
 
-const AUTOLOADS: Array[StringName] = [&"LibraryCheck", &"Settings", &"Sfx", &"Game"]
+const AUTOLOADS: Array[StringName] = [&"LibraryCheck", &"Settings", &"Sfx", &"Prompts", &"Game"]
 const BUSES: Array[StringName] = [&"Master", &"Interface"]
 const PAD_ACTIONS: Array[StringName] = [&"ui_accept", &"ui_cancel"]
 const THEME: String = "res://game/ui/theme.tres"
@@ -48,6 +51,8 @@ func run() -> void:
 	_check_scenes()
 	_check_hud()
 	_check_focus()
+	_check_bindings()
+	_check_prompts()
 	_check_settings()
 
 
@@ -113,6 +118,80 @@ func _check_focus() -> void:
 				if button.focus_mode != Control.FOCUS_ALL:
 					_problem("%s can't take the focus: a pad can't reach it" % scene.get_path_to(button), path)
 			scene.free()
+
+
+func _check_bindings() -> void:
+	const AT: String = "res://game/app/bindings.gd"
+	for action: StringName in Bindings.ACTIONS:
+		for kind: Bindings.Kind in [Bindings.Kind.KEYBOARD, Bindings.Kind.PAD]:
+			for event: InputEvent in Bindings.events(action, kind):
+				var token: String = Bindings.to_token(event)
+				var back: InputEvent = Bindings.from_token(token)
+				if back == null or Bindings.to_token(back) != token:
+					_problem("%s's binding %s doesn't read back from its token" % [action, token], AT)
+	var f := InputEventKey.new()
+	f.physical_keycode = KEY_F
+	var e := InputEventKey.new()
+	e.physical_keycode = KEY_E
+	var keyboard: Bindings.Kind = Bindings.Kind.KEYBOARD
+	var bindings: Dictionary = Bindings.bind({}, &"attack", keyboard, 0, f)
+	Bindings.apply(bindings)
+	if Bindings.to_token(Bindings.events(&"attack", keyboard)[0]) != "key:F":
+		_problem("binding attack to F: the InputMap doesn't follow (%s)" % bindings, AT)
+	bindings = Bindings.bind(bindings, &"interact", keyboard, 0, f)
+	Bindings.apply(bindings)
+	if (Bindings.to_token(Bindings.events(&"interact", keyboard)[0]) != "key:F"
+			or not Bindings.events(&"attack", keyboard).any(func(b: InputEvent) -> bool: return b.is_match(e))):
+		_problem("binding interact to attack's F doesn't swap E to attack (%s)" % bindings, AT)
+	bindings = Bindings.clear(bindings, &"interact", keyboard, 0)
+	Bindings.apply(bindings)
+	if Bindings.events(&"interact", keyboard).size() != 1:
+		_problem("clearing a slot doesn't leave one binding (%s)" % bindings, AT)
+	if not Bindings.reset(bindings, keyboard).is_empty():
+		_problem("resetting the keyboard doesn't drop its changes (%s)" % Bindings.reset(bindings, keyboard), AT)
+	if Bindings.from_token("axis:x") != null or Bindings.from_token("key:NotAKey") != null:
+		_problem("a token that doesn't parse reads as a binding", AT)
+	Bindings.apply({})
+
+
+func _check_prompts() -> void:
+	const AT: String = "res://game/app/prompts.gd"
+	var prompts: Node = _tree_root.get_node(^"Prompts")
+	var script: Script = prompts.get_script()
+	var tables: Dictionary = script.get_script_constant_map()
+	var families: Dictionary = tables["Family"]
+	var keyboard: int = families["KEYBOARD"]
+	var wanted: Array[PackedStringArray] = []  # by family: the glyph names its map must hold
+	wanted.resize(families.size())
+	for table: String in ["PAD_BUTTONS", "PAD_AXES"]:
+		var by_family: Dictionary = tables[table]
+		for family: int in by_family:
+			var names: Array = by_family[family]
+			for glyph_name: String in names:
+				wanted[family].append(glyph_name)
+	for table: String in ["STICK_GLYPHS", "AIM_STICK_GLYPHS"]:
+		var by_family: Dictionary = tables[table]
+		for family: int in by_family:
+			var glyph_name: String = by_family[family]
+			wanted[family].append(glyph_name)
+	for table: String in ["KEY_GLYPHS", "MOUSE_GLYPHS"]:
+		var glyphs: Dictionary = tables[table]
+		for glyph_name: String in glyphs.values():
+			wanted[keyboard].append(glyph_name)
+	var mouse_aim: String = tables["MOUSE_AIM"]
+	wanted[keyboard].append_array([mouse_aim, "keyboard_arrows_all"])
+	for family: int in families.values():
+		for action: StringName in InputMap.get_actions():
+			var shown: bool = not action.begins_with("ui_") or action in [&"ui_accept", &"ui_cancel"]
+			for event: InputEvent in InputMap.action_get_events(action):
+				if shown and (Bindings.kind_of(event) == Bindings.Kind.KEYBOARD) == (family == keyboard):
+					var glyph_name: String = prompts.call(&"glyph_name", event, family)
+					wanted[family].append(glyph_name)
+	for family: int in families.values():
+		var names: PackedStringArray = prompts.call(&"map_names", family)
+		for glyph_name: String in wanted[family]:
+			if glyph_name != "" and glyph_name not in names:
+				_problem("glyph %s isn't in family %s's map" % [glyph_name, families.find_key(family)], AT)
 
 
 func _check_settings() -> void:
