@@ -71,32 +71,29 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 
 ## Milestone 3: the app layer
 
-Six steps, each landing on its own. The first two are in: the app's skeleton (the `Game` autoload owns the session
-and the flow; the title, the theme, the overlays, `Sfx`) and the settings, bindings and prompts (the settings screen
+Six steps, each landing on its own. The first three are in: the app's skeleton (the `Game` autoload owns the session
+and the flow; the title, the theme, the overlays, `Sfx`), the settings, bindings and prompts (the settings screen
 over the menu's screen stack, rebinding, the input prompts following the device, the HUD's hints, the first player's
-device free while alone). Audio has Master and Interface only: Music and Effects come with their sounds (milestone 8).
-Still to come:
+device free while alone), and hero select and the couch (the Profile is the pick; a seat per device; a pad joining
+mid-game picks on a card in the HUD, a guest drops out on one; hero plates with portraits and HP bars; the player's
+name). Audio has Master and Interface only: Music and Effects come with their sounds (milestone 8). Still to come:
 
-3. **Hero select and the couch.** The Profile is the pick (Any included); every start passes hero select, last picks
-   preselected; each device steers its own seat; a pad joining mid-game picks on a card in the HUD; hero plates with
-   portraits and HP bars, the HP leading the plate (the full HP from the extension); the player's name (a Gameplay
-   setting, identity in the profile).
 4. **Saves and pauses.** The save is the floor, the surges faced and the skeletons felled, saved at each surge, in
    one slot written by the host or the single player; a joiner keeps it in memory, and is offered "Continue on your
    own" when the host leaves. In single player (couch included) the pause menu pauses the clock
    (`UnifiedSession.paused`); online it is an overlay over the running game, with "Pause for everyone" (the co-op
    pause command) its own button and anyone free to resume; the State gains `paused_by`, so everyone, a late joiner
    too, sees who paused. The settings open from the pause menu too (on its own screen stack), and single player
-   pauses when the window loses the focus (a Gameplay setting).
+   pauses when the window loses the focus (a Gameplay setting). The pause menu's Players list drops a guest out too.
 5. **Playing together.** Host online or on the LAN, join by code or address, open to friends from the pause menu,
    reconnect and slow-link states, every end's reason, the extension's EOS lobby. The join code is the invite: Copy,
    and Rejoin last game.
 6. **Close-out.** README, ART.md, the review log; every screen's shots at 720p, 1080p and 1440p.
 
 What a step needs from unified is built there (pushed to unified's `main`, then the submodule bumped in its own
-commit), not worked around: `online_problem` and an end-reason enum (step 5); a device on `UnifiedTool.pad_button`,
-`uni drive pad` and `uni drive type` (step 3: a second pad's own events); `uni coop` driving the game's menus, or
-`--open` (step 5).
+commit), not worked around: `online_problem` and an end-reason enum (step 5); `uni drive pad` and `uni drive type`
+with a device (a second pad's own events, for play-checks); `uni coop` giving each side its own game arguments (the
+joiner its own `--profile`), driving the game's menus, or `--open` (step 5).
 
 ## Needed from unified
 

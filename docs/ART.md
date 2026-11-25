@@ -40,7 +40,7 @@ relief, rocks or a decoration, is walked through). Characters face +Z.
 - `game/environments/`: each place's Environment (fog, glow, ambient, tonemap).
 - `game/lookdev/`: the look-dev scene and its stages.
 - `game/ui/theme.tres`: the interface's one Theme (The interface, below); `game/menu/backdrop.tscn`: the menus'
-  graveyard.
+  graveyard; `game/ui/portraits/`: the heroes' portraits, rendered by `./uni tool render_portraits --window`.
 
 Everything outside `assets/` is the game's own.
 
@@ -165,6 +165,14 @@ sets its glyph in the middle of a line twice its height, so a glyph sits in a bo
 choice for every on/off and every option, and an ink slider with a cream knob; a row lights up while the focus is in it.
 
 The menus stand over a graveyard at night built from the hub kit (`game/menu/backdrop.tscn`), lit as the hub is, with
-the four heroes idling at its gate. The interface's sounds are Kenney's Interface Sounds, played by `Sfx`
+the four heroes idling at its gate; on hero select each seat's pick steps forward from the line and strikes its
+class's stance (Any stays back).
+
+A hero's portrait is rendered from its scene as the game poses it, head and shoulders, idling, on a transparent
+background (`game/tools/render_portraits.gd`): it changes when the hero does, and it sits in the brown frame wherever
+a hero is named (`PortraitFrame`). Hero select's seats and the HUD's join cards are one card
+(`game/ui/widgets/seat_card.tscn`): parchment while choosing, a green wash once ready, faded while the seat is free.
+The HUD's hero plates lead with the HP, a red bar over a dark track with the number on it, the class quieter beside
+it and the device's controls below; a plate is wide enough for either device's hints, so it never changes width. The interface's sounds are Kenney's Interface Sounds, played by `Sfx`
 (`game/app/sfx.gd`); `Game` gives every button of the game its press sound and the focus moving its select sound, so
 no screen plays one by hand.

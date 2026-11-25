@@ -38,9 +38,17 @@ Attack and Grab can be rebound on both the keyboard and mouse and a pad, and the
 Controls: two bindings each; a pad's sticks and D-pad stay); the HUD shows each player's controls in the glyphs of the
 device they use.
 
+**Hero select.** Every new game starts there: four seats, the device that came there in the first; another pad's
+Start or A, or Enter, takes the next free one. Each seat answers to its own device: left and right step its hero
+(Any, or one of the four; two may pick the same), accept readies it, back takes the ready back and then gives the
+seat up. Once every seat taken is ready, the first seat's accept starts the game. Each seat's last pick is remembered,
+and your name (Settings, Gameplay) is what the other players see.
+
 **Couch co-op.** Alone, the first player plays with any device, the keyboard and mouse or a pad, and can switch at
-will; a pad they didn't last play with joins as another player when it presses Start, and from then on the first player
-keeps the device they last played with. Players joining over the LAN join the same session beside them.
+will. Another pad's Start mid-game opens a card on the HUD where it picks its hero, then joins with A (B gives up);
+from then on the first player keeps the device they last played with. A guest's Back (the pad's View or Select)
+opens a card to drop out. A toast names who joined or left, and as which hero. Players joining over the LAN join the
+same session beside them.
 
 ## What it shows of unified
 
@@ -121,7 +129,7 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 - `simulation/headless/`: the same simulation without Godot, for tests, sync-tests, replays and benchmarks.
 - `simulation/tests/`: every test of the sim.
 - `game/`: the Godot side (the project is the repo root, `project.godot`): the app (`game/app/`: the `Game`,
-  `Settings`, `Sfx`, `Prompts` and `LibraryCheck` autoloads, and `Bindings`), the title (`game/menu/`), the
+  `Settings`, `Sfx`, `Prompts` and `LibraryCheck` autoloads, and `Bindings`), the title and hero select (`game/menu/`), the
   interface's theme, screens, settings, overlays and widgets (`game/ui/`), and the play scene with its views, effects
   and HUD. GDScript shows the simulation and never
   changes it; input and commands are the only way in.
