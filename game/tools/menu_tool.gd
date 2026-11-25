@@ -49,9 +49,10 @@ func title_control(unique_name: String) -> Control:
 	return find(title(), "%" + unique_name) as Control
 
 
-## One of the app's overlays (game/app/game.tscn): Connecting, LinkStatus, Dialog, Toasts.
+## One of the app's overlays (game/app/game.tscn): Connecting, LinkStatus, Dialog, Toasts (on its own layer, under the
+## play scene's menus).
 func overlay(overlay_name: String) -> Control:
-	return find(game, "Overlays/" + overlay_name) as Control
+	return find(game, ("Notices/" if overlay_name == "Toasts" else "Overlays/") + overlay_name) as Control
 
 
 ## The app's flow (Game.flow) by its name: MENU, STARTING, PLAYING, QUITTING.

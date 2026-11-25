@@ -18,9 +18,9 @@ extends SessionWalk
 ##     back; the window in the background pauses;
 ##   - a surge's save, leaving from the pause menu (it asks), the title's Continue, New game over a save (it asks), the
 ##     continued game (SessionWalk); a settings file that didn't read is told once; the pause menu online (a LAN host
-##     alone: Pause and Resume for everyone); a join that waits (the Connecting overlay; Esc and Cancel cancel it at
-##     once), a join that fails at once (one dialog, one error sound, the reason as a sentence; pad B and pad A close
-##     it); the run ends through Game.quit_app.
+##     alone: Pause and Resume for everyone, input under it moving nobody); the pause menu over a replay; a join that
+##     waits (the Connecting overlay; Esc and Cancel cancel it at once), a join that fails at once (one dialog, one error
+##     sound, the reason as a sentence; pad B and pad A close it); the run ends through Game.quit_app.
 ## That the app adopts a session its menus didn't start is coop.gd's: both its processes start from uni's flags.
 
 ## A local port nothing listens on: a join to it waits until cancelled.
@@ -38,7 +38,7 @@ func _run() -> void:
 	step("the title")
 	for walk: Callable in [_walk_title_wiring, _walk_pad, _walk_prompt_device, _walk_settings, _walk_new_game,
 			_walk_couch, _walk_players_list, _walk_stuck_key, _walk_focus_pause, _walk_setting, _walk_leave,
-			_walk_new_game_again, _walk_online_pause, _walk_connecting, _walk_failed_join]:
+			_walk_new_game_again, _walk_online_pause, _walk_replay_pause, _walk_connecting, _walk_failed_join]:
 		if failed():
 			return
 		await walk.call()
@@ -297,14 +297,6 @@ func _walk_new_game() -> void:
 	await _walk_link_status()
 
 
-## The action a hero view shows (EnumAction; NONE without a view).
-func _hero_action(view: Node3D) -> int:
-	if view == null:
-		return EnumAction.NONE
-	var data: ViewHero = view.get(&"data")
-	return data.action if data != null else EnumAction.NONE
-
-
 ## The plate a lost link shows over play takes nothing from the player: no focus, the game's input on; Leave game
 ## is reached on purpose, with an up or down press.
 func _walk_link_status() -> void:
@@ -361,12 +353,14 @@ func _walk_leave() -> void:
 
 
 ## A second game continues the first (New game asks first; Continue through hero select on the keyboard); back on the
-## title, a settings file that didn't read is told once.
+## title, a settings file and a save that didn't read are told once each, the save's when the settings' closes.
 func _walk_new_game_again() -> void:
 	await _walk_continue()
 	if failed():
 		return
 	root.get_node(^"Settings").set(&"read_problem", "Expected key, line 1")
+	var saves: RefCounted = game.get(&"saves")
+	saves.set(&"problem", "it is version 9, this game reads version 1")
 	game.call(&"leave")
 	await wait_for_scene("Menu", 5.0)
 	var dialog: Control = overlay("Dialog")
@@ -378,9 +372,14 @@ func _walk_new_game_again() -> void:
 	await shot("06_settings_problem")
 	await press_key(KEY_ESCAPE)
 	var problem: String = setting(&"read_problem")
-	expect(not dialog.visible and problem == "", "told once: the problem is cleared")
+	expect(problem == "", "told once: the problem is cleared")
+	await wait_for(func() -> bool: return dialog.visible, 2.0, "then the save's problem, as the first closes")
+	heading = (find(dialog, ^"%Heading") as Label).text
+	expect(heading == "Your save can't continue", "the second dialog's heading: %s" % heading)
+	await press_key(KEY_ESCAPE)
+	expect(not dialog.visible, "told once too")
 	expect(root.gui_get_focus_owner() == title_focus(), "the title's first control has the focus")
-	step("left again: a settings file that didn't read, told once")
+	step("left again: a settings file and a save that didn't read, each told once")
 
 
 ## A join that waits shows the Connecting overlay over the title, Cancel focused; Esc cancels it, and the overlay goes

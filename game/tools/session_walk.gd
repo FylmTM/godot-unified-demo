@@ -4,8 +4,6 @@ extends PartyWalk
 ## menu alone and with others in one process, its settings and Players list, the pause on the window going to the
 ## background, leaving with its question, the save a surge makes, Continue, and New game over a save.
 
-## A local port for the walk's own host (nobody joins it).
-const HOST_PORT: int = 47_311
 
 
 ## The pause menu alone (single player): Esc opens it, the session's clock stops (the tick stands) and the game's
@@ -35,8 +33,11 @@ func _walk_single_pause() -> void:
 
 
 ## The window going to the background in a single-player game opens the pause menu (it pauses), once the window has
-## had the focus; the setting turned off, it doesn't.
+## had the focus (a tool run's never had: its first loss means nothing); the setting turned off, it doesn't.
 func _walk_focus_pause() -> void:
+	root.propagate_notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
+	await frames(2)
+	expect(_pause_menu() == null, "a window that never had the focus doesn't pause when it loses it")
 	root.propagate_notification(NOTIFICATION_APPLICATION_FOCUS_IN)
 	set_setting(&"pause_in_background", false)
 	root.propagate_notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
@@ -76,6 +77,7 @@ func _walk_players_list() -> void:
 	await frames(3)
 	await shot("16_players")
 	await click(drops[0])
+	expect(find(players, ^"%List").get_child_count() == 1, "one row left at once")
 	await wait_for(func() -> bool: return session.get_local_indices().size() == 1, 3.0, "Drop out lets the guest go")
 	await press_key(KEY_ESCAPE)
 	await press_key(KEY_ESCAPE)
@@ -136,7 +138,7 @@ func _walk_continue() -> void:
 ## overlay, the game runs on; Pause for everyone pauses it for every player, the HUD's banner and the menu naming who;
 ## Resume for everyone, then Resume. Back to the title.
 func _walk_online_pause() -> void:
-	session.host_direct(HOST_PORT)
+	session.host_direct(_free_port())
 	await wait_for(func() -> bool: return flow_name() == "PLAYING" and local_hero() != null, 8.0, "hosting on the LAN")
 	if failed():
 		return
@@ -146,8 +148,14 @@ func _walk_online_pause() -> void:
 	if failed():
 		return
 	var tick: int = session.tick
+	var hero: Node3D = local_hero()
+	var from: Vector3 = hero.global_position
+	await key(KEY_D, true)
+	await key(KEY_SPACE, true)
 	await frames(20)
 	expect(not session.paused and session.tick > tick, "online, the menu is an overlay: the game runs on")
+	expect(hero.global_position.distance_to(from) < STILL, "a key held under it moves nobody")
+	expect(_hero_action(hero) != EnumAction.ATTACK, "and an attack held under it attacks nobody")
 	var pause_all: Button = _pause_control("PauseAll") as Button
 	expect(pause_all.visible and pause_all.text == "Pause for everyone", "Pause for everyone is its own button")
 	await click(pause_all)
@@ -160,12 +168,66 @@ func _walk_online_pause() -> void:
 	await shot("19_paused_for_everyone")
 	await click(pause_all)
 	await wait_for(func() -> bool: return not Unified.data.hud.paused, 2.0, "anyone resumes it for everyone")
+	expect((_pause_control("Resume") as Button).text == "Back to the game", "online and running: Back to the game")
 	await press_key(KEY_ESCAPE)
 	expect(_pause_menu() == null, "Esc closes the overlay")
+	await key(KEY_D, false)
+	await seconds(0.3)
+	expect(_hero_action(hero) != EnumAction.ATTACK, "an attack still held from under the menu acts only once let go")
+	await key(KEY_SPACE, false)
+	await key(KEY_SPACE, true)
+	await wait_for(func() -> bool: return _hero_action(hero) == EnumAction.ATTACK, 2.0, "pressed again, it attacks")
+	await key(KEY_SPACE, false)
 	game.call(&"leave")
 	await wait_for_scene("Menu", 5.0)
 	await frames(3)
 	step("the pause menu online: an overlay, Pause and Resume for everyone, the banner names who")
+
+
+## The pause menu over a replay (the walk's last game, recorded when it ended): Replay paused, Resume and Leave only;
+## Leave goes to the title at once (no question).
+func _walk_replay_pause() -> void:
+	var recordings: PackedStringArray = DirAccess.get_directories_at("user://recordings")
+	expect(recordings.size() > 0, "the walk's games were recorded")
+	if failed():
+		return
+	recordings.sort()
+	session.replay("user://recordings/" + recordings[recordings.size() - 1])
+	await wait_for(func() -> bool: return scene_is("Play") and session.mode == UnifiedSession.MODE_REPLAY, 8.0,
+		"a replay plays")
+	if failed():
+		return
+	await frames(10)
+	await press_key(KEY_ESCAPE)
+	expect(_pause_menu() != null, "Esc opens the pause menu over the replay")
+	if failed():
+		return
+	var heading: String = (_pause_control("Heading") as Label).text
+	expect(heading == "Replay paused", "it says so: %s" % heading)
+	for hidden: String in ["PauseAll", "Players", "Settings", "Quit"]:
+		expect(not _pause_control(hidden).visible, "no %s over a replay" % hidden)
+	await shot("20_replay_paused")
+	await click(_pause_control("Leave"))
+	await wait_for_scene("Menu", 5.0)
+	expect(not overlay("Dialog").visible and flow_name() == "MENU", "Leave goes to the title, no question")
+	step("the pause menu over a replay")
+
+
+## A UDP port nobody uses now, for the walk's own host.
+func _free_port() -> int:
+	var probe := PacketPeerUDP.new()
+	probe.bind(0)
+	var port: int = probe.get_local_port()
+	probe.close()
+	return port
+
+
+## The action a hero view shows (EnumAction; NONE without a view).
+func _hero_action(view: Node3D) -> int:
+	if view == null:
+		return EnumAction.NONE
+	var data: ViewHero = view.get(&"data")
+	return data.action if data != null else EnumAction.NONE
 
 
 ## The play scene's pause menu while it shows (null: closed, or not in play).

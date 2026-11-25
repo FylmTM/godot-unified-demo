@@ -3,9 +3,10 @@ extends UnifiedCoop
 ## (a late join lands by the party, not at the floor's start), as each side sees it; then the host raises skeletons
 ## around itself (a dev command) and swings at them until one is hit, then walks a square, swinging as it goes, while
 ## the joiner keeps moving. Once a surge has risen (it saves the crypt), the host pauses the game for everyone (the
-## co-op pause); the joiner sees who paused (the State's paused_by, the HUD's banner) and resumes it, and the host
-## leaves. The joiner's app then takes it back to the title, says why, and offers to continue the host's last save on
-## its own, which it does. Both sessions start from uni's flags, so this also proves the app adopts a session its
+## co-op pause) from its pause menu, and its Leave asks "End the game for everyone?" (Stay); the joiner sees who paused
+## (the State's paused_by, the HUD's banner, its own menu's heading) and resumes it from its menu, and the host leaves.
+## The joiner's app then takes it back to the title, says why, and offers to continue the host's last save on its own,
+## which it does, through hero select, from the surge it saw. Both sessions start from uni's flags, so this also proves the app adopts a session its
 ## menus didn't start.
 ##
 ## Each side arrives with its own name and its own Profile: the joiner names its player FRIEND_NAME itself (a tool
@@ -34,12 +35,21 @@ const PAUSE_WITHIN_S: float = 40.0
 
 ## The host's hits on skeletons, counted once each is confirmed.
 var _hits: int = 0
+## The most surges this side saw while it played in the host's game (the joiner continues from them).
+var _surges_seen: int = 0
 
 
 func _init() -> void:
 	super()
 	if arg("role") == "join":
 		node_added.connect(_name_friend)
+
+
+func _run() -> void:
+	Unified.data.hud.changed.connect(func() -> void:
+		if session != null and session.mode in [UnifiedSession.MODE_JOIN_DIRECT, UnifiedSession.MODE_JOIN_ONLINE]:
+			_surges_seen = maxi(_surges_seen, Unified.data.hud.surges))
+	await super()
 
 
 func _host_play() -> void:
@@ -70,12 +80,25 @@ func _host_play() -> void:
 	await shot("c04_coop_play")
 	step("played together: %d hits, %d skeletons" % [_hits, Unified.data.hud.minions])
 	await wait_for(func() -> bool: return Unified.data.hud.surges > 0, SURGE_WITHIN_S, "a surge (a save) before leaving")
-	_set_paused(true)
+	if failed():
+		return
+	await press_action(&"pause")
+	expect((_menu_control("Heading") as Label).text == "The game runs on", "with a friend in, the pause menu is an overlay")
+	await click(_menu_control("PauseAll"))
 	await wait_for(func() -> bool: return Unified.data.hud.paused, 3.0, "the host pauses the game for everyone")
-	step("paused for everyone")
-	await shot("c05_paused_by_host")
+	step("paused for everyone, from the pause menu")
+	await click(_menu_control("Leave"))
+	var dialog: Control = find(game, ^"Overlays/Dialog") as Control
+	var question: String = (find(dialog, ^"%Heading") as Label).text
+	expect(dialog.visible and question == "End the game for everyone?", "with a friend in, Leave asks: %s" % question)
+	expect(root.gui_get_focus_owner() == find(dialog, ^"%Other"), "and stays on Stay")
+	await shot("c05_end_for_everyone")
+	await press_action(&"ui_cancel")
+	expect(not dialog.visible, "Stay")
 	await wait_for(func() -> bool: return not Unified.data.hud.paused, RESUME_WITHIN_S, "the friend resumes it")
 	step("the friend resumed it")
+	await press_action(&"ui_cancel")
+	expect(_pause_menu() == null, "the host closes its menu")
 
 
 func _join_play() -> void:
@@ -96,9 +119,18 @@ func _join_play() -> void:
 	expect(Unified.data.hud.paused_by == _friend_player(), "the State names the host as who paused")
 	expect(banner == "Paused by %s" % host, "the banner names who: %s" % banner)
 	step(banner)
-	_set_paused(false)
+	await press_action(&"pause")
+	var heading: String = (_menu_control("Heading") as Label).text
+	var resume_all: Button = _menu_control("PauseAll") as Button
+	expect(heading == "Paused by %s" % host, "the joiner's menu names who: %s" % heading)
+	expect(root.gui_get_focus_owner() == resume_all and resume_all.text == "Resume for everyone",
+		"and has Resume for everyone focused")
+	await shot("c06_joiner_menu")
+	await click(resume_all)
 	await wait_for(func() -> bool: return not Unified.data.hud.paused, 3.0, "the joiner resumes it for everyone")
-	step("resumed it for everyone")
+	await press_action(&"ui_cancel")
+	expect(_pause_menu() == null, "the joiner closes its menu")
+	step("resumed it for everyone, from its pause menu")
 
 
 ## Names the joiner's player as its Settings enters the tree: before the session starts, with that name, from uni's
@@ -125,7 +157,7 @@ func _check_friend(friend: int) -> void:
 	var friend_name: String = session.get_player_name(friend)
 	expect(friend_name == FRIEND_NAME, "the friend has its own name: '%s'" % friend_name)
 	var text: String = "%s joined (%s)" % [friend_name, Heroes.name_of(Heroes.class_of(friend))]
-	var toasts: Node = find(game, ^"Overlays/Toasts")
+	var toasts: Node = find(game, ^"Notices/Toasts")
 	await wait_for(func() -> bool: return toasts.get_children().any(func(toast: Node) -> bool:
 		return (toast.get_node(^"%Text") as Label).text == text), 5.0, "a toast: " + text)
 	step(text)
@@ -140,8 +172,10 @@ func _host() -> void:
 
 
 ## The joiner, once the host left: back on the title, a dialog saying the game ended and why, offering to continue
-## the host's last save alone; Continue on your own starts a single-player game on it (its surges on the HUD).
+## the host's last save alone; Continue on your own keeps it in the slot (what the title's Continue offers) and goes
+## through hero select into a single-player game on it, at the surge the joiner last saw.
 func _host_left() -> void:
+	var seen: int = _surges_seen
 	await wait_for(func() -> bool: return scene_is("Menu"), 5.0, "back on the title")
 	var dialog: Control = find(game, ^"Overlays/Dialog") as Control
 	await wait_for(func() -> bool: return dialog.visible, 5.0, "a dialog says the game ended")
@@ -151,26 +185,54 @@ func _host_left() -> void:
 	expect(heading == "The game ended", "the dialog's heading: %s" % heading)
 	expect(text.begins_with("The host left, or the link to it was lost."), "the dialog's reason: %s" % text)
 	expect(ok.text == "Continue on your own", "it offers to continue on your own: %s" % ok.text)
-	await shot("c06_host_left")
+	await shot("c07_host_left")
 	step("back on the title: %s %s" % [heading, text])
 	if failed():
 		return
 	await click(ok)
+	var saves: RefCounted = game.get(&"saves")
+	var kept: UnifiedSetup = saves.get(&"setup")
+	expect(kept != null and kept.surges == seen, "the host's save is in the slot, at surge %d (saw %d)"
+		% [kept.surges if kept != null else -1, seen])
+	await wait_for(func() -> bool: return _menu_top() != null and _menu_top().name == "HeroSelect", 3.0,
+		"hero select, on the save")
+	if failed():
+		return
+	var hero_select: Control = _menu_top()
+	var card: Control = hero_select.call(&"card", 0)
+	await click(find(card, ^"%Act") as Control)
+	await click(find(hero_select, ^"%Start") as Control)
 	await wait_for(_playing_alone, 10.0, "a game of its own on the host's save")
-	expect(Unified.data.hud.surges > 0, "it continues from the host's last surge (%d)" % Unified.data.hud.surges)
+	expect(Unified.data.hud.surges == seen, "it continues from the host's last surge (%d, saw %d)"
+		% [Unified.data.hud.surges, seen])
 	step("continued on its own: surge %d, %d felled" % [Unified.data.hud.surges, Unified.data.hud.kills])
+
+
+## The play scene's pause menu while it shows (null: closed).
+func _pause_menu() -> Control:
+	if not scene_is("Play"):
+		return null
+	var menu: Control = current_scene.call(&"pause_menu")
+	return menu
+
+
+## The pause screen's control `unique_name` (null, failing the run, when the menu isn't open).
+func _menu_control(unique_name: String) -> Control:
+	var menu: Control = _pause_menu()
+	return find(menu.get_node_or_null(^"Stack/PauseScreen") if menu != null else null, "%" + unique_name) as Control
+
+
+## The menu scene's screen on top (null: not on the menu).
+func _menu_top() -> Control:
+	if not scene_is("Menu"):
+		return null
+	var top: Control = current_scene.get_node(^"UI/Stack").call(&"top")
+	return top
 
 
 ## This side plays a single-player game of its own, its hero in the crypt.
 func _playing_alone() -> bool:
 	return scene_is("Play") and session.mode == UnifiedSession.MODE_SINGLE and _playing()
-
-
-## Pauses (`on`) or resumes the game for everyone (the co-op pause), as this side's player.
-func _set_paused(on: bool) -> void:
-	var command := CommandSetPaused.new()
-	command.paused = on
-	session.send_command(command)
 
 
 ## The joiner's hero is in the crypt.
