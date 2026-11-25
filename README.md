@@ -7,12 +7,12 @@ the rules written in Odin, Godot as the host for rendering, audio, UI and the ed
 dungeon crawler for 1–4 players, and the answer to "what does a real game built on unified look like?".
 
 > [!NOTE]
-> **The first playable.** Up to four heroes, on one couch, over the LAN or online (a host and its joiners, by address
-> or by a lobby's code), fight down Floor 1 of the crypt: skeleton packs asleep in its rooms and surges
-> rising from its graves, against the Knight's quick sword, the Barbarian's wide cleave, the Mage's bursting bolts and
-> the Rogue's crossbow, and the barrels and crates any hero picks up and throws. A hero at 0 HP goes down and, for
-> now, rises beside the party on its own; the whole party down restarts the floor. What the game becomes, and in what
-> order, is [`docs/plan.md`](docs/plan.md).
+> **Floor 1, with the game around it.** Up to four heroes, on one couch, over the LAN or online (from the menus: a host
+> and its joiners, by address or by a lobby's code), fight down Floor 1 of the crypt: skeleton packs asleep in its rooms
+> and surges rising from its graves, against the Knight's quick sword, the Barbarian's wide cleave, the Mage's bursting
+> bolts and the Rogue's crossbow, and the barrels and crates any hero picks up and throws. A hero at 0 HP goes down and,
+> for now, rises beside the party on its own; the whole party down restarts the floor. What the game becomes, and in
+> what order, is [`docs/plan.md`](docs/plan.md).
 
 ## Play it
 
@@ -30,11 +30,9 @@ cd godot-unified-demo
 ./uni help                           # every command
 ```
 
-**From the menus.** The title offers Continue (the saved crypt), New game, Play together, Settings and Quit. New game
-and Continue go through hero select into the crypt, alone or with a couch. To play two windows together on one
-machine, run `./uni run` twice: Play together, Host on this network in one, Join an address (`127.0.0.1`) in the
-other. Esc (or Start) in play opens the pause menu: Resume, Pause for everyone (with others), Invite friends, Players,
-Settings, Leave to title.
+**From the menus.** The title offers Continue (the saved crypt), New game, Play together, Settings and Quit. To play
+two windows together on one machine, run `./uni run` twice: Play together, Host on this network in one, Join an
+address (`127.0.0.1`) in the other.
 
 **Controls.** Move with WASD, the arrow keys or a pad's left stick; aim with the mouse or the right stick (a hero
 that isn't aimed faces where it walks). Attack (the left mouse button, Space, or a pad's right trigger or X) attacks
@@ -60,12 +58,13 @@ opens a card to drop out (A drops out, B stays). A toast names who joined or lef
 most. Players joining over the LAN join the same session beside them.
 
 **Saves and pauses.** The crypt saves itself each time a surge rises (the floor, the surges faced, the skeletons
-felled), in one slot; Continue on the title starts it again from there. Only the host, or a player alone, keeps it:
-a player in someone else's game keeps the host's last save in memory (from the start, when the host continued a
-crypt), and is offered "Continue on your own" if the host leaves: it takes that save as its own (asking first if it
-replaces one) and continues it through hero select. Alone (couch included) the pause menu pauses the game; with
-others the game runs on under it, and "Pause for everyone" pauses it for every player (anyone may resume it), the
-banner naming who paused. Alone, the game also pauses when its window goes to the background (Settings, Gameplay).
+felled), in one slot; Continue on the title starts it again from there. Only the host, or a player alone, keeps it: a
+player in someone else's game keeps the host's last save in memory (from the start, when the host continued a crypt),
+and is offered "Continue on your own" if the host leaves: it takes that save as its own (asking first if it replaces
+one) and continues it through hero select. Alone (couch included) the pause menu pauses the game; online (hosted or
+joined, on the LAN too) the game runs on under it, and "Pause for everyone" pauses it for every player (anyone may
+resume it), the banner naming who paused. Alone, the game also pauses when its window goes to the background
+(Settings, Gameplay).
 
 **Playing together.** Play together on the title hosts a game (online, by a lobby code; or on this network, by this
 machine's address) or joins one (with a code, or an address), each side's couch picking its heroes first; Rejoin

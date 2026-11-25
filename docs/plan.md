@@ -32,13 +32,9 @@ The look is decided and lives in `docs/ART.md`. Still to come: a cutaway of wall
 
 ## What it shows of unified
 
-Every capability a game uses, each where it belongs in the game: rollback and prediction; late join and rejoin;
-EOS lobbies and LAN; opening a single-player game to friends; couch co-op; Box3D characters, bodies, joints,
-sensors, kinematic paths and ragdolls under rollback; shots resolved where the shooter saw the target; levels baked
-from Godot scenes with a navmesh; level changes; events played when predicted and rewards shown when confirmed;
-scene views, pooled views and MultiMesh crowds; the co-op and the single-player pause; Setup, Profile, save and
-continue; dev commands, debug draws, the dev UI, recording and replay with seek, F3 notes; and every way of testing
-(below). Each feature gets a line in the README pointing at the file that does it.
+Still to show, each where it belongs in the game, with a line in the README pointing at the file that does it: Box3D
+sensors, kinematic paths and ragdolls under rollback; rewards shown when confirmed; MultiMesh crowds; debug draws,
+recording and replay with seek, F3 notes; and every way of testing (below). What it shows already is the README's.
 
 ## How it's built
 
@@ -60,7 +56,7 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 | 4 | The crowd at scale (about 500, baked animation), its benchmark rows |
 | 5 | Combat depth: abilities, elites, downed and revive, loot shown only when confirmed |
 | 6 | Physics set pieces: joints, plates, the lift, boons picked at it, traps, ragdolls, the hoard haul |
-| 7 | The run: the hub, three floors with their layouts, the boss, save and continue, difficulty, progress across runs, endless arena |
+| 7 | The run: the hub, three floors with their layouts, the boss, the run's save at each lift, difficulty, progress across runs, endless arena |
 | 8 | Polish: effects, audio, music, lighting, accessibility |
 | 9 | The testing showcase complete, `docs/testing.md` |
 | 10 | macOS in CI, release builds, videos, the final README |
@@ -74,6 +70,8 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 - Rendering a recorded session to video (Godot's movie writer at a fixed frame rate), for the videos. Milestone 10.
 - `uni drive pad` and `uni drive type` with a device (a second pad's own events), so a play-check drives a couch as
   the walk's tool scripts do (`UnifiedTool.pad_button`). Later.
+- A `uni drive` option to boot to the menu (the main scene loaded by the engine, no session flag), so a suite step
+  checks real boot, which today is checked by hand. Later.
 - A friends list and platform invites, behind an account service (EOS's login today is anonymous): the join code is
   the invite until then. Later.
 - LAN discovery (a host's beacon and a list of the games on the network), so a pad player joins without typing an

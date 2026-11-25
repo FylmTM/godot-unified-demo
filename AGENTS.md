@@ -81,8 +81,9 @@ verbs, `./uni drive -h`). A changed level: `./uni bake`.
 ## Docs
 
 One home per fact: README.md (what the game is, how to play, how it works, the view contract), `docs/ART.md` (the
-look and the art pipeline), `docs/plan.md` (what is decided and not built yet). History lives in git. Commit messages
-end with the co-author line.
+look and the art pipeline), `docs/plan.md` (what is decided and not built yet), `docs/review.md` (the calls made
+without asking, one line each, for the developer's end review). History lives in git. Commit messages end with the
+co-author line.
 
 <!-- unified: begin: managed by `./uni refresh`, edit outside it -->
 This game is built on unified, the pinned `unified/` submodule. Before writing code or running tools, read

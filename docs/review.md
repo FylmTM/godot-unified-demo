@@ -60,7 +60,7 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
   it). A hero at 0 HP goes down for a few seconds, then rises beside the party; the whole party down restarts the floor.
 - Every hero carries and throws props (the hoard needs any two); the Barbarian's specialty comes with abilities.
 - Heroes walk through crowds unslowed; minions yield to heroes and props. Minions appear only once verified.
-- Throw: a press throws at a fixed speed (no charge). Classes are auto-assigned before menus exist.
+- Throw: a press throws at a fixed speed (no charge).
 - Minion death is a phase in the sim (so milestone 4's crowd can animate it), not a view linger.
 - Mage bolts draw as a MultiMesh; one clip at a time for heroes (a layered upper body is polish).
 - Shots land where the shooter saw them from milestone 2, not 5.
@@ -73,11 +73,9 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
   with a phase per player (its key) and a margin between stand, walk and run.
 - Bindings: attack is the left mouse button, Space, a pad's right trigger or X; interact is E, the right mouse button
   or a pad's A; pause is Esc or a playing pad's Start.
-- Devices (`game/play/couch.gd`): the first player reads every device until their first game input claims one (a pad,
-  or the keyboard and mouse); an unclaimed pad's Start joins it as another player with class Any; a pad joining while
-  the first player reads every device moves them onto the keyboard and mouse (undone if the session refuses the
-  joiner). The mouse aims for whoever holds the keyboard, never within 0.5 m of the hero, and not while game input is
-  off, nor while the dev UI holds the keyboard (godot.input_blocked, added to unified for it).
+- The mouse aims for whoever holds the keyboard, never within 0.5 m of the hero, and not while game input is off, nor
+  while the dev UI holds the keyboard (godot.input_blocked, added to unified for it). (How devices are claimed and pads
+  join is milestone 3's, below.)
 - A returning hero plays its Profile's class when it wishes for one, and the class it played when its wish is Any.
 - `Input.reach` (in 0.25 m steps; 0: no point) rides in the Input from now, sampled from the mouse's distance or the
   stick's push times 10 m (`PAD_REACH`), scripted, and read by no rule yet: throws and ground-targeted casts will.
@@ -139,9 +137,9 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
   and prop; `hands_target` gates on the hands being free (up, not throwing, not holding).
 - `dev_hurt` with player 0 hurts the sender's own hero (the stateless script downs heroes that way, all four every
   third round, so the scenarios cross a wipe); `dev_kill_minions` deals MINION_HP to each.
-- Views: flashes and the grace blink run on the shown game time; a chaser that isn't moving stands. The HUD counts kills
-  from CONFIRMED `EventMinionDied` (from when the HUD began: a late joiner's count starts at 0); "Skeletons" stays the
-  prediction. `View_Hero.carrying`, `View_Prop.held_by` and `State.kills` are gone.
+- Views: flashes and the grace blink run on the shown game time; a chaser that isn't moving stands. "Skeletons" is the
+  prediction (the felled count is milestone 3's, from the State). `View_Hero.carrying` and `View_Prop.held_by` are
+  gone.
 - The minion grid is laid over the mesh's extent in world_create (at most 1024 cells of 3 m: 96 m by 96 m).
 - Attacks, step 4: Knight 18 damage, 1.8 m, 50° either side, 0.25 s windup, 0.5 s cooldown; Barbarian 30, 2.3 m, 80°,
   0.44 s windup, 1 s cooldown, knock 9; Mage bolt 14 m/s for 1.5 s (21 m), 20 damage plus an 8-damage burst within
@@ -169,9 +167,8 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
   ring and a metre of the host's (`Unified.constants.arrival_ring`, the sim's); the joiner stands 3 s first, so the
   host sees it where it arrived. The host then raises four skeletons (a dev command) and swings until a hit is
   confirmed.
-- The replay regression `replays/lan_pair` is the host's recording of a two-player LAN session driven by two
-  `uni drive` instances, about 90 s: Knight and Barbarian, then Mage and Rogue, three throws, kills, surges and a dev
-  down. A session ended by the app quitting keeps its recording since unified f9ccbaa.
+- The replay regression `replays/lan_pair` is a host's recording of a two-player LAN session (what it holds now is
+  milestone 3's, below). A session ended by the app quitting keeps its recording since unified f9ccbaa.
 - The reference run is pinned at 2400 ticks with its snapshot at 1200: it crosses the script's first wipe and several
   surges.
 - Review fixes, steps 4 and 5 (VERSION "2"): bolts in flight go with a floor restart (`enter_level`). An attack ends in
@@ -201,22 +198,6 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
 
 ## Milestone 3: the app layer
 
-Decided by the developer from the two designs:
-
-- Font: Kenney Fonts (CC0), keeping the CC0-only rule.
-- Friends: the join code is the invite (Copy, Rejoin last game); a friends list and platform invites wait on an
-  account service (plan.md, Needed from unified).
-- Pauses: single player (couch included) pauses from the menu; online the menu is an overlay and "Pause for everyone"
-  its own button; anyone resumes; the State gains `paused_by`.
-- Save: floor, surges faced, skeletons felled, saved at each surge; one slot, written by the host or single player; a
-  joiner keeps it in memory and gets "Continue on your own".
-- Canvas base 1920×1080 with the UI pack's Double art; the window stays 1280×720.
-- Audio settings: Master and Interface now; Music and Effects with their content (milestone 8).
-- Player 0's device: free while alone, fixed only while a couch guest is in.
-- The flow autoload is `Game`, with `quit_app(exit_code)` (UnifiedTool looks it up by that name).
-- Library gaps are built in unified when a step needs them, not worked around.
-- Auto-copy of an online code goes through the clipboard seam in every run: in memory in an isolated one.
-
 The look and sound:
 
 - Faces: Kenney Mini Square for everything, Kenney Future for the game's name on the title.
@@ -229,6 +210,17 @@ The look and sound:
 - The title's Quit is a plain button: the red one is for confirmations (`button_red` is not vendored); toggles are
   On/Off choices (the brown checkboxes are not vendored either). Dim captions are 26 px at 75 %.
 - The tagline "Down into the crypt, one to four heroes." is placeholder copy.
+- A big interface size never runs anything off the view: every centred panel (the pause menu, Play together, the
+  dialogs), the title's column and the HUD's hero plates shrink to fit (`FitToView`, about their middle, left middle
+  and top left). The toasts, the co-op pause's banner and the link plate keep to the lane between the HUD's plates
+  and the counts (`Lane`), the toasts at most two there while it is narrow, never reaching the banner; the join cards
+  hang below the counts and the session panel. A long name is cut before its "+1" (`NameLabel`: the HUD plates, the
+  Players rows, "Paused by", the toasts), so guests stay told apart.
+- The interface is never drawn below 60 % of its canvas (`Settings.UI_SCALE_FLOOR`): a 720p window at 80 % draws it as
+  90 %, so the HUD's smallest text stays readable (the floor, rather than bigger HUD text everywhere).
+- A greyed Start on hero select keeps the screen's focus without wearing the focus frame. A prompt's glyphs sit with
+  their ink's middle on the row's (a pad's shoulder caps sat low). A library detail's path wraps after a separator
+  (a zero-width space after each slash), not mid-name.
 - Portraits are rendered by `./uni tool render_portraits --window` (256 px, square, head and shoulders, idling,
   mipmapped) and committed; the app checks hold each class to a square one. The suite doesn't re-render (it needs a
   renderer).
@@ -258,7 +250,7 @@ The app's frame:
   game", which takes the focus only on an up or down press while nothing has it. The game's input stays on.
 - Connecting is only for starts: it shows after 0.3 s (a quick start or failure never flashes it), and Esc or Cancel
   leaves at once: the flow is on the menu, that start's goodbye is dropped, and a start queued over it goes on.
-- Toasts sit at the top, in the middle, three at most ("Sexton +1 joined (Mage)", "is back", "left"), on their own
+- Toasts sit at the top, in the lane, three at most ("Sexton +1 joined (Mage)", "is back", "left"), on their own
   layer (Game's Notices, 5) under the play scene's menus (10) and the app's overlays (50). The party's own seats
   arriving at the start are no news; the class is the HUD data's, remembered so a leaver's is still known.
 - Settings are JSON (`user://settings.json`), not a ConfigFile (a damaged ConfigFile is an engine error no check
@@ -268,16 +260,11 @@ The app's frame:
   write is printed and the session keeps its copy; a missing file is read from its `.tmp`. Two read problems at boot
   are told one after the other.
 - Pause and the couch's join ignore their keys while the game's input is off.
-- At 130 % interface size every centred panel (the pause menu, Play together, the dialogs) and the title's column
-  shrink to fit the view (`FitToView`), the toasts narrow to the lane between the HUD's plates, the join cards keep
-  below the counts and the session panel, and a guest's long name is cut before its "+1" (`NameLabel`), so the HUD
-  plate and the Players row still tell guests apart.
-- A plate's Briefly hints notice a change of device as Prompts says it (they waited for the next HUD data change,
-  which a still crypt never sent).
-- The walk takes `--size=WxH` and `--ui-scale=` (a look pass); a sized window is put left of every screen, so a window
-  bigger than the leftmost screen covers none of the developer's. Its clicks scroll a row into view first.
+- A node that listens to the session's or Game's signals does it through `Game.listen`, which drops the connection as
+  the node leaves the tree: a menu closing or the app quitting never hears a signal it can't answer (online_check
+  over EOS caught Invite friends hearing join_code_changed at quit).
 - Real boot (the main scene loaded by the engine) was checked by hand under `uni drive`; no suite step can (the walk
-  is a `-s` script, the drive step starts with `--autostart`). A drive option to boot to the menu would be unified's.
+  is a `-s` script, the drive step starts with `--autostart`): plan.md, Needed from unified.
 
 Settings, bindings and prompts:
 
@@ -300,8 +287,8 @@ Settings, bindings and prompts:
   shows its name, as any binding the fonts lack does, in brackets.
 - A prompt glyph sits in a box of its row's height and overflows it (the prompt fonts' lines are twice a glyph).
 - Rebindable: on the keyboard the four moves, attack and grab; on a pad attack and grab (the stick and D-pad move,
-  fixed). Two slots per action per scheme, one scheme per machine. Reserved: Esc, Enter, numpad Enter, F1, F3; a pad's
-  Start, Back, Guide and D-pad. A pad slot takes a button or a trigger past half.
+  fixed; no "Swap sticks"). Two slots per action per scheme, one scheme per machine. Reserved: Esc, Enter, numpad
+  Enter, F1, F3; a pad's Start, Back, Guide and D-pad. A pad slot takes a button or a trigger past half.
 - Bindings' one rule: no action is left without a binding in a scheme. Clearing the last is refused; binding another
   action's only key into an empty slot is refused; into a full slot it swaps. A refusal shakes the slot and the tab
   says why. Reset resets the scheme shown. The Controls tab opens on the scheme of the device used last.
@@ -365,7 +352,8 @@ Saves and pauses:
   ends without it leaving, "Continue on your own" takes that save into its slot (asking when that holds its own) and
   continues it through hero select.
 - The pause menu is made when it opens, with its own stack and prompt bar. It is alone or online by whether the
-  single-player pause took (asked on open), not by the mode. Online and running, its first button reads "Back to the
+  single-player pause took (asked on open), not by the mode: a LAN host with nobody joined yet is online (no
+  single-player pause; Pause for everyone shown). Online and running, its first button reads "Back to the
   game"; Pause for everyone is its own button, reading Resume for everyone (focused) while anyone has paused. Its back
   and pause presses resume only from the keyboard or a pad that plays.
 - Opening the game to friends while paused alone sends the co-op pause at once; when the game is single again while
@@ -374,8 +362,8 @@ Saves and pauses:
   glyphs. Over a replay the menu says "Replay paused" and offers Resume and Leave only.
 - Leaving asks first alone or hosting (what is saved); a host with others ends it for everyone; a joiner leaves at
   once. Quit asks the same.
-- The focus-loss pause opens the pause menu, single player only, once the window has had the focus (a tool run's
-  never has).
+- The focus-loss pause (on by default) opens the pause menu, single player only, once the window has had the focus (a
+  tool run's never has).
 - The Players list: this couch's players by local index first, then the others ("online"); each guest here with Drop
   out, a row without one keeping its room.
 - Moves held under the pause menu reach nobody; when it closes, a held button waits for its release and a held
@@ -422,6 +410,17 @@ Playing together:
   failed-start path is checked through joins and a failed open. The pending code is checked only by online_check.
 
 Checks:
+
+- The walk is the look pass too: `uni tool --window --shots --offline --size WxH ui_walk -- --ui-scale=X` (unified
+  sizes and places the window; the walk sets the interface size, which its 130 % parts go back to). Its clicks scroll
+  a row into view first. It checks, at 130 %: the pause menu inside the view, the title's column refitting, four
+  plates inside the view with each guest's "+1", no toast over a plate, the counts, the panel or the banner, and a
+  host's join card clear of the counts and the panel at a scale of at least 0.8.
+- The walk's failed code join waits 3 s where online play can't start and 30 s where it can (the lobby service looks
+  first); its failing join by address has one shot, 25_join_failed (the walk's last part had one just like it).
+- `uni drive pad` and `uni drive type` with a device moved from milestone 3 to later (plan.md): the walk drives
+  several pads itself (`UnifiedTool.pad_button`), and no play-check of this milestone needed a second pad's events
+  from outside.
 
 - `ArtChecks` takes TTF and Ogg files and counts what the theme uses; `AppChecks` holds the autoload order, the
   theme's variations, a HUD that takes no click or focus, menu buttons that take the focus, every button's sound.

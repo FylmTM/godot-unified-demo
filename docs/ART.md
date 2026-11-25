@@ -177,21 +177,16 @@ does, and it sits in the brown frame wherever a hero is shown (`PortraitFrame`).
 join and drop cards are one card (`game/ui/widgets/seat_card.tscn`), one size whatever it shows: parchment while
 choosing, a green wash and "Ready!" over the portrait once ready, faded while the seat is free; its glyphs are its own
 device's. The HUD's hero plates lead with the HP, a red bar over a dark track with the number on it, every bar one
-length; the player's name and the class sit above it, the device's controls below for a few seconds (or as the setting
-says). Toasts sit at the top, in the middle, three at most, a name and a word or two each, on a layer of their own
-under the menus. The pause menu is the parchment panel in the middle over a dimmed crypt (the toasts dimmed with it),
-its prompt bar in the corner like the title's; the co-op pause's banner hangs below the HUD's top row, names who
-paused (a long name cut short) and how to reach the menu, and hides under the menu. A question (Leave, New game over a
-save) is the dialog with its two answers, the one that does it focused unless it affects others; its own prompt bar
-replaces the menu's while it shows; a dialog that explains (a game that couldn't start, or ended) says it in a
-sentence, the library's own words small under it. Play together and its screens (the crypt a host opens, a code, an
-address) are the same parchment panel over the title, a row that can't be used greyed with why under the rows; a code
-is one portrait-framed cell per character, the cursor's cell wearing the pulsing focus frame while the field has the
-focus. Invite friends is that panel in the pause menu: the code or address large, Copy (its button says "Copied" a
-moment) and Stop inviting. The session panel is a plate under the crypt's counts, growing with what it says: the code
-or address ("Getting a code..." while it comes, "Closed" after Stop inviting; a joiner, what it joined), how many
-play, and a slow link's warning. While a game starts, a modal over the title says what it waits for (after a moment,
-so a quick start shows nothing), with Cancel; a link in trouble in play is a small plate that never takes the input.
+length; the player's name and the class sit above it, the device's controls below. Toasts are small dark plates at the
+top, between the hero plates and the counts, on a layer of their own under the menus. The pause menu is the parchment
+panel in the middle over a dimmed crypt (the toasts dimmed with it), its prompt bar in the corner like the title's;
+the co-op pause's banner hangs below the HUD's top row, between its plates, and hides under the menu. A question or an
+explanation is the dialog: its heading, a sentence, the library's own words small under it, its answers, its own
+prompt bar replacing the menu's. Play together and its screens, and the pause menu's Invite friends, are the same
+parchment panel; a row that can't be used is greyed, the reason under the rows; a code is one portrait-framed cell per
+character, the cursor's cell wearing the pulsing focus frame while the field has the focus. The session panel is a
+dark plate under the crypt's counts that grows with what it says; the Connecting modal is the parchment panel over the
+title; a link in trouble in play is a small dark plate in the lane.
 
 The interface's sounds are Kenney's Interface Sounds, played by `Sfx` (`game/app/sfx.gd`); `Game` gives every button
 of the game its press sound and the focus moving its select sound, so no screen plays one by hand; hero select plays
