@@ -92,8 +92,7 @@ name). Audio has Master and Interface only: Music and Effects come with their so
 
 What a step needs from unified is built there (pushed to unified's `main`, then the submodule bumped in its own
 commit), not worked around: `online_problem` and an end-reason enum (step 5); `uni drive pad` and `uni drive type`
-with a device (a second pad's own events, for play-checks); `uni coop` giving each side its own game arguments (the
-joiner its own `--profile`), driving the game's menus, or `--open` (step 5).
+with a device (a second pad's own events, for play-checks); `uni coop` driving the game's menus, or `--open` (step 5).
 
 ## Needed from unified
 
