@@ -35,6 +35,8 @@ Two at once: `start --name host -- --host-port 7000` and `start --name joiner --
 
 Never disturb the developer: a window an agent opens starts muted on the leftmost screen and never takes focus
 (`drive start`, `tool --window` and `coop --window` always do; `run` takes `--mute --screen left --background`). The
-editor takes focus: open it only when asked. `./uni tool <script> --window --shots` saves PNGs under `.out/shots/`;
+editor takes focus: open it only when asked. `./uni tool <script> --window --shots` saves PNGs under `.out/shots/`
+(`--size WxH` for a look at another window size: one bigger than the leftmost screen moves just left of every screen;
+`--offline` keeps a look pass off EOS where .env sets it up);
 `./uni coop` plays a host and a joiner (`--menus`: each starts through the game's own menus, its coop.gd's
 `_start_host` / `_start_join`). Read the PNGs to check that what you changed looks right.
