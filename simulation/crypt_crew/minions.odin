@@ -151,6 +151,7 @@ damage_minion :: proc(
 	sim.emit(t, hit)
 	if minion.hp > 0 do return
 	minion.phase, minion.since, minion.target = .Dying, t.time, {}
+	t.state.kills += 1
 	died := Event_Minion_Died {
 		minion   = handle,
 		position = sim.Position(minion.pos),

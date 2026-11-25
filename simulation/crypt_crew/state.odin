@@ -8,18 +8,20 @@ import "unified:sim"
 
 // The whole simulation state.
 State :: struct {
-	clock:   sim.Clock, // game time and the co-op pause (pause.odin): the harness advances it unless paused
-	level:   sim.Active_Level(Level_Id), // the floor the party is on (world.odin)
-	players: sim.Players(Hero, Profile, Input, PLAYERS),
-	props:   sim.Table(Prop, MAX_PROPS), // made from the floor's prop markers, in marker order (props.odin)
-	minions: sim.Table(Minion, MAX_MINIONS), // the skeletons, rows with no body (minions.odin)
-	bolts:   sim.Table(Bolt, MAX_BOLTS), // the Mage's bolts in flight (bolts.odin)
-	surge:   sim.Timer, // the next surge rises when it runs out (director.odin)
-	surges:  u32, // the surges risen this session (Event_Surge's count)
-	rises:   u32, // the minions the director raised this session: what each one's rolls are named by
+	clock:       sim.Clock, // game time and the co-op pause (pause.odin): the harness advances it unless paused
+	level:       sim.Active_Level(Level_Id), // the floor the party is on (world.odin)
+	players:     sim.Players(Hero, Profile, Input, PLAYERS),
+	props:       sim.Table(Prop, MAX_PROPS), // made from the floor's prop markers, in marker order (props.odin)
+	minions:     sim.Table(Minion, MAX_MINIONS), // the skeletons, rows with no body (minions.odin)
+	bolts:       sim.Table(Bolt, MAX_BOLTS), // the Mage's bolts in flight (bolts.odin)
+	surge:       sim.Timer, // the next surge rises when it runs out (director.odin)
+	surges:      u32, // the surges the party has faced, a save's included (Event_Surge's count)
+	rises:       u32, // the minions the director raised this session: what each one's rolls are named by
 	// The minions the standard benchmark holds alive (bench_prepare; 0: the director's surges, as in play).
-	held:    u32,
-	_pad:    u32,
+	held:        u32,
+	kills:       u32, // the skeletons the party has felled, a save's included
+	saved_kills: u32, // `kills` when the last surge rose: what the save holds (saves.odin)
+	paused_by:   sim.Player, // who paused the game for everyone (pause.odin; {}: nobody, or it runs)
 }
 
 // What a hero is doing, for the view to pose (a one-shot clip at its age).

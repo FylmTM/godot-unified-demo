@@ -152,7 +152,8 @@ a_dev_command_sets_the_class :: proc(t: ^testing.T) {
 }
 
 // The co-op pause: from the tick after anyone's Command_Set_Paused, no hero moves or turns whatever its input, and game
-// time stands still; a resume lets them walk again. Each change is announced once.
+// time stands still; the State names who paused until anyone resumes, which lets them walk again. Each change is
+// announced once.
 @(test)
 a_co_op_pause_holds_the_heroes :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 2)
@@ -168,6 +169,7 @@ a_co_op_pause_holds_the_heroes :: proc(t: ^testing.T) {
 	headless.run_step(&run, &pause)
 	testing.expect_value(t, headless.run_events(&run, g.Event_Paused), 1)
 	state := &run.simulation.state
+	testing.expect_value(t, state.paused_by, sim.player_in_slot(run.simulation, 1))
 	time := state.clock.time
 	held := [2]g.Hero{sim.slot_data(run.simulation, 0)^, sim.slot_data(run.simulation, 1)^}
 	play(&run, walk)
@@ -176,13 +178,15 @@ a_co_op_pause_holds_the_heroes :: proc(t: ^testing.T) {
 	testing.expect_value(t, sim.slot_data(run.simulation, 1)^, held[1])
 	headless.run_command(&run, walk, 0, g.Command_Set_Paused{false})
 	testing.expect_value(t, headless.run_events(&run, g.Event_Paused), 2) // so far: the pause and the resume
+	testing.expect_value(t, state.paused_by, sim.Player{}) // another player resumed: nobody holds it
 	play(&run, walk)
 	testing.expect(t, sim.slot_data(run.simulation, 0).pos.x > held[0].pos.x + 1, "walks again after the resume")
 	scenarios.expect_synced(t, &run)
 }
 
 // People come and go during the co-op pause: an arrival gets its body and a leaver loses its own on the paused tick,
-// game time stands still, and the newcomer walks once the game resumes.
+// game time stands still, the State still names who paused (what a late joiner's snapshot shows it), and the newcomer
+// walks once the game resumes.
 @(test)
 arrivals_and_leaves_while_paused :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 2)
@@ -197,6 +201,7 @@ arrivals_and_leaves_while_paused :: proc(t: ^testing.T) {
 	testing.expect_value(t, sim.player_data(&run.simulation.state.players, leaver).body, g.Hero{}.body)
 	newcomer := sim.slot_data(run.simulation, 2)
 	testing.expect(t, newcomer.body != g.Hero{}.body, "the newcomer has a body while paused")
+	testing.expect_value(t, run.simulation.state.paused_by, sim.player_in_slot(run.simulation, 0))
 	start := newcomer.pos
 	headless.run_command(&run, 0, g.Command_Set_Paused{false})
 	play(&run, {2 = {move_x = 127}}, 0.5)

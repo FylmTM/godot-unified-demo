@@ -14,10 +14,13 @@ Data :: union {
 
 // What the HUD shows.
 Data_Hud :: struct {
-	minions: u16, // minions alive (the newest prediction, like all of it: the HUD counts kills from CONFIRMED events)
-	paused:  bool, // the co-op pause (the State's Clock)
-	_pad:    u8,
-	heroes:  [g.PLAYERS]Hud_Hero, // by slot
+	minions:   u16, // minions alive (the newest prediction, like all of it)
+	paused:    bool, // the co-op pause (the State's Clock)
+	_pad:      u8,
+	paused_by: sim.Player, // who paused it (its key; 0: nobody)
+	surges:    u32, // the surges the party has faced, a save's included
+	kills:     u32, // the skeletons it has felled, a save's included (a prediction: the HUD never counts it back)
+	heroes:    [g.PLAYERS]Hud_Hero, // by slot
 }
 
 // One slot's hero (DataHudHero).
@@ -33,8 +36,11 @@ Hud_Hero :: struct {
 // The HUD's data from the frame's state.
 fill_hud :: proc(f: ^Frame) {
 	hud := Data_Hud {
-		minions = u16(g.minions_alive(&f.state.minions)),
-		paused  = f.state.clock.paused,
+		minions   = u16(g.minions_alive(&f.state.minions)),
+		paused    = f.state.clock.paused,
+		paused_by = f.state.paused_by,
+		surges    = f.state.surges,
+		kills     = f.state.kills,
 	}
 	heroes := sim.iterate_present(&f.state.players)
 	for hero, player in sim.next(&heroes) {

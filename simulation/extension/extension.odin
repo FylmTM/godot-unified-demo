@@ -25,6 +25,8 @@ Data_Constants :: struct {
 	class_cooldowns: [len(g.Class)]f32, // each class's attack cooldown in seconds: from one attack's start to the next
 	minion_windup:   f32, // a minion's swing's windup in seconds
 	arrival_ring:    f32, // how far from the party an arrival's first ring of spots is (metres; the second, twice)
+	save_version:    u8, // the save this build writes and continues (Setup.version): the app reads a save by it
+	_pad:            [3]u8,
 }
 
 // godot.init calls it once: the numbers from the sim's tuning.
@@ -35,6 +37,7 @@ constants :: proc() -> (constants: Data_Constants) {
 	}
 	constants.minion_windup = g.MINION_WINDUP_S
 	constants.arrival_ring = g.ARRIVAL_RING
+	constants.save_version = g.SAVE_VERSION
 	return
 }
 

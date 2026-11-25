@@ -125,6 +125,7 @@ raise_surges :: proc(t: ^Tick) {
 	count := dmath.min(SURGE_BASE + SURGE_PER_HERO * sim.present_count(t), room)
 	if count <= 0 do return
 	t.state.surges += 1
+	mark_save_point(t)
 	risen := 0
 	for _ in 0 ..< count do risen += int(raise_minion(t, sim.slice(&graves)))
 	sim.emit(t, Event_Surge{count = i32(risen), surge = t.state.surges})

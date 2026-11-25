@@ -7,7 +7,8 @@
 // movement, read back), hands (grab, carry, drop, throw), attacks (the shared machinery) and a file per class
 // (knight, barbarian, mage, rogue), bolts (the Mage's), props (their bodies, hits, impacts and throws' ends), minions
 // (targets, steering, swings, dying), director (sleeping packs, surges, the benchmark's population), health (damage,
-// down, rising, the wipe), pause (the co-op pause), dev (the dev commands) and script (the scripted player).
+// down, rising, the wipe), pause (the co-op pause), saves (the Setup a save is, and the tally it carries), dev (the
+// dev commands) and script (the scripted player).
 package crypt_crew
 
 import "unified:physics"
@@ -18,10 +19,10 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "2"
+VERSION :: "3"
 
-// The game's types for unified:sim: a physics World, a Profile per player, no Setup yet.
-Game :: sim.Game(State, Input, World, Event, Command, sim.No_Setup, Profile, PLAYERS)
+// The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
+Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
 // What every system gets: the state, the world, the inputs and commands, the tick's player changes.
 Tick :: sim.Tick(Game)
 
@@ -40,6 +41,7 @@ GAME := Game {
 	scripted_input    = scripted_input,
 	scripted_commands = scripted_commands,
 	scripted_profile  = scripted_profile,
+	save              = save,
 	bench_prepare     = bench_prepare,
 	benches           = {
 		{what = "floor 1: four heroes against a held surge among the props", entities = MINION_CAP, ticks = 600},
