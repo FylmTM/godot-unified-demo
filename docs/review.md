@@ -347,8 +347,7 @@ Step 2's review fixes, calls made on the way:
 - A covered screen, or one under a modal, takes no input: a screen acts only while the focus is in it.
 - The settings dialog names the folder the bad file is kept in as the player's system names it; `read_problem` holds
   only the parser's words.
-- `UnifiedProfile` is an Object, so a joining pad's Profile leaked; the Couch frees it after the join. A
-  reference-counted Profile is in plan.md's Needed from unified, for step 3.
+- `UnifiedProfile` was an Object, so a joining pad's Profile leaked; unified made it reference-counted (f2c01c7).
 - The walk runs 17 s (was 9): the couch's joins wait for each guest to be in the session, and the stuck-key check
   waits for the hero to settle.
 

@@ -104,8 +104,6 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 
 - `uni release` as a public command (it is unified's own tool today), and able to build a Linux x64 zip on Linux.
   Milestone 10.
-- `UnifiedProfile` reference-counted, like `UnifiedSetup`: a script makes one for every couch join (and hero select
-  will), and as an Object it leaks unless freed by hand (`game/play/couch.gd` frees it). Milestone 3, step 3.
 - Rendering a recorded session to video (Godot's movie writer at a fixed frame rate), for the videos. Milestone 10.
 - A friends list and platform invites, behind an account service (EOS's login today is anonymous): the join code is
   the invite until then. Later.

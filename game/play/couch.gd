@@ -76,11 +76,7 @@ func _join(device: int) -> void:
 	var profile := UnifiedProfile.new()
 	profile.class = EnumClass.ANY  # the first class no hero plays (the sim resolves it on arrival)
 	_fix_first()  # at once: until the session has the guest in, its pad must not move the first player
-	var local: int = _session.add_local_player(device, "Pad %d" % (device + 1), profile)
-	# A UnifiedProfile is an Object, not reference-counted: freed here once the session has read it (docs/plan.md,
-	# Needed from unified: a RefCounted Profile).
-	profile.free()
-	if local < 0:
+	if _session.add_local_player(device, "Pad %d" % (device + 1), profile) < 0:
 		_place_first()
 
 
