@@ -23,6 +23,8 @@ extends RefCounted
 ##   the other players get, a blank one is a game's name again; the picks are always four valid choices; a value
 ##   missing, of the wrong type or out of range falls back or is clamped, a whole number is taken for a fraction; a
 ##   file that doesn't parse is kept as .bad, defaults used, and a fresh file written.
+## - The save slot round-trips a file (Saves): a save kept reads back as itself, with its line; a damaged file and one
+##   another version made are moved aside to save.bad.json, with the reason, and the slot is empty.
 ##
 ## Each problem is reported through the validate run's log capture, named by the file it is in.
 
@@ -62,6 +64,7 @@ func run() -> void:
 	_check_prompts()
 	_check_portraits()
 	_check_settings()
+	_check_saves()
 
 
 func _check_project() -> void:
@@ -372,6 +375,36 @@ func _check_names(settings: Node) -> void:
 	var picks: Array = settings.get(&"hero_picks")
 	_expect(picks == [EnumClass.MAGE, EnumClass.ANY, EnumClass.ANY, EnumClass.ANY],
 		"the picks normalised to four valid choices (%s)" % [picks])
+
+
+func _check_saves() -> void:
+	for path: String in [Saves.PATH, Saves.BAD_PATH]:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	var save := UnifiedSetup.new()
+	save.version = Unified.constants.save_version
+	save.surges = 7
+	save.kills = 312
+	Saves.new(false).keep(save)
+	var read := Saves.new(false)
+	var ok: bool = read.setup != null and read.setup.to_json() == save.to_json() and read.problem == ""
+	_expect_save(ok, "a kept save reads back as itself")
+	_expect_save(read.summary() == "Floor 1 · Surge 7 · 312 felled", "its line: %s" % read.summary())
+	var other: UnifiedSetup = UnifiedSetup.from_json(save.to_json())
+	other.version = save.version + 1
+	for broken: String in ["{\"version\": 1, \"surges\": ", other.to_json()]:
+		var file := FileAccess.open(Saves.PATH, FileAccess.WRITE)
+		file.store_string(broken)
+		file.close()
+		read = Saves.new(false)
+		_expect_save(read.setup == null and read.problem != "", "a save that can't continue is refused (%s)" % broken)
+		_expect_save(FileAccess.file_exists(Saves.BAD_PATH) and not FileAccess.file_exists(Saves.PATH),
+			"and kept aside as %s" % Saves.BAD_PATH.get_file())
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(Saves.BAD_PATH))
+
+
+func _expect_save(cond: bool, what: String) -> void:
+	if not cond:
+		_problem("saves: expected " + what, "res://game/app/saves.gd")
 
 
 ## A Settings that reads and writes SETTINGS_FILE, loaded (it is in the tree).

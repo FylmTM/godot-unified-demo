@@ -25,6 +25,7 @@ mouse_filter = 2
 theme_type_variation = &"Banner"
 
 [node name="Heading" type="Label" parent="Banner"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Heading"
 text = "Choose your heroes"

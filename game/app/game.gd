@@ -22,8 +22,16 @@ extends Node
 ## controls sounds; the focus frame pulses slowly. Buttons are wired as they enter the tree, hooked from _enter_tree,
 ## so a scene that is in the tree before any _ready runs (the main scene, on a real launch) is wired too.
 ##
+## Saves: the session hands over a save at each surge (save_changed). When this machine plays alone or hosts it is kept
+## in the one slot (Saves), which the title's Continue starts from; a joiner keeps the host's newest in memory only (a
+## friend's game never overwrites its own crypt), and when the host is gone it is offered "Continue on your own".
+##
 ## The name and quit_app(exit_code) are a contract: UnifiedTool finds this autoload by its name and ends every tool
 ## run through quit_app, so a run quits the way a player does.
+
+## The window went to the background while a single-player game plays and the player wants it paused then
+## (Settings.pause_in_background): the play scene opens its pause menu.
+signal pause_wanted
 
 enum Flow { MENU, STARTING, PLAYING, QUITTING }
 
@@ -49,6 +57,8 @@ class Ending:
 	var reason: String
 	## The library's own words, when they say more than `reason` (else empty).
 	var detail: String
+	## The host's save, when the game a joiner was in ended: the menu offers to continue it alone (null: none).
+	var save: UnifiedSetup = null
 
 	func _init(ending_heading: String, ending_reason: String, ending_detail: String) -> void:
 		heading = ending_heading
@@ -60,8 +70,15 @@ class Ending:
 var session: UnifiedSession
 var flow: Flow = Flow.MENU
 
+## The one save slot.
+var saves: Saves
+
 ## The party a game started with, until the Couch takes it.
 var _party: Party = null
+## The host's newest save, while this machine plays in someone else's game (null: none yet, or not joined).
+var _host_save: UnifiedSetup = null
+## The window has had the focus (a tool run's, never in front, never has: its focus changes mean nothing).
+var _had_focus: bool = false
 ## Each present player's class (EnumClass) as the HUD's data last said, by key: a leaver's, for its toast.
 var _classes: Dictionary[int, int] = {}
 ## The local indices the Couch seated from the party: their arrival is the game's start, no news (party_seated()).
@@ -113,12 +130,14 @@ func _ready() -> void:
 	_dialog.closed.connect(unblock_input.bind(BLOCK_DIALOG))
 	_fps.visible = Settings.show_fps
 	Settings.changed.connect(_on_setting_changed)
+	saves = Saves.new(Settings.isolated)
 	session = UnifiedSession.new()
 	session.name = &"UnifiedSession"
 	session.view_root = null  # no views until the play scene hands over its root (else they would go under Game)
 	session.status_changed.connect(_on_status_changed)
 	session.sim_event.connect(_on_sim_event)
 	session.local_player_refused.connect(_on_local_player_refused)
+	session.save_changed.connect(_on_save_changed)
 	session.local_name = Settings.player_name
 	Unified.data.hud.changed.connect(_remember_classes)
 	add_child(session)  # last: the command line's session flags start it here, and the flow must already follow
@@ -137,23 +156,33 @@ func _process(delta: float) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		quit_app()
+	match what:
+		NOTIFICATION_WM_CLOSE_REQUEST:
+			quit_app()
+		NOTIFICATION_APPLICATION_FOCUS_IN:
+			_had_focus = true
+		NOTIFICATION_APPLICATION_FOCUS_OUT:
+			var alone: bool = flow == Flow.PLAYING and session.mode == UnifiedSession.MODE_SINGLE
+			if _had_focus and alone and Settings.pause_in_background:
+				pause_wanted.emit()
 
 
-## Starts a new single-player game with `party` (hero select's seats; couch co-op is single player too): each Any among
-## its seats becomes a class nobody picked (Party.resolve_any), the first seat's pick is the session's Profile, and
-## the play scene's Couch brings the other seats in (take_party). Without a party, the first player plays Any (the
-## sim resolves it on arrival). Ignored while a game is starting or playing, or the app quits; a start that fails says
-## why through the session's status.
-func start_single(party: Party = null) -> void:
+## Starts a single-player game with `party` (hero select's seats; couch co-op is single player too) on `setup` (a save
+## to continue; null: a new game): each Any among its seats becomes a class nobody picked (Party.resolve_any), the first
+## seat's pick is the session's Profile, and the play scene's Couch brings the other seats in (take_party). Without a
+## party, the first player plays Any (the sim resolves it on arrival). Ignored while a game is starting or playing, or
+## the app quits; a start that fails says why through the session's status.
+func start_single(party: Party = null, setup: UnifiedSetup = null) -> void:
 	if flow != Flow.MENU:
 		return
 	if party != null:
 		party.resolve_any()
 	_party = party
 	Unified.profile.class = party.seats[0].hero_class if party != null else EnumClass.ANY
-	session.start_single()
+	if setup == null:
+		session.start_single()  # a null argument crashes unified's start_single today (reported): leave it out
+	else:
+		session.start_single(setup)
 
 
 ## The party the game started with, for the Couch to seat (null: none, or already taken).
@@ -213,6 +242,21 @@ func toast(text: String) -> void:
 	_toasts.show_toast(text)
 
 
+## Asks the player `heading` (`text` saying what follows) with two answers, the game's input off meanwhile; `answer`
+## gets true for `confirm_text` (it has the focus), false for `cancel_text`, Esc or a pad's B.
+func ask(heading: String, text: String, confirm_text: String, cancel_text: String, answer: Callable) -> void:
+	block_input(BLOCK_DIALOG)
+	_quiet_focus = true
+	_dialog.ask(heading, text, confirm_text, cancel_text)
+	_quiet_focus = false
+	_dialog.answered.connect(answer, CONNECT_ONE_SHOT)
+
+
+## Whether this machine keeps the saves: it plays alone or hosts (a joiner keeps the host's in memory only).
+func keeps_saves() -> bool:
+	return session.mode not in [UnifiedSession.MODE_JOIN_ONLINE, UnifiedSession.MODE_JOIN_DIRECT]
+
+
 func _on_status_changed(status: UnifiedSession.Status, detail: String) -> void:
 	if flow == Flow.QUITTING:
 		return
@@ -246,7 +290,10 @@ func _on_status_changed(status: UnifiedSession.Status, detail: String) -> void:
 				_end(Ending.new("The game ended", _sentence(detail, "It stopped on an error."), ""))
 		UnifiedSession.STATUS_DISCONNECTED:
 			# The library's words say which of the two it was (until its end reason comes as a value).
-			_end(Ending.new("The game ended", "The host left, or the link to it was lost.", _sentence(detail, "")))
+			var ending := Ending.new("The game ended", "The host left, or the link to it was lost.",
+				_sentence(detail, ""))
+			ending.save = _host_save
+			_end(ending)
 		UnifiedSession.STATUS_LEFT:
 			_go_to_menu()
 
@@ -297,6 +344,7 @@ func _go_to_menu() -> void:
 	_link_status.close()
 	_toasts.clear()
 	_party = null
+	_host_save = null
 	_classes.clear()
 	_party_locals.clear()
 	if get_tree().current_scene == null or get_tree().current_scene.scene_file_path != MENU_SCENE:
@@ -309,19 +357,33 @@ func _go_to_menu() -> void:
 	_preload_play_scene()
 
 
-## The settings file didn't read at boot: the menu says so, once (the walk sets the problem to see it said), naming
-## the folder the file was kept in as the player's system names it.
+## The settings file, or the save, didn't read at boot: the menu says so, once each (the walk sets a problem to see it
+## said), naming the folder the file was kept in as the player's system names it.
 func _tell_settings_problem() -> void:
-	if flow != Flow.MENU or Settings.read_problem == "" or _dialog.visible:
+	if flow != Flow.MENU or _dialog.visible:
 		return
-	var kept: String = ProjectSettings.globalize_path(Settings.path + ".bad")
-	_show_ending(Ending.new("Your settings didn't read", "The defaults are in use; your file is kept as %s in %s."
-		% [kept.get_file(), OS.get_user_data_dir()], _sentence(Settings.read_problem, "")))
-	Settings.read_problem = ""
+	if Settings.read_problem != "":
+		var kept: String = ProjectSettings.globalize_path(Settings.path + ".bad")
+		_show_ending(Ending.new("Your settings didn't read", "The defaults are in use; your file is kept as %s in %s."
+			% [kept.get_file(), OS.get_user_data_dir()], _sentence(Settings.read_problem, "")))
+		Settings.read_problem = ""
+	elif saves.problem != "":
+		_show_ending(Ending.new("Your save can't continue", "Another version of Crypt Crew made it, or it was "
+			+ "damaged; it is kept as %s in %s." % [Saves.BAD_PATH.get_file(), OS.get_user_data_dir()],
+			_sentence(saves.problem, "")))
+		saves.problem = ""
 
 
+## Says why the game ended; a joiner whose host left with a save is offered to continue it alone.
 func _show_ending(ending: Ending) -> void:
 	Sfx.play(&"error")
+	if ending.save != null:
+		var save: UnifiedSetup = ending.save
+		ask(ending.heading, ending.reason + " You can carry on from the last surge on your own.",
+			"Continue on your own", "Back to the title", func(confirmed: bool) -> void:
+				if confirmed:
+					start_single(null, save))
+		return
 	block_input(BLOCK_DIALOG)
 	_quiet_focus = true
 	_dialog.open(ending.heading, ending.reason, ending.detail)
@@ -381,6 +443,14 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 			Sfx.play(&"left")
 			toast("%s left (%s)" % [session.get_player_name(left.player), _hero_of(left.player)])
 			_classes.erase(left.player)
+
+
+## A save from a verified tick: this machine's slot when it plays alone or hosts, else the host's, kept in memory.
+func _on_save_changed(setup: UnifiedSetup) -> void:
+	if keeps_saves():
+		saves.keep(setup)
+	else:
+		_host_save = setup
 
 
 ## A local player the session refused (the game is full, or closed): a toast says why; its place is free again.

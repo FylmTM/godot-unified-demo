@@ -60,6 +60,24 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 40
 
+[node name="Surge" type="VBoxContainer" parent="Crypt/Stats"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="Surges" type="Label" parent="Crypt/Stats/Surge"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+text = "0"
+horizontal_alignment = 1
+
+[node name="Caption" type="Label" parent="Crypt/Stats/Surge"]
+layout_mode = 2
+theme_type_variation = &"Dim"
+text = "Surge"
+horizontal_alignment = 1
+
 [node name="Up" type="VBoxContainer" parent="Crypt/Stats"]
 layout_mode = 2
 mouse_filter = 2
@@ -109,7 +127,8 @@ grow_horizontal = 2
 mouse_filter = 2
 theme_type_variation = &"Banner"
 
-[node name="Text" type="Label" parent="Paused"]
+[node name="PausedText" type="Label" parent="Paused"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Heading"
 text = "Paused"

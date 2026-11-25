@@ -60,15 +60,32 @@ theme_type_variation = &"InkDim"
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[node name="Ok" type="Button" parent="Center/Panel/Rows"]
+[node name="Buttons" type="HBoxContainer" parent="Center/Panel/Rows"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 24
+
+[node name="Ok" type="Button" parent="Center/Panel/Rows/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(280, 0)
 layout_mode = 2
-size_flags_horizontal = 4
-focus_neighbor_left = NodePath(".")
+focus_neighbor_left = NodePath("../Other")
 focus_neighbor_top = NodePath(".")
-focus_neighbor_right = NodePath(".")
+focus_neighbor_right = NodePath("../Other")
 focus_neighbor_bottom = NodePath(".")
-focus_next = NodePath(".")
-focus_previous = NodePath(".")
+focus_next = NodePath("../Other")
+focus_previous = NodePath("../Other")
 text = "OK"
+
+[node name="Other" type="Button" parent="Center/Panel/Rows/Buttons"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+focus_neighbor_left = NodePath("../Ok")
+focus_neighbor_top = NodePath(".")
+focus_neighbor_right = NodePath("../Ok")
+focus_neighbor_bottom = NodePath(".")
+focus_next = NodePath("../Ok")
+focus_previous = NodePath("../Ok")
+text = "Cancel"

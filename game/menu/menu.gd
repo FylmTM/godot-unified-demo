@@ -1,7 +1,8 @@
 class_name Menu
 extends Node
 ## The menu's scene: the backdrop, the menu's screens (a MenuStack with the title at its root) and the prompt bar
-## under them, which shows the hints of the screen on top (as they change: a settings slot listening).
+## under them, which shows the hints of the screen on top (as they change: a settings slot listening). New game and
+## Continue open hero select; its start is the game's, on the save for a Continue.
 
 ## The settings screen (game/ui/settings/settings_screen.tscn), opened over the title.
 @export var settings_scene: PackedScene
@@ -16,28 +17,22 @@ extends Node
 func _ready() -> void:
 	var title := %TitleScreen as TitleScreen
 	title.settings_requested.connect(func() -> void: _stack.push(settings_scene))
-	title.new_game_requested.connect(_open_hero_select)
-	_stack.top_changed.connect(_follow)
-	_follow(_stack.top())
+	title.new_game_requested.connect(_open_hero_select.bind(null))
+	title.continue_requested.connect(func() -> void: _open_hero_select(Game.saves.setup))
+	_stack.top_changed.connect(_prompt_bar.follow)
+	_prompt_bar.follow(_stack.top())
 
 
-## Hero select over the title: its picks step the backdrop's heroes forward, and its start is the game's.
-func _open_hero_select() -> void:
+## Hero select over the title: its picks step the backdrop's heroes forward, and its start is the game's, on `save`
+## (null: a new game).
+func _open_hero_select(save: UnifiedSetup) -> void:
 	var hero_select := _stack.push(hero_select_scene) as HeroSelect
+	if save != null:
+		hero_select.set_heading("Continue your crypt")
 	hero_select.picks_changed.connect(_backdrop.feature)
-	hero_select.start_requested.connect(Game.start_single)
+	hero_select.start_requested.connect(func(party: Party) -> void: Game.start_single(party, save))
 	hero_select.tree_exiting.connect(func() -> void:
 		_backdrop.feature([] as Array[int])
 		_backdrop.pick_view(false))
 	_backdrop.feature(hero_select.picks())
 	_backdrop.pick_view(true)
-
-
-## Shows `screen`'s hints on the prompt bar, and follows them while it is on top.
-func _follow(screen: MenuScreen) -> void:
-	for connection: Dictionary in _prompt_bar.get_incoming_connections():
-		var from: Signal = connection["signal"]
-		if from.get_name() == &"prompts_changed":
-			from.disconnect(_prompt_bar.show_prompts)
-	screen.prompts_changed.connect(_prompt_bar.show_prompts)
-	_prompt_bar.show_prompts(screen.prompts)

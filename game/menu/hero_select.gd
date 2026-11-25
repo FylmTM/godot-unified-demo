@@ -36,6 +36,7 @@ var _sticks := StickSteps.new()
 @onready var _seats: Control = %Seats
 @onready var _start: Button = %Start
 @onready var _back: Button = %Back
+@onready var _heading: Label = %Heading
 
 
 func _ready() -> void:
@@ -90,6 +91,11 @@ func _input(event: InputEvent) -> void:
 		else:
 			Sfx.play(&"left")
 			_stand(seat)
+
+
+## Shows `text` on the banner ("Continue your crypt").
+func set_heading(text: String) -> void:
+	_heading.text = text
 
 
 ## The seat a device sits in (-1: none): the walk asks.
