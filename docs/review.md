@@ -213,7 +213,8 @@ The look and sound:
 - A big interface size never runs anything off the view: every centred panel (the pause menu, Play together, the
   dialogs), the title's column and the HUD's hero plates shrink to fit (`FitToView`, about their middle, left middle
   and top left). The toasts, the co-op pause's banner and the link plate keep to the lane between the HUD's plates
-  and the counts (`Lane`), the toasts at most two there while it is narrow, never reaching the banner; the join cards
+  and the counts (`Lane`), the toasts at most two there while it is narrow, never reaching the banner, the banner's
+  text a size smaller there ("Paused by" on its own line when the name won't fit beside it); the join cards
   hang below the counts and the session panel. A long name is cut before its "+1" (`NameLabel`: the HUD plates, the
   Players rows, "Paused by", the toasts), so guests stay told apart.
 - The interface is never drawn below 60 % of its canvas (`Settings.UI_SCALE_FLOOR`): a 720p window at 80 % draws it as
@@ -415,7 +416,9 @@ Checks:
   sizes and places the window; the walk sets the interface size, which its 130 % parts go back to). Its clicks scroll
   a row into view first. It checks, at 130 %: the pause menu inside the view, the title's column refitting, four
   plates inside the view with each guest's "+1", no toast over a plate, the counts, the panel or the banner, and a
-  host's join card clear of the counts and the panel at a scale of at least 0.8.
+  host's join card clear of the counts and the panel at a scale of at least 0.8. In a window a click parks the cursor
+  outside it after: left where the click was, it hovered the next screen's button into the focus (a flake at 720p,
+  80 %).
 - The walk's failed code join waits 3 s where online play can't start and 30 s where it can (the lobby service looks
   first); its failing join by address has one shot, 25_join_failed (the walk's last part had one just like it).
 - `uni drive pad` and `uni drive type` with a device moved from milestone 3 to later (plan.md): the walk drives
