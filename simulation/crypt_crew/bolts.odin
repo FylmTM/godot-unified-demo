@@ -76,19 +76,12 @@ fly_bolts :: proc(t: ^Tick) {
 }
 
 // `caster`'s bolt bursts at `at`: `victim` (if any) takes the Mage's damage along the bolt's `flight` (unit, on the
-// floor plan), every other live minion within BURST_RADIUS that no wall shields takes BURST_DAMAGE, knocked away from
-// the burst.
+// floor plan), and the burst is a blast (knock_area): every other live minion within BURST_RADIUS that no wall shields
+// takes BURST_DAMAGE, knocked away from the burst at BURST_KNOCK falling off to the rim.
 @(private = "file")
 burst :: proc(t: ^Tick, at: [3]f32, flight: [2]f32, caster: sim.Player, victim: sim.Handle(Minion)) {
 	spec := &CLASS_SPECS[.Mage]
 	if victim != {} do damage_minion(t, victim, spec.damage, flight, spec.knock, caster, .Bolt)
-	walk := minions_within(t, at.xz, BURST_RADIUS)
-	for minion, handle in next_within(&walk) {
-		if handle == victim do continue
-		target := minion.pos + {0, CHEST_HEIGHT, 0}
-		if _, walled := physics.world_cast_ray_closest(t.world.phys, at, target - at, SIGHT_FILTER); walled do continue
-		away := dmath.normalize(minion.pos.xz - at.xz)
-		damage_minion(t, handle, BURST_DAMAGE, away, BURST_KNOCK, caster, .Bolt)
-	}
+	knock_area(t, at, BURST_RADIUS, BURST_DAMAGE, BURST_KNOCK, caster, .Bolt, victim)
 	sim.emit(t, Event_Bolt_Burst{position = sim.Position(at)})
 }

@@ -222,6 +222,10 @@ STEER_TICKS :: u32(STEER_S * TICK_HZ)
 SEPARATION :: f32(0.9) // minions closer than this push apart ...
 SEPARATION_SPEED :: f32(2.5) // ... at up to this speed
 KNOCK_DECAY :: f32(6) // a knockback's velocity decays at this rate per second
+KNOCK_MAX :: f32(10) // a minion's knockback adds up to at most this fast (metres per second): a pile-up of blows
+// A minion knocked faster than this staggers: it neither walks at its target nor starts or lands a swing until its
+// knock decays under it (a Knight's blow, 5 m/s, about 0.2 s; a Barbarian's, 9, 0.3 s).
+KNOCK_STAGGER :: f32(1.5)
 // The minion grid's cells (metres): the separation's reach, which its 3 by 3 cells must cover, and no more, so a dense
 // crowd's neighbour query scans 9 m²; a longer reach (a blow, a burst, a bolt, a thrown prop) walks a box of cells
 // (minions_within). world_create lays it over each floor's mesh.

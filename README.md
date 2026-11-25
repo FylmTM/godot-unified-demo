@@ -162,12 +162,13 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    taking no damage; the benchmark rows and the scale tests play it.
 6. **Minions.** Each picks the nearest hero up by path (every RETARGET_S), steers along that hero's field (every
    tick within STEER_NEAR of it or in its chase's first ticks, else every STEER_S, walking its facing between), keeps
-   SEPARATION from its neighbours (where they stood when the moves began) and carries its knockback (KNOCK_DECAY).
+   SEPARATION from its neighbours (where they stood when the moves began) and carries its knockback (KNOCK_DECAY, at
+   most KNOCK_MAX); knocked faster than KNOCK_STAGGER it staggers, walking at nothing and swinging at nothing.
 7. **Physics.** Box3D steps; the heroes' feet and velocities are read back into the state.
 8. **Strikes.** A blow lands at its windup on the minions in its reach and arc, or touching the hero (`CLASS_SPECS`,
    STRIKE_TOUCH), and shoves the props there. Bolts fly at BOLT_SPEED for BOLT_LIFE_S and burst at the first thing
-   they meet (BURST_RADIUS, BURST_DAMAGE). The crossbow hits the first thing within CROSSBOW_RANGE on the picture its
-   shooter saw (at most MAX_REWIND_S back). Walls shield what is behind them from blows, bursts and shots; bolts and
+   they meet (BURST_RADIUS, BURST_DAMAGE; a blast, its knock falling off to the rim: `knock_area`). The crossbow hits
+   the first thing within CROSSBOW_RANGE on the picture its shooter saw (at most MAX_REWIND_S back). Walls shield what is behind them from blows, bursts and shots; bolts and
    shots fly at FLIGHT_HEIGHT, over low cover and resting light props, and meet walls, heavy crates and props held or
    in flight. A thrown prop faster than PROP_HIT_SPEED hurts each minion it meets once (PROP_HIT_DAMAGE, at most
    PROP_HITS_MAX, keeping PROP_HIT_KEEP of its velocity) for the whole of its throw (THROWN_S).

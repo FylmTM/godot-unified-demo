@@ -559,3 +559,11 @@ Calls made in step 3 (the crowd's rules):
   point fire when the quota is set.
 - replays/lan_pair recorded again for the State's layout (ticks 2 to 2856): the ring round the host is 32 now (16 let
   the thrown prop miss it on one recording).
+- Knockback: every knock goes through damage_minion, which clamps the sum at KNOCK_MAX (10 m/s). The one radial knock
+  is `knock_area(t, at, radius, damage, knock, player, source, skip)`: the walk of minions_within, walls shielding (a
+  ray to the chest), damage flat, the knock falling off linearly to the rim; the Mage's burst calls it now (its knock
+  at the edge of its 1.5 m now fades to nothing, where it was a flat 4 m/s), fireballs and charges will. The
+  Barbarian's cleave stays an arc blow (its knock away from the hero is already radial; it shares the clamp).
+- Stagger is the knock itself, no timer: faster than KNOCK_STAGGER (1.5 m/s) a minion walks at nothing and starts or
+  lands no swing (a Knight's 5 m/s reels it 13 ticks, a Barbarian's 9 about 19); its separation and the knock still
+  move it.

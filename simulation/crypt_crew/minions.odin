@@ -141,7 +141,7 @@ minions_alive :: proc(minions: ^sim.Table(Minion, MAX_MINIONS)) -> int {
 }
 
 // `minion` takes `damage` (> 0) from `player` ({}: nobody) by `source`, knocked along `knock_dir` (unit, x and z) at
-// `knock` metres per second; asleep, it wakes, and its pack with it; at 0 it dies (Dying). A dying minion takes
+// `knock` metres per second (added to its knockback, at most KNOCK_MAX); asleep, it wakes, and its pack with it; at 0 it dies (Dying). A dying minion takes
 // nothing. The only way a minion takes damage or dies.
 damage_minion :: proc(
 	t: ^Tick,
@@ -157,7 +157,7 @@ damage_minion :: proc(
 	if minion.phase == .Idle do wake(t, minion)
 	minion.hp -= damage
 	minion.struck = t.time
-	minion.knock += knock_dir * knock
+	minion.knock = dmath.clamp_length(minion.knock + knock_dir * knock, KNOCK_MAX)
 	hit := Event_Minion_Hit {
 		minion   = handle,
 		position = sim.Position(minion.pos),
@@ -256,7 +256,7 @@ age_minions :: proc(t: ^Tick) {
 			if age == MINION_WINDUP_TICKS do strike(t, minion)
 			if age >= MINION_ATTACK_TICKS do minion.phase, minion.since = .Chase, t.time
 		case .Chase:
-			if !in_reach(t, minion) do continue
+			if staggered(minion) || !in_reach(t, minion) do continue
 			minion.phase, minion.since = .Attack, t.time // its facing locks on the target: a swing has a direction
 			if to_hero := dmath.normalize(sim.player_data(t, minion.target).pos.xz - minion.pos.xz); to_hero != {} {
 				minion.facing = to_hero
@@ -357,8 +357,9 @@ move_minion :: proc(
 ) {
 	from := minion.pos
 	velocity := minion.knock
+	reeling := staggered(minion) // before the decay: the knock that moves it this tick
 	minion.knock *= decay
-	if minion.phase == .Chase && minion.target != {} {
+	if minion.phase == .Chase && minion.target != {} && !reeling {
 		// Steered every tick within STEER_NEAR of its target (the last turns are quick), in its chase's first
 		// STEER_TICKS (it woke, rose, ended a swing or took a new target: its facing says nothing of the way yet), and
 		// while the target is off the floor (no field: it stands); otherwise every STEER_TICKS (sliced by its index),
@@ -420,6 +421,37 @@ separation :: proc(t: ^Tick, minion: ^Minion, handle: sim.Handle(Minion)) -> [2]
 	return dmath.clamp_length(push * SEPARATION_SPEED, SEPARATION_SPEED)
 }
 
+// Whether a minion reels from a knock (faster than KNOCK_STAGGER): it walks at nothing and its swings miss.
+staggered :: proc(minion: ^Minion) -> bool {
+	return dmath.length_sq(minion.knock) > KNOCK_STAGGER * KNOCK_STAGGER
+}
+
+// `source`'s blast at `at` (a burst, later a fireball, a charge): every live minion within `radius` on the floor plan
+// that no wall shields (a ray from `at` to its chest) other than `skip` takes `damage` and is knocked away from `at`,
+// at `knock` at the centre falling off to nothing at the rim (dot products and one sqrt a minion, no trig), in the
+// strikes' order (minions_within). Through damage_minion, so a pile of blasts knocks no faster than KNOCK_MAX.
+knock_area :: proc(
+	t: ^Tick,
+	at: [3]f32,
+	radius: f32,
+	damage: i16,
+	knock: f32,
+	player: sim.Player,
+	source: Hit_Source,
+	skip: sim.Handle(Minion) = {},
+) {
+	walk := minions_within(t, at.xz, radius)
+	for minion, handle in next_within(&walk) {
+		if handle == skip do continue
+		target := minion.pos + {0, CHEST_HEIGHT, 0}
+		if _, walled := physics.world_cast_ray_closest(t.world.phys, at, target - at, SIGHT_FILTER); walled do continue
+		offset := minion.pos.xz - at.xz
+		distance := dmath.length(offset)
+		away := offset / distance if distance > 0 else [2]f32{1, 0}
+		damage_minion(t, handle, damage, away, knock * (1 - distance / radius), player, source)
+	}
+}
+
 // Whether a minion's target is close enough to swing at: its capsule within MINION_REACH of the minion's circle.
 @(private = "file")
 in_reach :: proc(t: ^Tick, minion: ^Minion) -> bool {
@@ -432,7 +464,7 @@ in_reach :: proc(t: ^Tick, minion: ^Minion) -> bool {
 // (no wall between them).
 @(private = "file")
 strike :: proc(t: ^Tick, minion: ^Minion) {
-	if !hero_up(t, minion.target) || !in_reach(t, minion) do return
+	if staggered(minion) || !hero_up(t, minion.target) || !in_reach(t, minion) do return
 	hero := sim.player_data(t, minion.target)
 	to_hero := dmath.normalize(hero.pos.xz - minion.pos.xz)
 	if to_hero != {} && dmath.dot(to_hero, minion.facing) < MINION_STRIKE_COS do return

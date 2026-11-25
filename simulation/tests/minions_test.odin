@@ -385,3 +385,83 @@ expect_facing_hero :: proc(
 		loc = loc,
 	)
 }
+
+// Knocks add up to at most KNOCK_MAX: a minion already flying at the wall 9 m/s takes a cleave's 9 more and flies at
+// KNOCK_MAX, slides along the wall and stays on the floor (nav.move).
+@(test)
+a_knock_is_clamped_and_stays_on_the_floor :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 1)
+	defer headless.run_end(&run)
+	headless.run_command(&run, 0, g.Command_Dev_Set_Class{.Barbarian})
+	clear_minions(&run)
+	spawn := spawn_of(&run, 0)
+	place_hero(&run, 0, spawn, {-1, 0}) // facing the room's west wall, 4.5 m off
+	minion := sim.get(&run.simulation.state.minions, place_minion(&run, spawn + {-1.5, 0, 0}, .Rise))
+	attack := [g.PLAYERS]g.Input {
+		0 = {buttons = {.Attack}},
+	}
+	for i in 0 ..= g.CLASS_SPECS[.Barbarian].windup {
+		if i == g.CLASS_SPECS[.Barbarian].windup {
+			minion.knock = {-9, 0} // flying at the wall as the blow lands
+			headless.run_pin(&run)
+		}
+		headless.run_step(&run, attack)
+	}
+	testing.expect(t, minion.hp < g.MINION_HP, "the cleave landed")
+	testing.expectf(
+		t,
+		abs(dmath.length(minion.knock) - g.KNOCK_MAX) < 0.01,
+		"knocked at %v m/s",
+		dmath.length(minion.knock),
+	)
+	play_on_the_mesh(t, &run, {}, 1)
+	scenarios.expect_synced(t, &run)
+}
+
+// A knocked chaser staggers while its knock is faster than KNOCK_STAGGER: it walks at nothing, only flying with the
+// knock (decaying at KNOCK_DECAY, tick by tick, in the state), as many ticks as the decay takes; then it chases again.
+// One in reach starts no swing while it reels.
+@(test)
+a_knocked_minion_staggers :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 1)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	spawn := spawn_of(&run, 0)
+	minion := sim.get(&run.simulation.state.minions, place_minion(&run, spawn + {3, 0, 0}, .Chase, {-1, 0}))
+	play(&run, {}, 0.25) // chasing
+	testing.expectf(t, minion.phase == .Chase, "it chases (%v), %v m off", minion.phase, minion.pos.x - spawn.x)
+	minion.knock = {5, 0} // a Knight's blow, away from the hero
+	headless.run_pin(&run)
+	decay := dmath.exp_decay(g.KNOCK_DECAY, 1.0 / g.TICK_HZ)
+	want := 0 // the ticks a 5 m/s knock stays above KNOCK_STAGGER, as the sim decays it
+	for k := f32(5); k > g.KNOCK_STAGGER; k *= decay do want += 1
+	reeled := 0
+	for minion.knock.x > g.KNOCK_STAGGER {
+		from := minion.pos
+		knock := minion.knock.x
+		headless.run_step(&run)
+		reeled += 1
+		testing.expectf(
+			t,
+			abs(minion.pos.x - from.x - knock / g.TICK_HZ) < 1e-4,
+			"it walked while reeling, tick %d",
+			reeled,
+		)
+	}
+	testing.expect_value(t, reeled, want)
+	from := minion.pos.x
+	headless.run_step(&run)
+	headless.run_step(&run)
+	testing.expectf(t, minion.pos.x < from, "it chases again: %v from %v", minion.pos.x, from)
+
+	in_reach := sim.get(&run.simulation.state.minions, place_minion(&run, spawn + {0, 0, 1.4}, .Chase, {0, -1}))
+	in_reach.knock = {2.5, 0} // across, so it stays in reach
+	headless.run_pin(&run)
+	for g.staggered(in_reach) {
+		headless.run_step(&run)
+		testing.expect(t, in_reach.phase == .Chase || !g.staggered(in_reach), "it swung while reeling")
+	}
+	for _ in 0 ..< 4 do headless.run_step(&run)
+	testing.expect_value(t, in_reach.phase, g.Minion_Phase.Attack)
+	scenarios.expect_synced(t, &run)
+}

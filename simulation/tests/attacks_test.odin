@@ -273,8 +273,8 @@ the_crossbow_never_pierces :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// A bolt's burst hurts each other minion within BURST_RADIUS for BURST_DAMAGE and knocks it away from the burst; one
-// farther is untouched.
+// A bolt's burst hurts each other minion within BURST_RADIUS for BURST_DAMAGE and knocks it away from the burst, at
+// BURST_KNOCK falling off to the rim (knock_area); one farther is untouched.
 @(test)
 a_burst_hurts_and_knocks_its_neighbours :: proc(t: ^testing.T) {
 	run := hero_of(.Mage)
@@ -292,8 +292,10 @@ a_burst_hurts_and_knocks_its_neighbours :: proc(t: ^testing.T) {
 	testing.expect_value(t, sim.get(minions, struck).hp, g.MINION_HP - g.CLASS_SPECS[.Mage].damage)
 	neighbour := sim.get(minions, beside)
 	testing.expect_value(t, neighbour.hp, g.MINION_HP - g.BURST_DAMAGE)
-	away := dmath.normalize(neighbour.pos.xz - burst.position.xz)
-	knocked := dmath.length(neighbour.knock - away * g.BURST_KNOCK) < 0.05
+	offset := neighbour.pos.xz - burst.position.xz
+	falloff := 1 - dmath.length(offset) / g.BURST_RADIUS
+	away := dmath.normalize(offset)
+	knocked := dmath.length(neighbour.knock - away * g.BURST_KNOCK * falloff) < 0.05
 	testing.expectf(t, knocked, "knocked %v, not away %v", neighbour.knock, away)
 	testing.expect_value(t, sim.get(minions, apart).hp, g.MINION_HP)
 	scenarios.expect_synced(t, &run)
