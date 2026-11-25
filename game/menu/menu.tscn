@@ -7,11 +7,19 @@
 [ext_resource type="PackedScene" path="res://game/ui/widgets/prompt_bar.tscn" id="prompt_bar"]
 [ext_resource type="PackedScene" path="res://game/ui/settings/settings_screen.tscn" id="settings"]
 [ext_resource type="PackedScene" path="res://game/menu/hero_select.tscn" id="hero_select"]
+[ext_resource type="PackedScene" path="res://game/menu/play_together.tscn" id="play_together"]
+[ext_resource type="PackedScene" path="res://game/menu/host_crypt.tscn" id="host_crypt"]
+[ext_resource type="PackedScene" path="res://game/menu/join_address.tscn" id="join_address"]
+[ext_resource type="PackedScene" path="res://game/menu/join_code.tscn" id="join_code"]
 
 [node name="Menu" type="Node"]
 script = ExtResource("menu")
 settings_scene = ExtResource("settings")
 hero_select_scene = ExtResource("hero_select")
+play_together_scene = ExtResource("play_together")
+host_crypt_scene = ExtResource("host_crypt")
+join_code_scene = ExtResource("join_code")
+join_address_scene = ExtResource("join_address")
 
 [node name="Backdrop" parent="." instance=ExtResource("backdrop")]
 unique_name_in_owner = true

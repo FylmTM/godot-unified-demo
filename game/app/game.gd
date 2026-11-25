@@ -36,6 +36,9 @@ extends Node
 signal pause_wanted
 ## The slot's save is to be continued (a joiner chose to continue its host's alone): the menu opens hero select on it.
 signal continue_wanted
+## A start the menus asked for (a host, a join) failed before it played: the menu goes back to where it was asked, the
+## dialog over it saying why.
+signal start_failed
 
 enum Flow { MENU, STARTING, PLAYING, QUITTING }
 
@@ -43,6 +46,8 @@ const MENU_SCENE: String = "res://game/menu/menu.tscn"
 const PLAY_SCENE: String = "res://game/play/play.tscn"
 ## The game's own scenes: a button from one of these is wired; the library's dev UI (built in code) is not.
 const GAME_SCENES: String = "res://game/"
+## The UDP port a LAN game is hosted on, and joined on when an address names none (lan_port can change it).
+const LAN_PORT: int = 7777
 ## A button's sound when it means more than a press (one of Sfx's names): its `sfx` metadata.
 const META_SOUND: StringName = &"sfx"
 ## The focus frame's pulse: a full breath, in seconds, and its faintest, as a share of the frame's full strength.
@@ -76,6 +81,9 @@ var flow: Flow = Flow.MENU
 
 ## The one save slot.
 var saves: Saves
+## The port this machine hosts a LAN game on: LAN_PORT, unless a check sets another (uni coop --menus hands each run a
+## free one; the walk picks one).
+var lan_port: int = LAN_PORT
 
 ## The party a game started with, until the Couch takes it.
 var _party: Party = null
@@ -144,6 +152,8 @@ func _ready() -> void:
 	session.sim_event.connect(_on_sim_event)
 	session.local_player_refused.connect(_on_local_player_refused)
 	session.save_changed.connect(_on_save_changed)
+	session.mode_changed.connect(_on_mode_changed)
+	session.join_code_changed.connect(_on_join_code_changed)
 	session.local_name = Settings.player_name
 	Unified.data.hud.changed.connect(_remember_classes)
 	add_child(session)  # last: the command line's session flags start it here, and the flow must already follow
@@ -181,13 +191,61 @@ func _notification(what: int) -> void:
 ## party, the first player plays Any (the sim resolves it on arrival). Ignored while a game is starting or playing, or
 ## the app quits; a start that fails says why through the session's status.
 func start_single(party: Party = null, setup: UnifiedSetup = null) -> void:
-	if flow != Flow.MENU:
+	if _take_party(party):
+		session.start_single(setup)
+
+
+## Hosts a game for friends with `party` on `setup` (a save to continue; null: a new crypt): online (a lobby code, when
+## UnifiedSession.online_problem is "") or on the LAN (this machine's address and lan_port). As start_single otherwise.
+func start_host(party: Party, setup: UnifiedSetup, online: bool) -> void:
+	if not _take_party(party):
 		return
+	if online:
+		session.host_online(setup)
+	else:
+		session.host_direct(lan_port, setup)
+
+
+## Joins the game at `target` with `party`: a lobby code, or an address (`host:port`; LAN_PORT when it names none).
+## It is remembered for Rejoin last game (Settings.last_join). As start_single otherwise.
+func start_join(party: Party, target: String) -> void:
+	if not _take_party(party):
+		return
+	Settings.last_join = target
+	if is_address(target):
+		session.join_direct(target if target.contains(":") else "%s:%d" % [target, LAN_PORT])
+	else:
+		session.join_online(target)
+
+
+## Whether `target` is an address (`host:port`, or a host alone) rather than a lobby code (letters and digits only).
+func is_address(target: String) -> bool:
+	return target.contains(".") or target.contains(":")
+
+## Whether this machine has a clipboard to copy a code to or paste one from (a headless run has none).
+func has_clipboard() -> bool:
+	return DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD)
+
+
+## `detail` (the library's words) as a sentence: a capital first, a full stop last; `otherwise` when it is empty.
+func sentence(detail: String, otherwise: String) -> String:
+	var text: String = detail.strip_edges()
+	if text == "":
+		return otherwise
+	text = text[0].to_upper() + text.substr(1)
+	return text if text.ends_with(".") or text.ends_with("!") or text.ends_with("?") else text + "."
+
+
+## The party a start takes (each Any becomes a class nobody picked; the first seat's pick is the session's Profile);
+## false when a game is starting or playing, or the app quits, so nothing starts.
+func _take_party(party: Party) -> bool:
+	if flow != Flow.MENU:
+		return false
 	if party != null:
 		party.resolve_any()
 	_party = party
 	Unified.profile.class = party.seats[0].hero_class if party != null else EnumClass.ANY
-	session.start_single(setup)
+	return true
 
 
 ## The party the game started with, for the Couch to seat (null: none, or already taken).
@@ -292,13 +350,14 @@ func _on_status_changed(status: UnifiedSession.Status, detail: String) -> void:
 				_link_status.show_recovering()
 		UnifiedSession.STATUS_FAILED:
 			if flow != Flow.PLAYING:  # a start that failed (at once, the flow never left the menu)
-				_end(Ending.new(_failed_heading(), _sentence(detail, "The game could not start."), ""))
+				_end(Ending.new(_failed_heading(), sentence(detail, "The game could not start."), ""))
+				start_failed.emit()
 			else:
-				_end(Ending.new("The game ended", _sentence(detail, "It stopped on an error."), ""))
+				_end(Ending.new("The game ended", sentence(detail, "It stopped on an error."), ""))
 		UnifiedSession.STATUS_DISCONNECTED:
 			# The library's words say which of the two it was (until its end reason comes as a value).
 			var ending := Ending.new("The game ended", "The host left, or the link to it was lost.",
-				_sentence(detail, ""))
+				sentence(detail, ""))
 			ending.save = _host_save
 			_end(ending)
 		UnifiedSession.STATUS_LEFT:
@@ -310,10 +369,14 @@ func _on_status_changed(status: UnifiedSession.Status, detail: String) -> void:
 func _start() -> void:
 	flow = Flow.STARTING
 	match session.mode:
-		UnifiedSession.MODE_HOST_ONLINE, UnifiedSession.MODE_HOST_DIRECT:
-			_show_connecting("Opening the crypt", "Setting up a game for friends to join.")
-		UnifiedSession.MODE_JOIN_ONLINE, UnifiedSession.MODE_JOIN_DIRECT:
-			_show_connecting("Joining", "Finding the game and its host.")
+		UnifiedSession.MODE_HOST_ONLINE:
+			_show_connecting("Opening the crypt", "Setting up a lobby for friends to join.")
+		UnifiedSession.MODE_HOST_DIRECT:
+			_show_connecting("Opening the crypt", "Opening the game to this network, on port %d." % lan_port)
+		UnifiedSession.MODE_JOIN_ONLINE:
+			_show_connecting("Joining %s" % Settings.last_join, "Finding the game and its host.")
+		UnifiedSession.MODE_JOIN_DIRECT:
+			_show_connecting("Joining", "Connecting to %s." % Settings.last_join)
 
 
 ## The heading of a start that failed, by what it tried.
@@ -374,12 +437,12 @@ func _tell_read_problems() -> void:
 	if Settings.read_problem != "":
 		var kept: String = ProjectSettings.globalize_path(Settings.path + ".bad")
 		_show_ending(Ending.new("Your settings didn't read", "The defaults are in use; your file is kept as %s in %s."
-			% [kept.get_file(), OS.get_user_data_dir()], _sentence(Settings.read_problem, "")), told)
+			% [kept.get_file(), OS.get_user_data_dir()], sentence(Settings.read_problem, "")), told)
 		Settings.read_problem = ""
 	elif saves.problem != "":
 		_show_ending(Ending.new("Your save can't continue", "Another version of Crypt Crew made it, or it was "
 			+ "damaged; it is kept as %s in %s." % [saves.bad_path.get_file(), OS.get_user_data_dir()],
-			_sentence(saves.problem, "")))
+			sentence(saves.problem, "")))
 		saves.problem = ""
 
 
@@ -480,6 +543,20 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 			_classes.erase(left.player)
 
 
+## A game opened to friends that falls back to single player (its lobby died, or an opening failed): a toast says why.
+func _on_mode_changed(mode: UnifiedSession.Mode, detail: String) -> void:
+	if mode == UnifiedSession.MODE_SINGLE and detail != "" and flow == Flow.PLAYING:
+		toast("Friends can't join: %s" % sentence(detail, ""))
+
+
+## A lobby's code, once it comes, goes to the clipboard (a toast says so), ready to send to friends (where there is a
+## clipboard).
+func _on_join_code_changed(code: String) -> void:
+	if code != "" and session.mode == UnifiedSession.MODE_HOST_ONLINE and has_clipboard():
+		DisplayServer.clipboard_set(code)
+		toast("Code %s copied" % code)
+
+
 ## A save from a verified tick: this machine's slot when it plays alone or hosts, else the host's, kept in memory.
 func _on_save_changed(setup: UnifiedSetup) -> void:
 	if keeps_saves():
@@ -553,12 +630,3 @@ func _remember_classes() -> void:
 	for hero: DataHudHero in Unified.data.hud.heroes:
 		if hero.player != 0:
 			_classes[hero.player] = hero.class
-
-
-## `detail` (the library's words) as a sentence: a capital first, a full stop last; `otherwise` when it is empty.
-static func _sentence(detail: String, otherwise: String) -> String:
-	var text: String = detail.strip_edges()
-	if text == "":
-		return otherwise
-	text = text[0].to_upper() + text.substr(1)
-	return text if text.ends_with(".") or text.ends_with("!") or text.ends_with("?") else text + "."

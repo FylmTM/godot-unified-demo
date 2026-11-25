@@ -151,6 +151,13 @@ const SAVE_DELAY_S: float = 0.3
 		hero_picks = picks
 		_changed(&"hero_picks")
 
+@export_category("play_together")
+## What this machine last joined (a lobby code or an address): Play together's Rejoin last game joins it again.
+@export var last_join: String = "":
+	set(value):
+		last_join = value.strip_edges()
+		_changed(&"last_join")
+
 @export_category("gameplay")
 ## How hard the camera shakes when a local hero is hurt, 0 (never) to 1 (full).
 @export_range(0.0, 1.0, 0.05) var screen_shake: float = 1.0:
