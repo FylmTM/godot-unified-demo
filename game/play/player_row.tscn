@@ -1,0 +1,27 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/play/player_row.gd" id="player_row"]
+
+[node name="PlayerRow" type="HBoxContainer"]
+custom_minimum_size = Vector2(0, 64)
+theme_override_constants/separation = 20
+script = ExtResource("player_row")
+
+[node name="Who" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"Ink"
+text_overrun_behavior = 3
+
+[node name="Hero" type="Label" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(170, 0)
+layout_mode = 2
+theme_type_variation = &"InkDim"
+
+[node name="Drop" type="Button" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+text = "Drop out"

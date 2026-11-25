@@ -157,6 +157,11 @@ const SAVE_DELAY_S: float = 0.3
 	set(value):
 		screen_shake = value
 		_changed(&"screen_shake")
+## A single-player game (couch included) opens its pause menu, and so pauses, when the window goes to the background.
+@export var pause_in_background: bool = true:
+	set(value):
+		pause_in_background = value
+		_changed(&"pause_in_background")
 ## When the HUD shows each local hero's controls, as glyphs for its player's device.
 @export_enum("Briefly:0", "Always:1", "Off:2") var hints: int = Hints.BRIEFLY:
 	set(value):

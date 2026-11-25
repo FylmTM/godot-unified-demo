@@ -10,8 +10,10 @@ extends Node3D
 ## The mouse's aim reaches the sim through it, as only a script knows it: just before the session samples (its
 ## input_wanted, so this frame's sample takes it), the cursor's ray meets a plane at chest height, and the direction
 ## from the keyboard player's shown hero to that point is that player's input value. Esc, or a pad's Start that the
-## Couch left (a pad that plays already), pauses or resumes the game for everyone. A pad joining, or a guest dropping
-## out, gets its card in the HUD (JoinCards), and the Couch does the rest.
+## Couch left (a pad that plays already), opens the pause menu (PauseMenu: it pauses alone, and is an overlay with a
+## Pause for everyone with others), as does the window going to the background in a single-player game (Game's
+## pause_wanted). A pad joining, or a guest dropping out, gets its card in the HUD (JoinCards), and the Couch does the
+## rest.
 
 ## The height of the plane the cursor aims on: a hero's chest, so the hero looks at what the cursor is over.
 const AIM_PLANE_HEIGHT: float = 1.2
@@ -24,8 +26,13 @@ const DUST_SPEED: float = 5.0
 ## How hard a local hero's hurt shakes the camera (0 to 1), at the player's full screen shake (Settings).
 const HURT_SHAKE: float = 0.5
 
+## The pause menu (game/play/pause_menu.tscn), made when it opens.
+@export var pause_menu_scene: PackedScene
+
 ## Whether the mouse aims for the keyboard's player: once it has moved.
 var _mouse_aims: bool = false
+## The pause menu while it shows (null: closed).
+var _pause_menu: PauseMenu = null
 
 @onready var _session: UnifiedSession = Unified.session
 @onready var _camera_rig: CameraRig = $CameraRig
@@ -34,6 +41,7 @@ var _mouse_aims: bool = false
 @onready var _views: Node3D = $Views
 @onready var _couch: Couch = $Couch
 @onready var _hud: Hud = $Hud
+@onready var _menus: CanvasLayer = $Menus
 
 
 func _ready() -> void:
@@ -53,6 +61,7 @@ func _ready() -> void:
 	cards.join_chosen.connect(_couch.join)
 	cards.join_given_up.connect(_couch.give_up)
 	cards.drop_chosen.connect(_couch.drop)
+	Game.pause_wanted.connect(open_pause_menu)
 	if not _session.running and Game.flow == Game.Flow.MENU:
 		Game.start_single()  # the scene run on its own (the editor's Run Current Scene)
 
@@ -66,10 +75,23 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not _session.game_input:
 		return  # an overlay holds the game's input: its keys aren't the game's
 	if event.is_action_pressed(&"pause"):
-		var pause := CommandSetPaused.new()
-		pause.paused = not Unified.data.hud.paused
-		_session.send_command(pause)
 		get_viewport().set_input_as_handled()
+		open_pause_menu()
+
+
+## Opens the pause menu (it is open already: nothing).
+func open_pause_menu() -> void:
+	if _pause_menu != null:
+		return
+	_pause_menu = pause_menu_scene.instantiate()
+	_pause_menu.couch = _couch
+	_pause_menu.closed.connect(func() -> void: _pause_menu = null)
+	_menus.add_child(_pause_menu)
+
+
+## The pause menu while it shows (null: closed): the walk reads it.
+func pause_menu() -> PauseMenu:
+	return _pause_menu
 
 
 ## Every local player's mouse aim, for this frame's sample: toward the cursor for the one who holds the keyboard (or

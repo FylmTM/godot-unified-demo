@@ -27,6 +27,11 @@ layout_mode = 2
 setting = &"screen_shake"
 label = "Screen shake"
 
+[node name="PauseInBackground" parent="Margin/Rows" instance=ExtResource("setting_row")]
+layout_mode = 2
+setting = &"pause_in_background"
+label = "Pause when the window is in the background"
+
 [node name="Hints" parent="Margin/Rows" instance=ExtResource("setting_row")]
 layout_mode = 2
 setting = &"hints"

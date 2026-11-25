@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://game/play/camera_rig.gd" id="camera_rig"]
 [ext_resource type="Environment" path="res://game/environments/crypt.tres" id="crypt"]
 [ext_resource type="PackedScene" path="res://game/play/hud.tscn" id="hud"]
+[ext_resource type="PackedScene" path="res://game/play/pause_menu.tscn" id="pause_menu"]
 [ext_resource type="Script" path="res://game/play/effects.gd" id="effects"]
 [ext_resource type="PackedScene" path="res://game/fx/sparks.tscn" id="sparks"]
 [ext_resource type="PackedScene" path="res://game/fx/bolt_burst.tscn" id="bolt_burst"]
@@ -30,6 +31,7 @@ mesh = SubResource("bolt_orb")
 
 [node name="Play" type="Node3D"]
 script = ExtResource("play")
+pause_menu_scene = ExtResource("pause_menu")
 
 [node name="Couch" type="Node" parent="."]
 script = ExtResource("couch")
@@ -63,3 +65,6 @@ fov = 35.0
 environment = ExtResource("crypt")
 
 [node name="Hud" parent="." instance=ExtResource("hud")]
+
+[node name="Menus" type="CanvasLayer" parent="."]
+layer = 10

@@ -7,6 +7,17 @@ extends HBoxContainer
 @export var prompt_scene: PackedScene
 
 
+## Shows `screen`'s hints, and follows them while it shows (a menu's screen on top: MenuStack.top_changed), no longer
+## the screen's it followed before.
+func follow(screen: MenuScreen) -> void:
+	for connection: Dictionary in get_incoming_connections():
+		var from: Signal = connection["signal"]
+		if from.get_name() == &"prompts_changed":
+			from.disconnect(show_prompts)
+	screen.prompts_changed.connect(show_prompts)
+	show_prompts(screen.prompts)
+
+
 ## Shows `prompts` (a MenuScreen's: an action or a space-separated group, to what it does).
 func show_prompts(prompts: Dictionary[String, String]) -> void:
 	for child: Node in get_children():
