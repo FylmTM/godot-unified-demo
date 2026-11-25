@@ -447,7 +447,5 @@ Step 4, saves and pauses, calls made on the way:
 - The Players list shows everyone present (this couch first, "online" for the others), each guest on this couch with
   Drop out; a row without one keeps its room, so the columns line up.
 - The Dialog asks questions too (two answers; Esc is no); `Game.ask`.
-- `UnifiedSession.start_single(null)` crashes the game since it has a Setup; the game leaves the argument out for a
-  new game (reported to unified).
 - Coop: once a surge has risen the host pauses for everyone; the joiner sees the State's `paused_by` and the banner
   name the host, resumes for everyone; after the host leaves it continues the host's save on its own.

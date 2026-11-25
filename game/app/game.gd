@@ -179,10 +179,7 @@ func start_single(party: Party = null, setup: UnifiedSetup = null) -> void:
 		party.resolve_any()
 	_party = party
 	Unified.profile.class = party.seats[0].hero_class if party != null else EnumClass.ANY
-	if setup == null:
-		session.start_single()  # a null argument crashes unified's start_single today (reported): leave it out
-	else:
-		session.start_single(setup)
+	session.start_single(setup)
 
 
 ## The party the game started with, for the Couch to seat (null: none, or already taken).
