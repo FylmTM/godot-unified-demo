@@ -155,8 +155,10 @@ The canvas is 1920×1080 (`window/size/viewport_*`; the window opens at 1280×72
 stretches to the window): the pack's Double PNGs draw at their own size there, so they stay sharp up to 1440p. Layouts
 hang from the centre and the corners, so a wider screen only gains room. Interface size (Settings, Video: 80 to 130 %)
 scales the canvas over that base; a panel sized from the view (the settings) keeps its heading and Back on screen at
-every size, its content scrolling. The HUD comes after everything in the readability order: plates in the corners,
-nothing over the middle, and none of its controls takes a click or the focus.
+every size, its content scrolling; a centred panel, or the title's column, taller than the view less the prompt bar's
+room shrinks to fit (`FitToView`), and the toasts keep to the lane between the HUD's plates. The HUD comes after
+everything in the readability order: plates in the corners, nothing over the middle, and none of its controls takes a
+click or the focus.
 
 Control prompts are Kenney's Input Prompts fonts, one per family (keyboard and mouse, Xbox, PlayStation, Switch);
 each font's glyph map (`<font>_map.txt`, vendored as the pack ships it) is baked into a GlyphMap in `game/ui/prompts/`

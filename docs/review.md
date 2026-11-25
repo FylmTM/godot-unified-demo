@@ -268,6 +268,14 @@ The app's frame:
   write is printed and the session keeps its copy; a missing file is read from its `.tmp`. Two read problems at boot
   are told one after the other.
 - Pause and the couch's join ignore their keys while the game's input is off.
+- At 130 % interface size every centred panel (the pause menu, Play together, the dialogs) and the title's column
+  shrink to fit the view (`FitToView`), the toasts narrow to the lane between the HUD's plates, the join cards keep
+  below the counts and the session panel, and a guest's long name is cut before its "+1" (`NameLabel`), so the HUD
+  plate and the Players row still tell guests apart.
+- A plate's Briefly hints notice a change of device as Prompts says it (they waited for the next HUD data change,
+  which a still crypt never sent).
+- The walk takes `--size=WxH` and `--ui-scale=` (a look pass); a sized window is put left of every screen, so a window
+  bigger than the leftmost screen covers none of the developer's. Its clicks scroll a row into view first.
 - Real boot (the main scene loaded by the engine) was checked by hand under `uni drive`; no suite step can (the walk
   is a `-s` script, the drive step starts with `--autostart`). A drive option to boot to the menu would be unified's.
 
@@ -403,6 +411,13 @@ Playing together:
 - Invite friends (the pause menu, alone or hosting): Invite online / on this network, the code large, Copy, Stop
   inviting; inviting again opens it the way it was hosted. Game keeps `inviting`, so "Closed" shows only after Stop
   inviting. A failed opening says why on the screen, once (a toast only while the game takes input).
+- Stop inviting then Invite online shows the same code: unified's close_online keeps the lobby (a player who drops
+  may come back) and only hides the code, so reopening reposts it (online_check: one lobby made, left once at quit).
+- EOS verified on the developer's machine (the demo's own product, `.env` in place): `uni coop`, `--menus`,
+  `--rejoin` and `--crash` over EOS (Direct P2P, no desync; the joiner's Any became a Barbarian, its couch guest
+  "Friend +1", the co-op pause both ways, Continue on your own), `UNIFIED_EOS_RELAYS=force uni coop` relayed (54 ms
+  round trip, no desync), and `uni tool online_check` (the pending code, the copy, Stop inviting, inviting again).
+  There, the walk's code join that fails waits about 20 s for EOS to find no lobby.
 - A host whose start fails can't be forced in a check (Odin's UDP bind reuses a taken port on Windows): the
   failed-start path is checked through joins and a failed open. The pending code is checked only by online_check.
 
