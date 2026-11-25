@@ -527,3 +527,7 @@ Calls made in step 2 (the sim at 500):
   scratch) and a minion in an unmarked cell skips the loop. It computes exactly what it did (the pins didn't move); a
   flip (each obstacle walking its nearby minions after the moves) would push in another order and need the grid
   rebuilt after the moves.
+- Floor 1's row after step 2, A/B against step 1's build on a quiet machine (3 runs each, alternating, 3000 ticks):
+  step means equal (19.6 to 19.9 us), re-sim means 315 against 310 us (+1.6 %), p99s within each other's spread.
+  The few microseconds are the 1 m grid's cells: Floor 1's grid has about 1,300 to clear and file twice a tick, where
+  the 3 m grid had about 150; left as it is.
