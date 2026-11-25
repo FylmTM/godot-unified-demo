@@ -23,12 +23,18 @@ first time. Nothing is installed by hand. On Windows, run `uni.cmd` instead of `
 ```sh
 git clone --recursive https://github.com/FylmTM/godot-unified-demo
 cd godot-unified-demo
-./uni run                            # play it in a window: the title, then New game
+./uni run                            # play it in a window, from the title
 ./uni run -- --host-port 7777        # host a game on the LAN, straight past the title...
 ./uni run -- --join 127.0.0.1:7777   # ...and join it from a second window
 ./uni tool lookdev --window --shots  # the art, posed in the look-dev scene
 ./uni help                           # every command
 ```
+
+**From the menus.** The title offers Continue (the saved crypt), New game, Play together, Settings and Quit. New game
+and Continue go through hero select into the crypt, alone or with a couch. To play two windows together on one
+machine, run `./uni run` twice: Play together, Host on this network in one, Join an address (`127.0.0.1`) in the
+other. Esc (or Start) in play opens the pause menu: Resume, Pause for everyone (with others), Invite friends, Players,
+Settings, Leave to title.
 
 **Controls.** Move with WASD, the arrow keys or a pad's left stick; aim with the mouse or the right stick (a hero
 that isn't aimed faces where it walks). Attack (the left mouse button, Space, or a pad's right trigger or X) attacks
@@ -91,17 +97,24 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
 - **Keyed rolls**: surges and packs roll on the state they place (`director.odin`), so when a pause or a command lands
   moves no outcome.
 - **Late join and rejoin beside the party** (`presence.odin`), a player's hero kept for their return.
-- **Online and LAN, from the menus**: hosting and joining by a lobby code or an address, opening a game to friends
-  and closing it, the code's format and whether online play can start read from the library
-  (`UnifiedSession.join_code_alphabet`, `online_problem`: `game/menu/`, `game/ui/widgets/code_field.gd`,
-  `game/play/friends_screen.gd`); EOS lobbies in the extension and the headless binary (`simulation/extension/`,
-  `simulation/headless/`).
+- **Online and LAN, from the menus**: hosting and joining by a lobby code or an address (`game/menu/play_together.gd`,
+  `join_code.gd`, `join_address.gd`); the code's cells and alphabet, and a paste read as the library reads a code
+  (`UnifiedSession.join_code_alphabet`, `clean_join_code`: `game/ui/widgets/code_field.gd`); whether online play can
+  start, asked before trying (`online_problem`: the greyed rows); EOS lobbies in the extension and the headless binary
+  (`simulation/extension/`, `simulation/headless/`).
+- **Open to friends**: a game played alone opened online or on the LAN and closed again while it plays
+  (`open_online`, `open_direct`, `close_online`: `Game.invite`, `game/play/friends_screen.gd`); hosting online is the
+  same opening, made as the crypt comes up. The HUD's session panel shows the code, the count and a slow link
+  (`link_slow`, `round_trip_ms`: `game/play/session_panel.gd`).
 - **Both pauses**: alone, the pause menu stops the session's clock (`UnifiedSession.paused`); with others, its Pause
   for everyone is the co-op pause (`pause.odin`), the game clock standing for every peer, and the State keeps who
-  paused, so a late joiner's banner names them too (`game/play/pause_menu.gd`).
+  paused, so a late joiner's banner names them too (`game/play/pause_menu.gd`). A game opened while paused alone is
+  paused for everyone at once. Alone, the game also pauses when its window loses the focus (`game/app/game.gd`).
 - **Setup and save**: a new game or a save is the session's Setup; the sim gives a save at each surge (`saves.odin`),
   unified hands it over from verified ticks only, and the app keeps it as JSON in one slot (`game/app/saves.gd`);
   Continue starts a session on it, and a joiner whose host left continues its last one alone (`game/app/game.gd`).
+- **Menus over a running game**: while a menu shows, the session reads no game input (`game_input`), and a button
+  held through it counts only once released (`game/app/game.gd`).
 - **The session outlives the scenes**: the `Game` autoload owns it from boot to quit and switches between the title
   and the crypt on its status, whoever started it: the menus, the command line's session flags (`uni run`, `uni coop`,
   `uni drive`) or a tool. A start that fails, or a game that ends without the player leaving, comes back to the title
@@ -111,9 +124,12 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
   game time, so a correction or a seek lands on the right frame (`game/views/hero.gd`, `minion.gd`).
 - **Events**: effects play as soon as they are predicted (EMITTED: `game/play/play.gd`, `effects.gd`); a join or a
   leave is told once it is CONFIRMED (`game/app/game.gd`).
-- **Couch co-op**: each local player's device and pads joining (`game/play/couch.gd`), every local hero framed by one
-  camera (`camera_rig.gd`); each local player's prompts in the glyphs of the device the session gives them
-  (`game/app/prompts.gd`).
+- **Couch co-op**: hero select's seats become local players, each with its device and Profile, and pads join and drop
+  out mid-game (`add_local_player`, `set_local_device`, `remove_local_player`: `game/play/couch.gd`,
+  `game/menu/hero_select.gd`); every local hero framed by one camera (`camera_rig.gd`).
+- **Prompts and rebinding**: each local player's prompts in the glyphs of the device the session gives them
+  (`get_local_device`: `game/app/prompts.gd`); attack, grab and the keyboard's moves rebound in the InputMap that
+  unified's input helpers read (`game/app/bindings.gd`).
 - **Dev commands** (`dev.odin`): a class swap, spawning, hurting and killing, as dev UI forms and
   `uni drive command`.
 - **A benchmark row**: four heroes against a held surge among the props (`game.odin`, `bench_prepare` in
@@ -165,10 +181,10 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 - `simulation/headless/`: the same simulation without Godot, for tests, sync-tests, replays and benchmarks.
 - `simulation/tests/`: every test of the sim.
 - `game/`: the Godot side (the project is the repo root, `project.godot`): the app (`game/app/`: the `Game`,
-  `Settings`, `Sfx`, `Prompts` and `LibraryCheck` autoloads, and `Bindings`), the title and hero select (`game/menu/`), the
-  interface's theme, screens, settings, overlays and widgets (`game/ui/`), and the play scene with its views, effects
-  and HUD. GDScript shows the simulation and never
-  changes it; input and commands are the only way in.
+  `Settings`, `Sfx`, `Prompts` and `LibraryCheck` autoloads, and `Bindings`), the title, hero select and Play
+  together (`game/menu/`), the interface's theme, screens, settings, overlays and widgets (`game/ui/`), and the play
+  scene with its views, effects, HUD and pause menu (`game/play/`, `game/views/`). GDScript shows the simulation and
+  never changes it; input and commands are the only way in.
 - `assets/`: the art packs the game uses (`CREDITS.md`); how they become the game's look is `docs/ART.md`.
 - `tools/`: this game's `uni` CLI. `unified/`: unified, as a git submodule.
 
@@ -179,7 +195,8 @@ checks; unified's standard scenarios played by the scripted players (`script.odi
 dev command; a bot playthrough of the four classes; a replay regression recorded from a real two-player LAN session;
 the pinned reference run, the cross-platform check in CI; the godot suite, which holds the art to `docs/ART.md` and the
 app layer to its contract (`game/tools/art_checks.gd`, `app_checks.gd`) and walks the app with real input events
-(`game/tools/ui_walk.gd`); and `./uni coop`, a host and a joiner in two processes (`game/tools/coop.gd`).
+(`game/tools/ui_walk.gd`); and `./uni coop`, a host and a joiner in two processes, from session flags or, with
+`--menus`, each side through the game's own menus (`UnifiedCoop._start_host`, `_start_join`: `game/tools/coop.gd`).
 Commands: `./uni help`.
 
 ## Benchmarks

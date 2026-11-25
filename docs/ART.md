@@ -123,11 +123,11 @@ shots like a wall; whether it burns is the game's, so its fire is shown apart.
 ## Stages and navigation
 
 The look-dev stages (`game/lookdev/crypt_stage.tscn`, `hub_stage.tscn`) are built like levels: structure under a
-`NavigationRegion3D` that `uni bake --nav` bakes from the static colliders, decor and props beside it. Each walks in
-one piece: its floor bakes into one navigation island, so no gap narrower than an agent cuts the floor in two. The
-tops of walls and furniture bake into islands of their own, which nothing reaches. Tall decor without a body stays
-out of the walkable floor (or becomes a part with one). `kit_stage.tscn` places every part once. Each stage's `.level` is committed beside it: the sim plays none of them, and they are baked to prove the
-kit exports.
+`NavigationRegion3D` that `uni bake --nav` bakes from the static colliders, decor and props beside it. Each walks in one
+piece: its floor bakes into one navigation island, so no gap narrower than an agent cuts the floor in two. The tops of
+walls and furniture bake into islands of their own, which nothing reaches. Tall decor without a body stays out of the
+walkable floor (or becomes a part with one). `kit_stage.tscn` places every part once. Each stage's `.level` is committed
+beside it: the sim plays none of them, and they are baked to prove the kit exports.
 
 ## Lighting
 
@@ -152,10 +152,11 @@ bright thing on a menu. Lettering is Kenney Mini Square, and Kenney Future for t
 variations name each use (`Title`, `Heading`, `HudText`, `Dim`, and `Ink`, `InkHeading`, `InkDim` on parchment).
 
 The canvas is 1920×1080 (`window/size/viewport_*`; the window opens at 1280×720, an export fullscreen, and the canvas
-stretches to the window): the pack's Double PNGs draw at their own size there, so they stay sharp up to 1440p.
-Layouts hang from the centre and the corners, so a wider screen only gains room. The HUD comes after everything in the
-readability order: plates in the corners, nothing over the middle, and none of its controls takes a click or the
-focus.
+stretches to the window): the pack's Double PNGs draw at their own size there, so they stay sharp up to 1440p. Layouts
+hang from the centre and the corners, so a wider screen only gains room. Interface size (Settings, Video: 80 to 130 %)
+scales the canvas over that base; a panel sized from the view (the settings) keeps its heading and Back on screen at
+every size, its content scrolling. The HUD comes after everything in the readability order: plates in the corners,
+nothing over the middle, and none of its controls takes a click or the focus.
 
 Control prompts are Kenney's Input Prompts fonts, one per family (keyboard and mouse, Xbox, PlayStation, Switch);
 each font's glyph map (`<font>_map.txt`, vendored as the pack ships it) is baked into a GlyphMap in `game/ui/prompts/`
@@ -172,18 +173,23 @@ A hero's portrait is rendered from its scene as the game poses it, head and shou
 background (`game/tools/render_portraits.gd`), with mipmaps so it stays clean drawn small: it changes when the hero
 does, and it sits in the brown frame wherever a hero is shown (`PortraitFrame`). Hero select's seats and the HUD's
 join and drop cards are one card (`game/ui/widgets/seat_card.tscn`), one size whatever it shows: parchment while
-choosing, a green wash and "Ready!" over the portrait once ready, faded while the seat is free; its glyphs are its
-own device's. The HUD's hero plates lead with the HP, a red bar over a dark track with the number on it, every bar
-one length; the player's name and the class sit above it, the device's controls below for a few seconds (or as the
-setting says). Toasts sit at the top, in the middle, three at most, a name and a word or two each, on a layer of
-their own under the menus. The pause menu is the parchment panel in the middle over a dimmed crypt (the toasts dimmed
-with it), its prompt bar in the corner like the title's; the co-op pause's banner hangs below the HUD's top row, names
-who paused (a long name cut short) and how to reach the menu, and hides under the menu. A question (Leave, New game
-over a save) is the dialog with its two answers, the one that does it focused unless it affects others; its own prompt
-bar replaces the menu's while it shows. Play together and its screens (the crypt a host opens, a code, an address) are
-the same parchment panel over the title; a code is one framed cell per character, the cursor's lit while the field
-has the focus. The session panel is a plate under the crypt's counts: the code or address, then who plays, and a
-slow link's warning.
+choosing, a green wash and "Ready!" over the portrait once ready, faded while the seat is free; its glyphs are its own
+device's. The HUD's hero plates lead with the HP, a red bar over a dark track with the number on it, every bar one
+length; the player's name and the class sit above it, the device's controls below for a few seconds (or as the setting
+says). Toasts sit at the top, in the middle, three at most, a name and a word or two each, on a layer of their own
+under the menus. The pause menu is the parchment panel in the middle over a dimmed crypt (the toasts dimmed with it),
+its prompt bar in the corner like the title's; the co-op pause's banner hangs below the HUD's top row, names who
+paused (a long name cut short) and how to reach the menu, and hides under the menu. A question (Leave, New game over a
+save) is the dialog with its two answers, the one that does it focused unless it affects others; its own prompt bar
+replaces the menu's while it shows; a dialog that explains (a game that couldn't start, or ended) says it in a
+sentence, the library's own words small under it. Play together and its screens (the crypt a host opens, a code, an
+address) are the same parchment panel over the title, a row that can't be used greyed with why under the rows; a code
+is one portrait-framed cell per character, the cursor's cell wearing the pulsing focus frame while the field has the
+focus. Invite friends is that panel in the pause menu: the code or address large, Copy (its button says "Copied" a
+moment) and Stop inviting. The session panel is a plate under the crypt's counts, growing with what it says: the code
+or address ("Getting a code..." while it comes, "Closed" after Stop inviting; a joiner, what it joined), how many
+play, and a slow link's warning. While a game starts, a modal over the title says what it waits for (after a moment,
+so a quick start shows nothing), with Cancel; a link in trouble in play is a small plate that never takes the input.
 
 The interface's sounds are Kenney's Interface Sounds, played by `Sfx` (`game/app/sfx.gd`); `Game` gives every button
 of the game its press sound and the focus moving its select sound, so no screen plays one by hand; hero select plays
