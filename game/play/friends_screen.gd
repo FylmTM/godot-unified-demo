@@ -42,6 +42,8 @@ func _copy_code() -> void:
 
 
 func _show() -> void:
+	if not is_inside_tree():
+		return  # the menu closed: Game's signals reach it until it is freed
 	var code: String = _session.join_code
 	var online_problem: String = _session.online_problem
 	_code.text = code if code != "" else ("Getting a code..." if Game.inviting_online else "Opening...")

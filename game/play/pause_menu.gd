@@ -84,6 +84,8 @@ func top() -> MenuScreen:
 ## everyone (the co-op pause, sent at once, on the mode change), so the host reads the code out with the clock still
 ## standing; back alone, the menu pauses the clock again (Game lifts the co-op pause).
 func _on_mode_changed(mode: UnifiedSession.Mode, _detail: String) -> void:
+	if not is_inside_tree():
+		return  # closing (the session's signals outlive the menu until it is freed)
 	if _alone and mode != UnifiedSession.MODE_SINGLE:
 		_pause_all(true)
 	_settle_pause()

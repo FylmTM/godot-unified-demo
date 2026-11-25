@@ -22,6 +22,8 @@ func _ready() -> void:
 
 
 func _show() -> void:
+	if not is_inside_tree():
+		return  # the play scene is going: the session's signals reach it until it is freed
 	var mode: int = _session.mode
 	var joined: bool = mode in [UnifiedSession.MODE_JOIN_ONLINE, UnifiedSession.MODE_JOIN_DIRECT]
 	visible = mode != UnifiedSession.MODE_REPLAY and (joined or Game.hosting() or Game.inviting)
