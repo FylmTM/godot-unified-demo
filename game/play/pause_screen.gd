@@ -27,7 +27,7 @@ var _online: bool = false
 var _replay: bool = false
 var _others: bool = false
 
-@onready var _heading: Label = %Heading
+@onready var _heading: NameLabel = %Heading
 @onready var _status: Label = %Status
 @onready var _resume: Button = %Resume
 @onready var _pause_all: Button = %PauseAll
@@ -90,15 +90,15 @@ func _show_pause() -> void:
 	_pause_all.text = "Resume for everyone" if paused else "Pause for everyone"
 	_resume.text = "Back to the game" if _online and not paused else "Resume"
 	if _replay:
-		_heading.text = "Replay paused"
+		_heading.show_name("Replay paused", "")
 		_status.text = ""
 	elif not _online:
-		_heading.text = "Paused"
+		_heading.show_name("Paused", "")
 		_status.text = ""
 	elif paused:
-		_heading.text = "Paused by %s" % pauser if pauser != "" else "Paused"
+		_heading.show_name("Paused by " if pauser != "" else "Paused", pauser)
 		_status.text = "Anyone can resume the game for everyone." if _others else "Resume when you're ready."
 	else:
-		_heading.text = "The game runs on"
+		_heading.show_name("The game runs on", "")
 		_status.text = "The others play on while this menu is open."
 	_status.visible = _status.text != ""

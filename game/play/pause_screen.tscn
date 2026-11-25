@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://game/play/pause_screen.gd" id="pause_screen"]
 [ext_resource type="Script" path="res://game/ui/widgets/fit_to_view.gd" id="fit_to_view"]
+[ext_resource type="Script" path="res://game/ui/widgets/name_label.gd" id="name_label"]
 
 [node name="PauseScreen" type="Control" node_paths=PackedStringArray("first_focus")]
 layout_mode = 3
@@ -52,6 +53,7 @@ theme_type_variation = &"InkHeading"
 text = "Paused"
 horizontal_alignment = 1
 text_overrun_behavior = 3
+script = ExtResource("name_label")
 
 [node name="Status" type="Label" parent="Center/Panel/Rows"]
 unique_name_in_owner = true
