@@ -72,6 +72,9 @@ Floor :: struct {
 	// The mesh island the hero spawns stand on: the walkable floor (wall and furniture tops bake islands of their own).
 	island:       i32,
 	area:         f32, // the walkable floor's area seen from above, square metres
+	// The island's polygons, and the area of the island up to and including each (floor_point draws by it).
+	walk_polys:   []nav.Poly,
+	walk_area_to: []f32,
 	// The most minions alive the director raises here: CROWD_DENSITY to the square metre of walkable floor, at most
 	// MINION_CAP, so a small floor never holds a crush and a great hall holds a crowd.
 	minion_cap:   int,
@@ -144,6 +147,7 @@ build_floor :: proc(floor: ^Floor, data: ^level.Level, seed: u64) {
 	assert(spawn_poly != nav.NO_POLY, "crypt_crew: slot 0's hero_spawn is off the navigation mesh")
 	floor.island = nav.island_of(&floor.mesh, spawn_poly)
 	floor.area = island_area(&floor.mesh, floor.island)
+	index_walkable(floor)
 	floor.minion_cap = int(dmath.to_i32_clamped(floor.area * CROWD_DENSITY, 0, MINION_CAP))
 	for spawn in floor.places.hero_spawns {
 		_, on_floor := floor_spot(floor, spawn, HERO_NAV_REACH)
@@ -157,22 +161,73 @@ build_floor :: proc(floor: ^Floor, data: ^level.Level, seed: u64) {
 	pack_places(floor, seed)
 }
 
-// The area of a mesh island seen from above (square metres): the sum of its polygons' (the shoelace formula), in
-// polygon and corner order, so every platform adds the same f32s in the same order.
-@(private = "file")
+// The area of a mesh island seen from above (square metres): the sum of its polygons' (polygon_area), in polygon order,
+// so every platform adds the same f32s in the same order.
 island_area :: proc(mesh: ^nav.Mesh, island: i32) -> f32 {
 	area: f32
 	for p in 0 ..< nav.poly_count(mesh) {
-		if mesh.islands[p] != island do continue
-		corners := mesh.corners[mesh.first[p]:mesh.first[p + 1]]
-		twice: f32
-		for corner, k in corners {
-			a, b := mesh.vertices[corner], mesh.vertices[corners[(k + 1) % len(corners)]]
-			twice += a.x * b.z - b.x * a.z
-		}
-		area += abs(twice) / 2
+		if mesh.islands[p] == island do area += polygon_area(mesh, nav.Poly(p))
 	}
 	return area
+}
+
+// A polygon's area seen from above (square metres): the shoelace formula over its corners.
+@(private = "file")
+polygon_area :: proc(mesh: ^nav.Mesh, poly: nav.Poly) -> f32 {
+	corners := mesh.corners[mesh.first[poly]:mesh.first[poly + 1]]
+	twice: f32
+	for corner, k in corners {
+		a, b := mesh.vertices[corner], mesh.vertices[corners[(k + 1) % len(corners)]]
+		twice += a.x * b.z - b.x * a.z
+	}
+	return abs(twice) / 2
+}
+
+// The floor's walkable polygons and the running total of their areas, for floor_point.
+@(private = "file")
+index_walkable :: proc(floor: ^Floor) {
+	count := 0
+	for island in floor.mesh.islands do count += int(island == floor.island)
+	floor.walk_polys = make([]nav.Poly, count)
+	floor.walk_area_to = make([]f32, count)
+	total: f32
+	k := 0
+	for p in 0 ..< nav.poly_count(&floor.mesh) {
+		if floor.mesh.islands[p] != floor.island do continue
+		total += polygon_area(&floor.mesh, nav.Poly(p))
+		floor.walk_polys[k], floor.walk_area_to[k] = nav.Poly(p), total
+		k += 1
+	}
+}
+
+// A point drawn from `rng` uniformly over the walkable floor: a polygon by its share of the area, then a point of it
+// (a triangle of its fan by area, then a point of the triangle), at the floor's height there.
+floor_point :: proc(floor: ^Floor, rng: ^sim.Rng) -> Nav_Point {
+	FRACTION_STEPS :: 1 << 24 // a fraction's steps: f32's integers are exact up to here
+	fraction :: proc(rng: ^sim.Rng) -> f32 {return f32(sim.rng_below(rng, FRACTION_STEPS)) / FRACTION_STEPS}
+	mesh := &floor.mesh
+	at := fraction(rng) * floor.area
+	low, high := 0, len(floor.walk_area_to) - 1 // the first polygon whose running total passes `at`
+	for low < high {
+		middle := (low + high) / 2
+		if floor.walk_area_to[middle] > at do high = middle
+		else do low = middle + 1
+	}
+	poly := floor.walk_polys[low]
+	corners := mesh.corners[mesh.first[poly]:mesh.first[poly + 1]]
+	origin := mesh.vertices[corners[0]]
+	fan := (fraction(rng) * polygon_area(mesh, poly)) * 2 // in twice-areas, as the fan's triangles are measured
+	a, b := mesh.vertices[corners[1]], mesh.vertices[corners[2]]
+	for k in 1 ..< len(corners) - 1 {
+		a, b = mesh.vertices[corners[k]], mesh.vertices[corners[k + 1]]
+		twice := abs((a.x - origin.x) * (b.z - origin.z) - (b.x - origin.x) * (a.z - origin.z))
+		if fan < twice do break
+		fan -= twice
+	}
+	root, along := dmath.sqrt(fraction(rng)), fraction(rng) // uniform over the triangle
+	point := origin * (1 - root) + a * (root * (1 - along)) + b * (root * along)
+	point.y = nav.height_at(mesh, poly, point)
+	return {point, poly}
 }
 
 // The minion grid's cells, MINION_GRID_CELL square, laid over the mesh's extent on the floor plan with a cell to spare
@@ -244,6 +299,8 @@ world_destroy :: proc(world: ^World) {
 	for &floor in world.floors {
 		nav.fields_destroy(&floor.fields)
 		nav.destroy(&floor.mesh)
+		delete(floor.walk_polys)
+		delete(floor.walk_area_to)
 	}
 	free(world)
 }
@@ -258,15 +315,14 @@ extra :: proc(world: ^World) -> sim.Extra {
 init :: proc(t: ^Tick) {
 	t.state.crowd = t.setup.crowd // first: entering the floor reads it
 	enter_level(t, start_from_setup(t))
-	hold_setup_crowd(t)
+	if t.state.crowd != .None do place_crowd(t, floor_of(t).minion_cap)
 }
 
 // Takes the party to level `to` (init, the wipe's floor restart; the next floor later): every hero lets go and its body
 // goes, the props, the minions and the bolts in flight go, the static geometry is swapped (physics.level_change), then
 // the new level's props are made in marker order, its packs put to sleep (none under a held crowd), its surge clock
-// started, and every present
-// hero gets a body at its slot's spawn. What the block keeps across it (the heroes' classes, the clock, the session's
-// counts) stays.
+// started, and every present hero gets a body at its slot's spawn. What the block keeps across it (the heroes'
+// classes, the clock, the session's counts) stays.
 enter_level :: proc(t: ^Tick, to: Level_Id) {
 	leaving := sim.iterate_present(t)
 	for hero, player in sim.next(&leaving) {

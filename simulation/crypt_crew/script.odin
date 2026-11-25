@@ -31,7 +31,8 @@ SCRIPT_PAUSE_TICKS :: 40 // how long one lasts
 
 // The player in `slot` walks one of 8 directions or stands (a draw every SCRIPT_PERIOD ticks), aims one of 8
 // directions at a reach, or none (other draws), holds Attack in bursts and presses Interact now and then.
-// Under a held crowd: standing still (Idle), walking and aiming only (Chase), or holding Attack throughout (Fight).
+// Under a held crowd: standing still (Idle), walking and aiming only (Chase), or holding Attack, let go one tick in
+// each SCRIPT_PERIOD so the next is a press (a throw), with Interact's presses (grabs) as in play (Fight).
 scripted_input :: proc(seed: u64, slot: int, tick: u32, state: ^State) -> Input {
 	if state.crowd == .Idle do return {}
 	bits := sim.script_bits(seed, slot, tick, SCRIPT_PERIOD)
@@ -43,16 +44,15 @@ scripted_input :: proc(seed: u64, slot: int, tick: u32, state: ^State) -> Input 
 		input.aim = dmath.dir2(dmath.DIR8[(bits >> 12) % 8])
 		input.reach = u8(SCRIPT_REACH_MIN + (bits >> 16) % SCRIPT_REACH_RANGE)
 	}
+	phase := tick + u32(slot) * SCRIPT_SLOT_OFFSET
 	switch state.crowd {
 	case .None:
+		if phase % SCRIPT_ATTACK_EVERY < SCRIPT_ATTACK_TICKS do input.buttons += {.Attack}
 	case .Idle, .Chase:
 		return input
 	case .Fight:
-		input.buttons += {.Attack}
-		return input
+		if phase % SCRIPT_PERIOD != 0 do input.buttons += {.Attack}
 	}
-	phase := tick + u32(slot) * SCRIPT_SLOT_OFFSET
-	if phase % SCRIPT_ATTACK_EVERY < SCRIPT_ATTACK_TICKS do input.buttons += {.Attack}
 	if phase % SCRIPT_INTERACT_EVERY < SCRIPT_INTERACT_TICKS do input.buttons += {.Interact}
 	return input
 }

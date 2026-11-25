@@ -11,7 +11,7 @@ package crypt_crew
 // A save's Setup.version: the save this build writes and continues (the app tells the player about any other).
 SAVE_VERSION :: u8(1)
 
-// The session's Setup: a new game (version 0, the zero Setup) or the save it continues (Game.save).
+// The session's Setup: a new game (version 0: Floor 1 and no crowd unless set) or the save it continues (Game.save).
 Setup :: struct {
 	version: u8, // SAVE_VERSION for a save; 0: a new game
 	floor:   Level_Id, // the floor the party starts on: a new game's (Floor 1 unless set), the one a save continues on

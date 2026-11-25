@@ -220,9 +220,9 @@ SEPARATION :: f32(0.9) // minions closer than this push apart ...
 SEPARATION_SPEED :: f32(2.5) // ... at up to this speed
 KNOCK_DECAY :: f32(6) // a knockback's velocity decays at this rate per second
 // The minion grid's cells (metres): at least SEPARATION and the longest reach a query asks of its 3 by 3 cells (a
-// Barbarian's cleave and a minion's radius); world_create lays it over a mesh.
+// Barbarian's cleave and a minion's radius); world_create lays it over each floor's mesh.
 MINION_GRID_CELL :: f32(3)
-MINION_GRID_CELLS :: 1024 // the most cells it may need: a level's mesh up to 96 m by 96 m
+MINION_GRID_CELLS :: 1024 // the most cells a floor's grid may need: its mesh up to 90 m by 90 m, a cell to spare a side
 
 // ---- the director: sleeping packs, and surges rising from graves
 
@@ -245,12 +245,11 @@ SURGE_PER_HERO :: 2 // ... and this many more per hero present
 SURGE_SPREAD :: f32(1.5) // a surge's minions rise within this of their grave
 DEV_SPAWN_RING :: f32(5) // dev_spawn_minions raises its minions this far from the sender's hero
 DEV_KILL_KNOCK :: f32(4) // dev_kill_minions knocks its dead this fast (metres per second) away from the sender
-BENCH_FLOOR_MINIONS :: 40 // the floor's benchmark row holds this many: the first floor's old cap, so the row compares
+BENCH_FLOOR_MINIONS :: 40 // Floor 1's benchmark row holds this many: the floor's old cap, so the row compares
 BENCH_SPREAD :: f32(12) // Floor 1's row's minions start within this many metres of slot 0's spawn, along x and z
 BENCH_TRIES :: 20 // places tried per benchmark minion (some fall off the floor)
 CROWD_CLEAR :: f32(6) // a held crowd's chasers start at least this far from every hero_spawn ...
 CROWD_IDLE_CLEAR :: AGGRO_RADIUS + 3 // ... and its sleepers this far: out of sight of the heroes standing there
-CROWD_SNAP :: f32(0.5) // a held crowd's drawn place counts when the walkable floor is this close
 CROWD_TRIES :: 8 // places drawn per held minion before the floor counts as full
 
 // ---- arriving beside the party

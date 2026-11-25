@@ -33,7 +33,7 @@ Minion :: struct {
 	struck: sim.Game_Time, // when it was last hit (0: never; the view's flash)
 	hp:     i16,
 	phase:  Minion_Phase,
-	pack:   u8, // its pack's index + 1 in the World's packs (0: none, a surge's or a spawned one): it wakes with them
+	pack:   u8, // its pack's index + 1 in its floor's packs (0: none, a surge's or a spawned one): it wakes with them
 }
 
 // The live minions by cell on the floor plan (scratch in the World, rebuilt from the block by move_minions and again

@@ -8,7 +8,8 @@
 // (Floor.minion_cap), and a raise never asks for more rows than the table has free: the dying keep theirs for DEATH_S,
 // so after a mass death the alive are few while the table is full.
 // A held crowd (Setup.crowd: the benchmark rows', the scale tests', a look at hundreds) replaces packs and surges: a
-// population placed on the first tick and held alive, the felled rising again at the graves (hold_crowd).
+// population placed on the first tick (place_crowd) and held alive, the felled rising again at the graves
+// (refill_held).
 package crypt_crew
 
 import "unified:dmath"
@@ -22,7 +23,7 @@ Roll :: enum u8 {
 	Rise_Grave, // which of the eligible graves a minion rises at
 	Rise_Angle, // its direction from the grave, and its facing
 	Rise_Distance, // its distance from the grave
-	Crowd_Place, // where a held crowd's minions start (a stream: hold_crowd)
+	Crowd_Place, // where a held crowd's minions start (a stream: place_crowd)
 }
 
 // A held crowd (Setup.crowd; State.crowd keeps it for the scripted player): what the population does while it is held.
@@ -125,10 +126,10 @@ wake_packs :: proc(t: ^Tick) {
 
 // When the surge clock runs out (and a grave is eligible), a surge rises: SURGE_BASE plus SURGE_PER_HERO for each hero
 // present, at most up to the floor's cap alive and into the table's free rows, each at one of surge_graves'. A held
-// population is held instead (hold_population).
+// population is refilled instead (refill_held).
 raise_surges :: proc(t: ^Tick) {
 	if t.state.held > 0 {
-		hold_population(t)
+		refill_held(t)
 		return
 	}
 	if sim.timer_running(t, t.state.surge) do return
@@ -141,11 +142,11 @@ raise_surges :: proc(t: ^Tick) {
 	t.state.surges += 1
 	mark_save_point(t)
 	risen := 0
-	for _ in 0 ..< count do risen += int(raise_minion(t, sim.slice(&graves)))
+	for _ in 0 ..< count do risen += int(raise_minion(t, sim.slice(&graves), .Rise))
 	sim.emit(t, Event_Surge{count = i32(risen), surge = t.state.surges})
 }
 
-// The graves a surge may rise at now, by index into the World's: those at least SURGE_NEAR in a straight line from
+// The graves a surge may rise at now, by index into the floor's: those at least SURGE_NEAR in a straight line from
 // every hero up (off screen), and at most SURGE_FAR along the floor from the nearest (it reaches the party).
 surge_graves :: proc(t: ^Tick) -> (graves: sim.List(int, MAX_GRAVES)) {
 	floor := floor_of(t)
@@ -164,10 +165,11 @@ surge_graves :: proc(t: ^Tick) -> (graves: sim.List(int, MAX_GRAVES)) {
 	return
 }
 
-// A minion rising within SURGE_SPREAD of one of `graves` (indices into the World's), its grave, place and facing rolled
-// by the session's count of raised minions; false when the floor isn't there or the table is full.
+// A minion in `phase` (Rise; a sleeping crowd's Idle) within SURGE_SPREAD of one of `graves` (indices into the floor's),
+// its grave, place and facing rolled by the session's count of raised minions; false when the floor isn't there or the
+// table is full.
 @(private = "file")
-raise_minion :: proc(t: ^Tick, graves: []int) -> bool {
+raise_minion :: proc(t: ^Tick, graves: []int, phase: Minion_Phase) -> bool {
 	key := u64(t.state.rises)
 	t.state.rises += 1
 	grave := graves[sim.roll_below_at(t.seed, 0, u32(len(graves)), Roll.Rise_Grave, key)]
@@ -176,20 +178,29 @@ raise_minion :: proc(t: ^Tick, graves: []int) -> bool {
 	floor := floor_of(t)
 	at := sim.slice(&floor.places.graves)[grave].point + [3]f32{facing.x, 0, facing.y} * reach
 	spot := floor_spot(floor, at, SURGE_SPREAD) or_return
-	_, raised := spawn_minion(t.state, spot.point, spot.poly, facing, .Rise, t.time)
+	_, raised := spawn_minion(t.state, spot.point, spot.poly, facing, phase, t.time)
 	return raised
 }
 
 // A held population (State.held): the minions it lost rise again, each at any grave, as many as are missing and the
 // table has rows free for (the dying hold theirs: raising against the alive alone would try, and fail, a raise per
-// missing minion every tick until the dead are gone).
+// missing minion every tick until the dead are gone). A sleeping crowd's come back asleep, at the graves at least
+// CROWD_IDLE_CLEAR from every hero_spawn (out of sight, as it was placed), so it stays one.
 @(private = "file")
-hold_population :: proc(t: ^Tick) {
-	every: [MAX_GRAVES]int
-	for &grave, i in every do grave = i
-	graves := every[:floor_of(t).places.graves.count]
+refill_held :: proc(t: ^Tick) {
+	floor := floor_of(t)
+	asleep := t.state.crowd == .Idle
+	graves: sim.List(int, MAX_GRAVES)
+	places: for &grave, i in sim.slice(&floor.places.graves) {
+		for spawn in floor.places.hero_spawns {
+			too_near := dmath.length_sq(spawn.xz - grave.point.xz) < CROWD_IDLE_CLEAR * CROWD_IDLE_CLEAR
+			if asleep && too_near do continue places
+		}
+		sim.append(&graves, i)
+	}
+	if graves.count == 0 do return
 	count := dmath.min(int(t.state.held) - minions_alive(&t.state.minions), free_rows(&t.state.minions))
-	for _ in 0 ..< count do raise_minion(t, graves) // a count taken first: each raise takes a free row
+	for _ in 0 ..< count do raise_minion(t, sim.slice(&graves), .Idle if asleep else .Rise) // each takes a free row
 }
 
 // The table's free rows: what may be raised now, whatever the alive.
@@ -197,34 +208,22 @@ free_rows :: proc(minions: ^sim.Table(Minion, MAX_MINIONS)) -> int {
 	return MAX_MINIONS - int(minions.count)
 }
 
-// The held crowd of the session's Setup (init), at the floor's cap: see hold_crowd.
-hold_setup_crowd :: proc(t: ^Tick) {
-	if t.state.crowd != .None do hold_crowd(t, floor_of(t).minion_cap)
-}
-
-// `count` minions held alive (State.held) as the session's crowd does (State.crowd), each on the walkable floor at
-// least SEPARATION from the rest and clear of the props (which would push it out onto a neighbour), placed from a
-// stream keyed by the session's seed: asleep (each alone, no pack) at least CROWD_IDLE_CLEAR from every hero_spawn, out
-// of sight; chasing at least CROWD_CLEAR from every hero_spawn. Places
-// are drawn over the floor's grid, so the crowd spreads over the whole floor; fewer stand when the floor has no room
-// for `count` (the try budget, CROWD_TRIES each, runs out), and the hold raises the rest at the graves.
-hold_crowd :: proc(t: ^Tick, count: int) {
+// `count` minions held alive (State.held) as the session's crowd does (State.crowd): placed on the walkable floor,
+// each at least SEPARATION from the rest and clear of the props (which would push it out onto a neighbour); asleep
+// (each alone, no pack) at least CROWD_IDLE_CLEAR from every hero_spawn, out of sight, or chasing at least CROWD_CLEAR
+// from them. Places are drawn uniformly over the floor's area (floor_point) from a stream keyed by the session's seed,
+// so the crowd spreads over the whole floor whatever its shape; fewer stand when the floor has no room for `count`
+// (CROWD_TRIES draws each), and refill_held raises the rest at the graves.
+place_crowd :: proc(t: ^Tick, count: int) {
 	t.state.held = u32(count)
 	floor := floor_of(t)
 	asleep := t.state.crowd == .Idle
 	clear := CROWD_IDLE_CLEAR if asleep else CROWD_CLEAR
 	rng := sim.rng_keyed(t.seed, Roll.Crowd_Place)
-	low := floor.grid_origin
-	span := [2]f32{f32(floor.grid_columns), f32(floor.grid_rows)} * MINION_GRID_CELL
-	steps := [2]u32 {
-		u32(dmath.to_i32_clamped(span.x * 100, 1, max(i32))),
-		u32(dmath.to_i32_clamped(span.y * 100, 1, max(i32))),
-	}
 	placed := 0
 	tries: for try := 0; placed < count && try < count * CROWD_TRIES; try += 1 {
-		at := low + [2]f32{f32(sim.rng_below(&rng, steps.x)), f32(sim.rng_below(&rng, steps.y))} / 100 // whole centimetres
+		spot := floor_point(floor, &rng)
 		facing := dmath.angle_vec(f32(sim.rng_below(&rng, ROLL_STEPS)) / ROLL_STEPS)
-		spot := floor_spot(floor, {at.x, 0, at.y}, CROWD_SNAP) or_continue
 		for spawn in floor.places.hero_spawns {
 			if dmath.length_sq(spawn.xz - spot.point.xz) < clear * clear do continue tries
 		}
@@ -250,7 +249,7 @@ hold_crowd :: proc(t: ^Tick, count: int) {
 bench_prepare :: proc(t: ^Tick, count: int) {
 	if t.state.crowd != .None {
 		sim.despawn_all(&t.state.minions)
-		hold_crowd(t, count)
+		place_crowd(t, count)
 		return
 	}
 	t.state.held = u32(count)

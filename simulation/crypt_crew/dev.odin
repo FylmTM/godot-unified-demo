@@ -35,9 +35,11 @@ apply_dev_commands :: proc(t: ^Tick) {
 }
 
 // `count` minions rising on a ring DEV_SPAWN_RING around `centre`, evenly spaced, each on the walkable floor, while
-// fewer than the floor's cap are alive and the table has a row free.
+// fewer than the floor's cap are alive and the table has a row free; none while a population is held (State.held:
+// it is exactly what was asked, so a benchmark's row compares across builds).
 @(private = "file")
 spawn_around :: proc(t: ^Tick, centre: [3]f32, count: int) {
+	if t.state.held > 0 do return
 	floor := floor_of(t)
 	for i in 0 ..< count {
 		if minions_alive(&t.state.minions) >= floor.minion_cap || free_rows(&t.state.minions) == 0 do return

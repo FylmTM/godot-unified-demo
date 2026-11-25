@@ -1,10 +1,12 @@
-// The crowd at scale: a floor's cap from its area, the held crowds of the Setup (director.odin, Crowd) on the arena,
-// the director raising only into the table's free rows, and the standard scenarios and a pinned reference run with a
-// crowd of hundreds fighting (unified's scenarios on a Setup: CROWD_SUITE, CROWD_REFERENCE), so rollback, late joins
-// and every platform's floats are proven at the size the game plays. The rule tests run on sync-tested runs that end
-// synced, as every rule test does.
+// The crowd at scale: a floor's cap from its area, the held crowds of the Setup (director.odin, Crowd) and the arena in
+// play, the director raising only into the table's free rows, and the standard scenarios and a pinned reference run
+// with a crowd of hundreds fighting (unified's scenarios on a Setup: CROWD_SUITE, CROWD_REFERENCE), so rollback, late
+// joins and every platform's floats are proven at the size the game plays. The rule tests run on sync-tested runs
+// that end synced, as every rule test does.
 package test_crypt_crew
 
+import "core:fmt"
+import "core:strings"
 import "core:testing"
 import "unified:dmath"
 import "unified:headless"
@@ -38,12 +40,15 @@ CROWD_REFERENCE :: scenarios.Reference {
 	ticks         = 1200,
 	snapshot_tick = 600,
 	setup         = "floor=arena,crowd=fight",
-	checkpoints   = {0xf8c41f20c4509952, 0x56505248e5df0217, 0x1fe6b82c34f27410, 0x70c707c49ebf87f2},
-	trace         = 0x39653dbdfaea230d,
-	snapshot      = 0x211f370f793cecf3,
-	log           = 0x2c2a7501c7b36d09,
-	compat        = 0x41202eb1f790a0fb,
+	checkpoints   = {0xe86fa71e88af9932, 0xc8c691565df4fcb4, 0x4e5db3dd784542a6, 0x83066abececd88da},
+	trace         = 0x283d2b14574cee14,
+	snapshot      = 0xb6920adcc495bf3b,
+	log           = 0xf155fe1cd68488e7,
+	compat        = 0x659530afe8aa9ad3,
 }
+
+// What a chaser closes on a neighbour or a spawn in the tick a run seats its heroes.
+SEATING_SLACK :: g.MINION_SPEED / g.TICK_HZ
 
 @(test)
 the_crowd_reference_run_reproduces :: proc(t: ^testing.T) {scenarios.reference_reproduces(t, &g.GAME, CROWD_REFERENCE)}
@@ -57,15 +62,39 @@ a_late_joiner_agrees_with_a_crowd :: proc(t: ^testing.T) {scenarios.late_join_ag
 		CLIENTS - 1,
 		scenarios.LONG ? 600 : 150,
 	)}
+@(test)
+clients_agree_with_a_crowd_on_a_bad_network :: proc(t: ^testing.T) {scenarios.session_agrees(
+		t,
+		&CROWD_SUITE,
+		CLIENTS,
+		.Bad,
+	)}
 
-when scenarios.LONG {
-	@(test)
-	clients_agree_with_a_crowd_on_a_bad_network :: proc(t: ^testing.T) {scenarios.session_agrees(
-			t,
-			&CROWD_SUITE,
-			CLIENTS,
-			.Bad,
-		)}
+// The crowd suite's scripted run fights: minions fall and rise again in it, so its scenarios roll back over deaths
+// and refills, not a crowd that only walks.
+@(test)
+the_crowd_suite_runs_cross_kills_and_rises :: proc(t: ^testing.T) {
+	simulation := sim.create(&g.GAME, CROWD_SUITE.seed, CROWD_FIGHT)
+	defer sim.destroy(simulation)
+	commands: headless.Scripted_Commands(g.Game)
+	defer headless.scripted_commands_destroy(&commands)
+	rises := simulation.state.rises
+	for tick in 1 ..= CROWD_SUITE.ticks {
+		inputs := headless.scripted(&g.GAME, simulation, tick, CROWD_SUITE.players, &commands)
+		sim.step(simulation, &inputs)
+	}
+	testing.expectf(t, simulation.state.kills > 0, "the %d-tick run felled none", CROWD_SUITE.ticks)
+	testing.expectf(t, simulation.state.rises > rises, "the %d-tick run raised none", CROWD_SUITE.ticks)
+}
+
+// GAME.levels is in Level_Id's order: each level's file is named after its id.
+@(test)
+the_levels_are_in_level_id_order :: proc(t: ^testing.T) {
+	testing.expect_value(t, len(g.GAME.levels), len(g.Level_Id))
+	for id in g.Level_Id {
+		name := strings.to_lower(fmt.tprint(id), context.temp_allocator)
+		testing.expect_value(t, g.GAME.levels[int(id)].name, name)
+	}
 }
 
 // A floor's cap is CROWD_DENSITY to its walkable square metre, at most MINION_CAP: Floor 1's rooms hold about a
@@ -78,13 +107,23 @@ a_floors_cap_comes_from_its_area :: proc(t: ^testing.T) {
 	first := &floors[.Floor_1]
 	testing.expect_value(t, first.minion_cap, int(first.area * g.CROWD_DENSITY))
 	testing.expectf(t, first.minion_cap > 80 && first.minion_cap < 140, "Floor 1 holds %d", first.minion_cap)
-	testing.expectf(
-		t,
-		floors[.Arena].area * g.CROWD_DENSITY >= g.MINION_CAP,
-		"the arena's %v m²",
-		floors[.Arena].area,
-	)
-	testing.expect_value(t, floors[.Arena].minion_cap, g.MINION_CAP)
+	arena := &floors[.Arena]
+	testing.expectf(t, arena.area * g.CROWD_DENSITY >= g.MINION_CAP, "the arena's %v m²", arena.area)
+	testing.expect_value(t, arena.minion_cap, g.MINION_CAP)
+}
+
+// island_area on a mesh built by hand: a 2 m by 3 m rectangle in two triangles, and apart from it a right triangle
+// with legs of 4 m and 2 m, each its own island.
+@(test)
+island_area_sums_an_islands_polygons :: proc(t: ^testing.T) {
+	vertices := [][3]f32{{0, 0, 0}, {2, 0, 0}, {2, 0, 3}, {0, 0, 3}, {10, 0, 0}, {14, 0, 0}, {10, 0, 2}}
+	polygons := [][]u32{{0, 1, 2}, {0, 2, 3}, {4, 5, 6}}
+	mesh, err := nav.build(vertices, polygons)
+	defer nav.destroy(&mesh)
+	testing.expect_value(t, err, nav.Build_Error.None)
+	testing.expect_value(t, mesh.island_count, 2)
+	testing.expect_value(t, g.island_area(&mesh, 0), 6)
+	testing.expect_value(t, g.island_area(&mesh, 1), 4)
 }
 
 // A held crowd asleep starts at the floor's cap, each minion on the walkable floor, apart from the rest and out of
@@ -96,15 +135,22 @@ a_sleeping_crowd_stays_asleep :: proc(t: ^testing.T) {
 	floor := floor_of(&run)
 	state := &run.simulation.state
 	testing.expect_value(t, g.minions_alive(&state.minions), floor.minion_cap)
-	expect_spread(t, &run, g.CROWD_IDLE_CLEAR)
+	expect_spread(t, state, floor, g.CROWD_IDLE_CLEAR, SEATING_SLACK)
 	play(&run, {}, 2)
-	minions := sim.iterate(&state.minions)
-	for minion in sim.next(&minions) {
-		if minion.phase != .Idle {
-			testing.expectf(t, false, "a sleeper at %v woke", minion.pos)
-			break
-		}
-	}
+	expect_all_in(t, state, .Idle)
+	scenarios.expect_synced(t, &run)
+}
+
+// A sleeping crowd's felled come back asleep at the graves, never chasing: it stays a sleeping crowd.
+@(test)
+a_sleeping_crowd_refills_with_sleepers :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Idle}, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	headless.run_command(&run, 0, g.Command_Dev_Kill_Minions{})
+	play(&run, {}, g.DEATH_S + 0.5)
+	testing.expect_value(t, g.minions_alive(&state.minions), int(state.held))
+	expect_all_in(t, state, .Idle)
 	scenarios.expect_synced(t, &run)
 }
 
@@ -116,10 +162,86 @@ a_chasing_crowd_never_downs_its_heroes :: proc(t: ^testing.T) {
 	defer headless.run_end(&run)
 	state := &run.simulation.state
 	testing.expect_value(t, g.minions_alive(&state.minions), floor_of(&run).minion_cap)
-	expect_spread(t, &run, g.CROWD_CLEAR)
+	expect_spread(t, state, floor_of(&run), g.CROWD_CLEAR, SEATING_SLACK)
 	play(&run, {}, 4)
 	testing.expect_value(t, headless.run_events(&run, g.Event_Hero_Hurt), 0)
 	for slot in 0 ..< g.PLAYERS do testing.expect_value(t, sim.slot_data(run.simulation, slot).hp, g.HERO_HP)
+	scenarios.expect_synced(t, &run)
+}
+
+// A held crowd on Floor 1 replaces its packs: the floor's cap of chasers, none of them a pack's.
+@(test)
+a_crowd_replaces_the_packs :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Floor_1, crowd = .Chase}, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	testing.expect_value(t, g.minions_alive(&state.minions), floor_of(&run).minion_cap)
+	expect_all_in(t, state, .Chase)
+	scenarios.expect_synced(t, &run)
+}
+
+// A benchmark's count over a held crowd: bench_prepare places that many, not the floor's cap, spread over the floor
+// and clear of the hero spawns.
+@(test)
+a_benchmark_holds_its_count :: proc(t: ^testing.T) {
+	simulation := sim.create_bench(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Chase}, 200)
+	defer sim.destroy(simulation)
+	state := &simulation.state
+	testing.expect_value(t, int(state.held), 200)
+	testing.expect_value(t, g.minions_alive(&state.minions), 200)
+	expect_spread(t, state, &simulation.world.floors[state.level.id], g.CROWD_CLEAR, 0)
+}
+
+// The script plays a crowd's part: under a held crowd it sends no command, ever (no dev spawn, kill or hurt, no pause:
+// the population stays what was asked), where in play it sends them.
+@(test)
+the_script_sends_no_command_under_a_crowd :: proc(t: ^testing.T) {
+	out := sim.Command_Out(g.Command) {
+		cap = 16,
+	}
+	defer delete(out.list)
+	for crowd in g.Crowd {
+		state := g.State {
+			crowd = crowd,
+		}
+		sent := 0
+		for slot in 0 ..< g.PLAYERS {
+			for tick in u32(0) ..< 4 * g.SCRIPT_HURT_EVERY {
+				clear(&out.list)
+				g.scripted_commands(1, slot, tick, &state, &out)
+				sent += len(out.list)
+			}
+		}
+		if crowd == .None {
+			testing.expect(t, sent > 0, "in play the script sends commands")
+		} else {
+			testing.expectf(t, sent == 0, "under %v the script sent %d commands", crowd, sent)
+		}
+	}
+}
+
+// The arena in play (no crowd): no packs, the first surge rises at its graves along the rim, and its cap is the most
+// any floor holds.
+@(test)
+the_arena_plays_with_surges :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena}, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	floor := floor_of(&run)
+	state := &run.simulation.state
+	testing.expect_value(t, int(state.minions.count), 0)
+	testing.expect_value(t, floor.minion_cap, g.MINION_CAP)
+	for headless.run_events(&run, g.Event_Surge) == 0 && state.clock.time < sim.Game_Time(2 * g.SURGE_FIRST_TICKS) {
+		headless.run_step(&run)
+	}
+	testing.expect_value(t, headless.run_events(&run, g.Event_Surge), 1)
+	minions := sim.iterate(&state.minions)
+	for minion in sim.next(&minions) {
+		nearest := max(f32)
+		for &grave in sim.slice(&floor.places.graves) {
+			nearest = dmath.min(nearest, dmath.length(grave.point.xz - minion.pos.xz))
+		}
+		testing.expectf(t, nearest <= g.SURGE_SPREAD + 0.1, "a minion rose %v m from the nearest grave", nearest)
+	}
 	scenarios.expect_synced(t, &run)
 }
 
@@ -138,16 +260,9 @@ the_director_raises_only_into_free_rows :: proc(t: ^testing.T) {
 	for _ in 0 ..< g.DEATH_TICKS + g.RISE_TICKS + g.TICK_HZ {
 		free_before, rises_before := g.free_rows(&state.minions), state.rises
 		headless.run_step(&run)
-		raised := int(state.rises - rises_before)
-		if raised > free_before || g.minions_alive(&state.minions) > held {
-			testing.expectf(
-				t,
-				false,
-				"%d raised into %d free rows, %d alive",
-				raised,
-				free_before,
-				g.minions_alive(&state.minions),
-			)
+		raised, alive := int(state.rises - rises_before), g.minions_alive(&state.minions)
+		if raised > free_before || alive > held {
+			testing.expectf(t, false, "%d raised into %d free rows, %d alive", raised, free_before, alive)
 			break
 		}
 	}
@@ -155,40 +270,71 @@ the_director_raises_only_into_free_rows :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// Every minion of the run on the walkable floor's island, `clear` from every hero_spawn and at least SEPARATION from
-// every other, less what two chasers close in a tick (the run's first tick, which seated its heroes, moved them).
+// A surge whose time comes while the table is full of the dying raises nothing and is no surge: no Event_Surge, no
+// save point. The arena in play: its cap raised and killed (their rows held for DEATH_S), the last free rows filled,
+// the surge clock run out meanwhile.
+@(test)
+no_surge_into_a_full_table :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena}, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	for state.clock.time < sim.Game_Time(g.SURGE_FIRST_TICKS - g.TICK_HZ) do headless.run_step(&run)
+	for g.minions_alive(&state.minions) < g.MINION_CAP {
+		headless.run_command(&run, 0, g.Command_Dev_Spawn_Minions{255})
+	}
+	headless.run_command(&run, 0, g.Command_Dev_Kill_Minions{})
+	for g.free_rows(&state.minions) > 0 do headless.run_command(&run, 0, g.Command_Dev_Spawn_Minions{255})
+	for state.clock.time < sim.Game_Time(g.SURGE_FIRST_TICKS + g.TICK_HZ / 4) {
+		testing.expect_value(t, g.free_rows(&state.minions), 0) // the dying still hold their rows
+		headless.run_step(&run)
+	}
+	testing.expect_value(t, headless.run_events(&run, g.Event_Surge), 0)
+	testing.expect_value(t, state.surges, 0)
+	scenarios.expect_synced(t, &run)
+}
+
+// Every live minion in `phase`, none of them a pack's.
 @(private = "file")
-expect_spread :: proc(t: ^testing.T, run: ^headless.Run(g.Game), clear: f32, loc := #caller_location) {
-	floor := floor_of(run)
-	minions := sim.iterate(&run.simulation.state.minions)
+expect_all_in :: proc(t: ^testing.T, state: ^g.State, phase: g.Minion_Phase, loc := #caller_location) {
+	minions := sim.iterate(&state.minions)
+	for minion in sim.next(&minions) {
+		if minion.phase == .Dying do continue
+		if minion.phase != phase || minion.pack != 0 {
+			testing.expectf(
+				t,
+				false,
+				"a minion %v, of pack %d, at %v",
+				minion.phase,
+				minion.pack,
+				minion.pos,
+				loc = loc,
+			)
+			return
+		}
+	}
+}
+
+// Every minion on the walkable floor's island, `clear` from every hero_spawn and at least SEPARATION from every other,
+// less `slack` (what they may have moved since they were placed).
+@(private = "file")
+expect_spread :: proc(t: ^testing.T, state: ^g.State, floor: ^g.Floor, clear, slack: f32, loc := #caller_location) {
+	minions := sim.iterate(&state.minions)
 	for minion, handle in sim.next(&minions) {
 		if nav.island_of(&floor.mesh, minion.poly) != floor.island {
 			testing.expectf(t, false, "a minion off the floor at %v", minion.pos, loc = loc)
 			return
 		}
 		for spawn in floor.places.hero_spawns {
-			if dmath.length(spawn.xz - minion.pos.xz) < clear - g.MINION_SPEED / g.TICK_HZ {
-				testing.expectf(
-					t,
-					false,
-					"a minion %v m from a hero_spawn",
-					dmath.length(spawn.xz - minion.pos.xz),
-					loc = loc,
-				)
+			if apart := dmath.length(spawn.xz - minion.pos.xz); apart < clear - slack {
+				testing.expectf(t, false, "a minion %v m from a hero_spawn", apart, loc = loc)
 				return
 			}
 		}
-		others := sim.iterate(&run.simulation.state.minions)
+		others := sim.iterate(&state.minions)
 		for other, other_handle in sim.next(&others) {
 			if other_handle.index <= handle.index do continue
-			if dmath.length(other.pos.xz - minion.pos.xz) < g.SEPARATION - 2 * g.MINION_SPEED / g.TICK_HZ {
-				testing.expectf(
-					t,
-					false,
-					"two minions %v m apart",
-					dmath.length(other.pos.xz - minion.pos.xz),
-					loc = loc,
-				)
+			if apart := dmath.length(other.pos.xz - minion.pos.xz); apart < g.SEPARATION - 2 * slack {
+				testing.expectf(t, false, "two minions %v m apart", apart, loc = loc)
 				return
 			}
 		}

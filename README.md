@@ -26,6 +26,7 @@ cd godot-unified-demo
 ./uni run                            # play it in a window, from the title
 ./uni run -- --host-port 7777        # host a game on the LAN, straight past the title...
 ./uni run -- --join 127.0.0.1:7777   # ...and join it from a second window
+./uni run -- --autostart --setup floor=arena,crowd=chase  # the arena, a crowd of hundreds chasing you
 ./uni tool lookdev --window --shots  # the art, posed in the look-dev scene
 ./uni help                           # every command
 ```
@@ -131,9 +132,9 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
   unified's input helpers read (`game/app/bindings.gd`).
 - **Dev commands** (`dev.odin`): a class swap, spawning, hurting and killing, as dev UI forms and
   `uni drive command`.
-- **Benchmark rows**: four heroes against a held surge among Floor 1's props, and a crowd of 500 on the arena asleep,
-  chasing and fighting, each row's population chosen by its Setup (`benches` in `game.odin`; `Crowd`, `hold_crowd`
-  and `bench_prepare` in `director.odin`).
+- **Benchmark rows**: four heroes against a held surge among Floor 1's props, and a crowd of MINION_CAP on the arena
+  asleep, chasing and fighting, each row's population chosen by its Setup (`benches` in `game.odin`; `Crowd`,
+  `place_crowd` and `bench_prepare` in `director.odin`).
 
 ## The rules
 
@@ -196,10 +197,10 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 Every layer unified offers a game: rule tests on sync-tested headless runs, so each also rolls back over what it
 checks; unified's standard scenarios played by the scripted players (`script.odin`), which exercise every control and
 dev command; a bot playthrough of the four classes; a replay regression recorded from a real two-player LAN session;
-the pinned reference runs (the scripted party on Floor 1, and a crowd of 500 fighting on the arena: `crowd_test.odin`,
-which also plays the standard scenarios at that size), the cross-platform check in CI; the godot suite, which holds the art to `docs/ART.md` and the
-app layer to its contract (`game/tools/art_checks.gd`, `app_checks.gd`) and walks the app with real input events
-(`game/tools/ui_walk.gd`); and `./uni coop`, a host and a joiner in two processes, from session flags or, with
+the pinned reference runs (the scripted party on Floor 1, and a crowd of MINION_CAP fighting on the arena:
+`crowd_test.odin`, which also plays the standard scenarios at that size), the cross-platform check in CI; the godot
+suite, which holds the art to `docs/ART.md` and the app layer to its contract (`game/tools/art_checks.gd`,
+`app_checks.gd`) and walks the app with real input events (`game/tools/ui_walk.gd`); and `./uni coop`, a host and a joiner in two processes, from session flags or, with
 `--menus`, each side through the game's own menus (`UnifiedCoop._start_host`, `_start_join`: `game/tools/coop.gd`).
 Commands: `./uni help`.
 

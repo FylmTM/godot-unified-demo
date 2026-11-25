@@ -435,8 +435,8 @@ Checks:
 - The walk drives pads with unified's `UnifiedTool.pad_button(button, device)` and `pad_axis` (745e023).
 - The short scenarios' run crosses a surge (`the_suite_runs_cross_a_save`), so unified's save checks cover Game.save
   under rollback, churn and a late join.
-- `replays/lan_pair` (the host's recording, ticks 2 to 3205, about 50 s; recorded again for unified 830b012's
-  layouts): a Knight host and a Barbarian joiner (both asked for Any), each grabbing, carrying and throwing a prop
+- `replays/lan_pair` (the host's recording, ticks 2 to 2966, about 46 s; recorded again for milestone 4's State layout
+  and levels): a Knight host and a Barbarian joiner (both asked for Any), each grabbing, carrying and throwing a prop
   twice; eight skeletons raised (dev) and attacked by both; the joiner's co-op pause and the host's resume; the host a
   Mage and the joiner a Rogue (dev), both attacking; every skeleton killed (dev); the host downed (dev); three surges.
 - `uni coop --host-profile/--join-profile` (unified b06ba4f) gives each side its Profile; coop.gd checks each class
@@ -467,23 +467,40 @@ Calls made in step 1:
 
 - A held crowd is a Setup field, `crowd` (None, Idle, Chase, Fight; `--setup floor=arena,crowd=fight`), copied into
   the State so the scripted player reads it: idle heroes stand still, chasing ones walk, fighting ones walk holding
-  Attack; under any crowd the script sends no dev command and no pause, heroes take no damage (a wipe would empty the
-  floor), and the floor's packs aren't placed. A save never holds one. bench_prepare re-holds the crowd at the row's
-  count; init holds it at the floor's cap, so the scenarios play it without a bench.
+  Attack (let go a tick each half second, so a throw's press lands) and press Interact in play's bursts (grabs,
+  throws and prop hits at 500); under any crowd the script sends no dev command and no pause, heroes take no damage (a
+  wipe would empty the floor), and the floor's packs aren't placed. A save never holds one. bench_prepare re-places
+  the crowd at the row's count; init places it at the floor's cap, so the scenarios play it without a bench.
+- A held crowd is allowed in any build, a public one too: a sandbox (invulnerable heroes in a crowd Setup are harmless
+  in co-op); milestone 7's endless mode brings the arena's real rules.
+- While a population is held, dev_spawn_minions spawns nothing (so Floor 1's row holds exactly its 40, as before the
+  per-floor cap let the script's spawns add to it), and an idle crowd's felled come back asleep, at the graves out of
+  the spawns' sight (CROWD_IDLE_CLEAR), never as chasers.
 - crowd_idle's heroes stand still instead of walking out of sight: no place in the arena keeps 500 sleepers out of
   sight of heroes walking for ten seconds. Its sleepers start CROWD_IDLE_CLEAR (12 m) from every spawn.
 - A new game starts on `Setup.floor` (Floor 1 unless set), which a save already named; the World builds every level's
   floor up front (`Floor`, indexed by Level_Id), so a level change builds nothing.
-- CROWD_DENSITY is 0.4 per walkable square metre: Floor 1's walkable floor holds 111 (was 40), the arena's 1,533 m² the
+- CROWD_DENSITY is 0.4 per walkable square metre: Floor 1's walkable floor holds 111 (was 40), the arena's 1,526 m² the
   MINION_CAP of 500. Floor 1's benchmark row keeps 40 (BENCH_FLOOR_MINIONS) so it compares across milestones.
 - The walkable area is summed in the demo from `nav.Mesh`'s public fields (`island_area` in world.odin) instead of
   asking unified for `nav.island_area`: a dozen lines on data the mesh already exposes. Ask for it if a second game
   needs it.
 - The arena (`game/levels/arena.tscn`): a 48 m by 40 m hall, walls north, west and east, low cover south (the camera's
-  side), a colonnade of eight decorated pillars around an open floor, four shadowed braziers (Floor 1 has two), twelve
-  graves along the rim with KayKit grave markers behind them, ten props, no packs (its skeletons all rise).
-- A held crowd's places are drawn from a stream keyed by the seed over the whole floor, SEPARATION apart and clear of
-  the props (a minion placed inside a prop's footprint is pushed out onto its neighbour on the first tick).
-- `uni bake --nav` exits failed on this machine with an error line from loading `game/play/play.tscn`
-  (`game/fx/sparks.tscn:30` "Parse Error") although every scene bakes and exports; it does so on the commit before
-  this milestone too. `uni bake --check` passes.
+  side), a colonnade of eight decorated pillars around an open floor, four shadowed braziers (Floor 1 has two), three
+  unshadowed lanterns on the south barrier's columns, twelve graves along the rim and three inside the colonnade (west,
+  east, south of the middle) with KayKit grave markers behind them, ten props, no packs (its skeletons all rise).
+- The arena's inner graves: from the middle every rim grave is 31 to 43 m of field cost away (the field's path over
+  the mesh's triangles runs longer than the straight 18 to 22 m), past SURGE_FAR's 30, so a party in the middle saw no
+  surge; the three inner ones are 10 to 17 m. The level gained graves; SURGE_FAR stays.
+- A brazier's bowl casts no shadow (the part, so Floor 1 too): its own fire just above it threw a cross across the
+  floor. The four shadowed brazier fires stay until step 4 measures the arena's shadows (the reviewers found the cube
+  maps about 80 % of its draw calls).
+- A held crowd's places are drawn uniformly over the walkable floor's area (`floor_point`: a polygon by its share of
+  the area, then a point in it) from a stream keyed by the seed, SEPARATION apart and clear of the props (a minion
+  placed inside a prop's footprint is pushed out onto its neighbour on the first tick). Drawing over the grid's
+  rectangle placed only 72 to 79 of Floor 1's 111.
+- `uni bake --nav` failed on an error line: `Game` preloads the play scene on a worker thread at boot, and the bake's
+  tool script quit mid-parse. `Game` now preloads only while the menu is the current scene (a `-s` tool run has none).
+- Bench, the developer's machine, quiet: crowd_fight is at the 3 ms line (3.17 ms p99 here, 3.37 to 3.51 in the
+  reviewers' reruns), crowd_chase over it (4.88 ms here, 5.5 to 5.9 in theirs: the crowd packing around the heroes);
+  step 2's speed work and step 3's queueing are for both.
