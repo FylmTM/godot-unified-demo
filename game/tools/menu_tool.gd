@@ -61,6 +61,15 @@ func set_setting(setting_name: StringName, value: Variant) -> void:
 	root.get_node(^"Settings").set(setting_name, value)
 
 
+## A member of one of Settings' enums by name (`&"Hints"`, `&"ALWAYS"`), read from its script: a tool script compiles
+## before the autoloads exist.
+func setting_value(enum_name: StringName, member: StringName) -> int:
+	var script: Script = root.get_node(^"Settings").get_script()
+	var members: Dictionary = script.get_script_constant_map()[enum_name]
+	var value: int = members[member]
+	return value
+
+
 ## A player setting's value.
 func setting(setting_name: StringName) -> Variant:
 	return root.get_node(^"Settings").get(setting_name)
@@ -74,7 +83,7 @@ func local_hero() -> Node3D:
 
 
 ## Presses and releases a key, as the keyboard sends it (its keycode and its physical keycode, so actions bound either
-## way see it), a frame apart.
+## way see it, and on the press the character it types, a letter in lower case), a frame apart.
 func press_key(key: Key) -> void:
 	if failed():
 		return
@@ -83,9 +92,20 @@ func press_key(key: Key) -> void:
 		event.keycode = key
 		event.physical_keycode = key
 		event.pressed = pressed
+		if pressed:
+			event.unicode = _typed(key)
 		Input.parse_input_event(event)
 		await process_frame
 	await process_frame
+
+
+## The character a key types without a modifier (0: none): a letter in lower case, a digit, a space.
+static func _typed(key: Key) -> int:
+	if key >= KEY_A and key <= KEY_Z:
+		return key - KEY_A + "a".unicode_at(0)
+	if (key >= KEY_0 and key <= KEY_9) or key == KEY_SPACE:
+		return key
+	return 0
 
 
 ## Holds a key down, or lets it go (press_key does both), as the keyboard sends it.

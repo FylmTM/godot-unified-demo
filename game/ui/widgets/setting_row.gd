@@ -4,10 +4,14 @@ extends FocusRow
 ## control its type calls for, read from the property itself (Settings' property list), so a new setting is a
 ## property and a row naming it. A ranged number is a slider shown as a percentage (every ranged setting is a share);
 ## a bool (On, Off) and an enum are a choice, stepped with left and right, a press, or a click on either half; a text
-## (the player's name) is a field, applied when it is entered or left. The row's scene holds every control and shows
-## the one it needs. A change applies at once (Settings saves it a moment
-## later), except a slider with `on_release` while it is dragged (the interface's size, which would move the slider
+## (the player's name) is a field. The row's scene holds every control and shows the one it needs. A change applies at
+## once (Settings saves it a moment later), except a slider with `on_release` while it is dragged (the interface's size, which would move the slider
 ## under the mouse); the row follows Settings.changed, so a change made elsewhere shows.
+##
+## The field is passed over like any row until the player asks to type: the focus reaching it doesn't start editing
+## (a click does), so the d-pad, Q and E move on; accept starts editing, Enter applies and stops, Esc puts the setting's
+## value back and stops, and leaving it while editing applies. It shows the value Settings kept (cleaned, cut to what
+## the other players get).
 
 ## The Settings property this row shows.
 @export var setting: StringName
@@ -62,8 +66,16 @@ func _ready() -> void:
 		_dragging = false
 		_apply(_slider.value))
 	_choice.pressed.connect(_on_choice_pressed)
-	_field.text_submitted.connect(func(text: String) -> void: _apply(text))
-	_field.focus_exited.connect(func() -> void: _apply(_field.text))
+	_field.text_submitted.connect(func(text: String) -> void:
+		_apply(text)
+		_show())
+	_field.focus_entered.connect(func() -> void:
+		if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			_field.unedit.call_deferred())
+	_field.focus_exited.connect(func() -> void:
+		_apply(_field.text)
+		_show())
+	_field.gui_input.connect(_on_field_input)
 	_choice.gui_input.connect(_on_choice_input)
 	Settings.changed.connect(func(changed: StringName) -> void:
 		if changed == setting:
@@ -122,6 +134,19 @@ func _on_choice_input(event: InputEvent) -> void:
 			_direction = step[1]
 			_choice.accept_event()
 			_choice.pressed.emit()
+
+
+## Accept starts editing a field the focus is on; Esc while editing puts the setting's value back.
+func _on_field_input(event: InputEvent) -> void:
+	if not _field.is_editing():
+		if event.is_action_pressed(&"ui_accept"):
+			_field.accept_event()
+			_field.edit()
+		return
+	if event.is_action_pressed(&"ui_cancel"):
+		_field.accept_event()
+		_show()
+		_field.unedit()
 
 
 func _property() -> Dictionary:

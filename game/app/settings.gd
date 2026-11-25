@@ -14,6 +14,10 @@ extends Node
 ## (JSON, not a ConfigFile: Godot reports a damaged ConfigFile as an engine error, JSON as a value.) Tool and drive
 ## runs pass `--no-settings`: nothing is read, written or applied, so the engine stays as the run opened it;
 ## `--settings-path=` names another file (the app checks round-trip one under the run's own user data).
+##
+## The player's name goes to every other player, so it is never read from the system: a new player gets one of the
+## game's own names (NAMES), saved with the first run's file; a tool run's is always TOOL_NAME, so shots and logs read
+## the same on every machine.
 
 ## A setting changed (its property's name).
 signal changed(setting: StringName)
@@ -21,11 +25,22 @@ signal changed(setting: StringName)
 enum WindowMode { WINDOWED, FULLSCREEN }
 ## Which pad's glyphs the prompts draw: the pad's own (AUTO, from its name), or one family for every pad.
 enum PromptStyle { AUTO, XBOX, PLAYSTATION, SWITCH }
+## When the HUD shows each local hero's controls: for a few seconds after the player joins or changes device, always,
+## or never.
+enum Hints { BRIEFLY, ALWAYS, NEVER }
 
 ## The settings file, unless `--settings-path=` names another.
 const PATH: String = "user://settings.json"
-## The longest a player's name may be.
-const NAME_LENGTH: int = 16
+## The most bytes of a player's name (UTF-8) the session sends (unified's netcode NAME_MAX): a longer one is cut here,
+## on a character's boundary, so the field shows what the other players get.
+const NAME_BYTES: int = 31
+## A new player's name, one picked at random, until they choose their own.
+const NAMES: Array[String] = ["Sexton", "Lantern", "Gravedigger", "Bellringer", "Mourner", "Lamplighter", "Ferryman",
+	"Torchbearer", "Candlewick", "Bonepicker"]
+## Every tool run's name (`--no-settings`).
+const TOOL_NAME: String = "Adventurer"
+## Hero select's seats, each with its last pick.
+const SEATS: int = 4
 ## How long after the last change the file is written, in seconds.
 const SAVE_DELAY_S: float = 0.3
 
@@ -117,15 +132,26 @@ const SAVE_DELAY_S: float = 0.3
 		_changed(&"move_deadzone")
 
 @export_category("player")
-## The name this player goes by in a session (the session's local_name); a new player's is the system's user name.
+## The name the other players see (the session's local_name): control characters dropped, the edges' spaces trimmed,
+## cut to NAME_BYTES; nothing left is the default name again.
 @export var player_name: String = "":
 	set(value):
-		player_name = value.strip_edges().left(NAME_LENGTH)
+		var clean: String = clean_name(value)
+		player_name = clean if clean != "" else _default_name
 		_changed(&"player_name")
-## Each hero select seat's last pick (EnumClass), preselected the next time.
+## Each party place's last pick (EnumClass, Any included), by local index: hero select's first seat is place 0 and each
+## taken seat after it the next place; a pad joining mid-game takes the place of the local index it gets. Always
+## SEATS picks, each one of Heroes.choices() (a whole number read as a fraction is taken; anything else is Any).
 @export var hero_picks: Array = [0, 0, 0, 0]:
 	set(value):
-		hero_picks = value
+		var picks: Array = []
+		for place: int in SEATS:
+			var pick: Variant = value[place] if place < value.size() else EnumClass.ANY
+			if pick is float:  # as JSON reads a number
+				var number: float = pick
+				pick = roundi(number) if is_equal_approx(number, roundf(number)) else EnumClass.ANY
+			picks.append(pick if pick is int and pick in Heroes.choices() else EnumClass.ANY)
+		hero_picks = picks
 		_changed(&"hero_picks")
 
 @export_category("gameplay")
@@ -134,11 +160,11 @@ const SAVE_DELAY_S: float = 0.3
 	set(value):
 		screen_shake = value
 		_changed(&"screen_shake")
-## The HUD shows each local hero's controls, as glyphs for its player's device.
-@export var show_hints: bool = true:
+## When the HUD shows each local hero's controls, as glyphs for its player's device.
+@export_enum("Briefly:0", "Always:1", "Off:2") var hints: int = Hints.BRIEFLY:
 	set(value):
-		show_hints = value
-		_changed(&"show_hints")
+		hints = value
+		_changed(&"hints")
 
 ## The file read and written: PATH, or `--settings-path=`. Set before the node enters the tree to use another.
 var path: String = PATH
@@ -154,6 +180,8 @@ var _applies_window: bool = false
 var _in_background: bool = false
 ## While the file loads: setting a value applies it, but is no change to save.
 var _loading: bool = true
+## The name an empty one falls back to: this run's pick from NAMES, or TOOL_NAME.
+var _default_name: String = ""
 var _save_timer: Timer
 
 
@@ -162,6 +190,8 @@ func _init() -> void:
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--settings-path="):
 			path = arg.trim_prefix("--settings-path=")
+	_default_name = TOOL_NAME if isolated else NAMES.pick_random()
+	player_name = _default_name  # a file's name replaces it; a tool script may name its player before _ready
 
 
 func _ready() -> void:
@@ -171,15 +201,22 @@ func _ready() -> void:
 	_save_timer.wait_time = SAVE_DELAY_S
 	_save_timer.timeout.connect(save)
 	add_child(_save_timer)
-	player_name = _system_name()  # the default: a file's name replaces it
+	var picked: String = TOOL_NAME if isolated else NAMES.pick_random()  # `isolated` may have changed since _init
+	if player_name == _default_name:
+		player_name = picked  # unless a tool script named its player already
+	_default_name = picked
+	var named: bool = false
 	if not isolated:
 		var saved: Dictionary = _read()
 		for setting: Dictionary in _settings():
 			var setting_name: StringName = setting["name"]
 			var section: Variant = saved.get(setting["section"])
 			var values: Dictionary = section if section is Dictionary else {}
+			named = named or (setting_name == &"player_name" and values.get(setting_name) is String)
 			set(setting_name, _valid(setting, values.get(setting_name)))  # applies it
 	_loading = false
+	if not isolated and not named:
+		save()  # the first run: the name picked for this player is theirs from now on
 
 
 func _notification(what: int) -> void:
@@ -295,11 +332,18 @@ func _apply_master() -> void:
 		AudioServer.set_bus_mute(AudioServer.get_bus_index(&"Master"), true)
 
 
-## The system's user name, as a player's name by default ("Adventurer" where there is none).
-static func _system_name() -> String:
-	var user: String = OS.get_environment("USERNAME") if OS.has_environment("USERNAME") else OS.get_environment("USER")
-	user = user.strip_edges().left(NAME_LENGTH)
-	return user if user != "" else "Adventurer"
+## `text` as a player's name: control characters dropped, the edges' spaces trimmed, cut to NAME_BYTES of UTF-8 on a
+## character's boundary ("" when nothing is left).
+static func clean_name(text: String) -> String:
+	var kept: String = ""
+	for i: int in text.length():
+		var code: int = text.unicode_at(i)
+		if code >= 0x20 and not (code >= 0x7f and code < 0xa0):
+			kept += text[i]
+	kept = kept.strip_edges()
+	while kept.to_utf8_buffer().size() > NAME_BYTES:
+		kept = kept.left(-1)
+	return kept.strip_edges()
 
 
 static func _set_bus_volume(bus: StringName, linear: float) -> void:

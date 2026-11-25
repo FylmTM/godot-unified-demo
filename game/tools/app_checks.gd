@@ -17,10 +17,12 @@ extends RefCounted
 ##   junk are refused, by a press or from the file, and an empty list in the file is no binding, not the defaults.
 ## - Prompts: each baked glyph map is its source's; real pad names read as their family; every glyph the prompts'
 ##   tables name, and every default binding's, is in its family's map.
-## - Every class has a portrait.
-## - Settings round-trip a file: saved values read back (the bindings, the pads' glyphs and the dead zone among them);
-##   a value missing, of the wrong type or out of range falls back or is clamped, a whole number is taken for a
-##   fraction; a file that doesn't parse is kept as .bad, defaults used.
+## - Every class has a square portrait.
+## - Settings round-trip a file: a first run picks one of the game's names and saves it; saved values read back (the
+##   bindings, the pads' glyphs, the dead zone, the name and the picks among them); a name is cleaned and cut to what
+##   the other players get, a blank one is a game's name again; the picks are always four valid choices; a value
+##   missing, of the wrong type or out of range falls back or is clamped, a whole number is taken for a fraction; a
+##   file that doesn't parse is kept as .bad, defaults used, and a fresh file written.
 ##
 ## Each problem is reported through the validate run's log capture, named by the file it is in.
 
@@ -268,7 +270,7 @@ func _check_prompts() -> void:
 func _check_portraits() -> void:
 	for hero_class: int in Heroes.classes():
 		var portrait: Texture2D = Heroes.portrait(hero_class)
-		var at: String = Heroes.PORTRAITS % EnumClass.name(hero_class).to_lower()
+		var at: String = Heroes.portrait_path(hero_class)
 		if portrait == null:
 			_problem("no portrait: run ./uni tool render_portraits --window", at)
 		elif portrait.get_width() != portrait.get_height():
@@ -278,13 +280,24 @@ func _check_portraits() -> void:
 func _check_settings() -> void:
 	var engine: Dictionary = _engine_values()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_FILE + ".bad"))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_FILE))
 	var settings: Node = _settings_from_file()
+	var first_name: String = settings.get(&"player_name")
+	_expect(first_name in Settings.NAMES and FileAccess.file_exists(SETTINGS_FILE),
+		"a first run picks one of the game's names and saves it at once (%s)" % first_name)
+	settings.free()
+	settings = _settings_from_file()
+	var kept_name: String = settings.get(&"player_name")
+	_expect(kept_name == first_name, "the picked name is kept (%s, %s)" % [first_name, kept_name])
+	_check_names(settings)
 	var bindings: Dictionary = {"attack": {"keyboard": ["key:F", "key:Space"]}}
 	settings.set(&"show_fps", true)
 	settings.set(&"render_scale", 0.75)
 	settings.set(&"bindings", bindings)
 	settings.set(&"prompt_style", 2)
 	settings.set(&"move_deadzone", 0.4)
+	settings.set(&"player_name", "Ясень")
+	settings.set(&"hero_picks", [EnumClass.MAGE, EnumClass.ANY, EnumClass.ROGUE, EnumClass.KNIGHT])
 	settings.call(&"save")
 	settings.free()
 	settings = _settings_from_file()
@@ -298,6 +311,11 @@ func _check_settings() -> void:
 		"the controls read back (%s, %s, %s)" % [read_bindings, style, deadzone])
 	_expect(Bindings.to_token(Bindings.events(&"attack", Bindings.Kind.KEYBOARD)[0]) == "key:F",
 		"the bindings read back apply")
+	var read_name: String = settings.get(&"player_name")
+	var read_picks: Array = settings.get(&"hero_picks")
+	_expect(read_name == "Ясень", "the player's name reads back (%s)" % read_name)
+	_expect(read_picks == [EnumClass.MAGE, EnumClass.ANY, EnumClass.ROGUE, EnumClass.KNIGHT],
+		"the picks read back (%s)" % [read_picks])
 	settings.free()
 	_write_settings_file(JSON.stringify({"video": {"show_fps": "yes", "render_scale": 5, "frame_limit": 60.0},
 		"audio": {"master_volume": 1}}))
@@ -319,8 +337,9 @@ func _check_settings() -> void:
 	var problem: String = settings.get(&"read_problem")
 	_expect(render_scale == 1.0, "a file that doesn't parse leaves the defaults")
 	_expect(problem.contains("line"), "a file that doesn't parse says where (%s)" % problem)
-	_expect(FileAccess.file_exists(SETTINGS_FILE + ".bad") and not FileAccess.file_exists(SETTINGS_FILE),
-		"a file that doesn't parse is kept as .bad")
+	_expect(FileAccess.file_exists(SETTINGS_FILE + ".bad"), "a file that doesn't parse is kept as .bad")
+	_expect(JSON.parse_string(FileAccess.get_file_as_string(SETTINGS_FILE)) is Dictionary,
+		"a fresh file is written in its place, with the player's new name")
 	settings.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_FILE + ".bad"))
 	_restore_engine_values(engine)
@@ -329,6 +348,30 @@ func _check_settings() -> void:
 	var live_deadzone: float = _tree_root.get_node(^"Settings").get(&"move_deadzone")
 	for action: StringName in Bindings.MOVE_ACTIONS:
 		InputMap.action_set_deadzone(action, live_deadzone)
+
+
+## The name and the picks as Settings keeps them: a name cleaned and cut to what the other players get (on a
+## character's boundary), nothing left the default again; the picks always four valid choices.
+func _check_names(settings: Node) -> void:
+	var cases: Array[Array] = [
+		["  Bell	ringer
+ ", "Bellringer"],
+		["A".repeat(40), "A".repeat(Settings.NAME_BYTES)],
+		["Я".repeat(20), "Я".repeat(15)],  # two bytes each: 15 fit in NAME_BYTES (31)
+	]
+	for case: Array in cases:
+		settings.set(&"player_name", case[0])
+		var kept: String = settings.get(&"player_name")
+		var want: String = case[1]
+		_expect(kept == want, "the name '%s' kept as '%s' (got '%s')" % [case[0], want, kept])
+	settings.set(&"player_name", " 
+ ")
+	var blank: String = settings.get(&"player_name")
+	_expect(blank in Settings.NAMES, "a blank name falls back to one of the game's (%s)" % blank)
+	settings.set(&"hero_picks", [EnumClass.MAGE, 99, "Knight"])
+	var picks: Array = settings.get(&"hero_picks")
+	_expect(picks == [EnumClass.MAGE, EnumClass.ANY, EnumClass.ANY, EnumClass.ANY],
+		"the picks normalised to four valid choices (%s)" % [picks])
 
 
 ## A Settings that reads and writes SETTINGS_FILE, loaded (it is in the tree).
