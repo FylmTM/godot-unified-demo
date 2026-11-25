@@ -2,16 +2,19 @@ extends Node
 ## The input prompts (the `Prompts` autoload): which glyph shows an action, for which device, in which family's look.
 ##
 ## The glyphs are Kenney's Input Prompts fonts, one per family (keyboard and mouse, Xbox, PlayStation, Switch), each
-## with the map its pack ships (`<font>_map.txt`: a glyph's name to its character), read at boot. Fonts rather than
-## the pack's PNGs: four files and four maps draw every key a player can bind, scale crisply with the interface, and
-## take a label's colour. A binding the maps lack shows as its name in text.
+## with its glyph map baked into a GlyphMap (game/ui/prompts/). Fonts rather than the pack's PNGs: four files draw
+## every key a player can bind, scale crisply with the interface, and take a label's colour. A key's glyph is its
+## label on the player's layout (an AZERTY keyboard shows Z where a QWERTY one shows W), while bindings stay
+## physical keys. A binding a map lacks shows as its name in text.
 ##
 ## A prompt follows a device. A local player fixed to one (a couch guest's pad, player 0's while a guest is in: the
 ## session's local devices) shows that device's; player 0 playing alone, and the menus, show the kind of device used
-## last: a key, a mouse button or a real mouse move means the keyboard, a pad's button or a push past half its stick
-## means that pad. A pad's family is the player's choice (Settings.prompt_style) or, on AUTO, the pad's own, read from
-## its name. `changed` says when anything a prompt shows may differ: a flip of device, a pad connected, the style,
-## the bindings.
+## last: a key, a mouse button or a real mouse move means the keyboard; a pad's button, its stick pushed past half or
+## a trigger pressed past half means that pad (a stick's noise and a mouse's nudge don't count). A pad's family is the
+## player's choice (Settings.prompt_style) or, on Auto, the pad's own, read from its name (family_of_name). The mouse
+## cursor hides while a pad leads, and shows again with the keyboard or a real move of the mouse.
+## `changed` says a prompt may show differently: the device kind or pad used last, a pad connected, the style, the
+## bindings. A prompt redraws only when what it would show differs.
 
 ## A prompt may show differently now.
 signal changed
@@ -21,6 +24,8 @@ enum Family { KEYBOARD, XBOX, PLAYSTATION, SWITCH }
 
 ## How far the mouse must move at once (pixels) to count as the player turning to it.
 const MOUSE_MOVE: float = 6.0
+## How far a stick or trigger must move to count as the player turning to its pad.
+const PAD_PUSH: float = 0.5
 ## A pad's buttons (by JoyButton) as each pad family names their glyph; the D-pad and the sticks' presses too.
 const PAD_BUTTONS: Dictionary[Family, Array] = {
 	Family.XBOX: ["xbox_button_a", "xbox_button_b", "xbox_button_x", "xbox_button_y", "xbox_button_view",
@@ -31,15 +36,16 @@ const PAD_BUTTONS: Dictionary[Family, Array] = {
 		"playstation_button_l3", "playstation_button_r3", "playstation_trigger_l1", "playstation_trigger_r1",
 		"playstation_dpad_up", "playstation_dpad_down", "playstation_dpad_left", "playstation_dpad_right"],
 	# Godot names the buttons by position (A is the bottom one), and Switch pads letter them the other way round.
-	Family.SWITCH: ["switch_button_b", "switch_button_a", "switch_button_y", "switch_button_x", "switch_button_minus",
-		"switch_button_home", "switch_button_plus", "switch_stick_l_press", "switch_stick_r_press", "switch_button_l",
-		"switch_button_r", "switch_dpad_up", "switch_dpad_down", "switch_dpad_left", "switch_dpad_right"],
+	Family.SWITCH: ["switch_button_b", "switch_button_a", "switch_button_y", "switch_button_x",
+		"switch_button_minus", "switch_button_home", "switch_button_plus", "switch_stick_l_press",
+		"switch_stick_r_press", "switch_button_l", "switch_button_r", "switch_dpad_up", "switch_dpad_down",
+		"switch_dpad_left", "switch_dpad_right"],
 }
 ## A pad's axes (by JoyAxis): left stick x and y, right stick x and y, left and right trigger.
 const PAD_AXES: Dictionary[Family, Array] = {
 	Family.XBOX: ["xbox_stick_l", "xbox_stick_l", "xbox_stick_r", "xbox_stick_r", "xbox_lt", "xbox_rt"],
-	Family.PLAYSTATION: ["playstation_stick_l", "playstation_stick_l", "playstation_stick_r", "playstation_stick_r",
-		"playstation_trigger_l2", "playstation_trigger_r2"],
+	Family.PLAYSTATION: ["playstation_stick_l", "playstation_stick_l", "playstation_stick_r",
+		"playstation_stick_r", "playstation_trigger_l2", "playstation_trigger_r2"],
 	Family.SWITCH: ["switch_stick_l", "switch_stick_l", "switch_stick_r", "switch_stick_r", "switch_button_zl",
 		"switch_button_zr"],
 }
@@ -48,43 +54,52 @@ const KEY_GLYPHS: Dictionary[Key, String] = {
 	KEY_UP: "keyboard_arrow_up", KEY_DOWN: "keyboard_arrow_down", KEY_LEFT: "keyboard_arrow_left",
 	KEY_RIGHT: "keyboard_arrow_right", KEY_BRACKETLEFT: "keyboard_bracket_open",
 	KEY_BRACKETRIGHT: "keyboard_bracket_close", KEY_SLASH: "keyboard_slash_forward",
-	KEY_BACKSLASH: "keyboard_slash_back",
-	KEY_QUOTELEFT: "keyboard_tilde", KEY_EQUAL: "keyboard_equals", KEY_PAGEUP: "keyboard_page_up",
-	KEY_PAGEDOWN: "keyboard_page_down", KEY_CAPSLOCK: "keyboard_capslock", KEY_KP_ENTER: "keyboard_numpad_enter",
-	KEY_PRINT: "keyboard_printscreen", KEY_SCROLLLOCK: "keyboard_scroll_lock", KEY_META: "keyboard_win",
+	KEY_BACKSLASH: "keyboard_slash_back", KEY_QUOTELEFT: "keyboard_tilde", KEY_EQUAL: "keyboard_equals",
+	KEY_PAGEUP: "keyboard_page_up", KEY_PAGEDOWN: "keyboard_page_down", KEY_CAPSLOCK: "keyboard_capslock",
+	KEY_KP_ENTER: "keyboard_numpad_enter", KEY_PRINT: "keyboard_printscreen", KEY_SCROLLLOCK: "keyboard_scroll_lock",
+	KEY_META: "keyboard_win", KEY_KP_0: "keyboard_0", KEY_KP_1: "keyboard_1", KEY_KP_2: "keyboard_2",
+	KEY_KP_3: "keyboard_3", KEY_KP_4: "keyboard_4", KEY_KP_5: "keyboard_5", KEY_KP_6: "keyboard_6",
+	KEY_KP_7: "keyboard_7", KEY_KP_8: "keyboard_8", KEY_KP_9: "keyboard_9", KEY_KP_ADD: "keyboard_numpad_plus",
+	KEY_KP_SUBTRACT: "keyboard_minus", KEY_KP_MULTIPLY: "keyboard_asterisk", KEY_KP_DIVIDE: "keyboard_slash_forward",
+	KEY_KP_PERIOD: "keyboard_period",
 }
 ## Mouse buttons (by MouseButton) and their glyphs.
 const MOUSE_GLYPHS: Dictionary[MouseButton, String] = {
 	MOUSE_BUTTON_LEFT: "mouse_left", MOUSE_BUTTON_RIGHT: "mouse_right", MOUSE_BUTTON_MIDDLE: "mouse_scroll",
 	MOUSE_BUTTON_XBUTTON1: "mouse_side_back", MOUSE_BUTTON_XBUTTON2: "mouse_side_forward",
 }
-## A group of actions shown as one control shows each one's glyph in turn ("W A S D", "LB RB"), but the moves show
-## one glyph on a pad (its left stick) and the arrow keys one.
-const STICK_GLYPHS: Dictionary[Family, String] = {
+## The moves on a pad: its left stick, one glyph.
+const MOVE_STICK_GLYPHS: Dictionary[Family, String] = {
 	Family.XBOX: "xbox_stick_l", Family.PLAYSTATION: "playstation_stick_l", Family.SWITCH: "switch_stick_l",
 }
+## The arrow keys, all four bound to the moves: one glyph.
+const ARROWS_GLYPH: String = "keyboard_arrows_all"
 ## The mouse moving: how the keyboard player aims.
 const MOUSE_AIM: String = "mouse_move"
 ## The right stick: how a pad player aims.
 const AIM_STICK_GLYPHS: Dictionary[Family, String] = {
 	Family.XBOX: "xbox_stick_r", Family.PLAYSTATION: "playstation_stick_r", Family.SWITCH: "switch_stick_r",
 }
+## Words in a pad's name that say its family, checked in this order (an "Xbox ... Pro Controller" is an Xbox pad).
+const FAMILY_WORDS: Array[Array] = [
+	[Family.XBOX, ["xbox", "xinput"]],
+	[Family.PLAYSTATION, ["playstation", "dualsense", "dualshock", "ps3", "ps4", "ps5", "sony"]],
+	[Family.SWITCH, ["nintendo", "switch", "joy-con", "joycon"]],
+]
 
-## Each family's font (prompts.tscn): the font a prompt of that family draws its glyphs in.
-@export var fonts: Dictionary[Family, FontFile] = {}
+## Each family's font and glyph map (game/ui/prompts/, baked by game/tools/bake_glyphs.gd).
+@export var maps: Dictionary[Family, GlyphMap] = {}
 
 ## The kind of device used last: Bindings.Kind.KEYBOARD, or PAD.
 var last_kind: Bindings.Kind = Bindings.Kind.KEYBOARD
 ## The pad used last (its device id), whichever kind was used last.
 var last_pad: int = 0
 
-## Each family's map: a glyph's name to its character.
-var _glyphs: Dictionary[Family, Dictionary] = {}
-
 
 func _ready() -> void:
-	for family: Family in fonts:
-		_glyphs[family] = _read_map(fonts[family].resource_path.get_basename() + "_map.txt")
+	for family: Family in Family.values():
+		if not maps.has(family) or maps[family] == null or maps[family].glyphs.is_empty():
+			push_error("Prompts: no glyph map for %s (game/tools/bake_glyphs.gd makes them)" % Family.find_key(family))
 	Input.joy_connection_changed.connect(func(_device: int, _connected: bool) -> void: changed.emit())
 	Settings.changed.connect(func(setting: StringName) -> void:
 		if setting in [&"prompt_style", &"bindings"]:
@@ -97,14 +112,16 @@ func _input(event: InputEvent) -> void:
 	if motion != null and motion.relative.length() >= MOUSE_MOVE:
 		kind = Bindings.Kind.KEYBOARD
 	var stick := event as InputEventJoypadMotion
-	if stick != null and absf(stick.axis_value) < 0.5:
+	if stick != null and absf(stick.axis_value) < PAD_PUSH:
 		kind = -1
 	if kind == Bindings.Kind.PAD and event.device != last_pad:
+		var family_before: Family = pad_family(last_pad)
 		last_pad = event.device
-		if last_kind == Bindings.Kind.PAD:
+		if last_kind == Bindings.Kind.PAD and pad_family(last_pad) != family_before:
 			changed.emit()
 	if kind >= 0 and kind != last_kind:
 		last_kind = kind as Bindings.Kind
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if last_kind == Bindings.Kind.PAD else Input.MOUSE_MODE_VISIBLE
 		changed.emit()
 
 
@@ -134,31 +151,33 @@ func pad_family(device: int) -> Family:
 			return Family.PLAYSTATION
 		Settings.PromptStyle.SWITCH:
 			return Family.SWITCH
-	var pad_name: String = Input.get_joy_name(device).to_lower()
-	for word: String in ["playstation", "dualsense", "dualshock", "ps4", "ps5"]:
-		if pad_name.contains(word):
-			return Family.PLAYSTATION
-	for word: String in ["nintendo", "switch", "joy-con", "pro controller"]:
-		if pad_name.contains(word):
-			return Family.SWITCH
+	return family_of_name(Input.get_joy_name(device))
+
+
+## The family a pad of name `pad_name` (Input.get_joy_name) belongs to; an unknown pad's is Xbox.
+static func family_of_name(pad_name: String) -> Family:
+	var lowered: String = pad_name.to_lower()
+	for entry: Array in FAMILY_WORDS:
+		var words: Array = entry[1]
+		for word: String in words:
+			if lowered.contains(word):
+				return entry[0]
 	return Family.XBOX
 
 
 ## The font `family`'s glyphs draw in.
 func font(family: Family) -> FontFile:
-	return fonts[family]
+	return maps[family].font
 
 
-## The glyphs of `actions` (one action, or the actions that make one control, like the four moves) in `family` (a
-## local player's: family_of_local()): their first binding of that family's kind. The aim (no action: the mouse, or
-## the right stick) is `&"aim"`. Empty when the actions have no binding there, or the font no glyph for it; `text_of`
-## gives the binding's name then.
+## The glyphs of `actions` (one action, or the actions that make one control, like the four moves) in `family`
+## (a local player's: family_of_local()): each action's first binding of that family's kind, in turn; the moves are
+## one glyph on a pad (its left stick), and the four arrow keys one. The aim (no action: the mouse, or the right stick)
+## is `&"aim"`. Empty when an action has no binding there or the font no glyph for it: text_of() says it in words.
 func glyphs(actions: Array[StringName], family: Family) -> String:
-	var names: PackedStringArray = glyph_names(actions, family)
-	var map: Dictionary = _glyphs.get(family, {})
 	var out: String = ""
-	for glyph_name: String in names:
-		var glyph: String = map.get(glyph_name, "")
+	for glyph_name: String in glyph_names(actions, family):
+		var glyph: String = maps[family].glyphs.get(glyph_name, "")
 		if glyph == "":
 			return ""
 		out += glyph
@@ -172,7 +191,7 @@ func glyph_names(actions: Array[StringName], family: Family) -> PackedStringArra
 	var kind: Bindings.Kind = Bindings.Kind.KEYBOARD if family == Family.KEYBOARD else Bindings.Kind.PAD
 	var moves: bool = actions.all(func(action: StringName) -> bool: return action in Bindings.MOVE_ACTIONS)
 	if kind == Bindings.Kind.PAD and moves:
-		return [STICK_GLYPHS[family]]
+		return [MOVE_STICK_GLYPHS[family]]
 	var keys: Array[Key] = []
 	var out: PackedStringArray = []
 	for action: StringName in actions:
@@ -182,22 +201,21 @@ func glyph_names(actions: Array[StringName], family: Family) -> PackedStringArra
 		out.append(glyph_name(events[0], family))
 		if events[0] is InputEventKey:
 			keys.append(Bindings.key_of(events[0] as InputEventKey))
-	if keys.size() == 4 and keys.all(func(key: Key) -> bool: return key in [KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT]):
-		return ["keyboard_arrows_all"]
+	var arrows: Array[Key] = [KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT]
+	if moves and keys.size() == 4 and keys.all(func(key: Key) -> bool: return key in arrows):
+		return [ARROWS_GLYPH]
 	return out
 
 
 ## One binding's glyph in `family` ("" where the font has none).
 func glyph_of(event: InputEvent, family: Family) -> String:
-	var map: Dictionary = _glyphs.get(family, {})
-	var glyph: String = map.get(glyph_name(event, family), "")
-	return glyph
+	return maps[family].glyphs.get(glyph_name(event, family), "")
 
 
-## The glyph name of one binding in `family`.
+## The glyph name of one binding in `family`; a key's by its label on the player's layout.
 func glyph_name(event: InputEvent, family: Family) -> String:
 	if event is InputEventKey:
-		var key: Key = Bindings.key_of(event as InputEventKey)
+		var key: Key = _label_of(Bindings.key_of(event as InputEventKey))
 		return KEY_GLYPHS.get(key, "keyboard_" + OS.get_keycode_string(key).to_lower().replace(" ", "_"))
 	if event is InputEventMouseButton:
 		return MOUSE_GLYPHS.get((event as InputEventMouseButton).button_index, "mouse")
@@ -212,18 +230,24 @@ func glyph_name(event: InputEvent, family: Family) -> String:
 	return ""
 
 
-## The first binding of `action` (of `family`'s device kind) in words: what a prompt shows where its font
-## has no glyph.
-func text_of(action: StringName, family: Family) -> String:
+## `actions`' first bindings (of `family`'s device kind) in words, one after another: what a prompt shows where its
+## font has no glyph.
+func text_of(actions: Array[StringName], family: Family) -> String:
 	var kind: Bindings.Kind = Bindings.Kind.KEYBOARD if family == Family.KEYBOARD else Bindings.Kind.PAD
-	var events: Array[InputEvent] = Bindings.events(action, kind)
-	return events[0].as_text().get_slice(" (", 0) if not events.is_empty() else ""
+	var words: PackedStringArray = []
+	for action: StringName in actions:
+		var events: Array[InputEvent] = Bindings.events(action, kind)
+		if events.is_empty():
+			continue
+		words.append(name_of(events[0]))
+	return " ".join(words)
 
 
-## Every glyph name each family's map holds: the app checks hold the tables above to it.
-func map_names(family: Family) -> PackedStringArray:
-	var map: Dictionary = _glyphs.get(family, {})
-	return PackedStringArray(map.keys())
+## One binding in words: a key by its label on the player's layout, anything else as Godot names it.
+func name_of(event: InputEvent) -> String:
+	if event is InputEventKey:
+		return OS.get_keycode_string(_label_of(Bindings.key_of(event as InputEventKey)))
+	return event.as_text().get_slice(" (", 0)
 
 
 func _device_of_local(local: int) -> int:
@@ -233,11 +257,12 @@ func _device_of_local(local: int) -> int:
 	return session.get_local_device(local)
 
 
-## A pack's map: `name: U+E015` lines, a glyph's name to its character.
-static func _read_map(map_path: String) -> Dictionary:
-	var out: Dictionary = {}
-	for line: String in FileAccess.get_file_as_string(map_path).split("\n"):
-		var parts: PackedStringArray = line.strip_edges().split(": U+")
-		if parts.size() == 2 and parts[1].is_valid_hex_number():
-			out[parts[0]] = String.chr(parts[1].hex_to_int())
-	return out
+## The key a physical key types on the player's layout, when that is a Latin letter or a digit (an AZERTY keyboard's Z
+## where a QWERTY one has W); else the key itself: a key that types nothing, a layout of another script (whose keys
+## carry the Latin letters too, and the glyph fonts draw only those), or no layout to ask (a headless run).
+static func _label_of(physical: Key) -> Key:
+	if physical >= KEY_SPECIAL or DisplayServer.get_name() == "headless":
+		return physical
+	var label: Key = DisplayServer.keyboard_get_label_from_physical(physical)
+	var latin: bool = (label >= KEY_A and label <= KEY_Z) or (label >= KEY_0 and label <= KEY_9)
+	return label if latin else physical

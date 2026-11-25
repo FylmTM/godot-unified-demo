@@ -129,8 +129,9 @@ grow_vertical = 0
 mouse_filter = 2
 theme_type_variation = &"Plate"
 
-[node name="Prompt" parent="JoinHint" instance=ExtResource("action_prompt")]
+[node name="JoinPrompt" parent="JoinHint" instance=ExtResource("action_prompt")]
+unique_name_in_owner = true
 layout_mode = 2
 actions = Array[StringName]([&"join"])
 text = "Join the game"
-pad = true
+pad_device = 0

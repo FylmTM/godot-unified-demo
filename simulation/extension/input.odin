@@ -1,8 +1,8 @@
 // The input (main thread, once a frame per local player): the InputMap's actions on the player's device become an
 // Input. Twin-stick: the left stick or the keys move, the right stick or the mouse aim. A couch player's device is its
-// pad; the keyboard and mouse are one player's (play.gd says whose); local player 0 reads every device until its first
-// input claims one. Only scripts know where the mouse points on the floor (the camera's ray), so play.gd sets that as
-// an input value.
+// pad; the keyboard and mouse are one player's (play.gd says whose); local player 0 reads every device while it plays
+// alone, and the one it last played with while a couch guest is in (couch.gd). Only scripts know where the mouse
+// points on the floor (the camera's ray), so play.gd sets that as an input value.
 package crypt_crew_extension
 
 import "unified:dmath"

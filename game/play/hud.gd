@@ -16,16 +16,13 @@ var _kills: int = 0
 @onready var _kills_label: Label = %Kills
 @onready var _paused: Control = %Paused
 @onready var _join_hint: Control = %JoinHint
+@onready var _join_prompt: ActionPrompt = %JoinPrompt
 
 
 func _ready() -> void:
 	Unified.data.hud.changed.connect(_show_data)
 	Unified.session.sim_event.connect(_on_sim_event)
-	Unified.session.local_players_changed.connect(_show_join_hint)
-	Input.joy_connection_changed.connect(_show_join_hint.unbind(2))
-	Prompts.changed.connect(_show_join_hint)
 	_show_data()
-	_show_join_hint()
 
 
 ## A plate per local hero (in slot order; the spare plates hide), the crypt's counts, and the pause.
@@ -43,12 +40,13 @@ func _show_data() -> void:
 	_paused.visible = Unified.data.hud.paused
 
 
-## The join hint shows while a connected pad plays nobody (Couch.claimed).
-func _show_join_hint() -> void:
-	var idle: bool = false
-	for device: int in Input.get_connected_joypads():
-		idle = idle or not Couch.claimed(Unified.session, device)
-	_join_hint.visible = idle
+## Shows the join hint to pad `device` ("[Start] Join the game" in its glyphs), or hides it (-1: every connected
+## pad plays; the Couch says which pad is idle).
+func show_join_hint(device: int) -> void:
+	_join_hint.visible = device >= 0
+	if device >= 0:
+		_join_prompt.pad_device = device
+		_join_prompt.refresh()
 
 
 func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:

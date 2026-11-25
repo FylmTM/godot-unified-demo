@@ -10,6 +10,7 @@ extends HBoxContainer
 ## Shows `prompts` (a MenuScreen's: an action or a space-separated group, to what it does).
 func show_prompts(prompts: Dictionary[String, String]) -> void:
 	for child: Node in get_children():
+		remove_child(child)  # now, not at the frame's end: the old hints never show beside the new ones
 		child.queue_free()
 	for actions: String in prompts:
 		var prompt: ActionPrompt = prompt_scene.instantiate()

@@ -31,6 +31,8 @@ var _mouse_aims: bool = false
 @onready var _effects: Effects = $Effects
 @onready var _level: Node3D = $Level
 @onready var _views: Node3D = $Views
+@onready var _couch: Couch = $Couch
+@onready var _hud: Hud = $Hud
 
 
 func _ready() -> void:
@@ -39,6 +41,8 @@ func _ready() -> void:
 	_session.level_changed.connect(_on_level_changed)
 	_session.input_wanted.connect(_set_aims)
 	_session.sim_event.connect(_on_sim_event)
+	_couch.idle_pad_changed.connect(_hud.show_join_hint)
+	_hud.show_join_hint(_couch.idle_pad())
 	if not _session.running and Game.flow == Game.Flow.MENU:
 		Game.start_single()  # the scene run on its own (the editor's Run Current Scene)
 
@@ -59,11 +63,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 ## Every local player's mouse aim, for this frame's sample: toward the cursor for the one who holds the keyboard (or
-## every device), none for the others, and none while game input is off.
+## every device, while the keyboard and mouse are what was used last: a solo pad player never aims at the cursor
+## left where it was), none for the others, and none while game input is off.
 func _set_aims() -> void:
 	for local: int in _session.get_local_indices():
 		var device: int = _session.get_local_device(local)
-		var keyboard: bool = device == UnifiedSession.DEVICE_KEYBOARD or device == UnifiedSession.DEVICE_ANY
+		var keyboard: bool = (device == UnifiedSession.DEVICE_KEYBOARD
+			or device == UnifiedSession.DEVICE_ANY and Prompts.last_kind == Bindings.Kind.KEYBOARD)
 		var aims: bool = keyboard and _mouse_aims and _session.game_input
 		Unified.local_input(local).aim = _cursor_aim(local) if aims else Vector2.ZERO
 
