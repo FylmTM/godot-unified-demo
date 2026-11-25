@@ -1,8 +1,9 @@
 class_name Hud
 extends Control
 ## The HUD, quiet in the corners so the crypt keeps the middle: a plate for each local hero (its class and health, or
-## that it is down), the skeletons up and the kills, the co-op pause's banner, and "press Start to join" while a
-## connected pad plays nobody. Nothing on it takes a click or the focus: Space and a pad's A stay the game's.
+## that it is down), the skeletons up and the kills, the co-op pause's banner, and "[Start] Join the game" while a
+## connected pad plays nobody. Each plate carries its player's control hints, in the glyphs of that player's device.
+## Nothing on it takes a click or the focus: Space and a pad's A stay the game's.
 ##
 ## What it shows of the moment (the heroes, the skeletons up, the pause) is session data (Unified.data.hud), the newest
 ## prediction, which a rollback may change and the next frame puts right. The kills are a count, which must never take
@@ -22,6 +23,7 @@ func _ready() -> void:
 	Unified.session.sim_event.connect(_on_sim_event)
 	Unified.session.local_players_changed.connect(_show_join_hint)
 	Input.joy_connection_changed.connect(_show_join_hint.unbind(2))
+	Prompts.changed.connect(_show_join_hint)
 	_show_data()
 	_show_join_hint()
 
@@ -32,7 +34,7 @@ func _show_data() -> void:
 	var shown: int = 0
 	for hero: DataHudHero in Unified.data.hud.heroes:
 		if hero.player != 0 and hero.local and shown < plates.size():
-			(plates[shown] as HeroPlate).show_hero(hero)
+			(plates[shown] as HeroPlate).show_hero(hero, Unified.session.get_local_index(hero.player))
 			shown += 1
 	for i: int in plates.size():
 		(plates[i] as Control).visible = i < shown
@@ -41,14 +43,11 @@ func _show_data() -> void:
 	_paused.visible = Unified.data.hud.paused
 
 
-## The hint shows while a connected pad is no local player's own device.
+## The join hint shows while a connected pad plays nobody (Couch.claimed).
 func _show_join_hint() -> void:
-	var playing: Array[int] = []
-	for local: int in Unified.session.get_local_indices():
-		playing.append(Unified.session.get_local_device(local))
 	var idle: bool = false
 	for device: int in Input.get_connected_joypads():
-		idle = idle or device not in playing
+		idle = idle or not Couch.claimed(Unified.session, device)
 	_join_hint.visible = idle
 
 

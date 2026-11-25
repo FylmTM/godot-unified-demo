@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://game/play/hud.gd" id="hud"]
 [ext_resource type="PackedScene" path="res://game/play/hero_plate.tscn" id="hero_plate"]
+[ext_resource type="PackedScene" path="res://game/ui/widgets/action_prompt.tscn" id="action_prompt"]
 
 [node name="Hud" type="Control"]
 layout_mode = 3
@@ -128,8 +129,8 @@ grow_vertical = 0
 mouse_filter = 2
 theme_type_variation = &"Plate"
 
-[node name="Text" type="Label" parent="JoinHint"]
+[node name="Prompt" parent="JoinHint" instance=ExtResource("action_prompt")]
 layout_mode = 2
-theme_type_variation = &"HudText"
-text = "Press Start to join"
-horizontal_alignment = 1
+actions = Array[StringName]([&"join"])
+text = "Join the game"
+pad = true

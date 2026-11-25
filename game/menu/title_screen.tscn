@@ -11,7 +11,7 @@ gradient = SubResource("shade_gradient")
 width = 256
 height = 4
 
-[node name="TitleScreen" type="Control"]
+[node name="TitleScreen" type="Control" node_paths=PackedStringArray("first_focus")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,6 +20,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("title")
+first_focus = NodePath("Column/Buttons/NewGame")
 
 [node name="Shade" type="TextureRect" parent="."]
 layout_mode = 1
@@ -66,11 +67,16 @@ layout_mode = 2
 size_flags_horizontal = 0
 theme_override_constants/separation = 22
 
-[node name="NewGame" type="Button" parent="Column/Buttons" groups=["default_focus"]]
+[node name="NewGame" type="Button" parent="Column/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "New game"
 metadata/sfx = &"confirm"
+
+[node name="Settings" type="Button" parent="Column/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Settings"
 
 [node name="Quit" type="Button" parent="Column/Buttons"]
 unique_name_in_owner = true

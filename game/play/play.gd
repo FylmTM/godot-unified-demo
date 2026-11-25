@@ -20,7 +20,7 @@ const AIM_DEAD_RADIUS: float = 0.5
 const HIT_HEIGHT: float = 1.1
 ## A prop landing faster than this (metres per second) raises dust.
 const DUST_SPEED: float = 5.0
-## How hard a local hero's hurt shakes the camera (0 to 1).
+## How hard a local hero's hurt shakes the camera (0 to 1), at the player's full screen shake (Settings).
 const HURT_SHAKE: float = 0.5
 
 ## Whether the mouse aims for the keyboard's player: once it has moved.
@@ -115,4 +115,4 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 			_effects.dust(impact.position)
 	elif event is EventHeroHurt:
 		if _session.get_local_index((event as EventHeroHurt).player) >= 0:
-			_camera_rig.shake(HURT_SHAKE)
+			_camera_rig.shake(HURT_SHAKE * Settings.screen_shake)

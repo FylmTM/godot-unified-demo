@@ -113,6 +113,8 @@ func _ready() -> void:
 	session.sim_event.connect(_on_sim_event)
 	add_child(session)  # last: the command line's session flags start it here, and the flow must already follow
 	_preload_play_scene()
+	await get_tree().process_frame  # the main scene is up
+	_tell_settings_problem()
 
 
 func _process(delta: float) -> void:
@@ -271,7 +273,17 @@ func _go_to_menu() -> void:
 	if _ending != null:
 		_show_ending(_ending)
 		_ending = null
+	_tell_settings_problem()
 	_preload_play_scene()
+
+
+## The settings file didn't read at boot: the menu says so, once (the walk sets the problem to see it said).
+func _tell_settings_problem() -> void:
+	if flow != Flow.MENU or Settings.read_problem == "" or _dialog.visible:
+		return
+	_show_ending(Ending.new("Your settings didn't read", "The defaults are used, and your file is kept beside.",
+		_sentence(Settings.read_problem, "")))
+	Settings.read_problem = ""
 
 
 func _show_ending(ending: Ending) -> void:

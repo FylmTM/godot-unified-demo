@@ -1,20 +1,26 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://game/play/hero_plate.gd" id="hero_plate"]
+[ext_resource type="PackedScene" path="res://game/ui/widgets/action_prompt.tscn" id="action_prompt"]
 
 [node name="HeroPlate" type="PanelContainer"]
-custom_minimum_size = Vector2(460, 0)
+custom_minimum_size = Vector2(560, 0)
 size_flags_horizontal = 0
 mouse_filter = 2
 theme_type_variation = &"Plate"
 script = ExtResource("hero_plate")
 
-[node name="Row" type="HBoxContainer" parent="."]
+[node name="Rows" type="VBoxContainer" parent="."]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Row" type="HBoxContainer" parent="Rows"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 24
 
-[node name="Class" type="Label" parent="Row"]
+[node name="Class" type="Label" parent="Rows/Row"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -22,10 +28,36 @@ clip_text = true
 theme_type_variation = &"Heading"
 text = "Knight"
 
-[node name="Health" type="Label" parent="Row"]
+[node name="Health" type="Label" parent="Rows/Row"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 8
 theme_type_variation = &"HudText"
 text = "100 HP"
 horizontal_alignment = 2
+
+[node name="Hints" type="HBoxContainer" parent="Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="Move" parent="Rows/Hints" instance=ExtResource("action_prompt")]
+layout_mode = 2
+actions = Array[StringName]([&"move_up", &"move_left", &"move_down", &"move_right"])
+text = "Move"
+
+[node name="Aim" parent="Rows/Hints" instance=ExtResource("action_prompt")]
+layout_mode = 2
+actions = Array[StringName]([&"aim"])
+text = "Aim"
+
+[node name="Attack" parent="Rows/Hints" instance=ExtResource("action_prompt")]
+layout_mode = 2
+actions = Array[StringName]([&"attack"])
+text = "Attack"
+
+[node name="Interact" parent="Rows/Hints" instance=ExtResource("action_prompt")]
+layout_mode = 2
+actions = Array[StringName]([&"interact"])
+text = "Grab"
