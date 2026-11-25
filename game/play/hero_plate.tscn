@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://game/play/hero_plate.gd" id="hero_plate"]
+[ext_resource type="Script" path="res://game/ui/widgets/name_label.gd" id="name_label"]
 [ext_resource type="PackedScene" path="res://game/ui/widgets/action_prompt.tscn" id="action_prompt"]
 
 [node name="HeroPlate" type="PanelContainer"]
@@ -47,6 +48,7 @@ size_flags_horizontal = 3
 theme_type_variation = &"HudSmall"
 text = "Adventurer"
 text_overrun_behavior = 3
+script = ExtResource("name_label")
 
 [node name="Class" type="Label" parent="Row/Info/Top"]
 unique_name_in_owner = true

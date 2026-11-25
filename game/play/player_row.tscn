@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://game/play/player_row.gd" id="player_row"]
+[ext_resource type="Script" path="res://game/ui/widgets/name_label.gd" id="name_label"]
 
 [node name="PlayerRow" type="HBoxContainer"]
 custom_minimum_size = Vector2(0, 64)
@@ -13,6 +14,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"Ink"
 text_overrun_behavior = 3
+script = ExtResource("name_label")
 
 [node name="Hero" type="Label" parent="."]
 unique_name_in_owner = true

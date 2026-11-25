@@ -17,9 +17,11 @@ const DOWN_TINT: Color = Color(1, 1, 1, 0.55)
 var _player: int = -1
 var _family: int = -1
 var _hints_until: int = 0
+## The local player whose hero this plate shows.
+var _local: int = 0
 
 @onready var _portrait: TextureRect = %Portrait
-@onready var _who: Label = %Who
+@onready var _who: NameLabel = %Who
 @onready var _class: Label = %Class
 @onready var _health: ProgressBar = %Health
 @onready var _amount: Label = %Amount
@@ -30,6 +32,7 @@ func _ready() -> void:
 	Settings.changed.connect(func(setting: StringName) -> void:
 		if setting == &"hints":
 			_show_hints())  # at once, as every setting applies
+	Prompts.changed.connect(_note_device)
 
 
 func _process(_delta: float) -> void:
@@ -39,24 +42,34 @@ func _process(_delta: float) -> void:
 ## Shows `hero` (Unified.data.hud's), played by local player `local`.
 func show_hero(hero: DataHudHero, local: int) -> void:
 	_portrait.texture = Heroes.portrait(hero.class)
-	_who.text = Unified.session.get_player_name(hero.player)
+	_who.player_name = Unified.session.get_player_name(hero.player)
 	_class.text = Heroes.name_of(hero.class)
 	var down: bool = hero.hp <= 0
 	_health.max_value = maxi(hero.hp_max, 1)
 	_health.value = hero.hp
 	_amount.text = "Down" if down else str(hero.hp)
 	modulate = DOWN_TINT if down else Color.WHITE
-	var family: int = Prompts.family_of_local(local)
-	if hero.player != _player or family != _family:
+	_local = local
+	if hero.player != _player:
 		_player = hero.player
-		_family = family
-		_hints_until = Time.get_ticks_msec() + roundi(HINTS_S * 1000.0)
+		_family = -1
+	_note_device()
 	for hint: Node in _hints.get_children():
 		var prompt := hint as ActionPrompt
 		if prompt.local != local:
 			prompt.local = local
 			prompt.refresh()
 	_show_hints()
+
+
+## The player turned to another kind of device (or just arrived): the hints show for HINTS_S. Asked as the HUD's data
+## changes and as Prompts says the devices changed, so a change shows at once even while the crypt stands still.
+func _note_device() -> void:
+	var family: int = Prompts.family_of_local(_local)
+	if _player >= 0 and family != _family:
+		_family = family
+		_hints_until = Time.get_ticks_msec() + roundi(HINTS_S * 1000.0)
+		_show_hints()
 
 
 ## Whether the hints show now (Settings.hints): the walk asks.

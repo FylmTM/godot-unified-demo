@@ -5,7 +5,7 @@ extends HBoxContainer
 ## The player asked to drop this guest out.
 signal drop_requested
 
-@onready var _who: Label = %Who
+@onready var _who: NameLabel = %Who
 @onready var _hero: Label = %Hero
 @onready var _drop: Button = %Drop
 
@@ -17,7 +17,7 @@ func _ready() -> void:
 ## Shows `player_name` playing `hero_class` (EnumClass), with Drop out when `can_drop` (a guest on this couch), and
 ## where they play ("here", or online).
 func show_player(player_name: String, hero_class: int, can_drop: bool, here: bool) -> void:
-	_who.text = player_name
+	_who.player_name = player_name
 	_hero.text = Heroes.name_of(hero_class) + ("" if here else " · online")
 	# Kept in its place when it can't drop (its room left empty), so every row's columns line up.
 	_drop.disabled = not can_drop
