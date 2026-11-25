@@ -47,9 +47,6 @@ continue; dev commands, debug draws, the dev UI, recording and replay with seek,
   into.
 - **The crowd's mesh:** a KayKit minion is 9 meshes and about 5,000 triangles; the crowd draws a merged, lighter one.
 - **Ragdolls** drawn on the KayKit skeleton from the bones' rotations.
-- **App layer:** the game's own, written fresh (menus as scenes, one Theme from Kenney's UI pack, input prompts that
-  follow the device, rebinding, settings, saves, hero select).
-- **Online:** the demo's own EOS product (the developer creates it; `.env` per `unified/docs/EOS.md`).
 
 ## How it's tested
 
@@ -60,7 +57,6 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 
 | # | What lands |
 |---|---|
-| 3 | App layer: theme, input prompts, rebinding, settings, saves, hero select, EOS, open to friends, both pauses |
 | 4 | The crowd at scale (about 500, baked animation), its benchmark rows |
 | 5 | Combat depth: abilities, elites, downed and revive, loot shown only when confirmed |
 | 6 | Physics set pieces: joints, plates, the lift, boons picked at it, traps, ragdolls, the hoard haul |
@@ -69,23 +65,6 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 | 9 | The testing showcase complete, `docs/testing.md` |
 | 10 | macOS in CI, release builds, videos, the final README |
 
-## Milestone 3: the app layer
-
-Six steps, each landing on its own. The first five are in: the app's skeleton (the `Game` autoload owns the session
-and the flow; the title, the theme, the overlays, `Sfx`), the settings, bindings and prompts (the settings screen
-over the menu's screen stack, rebinding, the input prompts following the device, the HUD's hints, the first player's
-device free while alone), hero select and the couch (the Profile is the pick; a seat per device; a pad joining
-mid-game picks on a card in the HUD, a guest drops out on one; hero plates with portraits and HP bars; the player's
-name), saves and pauses (the sim's Setup and save, Continue, the pause menu alone and online, who paused), and
-playing together (Play together's host and joins, the code field, the session panel, Invite friends, the extension's
-EOS lobby). Audio has Master and Interface only: Music and Effects come with their sounds (milestone 8). Still to come:
-
-6. **Close-out.** README, ART.md, the review log; every screen's shots at 720p, 1080p and 1440p.
-
-What a step needs from unified is built there (pushed to unified's `main`, then the submodule bumped in its own
-commit), not worked around: `uni drive pad` and `uni drive type` with a device (a second pad's own events, for
-play-checks).
-
 ## Needed from unified
 
 Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
@@ -93,6 +72,8 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 - `uni release` as a public command (it is unified's own tool today), and able to build a Linux x64 zip on Linux.
   Milestone 10.
 - Rendering a recorded session to video (Godot's movie writer at a fixed frame rate), for the videos. Milestone 10.
+- `uni drive pad` and `uni drive type` with a device (a second pad's own events), so a play-check drives a couch as
+  the walk's tool scripts do (`UnifiedTool.pad_button`). Later.
 - A friends list and platform invites, behind an account service (EOS's login today is anonymous): the join code is
   the invite until then. Later.
 - LAN discovery (a host's beacon and a list of the games on the network), so a pad player joins without typing an

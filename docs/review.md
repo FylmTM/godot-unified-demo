@@ -215,351 +215,211 @@ Decided by the developer from the two designs:
 - Player 0's device: free while alone, fixed only while a couch guest is in.
 - The flow autoload is `Game`, with `quit_app(exit_code)` (UnifiedTool looks it up by that name).
 - Library gaps are built in unified when a step needs them, not worked around.
+- Auto-copy of an online code goes through the clipboard seam in every run: in memory in an isolated one.
 
-Step 1, the app's skeleton, calls made on the way:
+The look and sound:
 
-- Faces (the review's call): Kenney Mini Square for everything, Kenney Future for the game's name on the title.
-- Pack folders `assets/kenney/ui/`, `fonts/`, `interface_sounds/`; only the Double PNGs, of the brown family:
-  `button_brown`, `panel_brown_corners_a` (parchment), `panel_brown_dark` (HUD plates and toasts,
-  darkened to 0.6 and 90 % opaque so they sit behind the crypt), `banner_hanging`. The focus is a gold frame
-  (a StyleBoxFlat), not a pack piece. The theme was made once by a throwaway script and is edited as text since.
-- Sounds: `select_002` (the focus moves), `click_002` (a press), `confirmation_002` (New game), `error_004` (a
-  dialog), `maximize_003` and `minimize_003` (a join, a leave). Picked by name, not by ear: worth a listen.
-- The user data folder is `crypt_crew` again through `config/use_custom_user_dir` (the window title is now "Crypt
-  Crew"): on Windows `%APPDATA%/crypt_crew`, no longer under `Godot/app_userdata/`. Nothing was there to move.
-- `Game.start_single()` is the menus' one start for now; the design's start request (kind, code, Setup, party) comes
-  with hero select, when it has more than one field.
-- The title is one screen with no screen stack yet; the stack comes with the settings screen (step 2).
-- Toasts already announce joins and leaves by name (from CONFIRMED events; the first local player's own join is no
-  news); step 3 adds the class.
-- The HUD is restyled into plates (each local hero's class and HP as text, the skeletons up and felled, the "Paused"
-  banner, the join hint); the HP bar comes with step 3's hero plates, which also need the heroes' full HP from the
-  extension.
-- Esc still sends the co-op pause in every mode until step 4's pause menu; the walk checks the banner.
+- Faces: Kenney Mini Square for everything, Kenney Future for the game's name on the title.
+- Pack folders `assets/kenney/ui/`, `fonts/`, `interface_sounds/`; only the Double PNGs of the brown family
+  (`button_brown`, `panel_brown_corners_a` the parchment, `panel_brown_dark` for HUD plates and toasts, darkened to 0.6
+  and 90 % opaque, `banner_hanging`). The focus is a gold StyleBoxFlat frame that pulses (Game), not a pack piece. The
+  theme was made once by a throwaway script and is edited as text since.
+- Sounds: `select_002` (the focus moves), `click_002` (a press), `confirmation_002` (New game), `error_004` (a dialog),
+  `maximize_003` and `minimize_003` (a join, a leave). Picked by name, not by ear: worth a listen.
+- The title's Quit is a plain button: the red one is for confirmations (`button_red` is not vendored); toggles are
+  On/Off choices (the brown checkboxes are not vendored either). Dim captions are 26 px at 75 %.
 - The tagline "Down into the crypt, one to four heroes." is placeholder copy.
-- Hovering a button gives it the focus, so the mouse and a pad never show two highlights.
+- Portraits are rendered by `./uni tool render_portraits --window` (256 px, square, head and shoulders, idling,
+  mipmapped) and committed; the app checks hold each class to a square one. The suite doesn't re-render (it needs a
+  renderer).
+
+The app's frame:
+
+- The user data folder is `crypt_crew` (`config/use_custom_user_dir`): on Windows `%APPDATA%/crypt_crew`.
+- An export opens borderless fullscreen (`display/window/size/mode.template=3`), the default the Video setting
+  matches, so there is no windowed first frame.
 - The play scene loads on a worker thread while the title is up (Game), collected at the switch and at a quit.
-- A run whose session quits the app at its end (`--quit-at-end`: the godot suite's session step) skips the menu:
-  going back to the title played sounds that outlived the quit (a leak the step failed on).
+- A run whose session quits the app at its end (`--quit-at-end`) skips the menu, so no sound outlives the quit.
 - `LibraryCheck` is kept from the Fable design (the Opus one left it to milestone 10).
-- `ArtChecks` takes TTF and Ogg files and counts what the project's theme uses; `AppChecks`
-  (`game/tools/app_checks.gd`) holds the autoload order, the theme's variations, a HUD that takes no click or focus,
-  menu buttons that take the focus, and every button's named sound.
-- `coop.gd` now checks the joiner lands on the title with a dialog once the host has left.
-
-Step 1's review fixes, calls made on the way:
-
+- Every button's sound and hover-takes-focus live in Game, hooked from `_enter_tree`; a button is the game's when its
+  scene is under `res://game/` (the library's dev UI has neither). Hovering gives the focus, so the mouse and a pad
+  never show two highlights. Sfx only plays.
 - Pads press and back out: `ui_accept` and `ui_cancel` carry the pad's A and B in `project.godot`.
-- Every button's sound and hover-takes-focus live in Game, hooked from `_enter_tree` with one walk of the tree as it
-  stands, guarded against a second connection. A button is the game's when its scene (its own, or its owner's) is
-  under `res://game/`: the library's dev UI builds its controls in code, so it has neither. Sfx only plays.
-- Modals (Dialog, Connecting) share a `Modal` base: the focus wandering outside is taken back, and the control it
-  went to is where it returns; with none left, the screen's default (the `default_focus` group: New game). The
-  title takes the focus only when nothing has it. `Focus.trap` is gone; the modal's button names itself (".") as
-  every neighbour in its scene.
-- A link in trouble in play is `LinkStatus`, a plate (not Connecting): catching up shows after 0.5 s; reconnecting
-  shows at once with "Leave game", which takes the focus only on an up or down press while nothing has it. The
-  game's input stays on. Connecting is only for starts, so Esc cancels only then.
-- Cancel hides Connecting at once; a new start waits for the goodbye (Game ignores a start while the flow isn't MENU).
-- Settings are JSON (`user://settings.json`), not a ConfigFile: Godot reports a damaged ConfigFile as an engine
-  error, which no check could exercise. A file that doesn't parse is kept as `.bad` and the reason is
-  `Settings.read_problem` and a printed line, not a warning (uni fails a run on any game warning). `--settings-path=`
-  names another file; the app checks round-trip one.
-- An export opens fullscreen through `display/window/size/mode.template=3` (borderless fullscreen), the default the
-  Video setting matches, so there is no windowed first frame.
-- Toasts sit low in the middle, clear of the HUD's corners and its Paused banner, and go when the flow is back at
-  the menu.
-- The dialog's body is the library's reason as a sentence ("Online play is not available in this build."), the
-  generic sentence only without one; a disconnect keeps the app's sentence and shows the library's words small
-  under it, since only they say which it was (until step 5's end reason).
-- The title's Quit is a plain button: the red one is for confirmations (`button_red` is no longer vendored).
-- The focus frame pulses (Game, on the theme's shared stylebox); Dim captions are 26 px at 75 %.
-- Real boot (the main scene loaded by the engine) is checked by hand under `uni drive` (no flags: New game wired and
-  focused; `--join`: Cancel focused under Joining). No suite step can: the walk runs as a `-s` script, and the
-  library's drive step starts with `--autostart`. A drive step option to boot to the menu would be unified work.
-- Pause and the couch's join ignore their keys while the game's input is off; so does the couch's device claim.
+- Modals (Dialog, Connecting) share a `Modal` base that takes back a wandering focus and returns it where it was; with
+  none left, the screen's default (the `default_focus` group). The title takes the focus only when nothing has it.
+- The screen stack (`MenuStack`) keeps a covered screen hidden with its focus and frees a popped one; each screen names
+  its first focus and its prompt bar's hints. A covered screen, or one under a modal, takes no input.
+- The Dialog asks questions too (`Game.ask`, which takes the answer's callable; anything shown over an open question
+  answers it no first). Questions that affect others ("End the game for everyone?", "Quit to desktop?") open on Stay;
+  the dialog shows its own prompt bar while the menus' hide.
+- A dialog that explains says it in the app's sentence, the library's words small under it; a game that ends with a
+  DISCONNECTED detail uses that detail as the reason, unless it is the plain "session ended".
+- A link in trouble in play is `LinkStatus`, a plate: catching up shows after 0.5 s; reconnecting at once with "Leave
+  game", which takes the focus only on an up or down press while nothing has it. The game's input stays on.
+- Connecting is only for starts: it shows after 0.3 s (a quick start or failure never flashes it), and Esc or Cancel
+  leaves at once: the flow is on the menu, that start's goodbye is dropped, and a start queued over it goes on.
+- Toasts sit at the top, in the middle, three at most ("Sexton +1 joined (Mage)", "is back", "left"), on their own
+  layer (Game's Notices, 5) under the play scene's menus (10) and the app's overlays (50). The party's own seats
+  arriving at the start are no news; the class is the HUD data's, remembered so a leaver's is still known.
+- Settings are JSON (`user://settings.json`), not a ConfigFile (a damaged ConfigFile is an engine error no check
+  could exercise). A file that doesn't parse is kept as `.bad`, told once in a dialog naming the folder as the
+  player's system names it; `read_problem` holds the parser's words. `--settings-path=` names another file.
+- Settings and the save write through one helper (UserFile): beside the file, checked, then moved over it; a failed
+  write is printed and the session keeps its copy; a missing file is read from its `.tmp`. Two read problems at boot
+  are told one after the other.
+- Pause and the couch's join ignore their keys while the game's input is off.
+- Real boot (the main scene loaded by the engine) was checked by hand under `uni drive`; no suite step can (the walk
+  is a `-s` script, the drive step starts with `--autostart`). A drive option to boot to the menu would be unified's.
 
-Step 2, settings, bindings and prompts, calls made on the way:
+Settings, bindings and prompts:
 
-- Prompt glyphs are Kenney Input Prompts' fonts with their glyph maps (the Opus design), not its PNGs (the Fable
-  one): four fonts and four maps cover every bindable key, crisp at any interface size and in a label's colour. Four
-  families: keyboard and mouse, Xbox, PlayStation, Switch (no Steam Deck: an unknown pad is drawn as Xbox). The maps
-  are read as files, which a Godot export leaves out unless its filter names them (plan.md, Needed from unified).
-- `Prompts` is an autoload (`prompts.tscn`, the fonts as its exports) between Sfx and Game.
-- Rebindable: on the keyboard the four moves, attack and interact; on a pad attack and interact (its stick and D-pad
-  move, fixed; no "Swap sticks"). Two slots per action per scheme, one scheme per machine. Reserved: Esc, Enter,
-  numpad Enter, F1, F3; a pad's Start, Back and Guide. A pad slot takes a button or a trigger past half.
-- A slot listening: Esc or a pad's Start cancels; Delete, Backspace or a pad's Back clears it. A binding another
-  action held swaps; Reset resets the scheme shown.
-- Bindings are stored in `settings.json` (`controls.bindings`) as tokens, the whole list of an action's kind only
-  where it differs from `project.godot` (`key:<physical key name>`, `mouse:1`, `button:2`, `axis:5+`).
-- The Controls tab opens on the scheme of the device used last, and has the pads' glyphs (Auto, Xbox, PlayStation,
-  Switch) and a move-stick dead zone (10 to 50 %, default 25 %; the aim stick keeps project.godot's 20 %).
-- Video: Window (windowed, fullscreen), V-Sync, Frame limit (off, 60, 120, 144, 240), 3D resolution 50 to 100 %,
-  Anti-aliasing (off, 2x, 4x), Interface size 80 to 130 %, Show FPS. Audio: Master, Interface, Mute in the
-  background. Gameplay: Screen shake 0 to 100 % (the hurt shake scales by it) and Control hints on the HUD. Pause on
-  focus loss waits for step 4's pause menu, the player's name for step 3's profile.
-- Rows read their control from the property (a ranged number a slider shown in percent; a bool, On or Off, and an
-  enum a choice stepped with left and right, a press, or a click on either half); their labels are in the tab scenes.
-  Each tab scrolls (a bigger interface size still fits); Q and E, or a pad's shoulders, switch tabs (new actions
-  `menu_tab_prev`, `menu_tab_next`).
-- The screen stack (`MenuStack`) keeps a covered screen hidden with the focus it had and frees a popped one; each
-  screen names its first focus (also the modals' default) and its prompt bar hints.
-- A settings file that didn't read is told once, as a dialog on the menu (Game), then forgotten.
-- The first player alone plays with every device; a pad's Start joins unless it is the device the first player last
-  played with (moved, aimed, attacked or grabbed with; that Start pauses); with a guest in, the first player is fixed
-  to that device, and every device again once alone. Milestone 2's "the first input claims a device" is gone.
-- The HUD's hints sit on each hero plate (Move, Aim, Attack, Grab) in that player's device's glyphs; the join hint is
-  "[Start] Join the game", in the idle pad's own family.
-- A prompt glyph sits in a box of its row's height and overflows it, since the prompt fonts' lines are twice a glyph.
-- The walk drives several pads with unified's `UnifiedTool.pad_button(button, device)` and `pad_axis` (745e023).
-
-Step 2's review fixes, calls made on the way:
-
-- A pad's join is decided by the Couch in `_input`, before Prompts sees the press; the Couch keeps the device the
-  first player last played with from game actions only (its seed is the menus' last device). The join hint speaks to
-  the first idle pad, in its family; the Couch says which (`idle_pad_changed`).
-- Alone, the mouse aims only while the keyboard and mouse were used last, and the cursor hides while a pad leads.
-- Bindings' one rule: no action is left without a binding in a scheme. Clearing the last is refused; binding a key
-  that is another action's only one into an empty slot is refused; into a full slot it swaps. A refusal shakes the
-  slot and the Controls tab says why. An empty list in the file is no binding; only a scheme absent from the file is
-  project.godot's. The file's tokens are held to can_bind. The pad's D-pad is reserved too.
-- "Grab" is the player's name for `interact` (the action's id stays, as the sim's Input and the level's props name
-  it).
-- The glyph maps are baked into GlyphMap resources (`game/ui/prompts/`) by `./uni tool bake_glyphs`; the pack's maps
-  stay vendored as their source, and the app checks hold each baked map to its source.
+- Video: Window, V-Sync, Frame limit (off, 60, 120, 144, 240), 3D resolution 50 to 100 %, Anti-aliasing (off, 2x,
+  4x), Interface size 80 to 130 % (applied when its slider is let go), Show FPS. Audio: Master, Interface, Mute in the
+  background. Gameplay: Screen shake 0 to 100 %, Control hints (Briefly, Always, Off), Pause when the window is in the
+  background, the player's name. Controls: the bindings, the pads' glyphs (Auto, Xbox, PlayStation, Switch) and a
+  move-stick dead zone (10 to 50 %, default 25 %; the aim stick keeps 20 %), those two under the gamepad scheme only.
+- Rows read their control from the property (a ranged number a slider in percent, a bool or an enum a choice stepped
+  with left and right, a press or a click on either half); a row lights up while the focus is anywhere in it
+  (`FocusRow`). A slider doesn't take the wheel (the wheel scrolls the tab).
+- The settings panel hangs from the view's edges and each tab scrolls in what is left, with room for the focus frame
+  and a scroll bar's place always kept. Q and E, or a pad's shoulders, switch tabs (`menu_tab_prev`, `menu_tab_next`).
+- Prompt glyphs are Kenney Input Prompts' fonts (the Opus design), not its PNGs: crisp at any size, in a label's
+  colour. Four families (keyboard and mouse, Xbox, PlayStation, Switch; an unknown pad is Xbox). The glyph maps are
+  baked into GlyphMap resources by `./uni tool bake_glyphs` (the pack's maps stay vendored as their source, and the
+  app checks hold each baked map to it). `Prompts` is an autoload between Sfx and Game.
 - A key's glyph is its label on the player's layout when that is a Latin letter or digit (AZERTY's Z), else the
-  physical key's (a Cyrillic layout shows W, as its keys are printed too: the fonts draw only Latin); bindings stay
-  physical keys. Headless runs, which have no layout, show the physical key.
-- A binding the fonts lack shows its name in brackets in the text's size and colour, not a blank key cap with its
-  name over it (one label can't draw a glyph and text over each other; the name reads as well).
-- Numpad digits and + - * / . take the main keys' glyphs; numpad Enter is reserved; the Menu key has no glyph in the
-  pack, so it shows its name.
-- The settings panel hangs from the view's edges (a margin above, the prompt bar's room below); the tab scrolls in
-  what is left, with room inside for the focus frame and a scroll bar's place always kept, so nothing shifts.
-- Toggles are On/Off choices, like every other choice; the brown checkboxes are no longer vendored.
-- A row lights up while the focus is anywhere in it (`FocusRow`): one sign of the focus for a choice, a slider and a
-  binding slot. A slider doesn't take the mouse wheel (the wheel scrolls the tab); Interface size applies when its
-  slider is let go.
-- A listening slot: the prompt bar shows Cancel and Clear (new actions `bind_cancel`: Esc, Start; `bind_clear`:
-  Delete, Backspace, Back); a click outside the slot cancels, and a mouse button binds only when clicked on the slot.
-- The pads' glyphs and the dead zone show only under the gamepad scheme.
-- A covered screen, or one under a modal, takes no input: a screen acts only while the focus is in it.
-- The settings dialog names the folder the bad file is kept in as the player's system names it; `read_problem` holds
-  only the parser's words.
-- `UnifiedProfile` was an Object, so a joining pad's Profile leaked; unified made it reference-counted (f2c01c7).
-- The walk runs 17 s (was 9): the couch's joins wait for each guest to be in the session, and the stuck-key check
-  waits for the hero to settle.
+  physical key's; bindings stay physical keys. Numpad digits and operators take the main keys' glyphs; the Menu key
+  shows its name, as any binding the fonts lack does, in brackets.
+- A prompt glyph sits in a box of its row's height and overflows it (the prompt fonts' lines are twice a glyph).
+- Rebindable: on the keyboard the four moves, attack and grab; on a pad attack and grab (the stick and D-pad move,
+  fixed). Two slots per action per scheme, one scheme per machine. Reserved: Esc, Enter, numpad Enter, F1, F3; a pad's
+  Start, Back, Guide and D-pad. A pad slot takes a button or a trigger past half.
+- Bindings' one rule: no action is left without a binding in a scheme. Clearing the last is refused; binding another
+  action's only key into an empty slot is refused; into a full slot it swaps. A refusal shakes the slot and the tab
+  says why. Reset resets the scheme shown. The Controls tab opens on the scheme of the device used last.
+- A listening slot: the prompt bar shows Cancel and Clear (`bind_cancel`: Esc, Start; `bind_clear`: Delete,
+  Backspace, Back); a click outside cancels, and a mouse button binds only when clicked on the slot.
+- Bindings are stored in `settings.json` (`controls.bindings`) as tokens, an action's kind only where it differs from
+  `project.godot`; an empty list is no binding, only a scheme absent from the file is the project's; the file's tokens
+  are held to `can_bind`.
+- "Grab" is the player's name for `interact` (the sim's Input and the level's props keep the id).
 
-
-Step 3, hero select and the couch, calls made on the way (as they stand after its review):
+Hero select and the couch:
 
 - Hero select's first seat is the device that opened it; a pad takes the next free seat with its Start or A. Back from
-  a ready seat takes the ready back; back again gives the seat up (the first seat's goes back to the title). Once
-  every taken seat is ready, the first seat's accept starts (or a click on Start).
-- The keyboard and mouse sit only in the first seat (review: the keyboard could sit as a guest, with no way to drop
-  out or come back mid-game). They are the first player's, in the crypt as on hero select: an unseated keyboard's Esc
-  goes back to the title, and a mouse's Back button does too. A free seat invites a connected pad ("[Start] Join" in
-  its glyphs), or asks for one.
-- The mouse works only the keyboard's seat, through its card's arrows and its action line, a button ("[Enter] Ready",
-  one control), which never take the focus (marked `mouse_only`; the app checks exempt them from the focus rule).
-- A seat card is one size whatever it shows: two lines kept for a long name, the device on its own line, "Ready!"
-  over the portrait, the arrows hidden in place while ready. The seats scale down together to fit the view (130 %
-  interface size), as the join and drop cards do; hero select's buttons sit bottom left, clear of the prompt bar.
-- On hero select the backdrop's camera comes round to the crew (centred, high above the seats); each seated pick steps
-  forward and strikes its stance; Any stays back.
-- Hero select's own sounds: a step, a ready or its taking back, a seat taken (joined) or given up (left); Start
-  confirms. The mouse's clicks sound as every button does, never twice.
-- Sticks step once per push, each pad's own (`StickSteps`): on hero select and on the join cards.
-- A pad that disconnects on hero select gives its seat up; the first seat passes to the next taken seat, keeping its
-  pick and its ready, or the screen goes back to the title. In play its card closes (a join given up).
-- Any is resolved when the party is known: each Any becomes the first class no seat picked (Game.start_single). A
-  solo start and a mid-game join stay Any (the sim's arrival rule). The remembered pick stays Any.
-- Each taken seat is a place in the party, its local index: names ("Guest 2"... by place, so no two of a name after a
-  drop and a join) and the remembered picks (`hero_picks`, four, by place) go by it. A pad joining mid-game takes the
-  lowest free index, and its card preselects that place's pick. The picks read back from the file (JSON's numbers are
-  fractions: whole ones are taken), which they didn't before.
-- The player's name is never read from the system (it goes to every peer, and into every shot and log): a first run
-  picks one of the game's own (Sexton, Lantern, Gravedigger, ...) and saves it at once; a tool run's is "Adventurer".
-  The field says the other players see it. A name is stripped of control characters and its edges' spaces and cut to
-  31 bytes of UTF-8 (UnifiedSession.NAME_MAX, from unified f2c7548) on a character's boundary, so the field shows what
-  the peers get; a blank one is a game's name again.
-- The name field is passed over until asked: the focus doesn't start editing (a click does), so the d-pad, Q and E
-  move on; accept edits, Enter applies, Esc puts the setting back.
-- Only a pad joins mid-game. Its Start opens its card on the HUD's right, at the middle: "[A] Join", its left and
-  right, "[B] Back". Once the players and the pads picking reach four the couch is full: no hint, and a Start gets a
-  toast. A refused join toasts its reason.
-- Drop out is the pad's Back (View/Select; a new action, `drop_out`): a card asks "Drop out?", "[A] Drop out",
-  "[B] Stay". It takes only those two presses: the guest still plays, so its stick's release must reach the session.
-  A Start never confirms it. It closes when its guest is gone another way. The pause menu's way (its Players list)
-  comes with step 4's pause menu.
-- Toasts are short and at the top, in the middle, three at most: "Guest 2 joined (Mage)", "is back", "left". The
-  party's own seats arriving at the start are no news. The class is the HUD data's, remembered per player so a
-  leaver's is still known. The co-op pause's banner moved down to make room.
-- The HUD's plate: the portrait, the player's name (two Knights must be told apart) and the class above the HP bar
-  (Kenney's small red progress bar over its transparent track, every bar one length, the number on it), the hints
-  below in two rows. The hints show for a few seconds after a join or a change of device (the Control hints setting:
-  Briefly, the default; Always; Off), so four plates don't cover the crypt. The full HP comes from the extension's HUD
-  data (`Hud_Hero.hp_max`).
-- Portraits are rendered by `./uni tool render_portraits --window` (256 px, square, head and shoulders, from the hero
-  scenes, idling; mipmapped) and committed; the app checks hold each class to a square one. It needs a renderer, so
-  the suite doesn't re-render.
-- The seat card and the join and drop cards are one widget (`SeatCard`); `BindGlyph` became `InkGlyph`, as the cards'
-  prompts use it too. An ActionPrompt can show one device's glyphs, the keyboard's included (`device`).
-- `uni coop --host-profile/--join-profile` (unified b06ba4f) gives each side its own Profile; the coop play checks
-  each side's hero is its own Profile's class, and names its joiner "Friend" itself (uni's USERNAME=Friend no longer
-  matters to this game; unified dropped it in f2c7548).
+  ready takes the ready back, back again gives the seat up (the first seat's goes back). Once every taken seat is
+  ready, the first seat's accept starts (or Start clicked).
+- The keyboard and mouse sit only in the first seat: they are the first player's. The mouse works that seat through
+  its card's arrows and action line, which never take the focus (`mouse_only`, exempt from the app checks' focus rule).
+  A free seat invites a connected pad ("[Start] Join" in its glyphs), or asks for one.
+- A seat card is one size whatever it shows (two lines for a long name, "Ready!" over the portrait); the seats scale
+  down together at 130 %, as the join and drop cards do; hero select's buttons sit bottom left. The seat card and the
+  join and drop cards are one widget (`SeatCard`).
+- On hero select the backdrop's camera comes round to the crew; each seated pick steps forward and strikes its stance.
+  Its sounds: a step, a ready or its taking back, a seat taken or given up; Start confirms.
+- Sticks step once per push, each pad's own (`StickSteps`). A pad that disconnects on hero select gives its seat up
+  (the first seat passes to the next, keeping its pick and ready); in play its card closes.
+- Any is resolved locally only for a single-player game or a host (each Any becomes the first class no seat picked); a
+  join passes Any through for the host's sim to resolve, a joiner's couch guests too, and a mid-game pad's join stays
+  Any. The remembered pick stays Any.
+- Each taken seat is a place in the party, its local index: the remembered picks (`hero_picks`, four) go by it, and a
+  pad joining mid-game takes the lowest free index with that place's pick preselected. A guest is named after the
+  first player, "<name> +1", "+2", cut to the name limit, so two machines' guests never share a name.
+- The player's name is never read from the system: a first run picks one of the game's own (Sexton, Lantern, ...) and
+  saves it; a tool run's is "Adventurer". It is stripped and cut to `UnifiedSession.NAME_MAX` bytes on a character's
+  boundary. The name field starts editing only when asked (a click, or accept); Enter applies, Esc puts it back.
+- The first player alone plays with every device; a pad's Start joins unless it is the device the first player last
+  played with (that Start pauses). The Couch decides in `_input`, before Prompts, from game actions only. With a guest
+  in, the first player is fixed to that device. Alone, the mouse aims only while the keyboard and mouse were used
+  last, and the cursor hides while a pad leads.
+- Only a pad joins mid-game: its Start opens its card on the HUD (A joins, B backs out); at four the couch is full (no
+  hint, a toast). Drop out is the pad's Back (`drop_out`): a card asks, A drops out, B stays, a Start never confirms.
+- The HUD's plate: portrait, name and class above the HP bar (Kenney's small red bar, every bar one length, the number
+  on it), the hints below for a few seconds after a join or a change of device (Control hints). The full HP comes from
+  the extension (`Hud_Hero.hp_max`). The join hint speaks to the first idle pad, in its family.
+- `UnifiedProfile` became reference-counted in unified (f2c01c7): a joining pad's Profile leaked.
 
-Step 4, saves and pauses, calls made on the way:
+Saves and pauses:
 
 - The save is Fable's: the Setup is a new game or a save (version, floor, surges, kills; SAVE_VERSION 1). `Game.save`
-  gives one only once a surge has risen this session (the Setup a session starts from is the save until then), so a
-  save is made at each surge and never between; the kills it holds are those felled by the surge's rise
-  (`saved_kills`). `init` starts a save's floor and tally; a Setup of another version starts a new game. No arrival
-  reads the Setup: it holds no party (Opus's party-by-slot is milestone 7's run).
-- The State's `kills` counts every skeleton felled, a dev kill included (it goes through `damage_minion`).
-- `paused_by` is set by the pause command and cleared by the resume, whoever sends it; a pauser who leaves stays named
-  until someone resumes.
-- VERSION "3", the reference run re-pinned, `replays/lan_pair` recorded again; `uni bench` unchanged.
-- The HUD shows the surge, the skeletons up and the felled from the State (Data_Hud gains `surges`, `kills`,
-  `paused_by`): the felled never count back (the most the data said this game), replacing the count of CONFIRMED
-  deaths, which a late joiner and a continue could not start from.
-- One slot, `user://save.json`, the Setup's JSON alone; a save that doesn't read, or that another save version made,
-  is moved to `save.bad.json` and the title says so once. Under `--no-settings` the slot lives in memory. The save's
-  version is `Unified.constants.save_version`.
-- Continue (the title's first focus, with the save's line: "Floor 1 · Surge 7 · 312 felled") goes through hero select
-  ("Continue your crypt"), as every start does. New game over a save asks first.
-- A joiner keeps the host's newest save in memory; when the game ends without it leaving, the dialog asks "Continue on
-  your own" or "Back to the title", and continuing starts a single-player game on it, which then saves to its own
-  slot (no further question).
-- The pause menu is made when it opens and frees itself; its own stack (the pause screen, Players, the settings) and
-  prompt bar. Opening sets `UnifiedSession.paused`: alone the clock stops; with others it reads false and the game
-  runs on (a LAN host with nobody joined yet counts as with others: its mode isn't single). Esc, B and the pause
-  press resume. The game's input stays off while it shows, also when the game ends from it.
-- Online, Pause for everyone is its own button, reading Resume for everyone while anyone has paused; the menu's
-  heading and the HUD's banner say "Paused by <name>"; anyone resumes.
-- Leaving asks first alone or hosting ("Your crypt is saved at surge N", or that nothing is saved yet); a host with
-  others in ends it for everyone ("End the game"); a joiner leaves at once. Quit asks the same.
-- The pause on focus loss (Gameplay: "Pause when the window is in the background", on by default) opens the pause
-  menu, single player only, and only once the window has had the focus (a tool run's window never has).
-- The Players list shows everyone present (this couch first, "online" for the others), each guest on this couch with
-  Drop out; a row without one keeps its room, so the columns line up.
-- The Dialog asks questions too (two answers; Esc is no); `Game.ask`.
-- Coop: once a surge has risen the host pauses for everyone; the joiner sees the State's `paused_by` and the banner
-  name the host, resumes for everyone; after the host leaves it continues the host's save on its own.
+  gives one only once a surge has risen this session, holding the floor the party was on (`saved_floor`) and the kills
+  at the rise (`saved_kills`). A Setup of another version starts a new game; no arrival reads the Setup (the party by
+  slot is milestone 7's run). VERSION "4", the reference run re-pinned, `uni bench` unchanged.
+- `kills` counts every skeleton felled, a dev kill included. `paused_by` is set by the pause and cleared by the resume,
+  whoever sends it; a pauser who leaves stays named until someone resumes.
+- The HUD shows the surge, the skeletons up and the felled from the State (`Data_Hud`: `surges`, `kills`,
+  `paused_by`), so a late joiner and a continue start from the right counts.
+- One slot, `user://save.json`; one that doesn't read, or of another version, is moved to `save.bad.json` and the
+  title says so once. Under `--no-settings` the slot lives in memory.
+- Continue (the title's first focus, with the save's line) goes through hero select, as every start does. New game
+  over a save asks first; so does hosting a new crypt over one.
+- A joiner keeps the host's newest save in memory (its starting Setup too, when the host continued); when the game
+  ends without it leaving, "Continue on your own" takes that save into its slot (asking when that holds its own) and
+  continues it through hero select.
+- The pause menu is made when it opens, with its own stack and prompt bar. It is alone or online by whether the
+  single-player pause took (asked on open), not by the mode. Online and running, its first button reads "Back to the
+  game"; Pause for everyone is its own button, reading Resume for everyone (focused) while anyone has paused. Its back
+  and pause presses resume only from the keyboard or a pad that plays.
+- Opening the game to friends while paused alone sends the co-op pause at once; when the game is single again while
+  paused, the resume is sent; alone, the status reads "Resume when you're ready."
+- The co-op pause's banner hides under the pause menu, cuts a long name, and shows "[Esc] Menu" in the first player's
+  glyphs. Over a replay the menu says "Replay paused" and offers Resume and Leave only.
+- Leaving asks first alone or hosting (what is saved); a host with others ends it for everyone; a joiner leaves at
+  once. Quit asks the same.
+- The focus-loss pause opens the pause menu, single player only, once the window has had the focus (a tool run's
+  never has).
+- The Players list: this couch's players by local index first, then the others ("online"); each guest here with Drop
+  out, a row without one keeping its room.
+- Moves held under the pause menu reach nobody; when it closes, a held button waits for its release and a held
+  direction reads at once (unified's `game_input`, 7d982a9).
 
-Step 4's review fixes, calls made on the way:
+Playing together:
 
-- The save compares the State's surges with the Setup's only when the Setup is a save (another version starts from
-  none), and holds the floor the party was on when the surge rose (`saved_floor`, set at each rise and at init),
-  never the live level. VERSION "4", the reference run re-pinned.
-- `replays/lan_pair` (the host's recording, ticks 2 to 3650, about 57 s): a Barbarian host and a Knight joiner each
-  walk to a prop, grab it, carry it and throw it, twice each; eight skeletons raised and attacked by both; the joiner's
-  co-op pause and the host's resume; the host a Mage and the joiner a Rogue (dev commands), both attacking; every
-  skeleton killed (dev); the host downed (dev); three surges.
-- The short scenarios' run crosses a surge (`the_suite_runs_cross_a_save`), so unified's save checks cover the demo's
-  Game.save under rollback, churn and a late join.
-- "Continue on your own" takes the host's save into the joiner's slot (asking first when that holds a crypt of its
-  own: "This replaces your own crypt (...)") and continues it through hero select, as the title's Continue, so the
-  player picks a hero and couch guests come back. A joiner keeps its host's starting Setup when it is a save (a
-  host's Continue), so the offer is there before the first surge. The question carries the library's words.
-- The Leave question reads the slot's save (Game.saves), not the HUD's surge.
-- The Dialog owns the answer: `ask` takes the callable, and anything shown over an open question answers it no first.
-  Questions that affect others ("End the game for everyone?", "Quit to desktop?") open on Stay. The dialog shows its
-  own prompt bar (Select, and Esc as the no) while the menus' hide.
-- The pause menu over a replay says "Replay paused" and offers Resume and Leave only, leaving at once (unified posts
-  LEFT for a left replay since 38ea413).
-- The pause menu is alone or online by whether the library's single-player pause took (asked on open, settled within
-  a few frames), not by the mode: a session that had others and is single again still refuses it. Online and
-  running, its first button reads "Back to the game"; reopened while paused for everyone, Resume for everyone has the
-  focus. Its back and pause presses resume only from the keyboard or a pad that plays (Couch.claimed).
-- The co-op pause's banner hides while the pause menu shows, cuts a long name short, and shows "[Esc] Menu" in the
-  first player's glyphs; the menu's heading cuts a long name too.
-- Toasts have their own layer (Game's Notices, 5) under the play scene's menus (10) and the app's overlays (50): the
-  pause menu dims them, and they never cover a heading or a question.
-- The Players list is this couch's players by local index first (what the session has, also while its clock stands),
-  then the others present; a Drop out takes its row away at once. 960 wide.
-- The focus-loss pause counts once the window has had the focus: true at boot when it has it, or on its first frame
-  with it; never in a `--no-settings` run until a check sends the focus in.
-- Settings and the save write through one helper (UserFile): the text beside the file, checked written, then moved
-  over it (its error checked); a write that fails is printed and the session keeps its copy; a missing file is read
-  from its `.tmp`. Saves takes its file's path (the app checks write their own).
-- Two read problems at boot are told one after the other: the save's when the settings' dialog closes.
-- Moves held under the pause menu reach nobody while it shows; when it closes, a held button (attack, grab) waits for
-  its release and a held direction reads at once, as unified intends (its `game_input` doc since 7d982a9). The walk
-  checks both halves of that.
-- coop.gd works the pause menus for real: the host opens its menu and clicks Pause for everyone, its Leave asks "End
-  the game for everyone?" on Stay; the joiner opens its own, reads "Paused by ...", clicks Resume for everyone; after
-  the host leaves the joiner continues on its own through hero select, at the surge it saw, the save in its slot.
-
-Step 5, playing together, calls made on the way:
-
-- EOS lobbies are wired as unified's examples do: `eos.lobby({})` in the extension, and in the headless binary with
-  no keychain prompts and no device left behind. No SDK in the repo; the build copies it when `.env` points at it.
+- EOS lobbies are wired as unified's examples do (`eos.lobby({})`) in the extension and the headless binary. No SDK in
+  the repo; the build copies it when `.env` points at it.
 - Play together is one screen: Host online, Host on this network, Join with a code, Join an address, Rejoin last game.
-  The online rows are greyed with `online_problem`'s sentence, read as the screen shows. Rejoin offers the last code
-  or address this machine joined (`Settings.last_join`), greyed when it's a code and online can't start.
-- Hosting with a crypt saved asks which (HostCrypt: Continue your crypt, with its line, or A new crypt); without one,
-  a new crypt. Every host and join then goes through hero select ("Host a crypt", "Join <code>"), each side's couch
-  picking its own heroes (a joiner's couch guests come in as a host's do).
-- A start that fails before it plays comes back to the screen it was asked from (the code or address kept), the
-  dialog over it with the library's sentence; the end-reason enum is later (plan.md).
-- The code field: as many framed cells as `join_code_length`, letters of `join_code_alphabet`; typing (lower case
-  taken as upper; anything else refused), Backspace, a paste (Ctrl+V or Paste, through `clean_join_code`), and on a
-  pad left/right for the cursor and up/down to step a cell; accept joins a whole code. No Paste or Copy where there's
-  no clipboard (headless runs).
-- An address joins on Game.LAN_PORT (7777) when it names no port; the screen checks it reads as `host[:port]` and
-  always hands the library `host:port`, which resolves a host name itself. A name that doesn't resolve says "Couldn't
-  find <host> on the network.", the library's words small under it.
-- The LAN host uses `Game.lan_port` (7777; checks set their own: the walk a free port, coop the port `uni coop
-  --menus` hands `_start_host`).
-- The session panel (the HUD, under the crypt's counts) shows the code (online) or the address (LAN), a joiner the one
-  it joined, how many play and a slow link's round trip. It takes no clicks: Copy is in Invite friends (its button says
-  "Copied" a moment), and the code of an online host or invite the player started goes to the clipboard once, as it
-  comes, without a word.
-- Invite friends (the pause menu, alone or hosting): Invite online / on this network, then the code or address large,
-  Copy and Stop inviting; inviting again opens it the way it was hosted. An opening that fails says why there. A game
-  paused alone and opened to friends stays paused, for everyone (the co-op pause, sent as the mode changes). A lobby
-  that dies later toasts why, and the game plays on alone.
-- The reconnecting and catching-up plate is the existing LinkStatus; a slow link is the session panel's line.
-- `online_check` (`./uni tool online_check`) hosts online from the menus and checks the code, only where online play
-  can start; elsewhere it says why and passes. `uni coop --menus` (`_start_host`, `_start_join` in coop.gd) clicks
-  through Play together, types the code or address with key events and picks each side's Profile's class on hero
-  select.
-
-Step 5 review fixes, calls made on the way:
-
+  Rows that can't be used are greyed, take no focus, and `online_problem`'s sentence says why; the first enabled row
+  has the focus. Rejoin offers the last code or address joined (`Settings.last_join`, saved once in).
+- Hosting with a crypt saved asks which (Continue your crypt, or A new crypt, which asks first). Every host and join
+  goes through hero select ("Host a crypt", "Join <code>").
 - Hosting online is start_single, then open_online once the crypt is up: the same path as Invite friends. The crypt
-  plays at once; the code comes later ("Getting a code..." on the panel and in Invite friends), and a lobby that
-  fails leaves the game alone, single, with a toast. A LAN host stays host_direct (it binds at once).
-- Game keeps `inviting` (open to new players, set by invite and stop_inviting, and cleared when an opening fails), so
-  the panel says "Closed" only after Stop inviting, never while a code is coming.
-- One clipboard seam on Game (clipboard_get, clipboard_set): a `--no-settings` run (tool, drive, coop) keeps its own
-  in memory, so no run reads or writes the player's. The auto-copy goes through it too, so the walk and online_check
-  check it; a game a session flag started (an adopted session) never copies.
-- A couch guest is named after the first player: "<name> +1", "+2" (cut to the name limit), on hero select, the join
-  cards and the toasts.
-- A join never resolves Any locally (the host's sim resolves it against the party it sees); single and hosting do,
-  a joiner's couch guests included.
-- Leaving a start that is still connecting goes to the menu at once; that start's goodbye (LEFT) is dropped, and a
-  start queued over it goes on (a FAILED after it is reported).
-- The Connecting modal shows only after 0.3 s, so a start that fails or connects at once never flashes it. A failed
-  start emits start_failed before its dialog, so the screen it came from is back under it.
-- A lost link's DISCONNECTED detail is the dialog's reason as a sentence, unless it is the plain "session ended".
-- Focus: Play together focuses its first enabled row, and greyed rows take no focus; after inviting from a paused
-  game, Resume for everyone has it. Join with a code opens empty; Join an address opens with its text selected, and
-  its first Esc goes back.
-- An opening that fails toasts only while the game takes input (under the pause menu, Invite friends' problem line
-  says it, once).
-- The code field: left and right past either end let the focus move on (the field is one control among the
-  screen's); up and down repeat while held (0.4 s, then every 0.09 s); the cursor's cell wears the theme's pulsing
-  focus frame.
-- A host whose start fails can't be forced in a check: Odin's UDP bind reuses the port on Windows, so a taken port
-  still binds. The failed-start path is checked through joins (a refused code, an unknown host) and a failed open.
-- The pending-code state ("Getting a code...") is checked only by online_check: offline, open_online fails at once.
-- The session panel's count follows roster_changed (a joiner's own arrival, a couch guest, each new game's first
-  player: unified tracks the roster per session since 947b982).
-- coop.gd checks each side's class against its `--profile` flag (hero select sets Unified.profile); a joiner that
-  asked for Any plays a class the host doesn't. `--menus --rejoin` rejoins through the title's Rejoin. The joiner's
-  panel says what it joined and the count, and a couch guest on pad 1 joins the joiner as "Friend +1" and drops out,
-  across the two processes.
+  plays at once; "Getting a code..." until the code comes; a lobby that fails leaves the game alone with a toast. A LAN
+  host is host_direct on `Game.lan_port` (7777; checks set their own).
+- A start that fails comes back to the screen it was asked from (what was typed kept), the dialog over it; start_failed
+  comes before the dialog. The end-reason enum is later (plan.md).
+- The code field: a framed cell per `join_code_length`, letters of `join_code_alphabet`; typing (lower case taken as
+  upper), Backspace (back first on an empty cell), a paste (Ctrl+V or Paste, trimmed, through `clean_join_code`); on a
+  pad left/right move the cursor (past either end the focus moves on) and up/down step a cell, repeating while held
+  (0.4 s, then 0.09 s). The cursor's cell wears the pulsing focus frame; the prompt bar follows the focused control.
+- Join with a code opens empty; Join an address opens with the last address selected, and its first Esc goes back. An
+  address joins on LAN_PORT when it names no port and is always handed on as `host:port` (unified resolves names); one
+  the network can't find says "Couldn't find <host> on the network.", the library's words under it.
+- One clipboard seam on Game: a `--no-settings` run (tool, drive, coop) keeps its own in memory, so no run touches the
+  player's. Copy says "Copied" on its button; the code of an online host or invite the player started is copied once,
+  as it comes, without a word (never for a session a flag started).
+- The session panel (under the crypt's counts, growing with its text): the code or address ("Getting a code...",
+  "Closed" after Stop inviting; a joiner, `Game.join_target`, or "A friend's game" for an adopted session), how many
+  play (roster_changed; unified tracks the roster per session since 947b982), a slow link's round trip. No clicks.
+- Invite friends (the pause menu, alone or hosting): Invite online / on this network, the code large, Copy, Stop
+  inviting; inviting again opens it the way it was hosted. Game keeps `inviting`, so "Closed" shows only after Stop
+  inviting. A failed opening says why on the screen, once (a toast only while the game takes input).
+- A host whose start fails can't be forced in a check (Odin's UDP bind reuses a taken port on Windows): the
+  failed-start path is checked through joins and a failed open. The pending code is checked only by online_check.
+
+Checks:
+
+- `ArtChecks` takes TTF and Ogg files and counts what the theme uses; `AppChecks` holds the autoload order, the
+  theme's variations, a HUD that takes no click or focus, menu buttons that take the focus, every button's sound.
+- The walk drives pads with unified's `UnifiedTool.pad_button(button, device)` and `pad_axis` (745e023).
+- The short scenarios' run crosses a surge (`the_suite_runs_cross_a_save`), so unified's save checks cover Game.save
+  under rollback, churn and a late join.
+- `replays/lan_pair` (the host's recording, about 57 s): Barbarian host and Knight joiner grabbing and throwing props,
+  skeletons raised and attacked, the co-op pause and resume, class swaps, every skeleton killed, the host downed, three
+  surges.
+- `uni coop --host-profile/--join-profile` (unified b06ba4f) gives each side its Profile; coop.gd checks each class
+  against its flag (a joiner asking Any plays a class the host doesn't), names its joiner "Friend", works both pause
+  menus, and the joiner continues on its own after the host leaves. With `--menus` each side goes through the menus
+  (`_start_host`, `_start_join`), `--rejoin` through the title's Rejoin; the joiner's panel and a couch guest on its pad
+  1 ("Friend +1") are checked across the two processes.
+- `online_check` hosts online from the menus where online play can start (the pending code, the copy, Stop inviting,
+  inviting again); elsewhere it says why and passes.
