@@ -219,10 +219,12 @@ RETARGET_TICKS :: u32(RETARGET_S * TICK_HZ)
 SEPARATION :: f32(0.9) // minions closer than this push apart ...
 SEPARATION_SPEED :: f32(2.5) // ... at up to this speed
 KNOCK_DECAY :: f32(6) // a knockback's velocity decays at this rate per second
-// The minion grid's cells (metres): at least SEPARATION and the longest reach a query asks of its 3 by 3 cells (a
-// Barbarian's cleave and a minion's radius); world_create lays it over each floor's mesh.
-MINION_GRID_CELL :: f32(3)
-MINION_GRID_CELLS :: 1024 // the most cells a floor's grid may need: its mesh up to 90 m by 90 m, a cell to spare a side
+// The minion grid's cells (metres): the separation's reach, which its 3 by 3 cells must cover, and no more, so a dense
+// crowd's neighbour query scans 9 m²; a longer reach (a blow, a burst, a bolt, a thrown prop) walks a box of cells
+// (minions_near). world_create lays it over each floor's mesh.
+MINION_GRID_CELL :: f32(1)
+#assert(MINION_GRID_CELL >= SEPARATION)
+MINION_GRID_CELLS :: 16384 // the most cells a floor's grid may need: its mesh up to 125 m by 125 m
 
 // ---- the director: sleeping packs, and surges rising from graves
 

@@ -12,6 +12,7 @@ import "unified:dmath"
 import "unified:headless"
 import "unified:headless/scenarios"
 import "unified:nav"
+import "unified:physics"
 import "unified:sim"
 
 import g "../crypt_crew"
@@ -40,11 +41,11 @@ CROWD_REFERENCE :: scenarios.Reference {
 	ticks         = 1200,
 	snapshot_tick = 600,
 	setup         = "floor=arena,crowd=fight",
-	checkpoints   = {0xe86fa71e88af9932, 0xc8c691565df4fcb4, 0x4e5db3dd784542a6, 0x83066abececd88da},
-	trace         = 0x283d2b14574cee14,
-	snapshot      = 0xb6920adcc495bf3b,
-	log           = 0xf155fe1cd68488e7,
-	compat        = 0x659530afe8aa9ad3,
+	checkpoints   = {0x3de013d97eedfb70, 0x232dad95df19be73, 0xa2f4c83a251a3032, 0x5c278324729377ad},
+	trace         = 0xd1c569a164b8ae4d,
+	snapshot      = 0x74da4b0a328607ab,
+	log           = 0x6235e146b02dafd3,
+	compat        = 0xfe7f557c2edbbb76,
 }
 
 // What a chaser closes on a neighbour or a spawn in the tick a run seats its heroes.
@@ -339,4 +340,128 @@ expect_spread :: proc(t: ^testing.T, state: ^g.State, floor: ^g.Floor, clear, sl
 			}
 		}
 	}
+}
+
+// The grid's box walk (minions_near) finds exactly the live minions a walk of the whole table finds within a reach, at
+// every reach a query asks (a separation's, a burst's, a cleave's, a thrown heavy crate's), around every minion of a
+// dense crowd and around points between them.
+@(test)
+the_grid_finds_what_the_table_finds :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Chase}, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	play(&run, {}, 3) // the crowd closes in on the heroes: dense, and at cell edges everywhere
+	state := &run.simulation.state
+	grid := new(g.Minion_Grid)
+	defer free(grid)
+	g.fill_grid(grid, floor_of(&run), &state.minions)
+	reaches := []f32{g.SEPARATION, g.BURST_RADIUS, g.CLASS_SPECS[.Barbarian].reach + g.MINION_RADIUS, 3.2}
+	checked := 0
+	centres := sim.iterate(&state.minions)
+	for centre_minion in sim.next(&centres) {
+		for shift in ([][2]f32{{0, 0}, {0.37, -0.61}}) {
+			centre := centre_minion.pos.xz + shift
+			for reach in reaches {
+				found: [g.MAX_MINIONS]bool
+				walk := g.minions_near(grid, centre, reach)
+				for row in sim.grid_box_next(&walk) {
+					for index in row {
+						if dmath.length_sq(state.minions.items[index].pos.xz - centre) <= reach * reach do found[index] = true
+					}
+				}
+				minions := sim.iterate(&state.minions)
+				for minion, handle in sim.next(&minions) {
+					want := minion.phase != .Dying && dmath.length_sq(minion.pos.xz - centre) <= reach * reach
+					if found[handle.index] != want {
+						testing.expectf(
+							t,
+							false,
+							"minion %d at %v: grid %v, table %v",
+							handle.index,
+							minion.pos,
+							found[handle.index],
+							want,
+						)
+						return
+					}
+				}
+				checked += 1
+			}
+		}
+	}
+	testing.expect(t, checked > 1000, "it checked a crowd")
+}
+
+// Separation at density: sixty sleepers dropped within 2 m of one point (five to the square metre, more than any crowd
+// packs) push apart until none is closer than SEPARATION less a hand's breadth within ten seconds, every one still on
+// the floor. (Chasers packed round a hero overlap until step 3's queueing: their chase outruns the push.)
+@(test)
+separation_spreads_a_crush :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Idle}) // no hero: nobody wakes them
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	run.simulation.state.held = 0 // these sixty only
+	centre := [3]f32{0, 0, -11} // open floor between the braziers
+	for i in 0 ..< 60 {
+		ring := dmath.sqrt(f32(i) / 60) * 2
+		dir := dmath.angle_vec(f32(i) * 0.381966) // the golden angle, in turns: an even spiral
+		place_minion(&run, centre + {dir.x, 0, dir.y} * ring, .Idle)
+	}
+	play(&run, {}, 10)
+	floor := floor_of(&run)
+	closest := max(f32)
+	minions := sim.iterate(&run.simulation.state.minions)
+	for minion, handle in sim.next(&minions) {
+		testing.expect(t, nav.island_of(&floor.mesh, minion.poly) == floor.island, "a minion left the floor")
+		others := sim.iterate(&run.simulation.state.minions)
+		for other, other_handle in sim.next(&others) {
+			if other_handle.index > handle.index do closest = dmath.min(closest, dmath.length(other.pos.xz - minion.pos.xz))
+		}
+	}
+	testing.expectf(t, closest >= g.SEPARATION - 0.1, "two minions %v m apart", closest)
+	scenarios.expect_synced(t, &run)
+}
+
+// A crowd of Floor 1's cap chasing heroes round its corners and doorways for 6 s: every tick every minion stands on
+// the walkable floor (nav.locate finds it on its polygon) and no minion's step crosses a wall or low cover, steered
+// every tick near its target or every few ticks farther off.
+@(test)
+a_crowd_never_crosses_a_wall :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Floor_1, crowd = .Chase}, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	floor := floor_of(&run)
+	state := &run.simulation.state
+	blocking := physics.Filter {
+		category = g.CAT_HERO,
+		mask     = g.CAT_WALL | g.CAT_LOW,
+	}
+	was: [g.MAX_MINIONS]struct {
+		handle: sim.Handle(g.Minion),
+		pos:    [3]f32,
+	}
+	for _ in 0 ..< 6 * g.TICK_HZ {
+		headless.run_step(&run)
+		minions := sim.iterate(&state.minions)
+		for minion, handle in sim.next(&minions) {
+			if nav.locate(&floor.mesh, minion.pos, 0.1) == nav.NO_POLY ||
+			   nav.island_of(&floor.mesh, minion.poly) != floor.island {
+				testing.expectf(t, false, "a minion off the floor at %v", minion.pos)
+				return
+			}
+			before := &was[handle.index]
+			if before.handle == handle && before.pos != minion.pos {
+				from := before.pos + {0, 0.5, 0}
+				if _, hit := physics.world_cast_ray_closest(
+					run.simulation.world.phys,
+					from,
+					minion.pos - before.pos,
+					blocking,
+				); hit {
+					testing.expectf(t, false, "a minion stepped through a wall from %v to %v", before.pos, minion.pos)
+					return
+				}
+			}
+			before^ = {handle, minion.pos}
+		}
+	}
+	scenarios.expect_synced(t, &run)
 }

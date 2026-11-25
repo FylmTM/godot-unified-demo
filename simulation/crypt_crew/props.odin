@@ -76,7 +76,8 @@ prop_hits :: proc(t: ^Tick) {
 		velocity := physics.body_linear_velocity(t.world.phys, prop.body)
 		centre := physics.body_position(t.world.phys, prop.body)
 		reach := PROP_SPECS[prop.kind].footprint + MINION_RADIUS
-		rows: for row in sim.grid_near(&t.world.grid, centre.xz) {
+		walk := minions_near(&t.world.grid, centre.xz, reach)
+		rows: for row in sim.grid_box_next(&walk) {
 			for index in row {
 				if dmath.length_sq(velocity) < PROP_HIT_SPEED * PROP_HIT_SPEED do break rows // slowed by its hits
 				minion, handle, _ := sim.item_at(&t.state.minions, int(index))

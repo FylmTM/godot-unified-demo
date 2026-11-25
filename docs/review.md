@@ -504,3 +504,15 @@ Calls made in step 1:
 - Bench, the developer's machine, quiet: crowd_fight is at the 3 ms line (3.17 ms p99 here, 3.37 to 3.51 in the
   reviewers' reruns), crowd_chase over it (4.88 ms here, 5.5 to 5.9 in theirs: the crowd packing around the heroes);
   step 2's speed work and step 3's queueing are for both.
+
+Calls made in step 2 (the sim at 500):
+
+- The minion grid's cells are 1 m (`#assert(MINION_GRID_CELL >= SEPARATION)`), up to 16,384 of them (a 125 m floor);
+  blows, bursts, bolts and thrown props walk a box of cells over their reach (`minions_near`, a bolt's over its
+  tick's segment), so they find exactly what a walk of the table finds (a test compares the two at every reach the
+  rules ask). `minion_near` (an arrival's clearance) stays a walk of the table: it runs first in the tick, before any
+  pass has rebuilt the grid for this tick (the grid is scratch: after a rollback it holds another timeline), and an
+  arrival is rare.
+- Separation's test is a crush on open floor (sixty sleepers within 2 m pushed apart past SEPARATION less 0.1 m in
+  10 s, no hero to wake them): a crowd chasing heroes who stand still still packs onto them (closest pairs about
+  1 cm apart, step 3's queueing), so no test can hold that crowd apart yet.

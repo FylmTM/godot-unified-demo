@@ -40,6 +40,10 @@ Minion :: struct {
 // before the strikes).
 Minion_Grid :: sim.Grid(MINION_GRID_CELLS, MAX_MINIONS)
 
+// A walk over the grid's cells around a point (minions_near): `for ids in sim.grid_box_next(&walk)`, a row of cells
+// at a time.
+Minion_Box :: sim.Grid_Box(MINION_GRID_CELLS, MAX_MINIONS)
+
 // A circle minions are pushed out of (a hero, a prop in the way), on the floor plan.
 Obstacle :: struct {
 	pos:    [2]f32,
@@ -231,16 +235,26 @@ age_minions :: proc(t: ^Tick) {
 	}
 }
 
-// The live minions into the World's grid (laid over the mesh in world_create), in table order, so a cell's minions
-// come in index order: scratch, rebuilt by each pass that asks it (the moves; the strikes after the step).
+// The live minions into the World's grid, in table order, so a cell's minions come in index order: scratch, rebuilt
+// by each pass that asks it (the moves; the strikes after the step).
 build_grid :: proc(t: ^Tick) {
-	floor := floor_of(t)
-	sim.grid_begin(&t.world.grid, floor.grid_origin, MINION_GRID_CELL, floor.grid_columns, floor.grid_rows)
-	minions := sim.iterate(&t.state.minions)
-	for minion, handle in sim.next(&minions) {
-		if minion.phase != .Dying do sim.grid_add(&t.world.grid, i32(handle.index), minion.pos.xz)
+	fill_grid(&t.world.grid, floor_of(t), &t.state.minions)
+}
+
+// `minions` (the live ones) into `grid`, laid over `floor`'s mesh (its grid_origin, columns and rows).
+fill_grid :: proc(grid: ^Minion_Grid, floor: ^Floor, minions: ^sim.Table(Minion, MAX_MINIONS)) {
+	sim.grid_begin(grid, floor.grid_origin, MINION_GRID_CELL, floor.grid_columns, floor.grid_rows)
+	walk := sim.iterate(minions)
+	for minion, handle in sim.next(&walk) {
+		if minion.phase != .Dying do sim.grid_add(grid, i32(handle.index), minion.pos.xz)
 	}
-	sim.grid_end(&t.world.grid)
+	sim.grid_end(grid)
+}
+
+// The grid's cells that hold every minion within `reach` of `centre` (and some farther: the caller measures each), a
+// row at a time from the smallest z, each row's minions by cell and then index: a fixed order, whatever the reach.
+minions_near :: proc(grid: ^Minion_Grid, centre: [2]f32, reach: f32) -> Minion_Box {
+	return sim.grid_box(grid, centre - reach, centre + reach)
 }
 
 // What minions are pushed out of this tick: every present hero's capsule, and every prop held or at rest.

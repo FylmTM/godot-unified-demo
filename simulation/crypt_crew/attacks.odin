@@ -63,9 +63,10 @@ resolve_strikes :: proc(t: ^Tick) {
 // A melee blow of `spec`: every live minion within `spec.reach` of the hero's centre (its circle's edge) and inside the
 // arc either side of the hero's facing (or touching the hero), with no wall between their chests, takes the blow's
 // damage and knock, away from the hero; every free prop in the arc, within the height a blow sweeps and with no wall
-// between, is shoved likewise. Dot products, no trig; minions in the grid's order (by cell, then index).
+// between, is shoved likewise. Dot products, no trig; minions in the grid's order (minions_near).
 strike_arc :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, spec: ^Class_Spec) {
-	for row in sim.grid_near(&t.world.grid, hero.pos.xz) {
+	walk := minions_near(&t.world.grid, hero.pos.xz, dmath.max(spec.reach, HERO_RADIUS + STRIKE_TOUCH) + MINION_RADIUS)
+	for row in sim.grid_box_next(&walk) {
 		for index in row {
 			minion, handle, _ := sim.item_at(&t.state.minions, int(index))
 			if minion.phase == .Dying do continue

@@ -49,7 +49,9 @@ fly_bolts :: proc(t: ^Tick) {
 		hit, struck := physics.world_cast_ray_closest(t.world.phys, bolt.pos, step, SHOT_FILTER)
 		if struck do reach = hit.fraction
 		victim: sim.Handle(Minion)
-		for row in sim.grid_near(&t.world.grid, bolt.pos.xz) {
+		middle := bolt.pos.xz + step.xz / 2 // the segment's minions: within half its length and the sweep of its middle
+		walk := minions_near(&t.world.grid, middle, dmath.length(step.xz) / 2 + MINION_RADIUS + BOLT_RADIUS)
+		for row in sim.grid_box_next(&walk) {
 			for index in row {
 				minion, minion_handle, _ := sim.item_at(&t.state.minions, int(index))
 				if minion.phase == .Dying do continue
@@ -89,7 +91,8 @@ fly_bolts :: proc(t: ^Tick) {
 burst :: proc(t: ^Tick, at: [3]f32, flight: [2]f32, caster: sim.Player, victim: sim.Handle(Minion)) {
 	spec := &CLASS_SPECS[.Mage]
 	if victim != {} do damage_minion(t, victim, spec.damage, flight, spec.knock, caster, .Bolt)
-	for row in sim.grid_near(&t.world.grid, at.xz) {
+	walk := minions_near(&t.world.grid, at.xz, BURST_RADIUS)
+	for row in sim.grid_box_next(&walk) {
 		for index in row {
 			minion, handle, _ := sim.item_at(&t.state.minions, int(index))
 			if handle == victim || minion.phase == .Dying do continue
