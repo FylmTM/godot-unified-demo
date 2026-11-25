@@ -71,20 +71,14 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 
 ## Milestone 3: the app layer
 
-Six steps, each landing on its own. The first three are in: the app's skeleton (the `Game` autoload owns the session
+Six steps, each landing on its own. The first four are in: the app's skeleton (the `Game` autoload owns the session
 and the flow; the title, the theme, the overlays, `Sfx`), the settings, bindings and prompts (the settings screen
 over the menu's screen stack, rebinding, the input prompts following the device, the HUD's hints, the first player's
-device free while alone), and hero select and the couch (the Profile is the pick; a seat per device; a pad joining
+device free while alone), hero select and the couch (the Profile is the pick; a seat per device; a pad joining
 mid-game picks on a card in the HUD, a guest drops out on one; hero plates with portraits and HP bars; the player's
-name). Audio has Master and Interface only: Music and Effects come with their sounds (milestone 8). Still to come:
+name), and saves and pauses (the sim's Setup and save, Continue, the pause menu alone and online, who paused).
+Audio has Master and Interface only: Music and Effects come with their sounds (milestone 8). Still to come:
 
-4. **Saves and pauses.** The save is the floor, the surges faced and the skeletons felled, saved at each surge, in
-   one slot written by the host or the single player; a joiner keeps it in memory, and is offered "Continue on your
-   own" when the host leaves. In single player (couch included) the pause menu pauses the clock
-   (`UnifiedSession.paused`); online it is an overlay over the running game, with "Pause for everyone" (the co-op
-   pause command) its own button and anyone free to resume; the State gains `paused_by`, so everyone, a late joiner
-   too, sees who paused. The settings open from the pause menu too (on its own screen stack), and single player
-   pauses when the window loses the focus (a Gameplay setting). The pause menu's Players list drops a guest out too.
 5. **Playing together.** Host online or on the LAN, join by code or address, open to friends from the pause menu,
    reconnect and slow-link states, every end's reason, the extension's EOS lobby. The join code is the invite: Copy,
    and Rejoin last game.

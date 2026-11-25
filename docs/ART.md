@@ -175,7 +175,10 @@ join and drop cards are one card (`game/ui/widgets/seat_card.tscn`), one size wh
 choosing, a green wash and "Ready!" over the portrait once ready, faded while the seat is free; its glyphs are its
 own device's. The HUD's hero plates lead with the HP, a red bar over a dark track with the number on it, every bar
 one length; the player's name and the class sit above it, the device's controls below for a few seconds (or as the
-setting says). Toasts sit at the top, in the middle, three at most, a name and a word or two each.
+setting says). Toasts sit at the top, in the middle, three at most, a name and a word or two each. The pause menu is
+the parchment panel in the middle over a dimmed crypt, its prompt bar in the corner like the title's; the co-op
+pause's banner hangs below the HUD's top row and names who paused. A question (Leave, New game over a save) is the
+dialog with its two answers, the one that does it first.
 
 The interface's sounds are Kenney's Interface Sounds, played by `Sfx` (`game/app/sfx.gd`); `Game` gives every button
 of the game its press sound and the focus moving its select sound, so no screen plays one by hand; hero select plays

@@ -33,7 +33,7 @@ cd godot-unified-demo
 **Controls.** Move with WASD, the arrow keys or a pad's left stick; aim with the mouse or the right stick (a hero
 that isn't aimed faces where it walks). Attack (the left mouse button, Space, or a pad's right trigger or X) attacks
 while held, and throws what you carry. Grab (E, the right mouse button, or a pad's A) picks up the barrel or crate in
-front, glowing faintly, and puts it down again. Esc, or Start on a pad that plays, pauses the game for everyone.
+front, glowing faintly, and puts it down again. Esc, or Start on a pad that plays, opens the pause menu.
 Attack and Grab can be rebound on both the keyboard and mouse and a pad, and the moves on the keyboard (Settings,
 Controls: two bindings each; a pad's sticks and D-pad stay); the HUD shows each player's controls in the glyphs of the
 device they use: for a few seconds after a player joins or picks up another device, or always, or never (Settings,
@@ -53,6 +53,13 @@ from then on the first player keeps the device they last played with. A guest's 
 opens a card to drop out (A drops out, B stays). A toast names who joined or left, and as which hero. Four play at
 most. Players joining over the LAN join the same session beside them.
 
+**Saves and pauses.** The crypt saves itself each time a surge rises (the floor, the surges faced, the skeletons
+felled), in one slot; Continue on the title starts it again from there. Only the host, or a player alone, keeps it:
+a player in someone else's game keeps the host's last save in memory, and is offered "Continue on your own" if the
+host leaves. Alone (couch included) the pause menu pauses the game; with others the game runs on under it, and
+"Pause for everyone" pauses it for every player (anyone may resume it), the banner naming who paused. Alone, the game
+also pauses when its window goes to the background (Settings, Gameplay).
+
 ## What it shows of unified
 
 - **Rollback and prediction**: the whole game is one plain state block (`simulation/crypt_crew/state.odin`) that
@@ -68,7 +75,12 @@ most. Players joining over the LAN join the same session beside them.
 - **Keyed rolls**: surges and packs roll on the state they place (`director.odin`), so when a pause or a command lands
   moves no outcome.
 - **Late join and rejoin beside the party** (`presence.odin`), a player's hero kept for their return.
-- **The co-op pause** (`pause.odin`; Esc in `game/play/play.gd`): the game clock stands for every peer.
+- **Both pauses**: alone, the pause menu stops the session's clock (`UnifiedSession.paused`); with others, its Pause
+  for everyone is the co-op pause (`pause.odin`), the game clock standing for every peer, and the State keeps who
+  paused, so a late joiner's banner names them too (`game/play/pause_menu.gd`).
+- **Setup and save**: a new game or a save is the session's Setup; the sim gives a save at each surge (`saves.odin`),
+  unified hands it over from verified ticks only, and the app keeps it as JSON in one slot (`game/app/saves.gd`);
+  Continue starts a session on it, and a joiner whose host left continues its last one alone (`game/app/game.gd`).
 - **The session outlives the scenes**: the `Game` autoload owns it from boot to quit and switches between the title
   and the crypt on its status, whoever started it: the menus, the command line's session flags (`uni run`, `uni coop`,
   `uni drive`) or a tool. A start that fails, or a game that ends without the player leaving, comes back to the title
@@ -76,8 +88,8 @@ most. Players joining over the LAN join the same session beside them.
 - **Views**: scene views (`game/views/`), props and minions pooled, minions shown once their spawn is verified
   (`Appear.Verified`, `frame.odin`), the Mage's bolts one MultiMesh (`MultiView`); clips posed on the session's shown
   game time, so a correction or a seek lands on the right frame (`game/views/hero.gd`, `minion.gd`).
-- **Events**: effects play as soon as they are predicted (EMITTED: `game/play/play.gd`, `effects.gd`); the HUD counts
-  a kill only once it is CONFIRMED (`game/play/hud.gd`).
+- **Events**: effects play as soon as they are predicted (EMITTED: `game/play/play.gd`, `effects.gd`); a join or a
+  leave is told once it is CONFIRMED (`game/app/game.gd`).
 - **Couch co-op**: each local player's device and pads joining (`game/play/couch.gd`), every local hero framed by one
   camera (`camera_rig.gd`); each local player's prompts in the glyphs of the device the session gives them
   (`game/app/prompts.gd`).

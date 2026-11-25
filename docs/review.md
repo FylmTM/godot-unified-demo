@@ -409,3 +409,45 @@ Step 3, hero select and the couch, calls made on the way (as they stand after it
 - `uni coop --host-profile/--join-profile` (unified b06ba4f) gives each side its own Profile; the coop play checks
   each side's hero is its own Profile's class, and names its joiner "Friend" itself (uni's USERNAME=Friend no longer
   matters to this game; unified dropped it in f2c7548).
+
+Step 4, saves and pauses, calls made on the way:
+
+- The save is Fable's: the Setup is a new game or a save (version, floor, surges, kills; SAVE_VERSION 1). `Game.save`
+  gives one only once a surge has risen this session (the Setup a session starts from is the save until then), so a
+  save is made at each surge and never between; the kills it holds are those felled by the surge's rise
+  (`saved_kills`). `init` starts a save's floor and tally; a Setup of another version starts a new game. No arrival
+  reads the Setup: it holds no party (Opus's party-by-slot is milestone 7's run).
+- The State's `kills` counts every skeleton felled, a dev kill included (it goes through `damage_minion`).
+- `paused_by` is set by the pause command and cleared by the resume, whoever sends it; a pauser who leaves stays named
+  until someone resumes.
+- VERSION "3", the reference run re-pinned; `replays/lan_pair` recorded again by two `uni drive` instances (Knight and
+  Barbarian, a Mage and a Rogue by dev commands, spawns and kills, the joiner's co-op pause and the host's resume, a
+  dev down, three surges). `uni bench` unchanged.
+- The HUD shows the surge, the skeletons up and the felled from the State (Data_Hud gains `surges`, `kills`,
+  `paused_by`): the felled never count back (the most the data said this game), replacing the count of CONFIRMED
+  deaths, which a late joiner and a continue could not start from.
+- One slot, `user://save.json`, the Setup's JSON alone; a save that doesn't read, or that another save version made,
+  is moved to `save.bad.json` and the title says so once. Under `--no-settings` the slot lives in memory. The save's
+  version is `Unified.constants.save_version`.
+- Continue (the title's first focus, with the save's line: "Floor 1 · Surge 7 · 312 felled") goes through hero select
+  ("Continue your crypt"), as every start does. New game over a save asks first.
+- A joiner keeps the host's newest save in memory; when the game ends without it leaving, the dialog asks "Continue on
+  your own" or "Back to the title", and continuing starts a single-player game on it, which then saves to its own
+  slot (no further question).
+- The pause menu is made when it opens and frees itself; its own stack (the pause screen, Players, the settings) and
+  prompt bar. Opening sets `UnifiedSession.paused`: alone the clock stops; with others it reads false and the game
+  runs on (a LAN host with nobody joined yet counts as with others: its mode isn't single). Esc, B and the pause
+  press resume. The game's input stays off while it shows, also when the game ends from it.
+- Online, Pause for everyone is its own button, reading Resume for everyone while anyone has paused; the menu's
+  heading and the HUD's banner say "Paused by <name>"; anyone resumes.
+- Leaving asks first alone or hosting ("Your crypt is saved at surge N", or that nothing is saved yet); a host with
+  others in ends it for everyone ("End the game"); a joiner leaves at once. Quit asks the same.
+- The pause on focus loss (Gameplay: "Pause when the window is in the background", on by default) opens the pause
+  menu, single player only, and only once the window has had the focus (a tool run's window never has).
+- The Players list shows everyone present (this couch first, "online" for the others), each guest on this couch with
+  Drop out; a row without one keeps its room, so the columns line up.
+- The Dialog asks questions too (two answers; Esc is no); `Game.ask`.
+- `UnifiedSession.start_single(null)` crashes the game since it has a Setup; the game leaves the argument out for a
+  new game (reported to unified).
+- Coop: once a surge has risen the host pauses for everyone; the joiner sees the State's `paused_by` and the banner
+  name the host, resumes for everyone; after the host leaves it continues the host's save on its own.
