@@ -41,11 +41,11 @@ CROWD_REFERENCE :: scenarios.Reference {
 	ticks         = 1200,
 	snapshot_tick = 600,
 	setup         = "floor=arena,crowd=fight",
-	checkpoints   = {0x9df2cdecf8f33199, 0x3b37732a48d24257, 0x45db5579d6b5574d, 0xd647f8fcb38a08d5},
-	trace         = 0x5361055f5b728b30,
-	snapshot      = 0xcd3b534e1e5ffe14,
-	log           = 0x2da9b1fa80a63d96,
-	compat        = 0x167ee8ca52ce98bb,
+	checkpoints   = {0x7abb5aceed4bd6fe, 0x6bf468443430fa26, 0xe42784881165100d, 0xe68bdda9dbe4b07c},
+	trace         = 0x9f1f315897e00ce2,
+	snapshot      = 0x00e2d782e35d41bd,
+	log           = 0xbcfcf3a5b9bfee88,
+	compat        = 0x8ad5b0b338556942,
 }
 
 // What a chaser closes on a neighbour or a spawn in the tick a run seats its heroes.
@@ -149,7 +149,9 @@ a_sleeping_crowd_refills_with_sleepers :: proc(t: ^testing.T) {
 	defer headless.run_end(&run)
 	state := &run.simulation.state
 	headless.run_command(&run, 0, g.Command_Dev_Kill_Minions{})
-	play(&run, {}, g.DEATH_S + 0.5)
+	for g.minions_alive(&state.minions) < int(state.held) && state.clock.time < sim.Game_Time(30 * g.TICK_HZ) {
+		headless.run_step(&run) // they rise a few a tick, at the graves out of sight
+	}
 	testing.expect_value(t, g.minions_alive(&state.minions), int(state.held))
 	expect_all_in(t, state, .Idle)
 	scenarios.expect_synced(t, &run)
@@ -244,10 +246,10 @@ the_arena_plays_with_surges :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// Every minion of a crowd the arena holds killed at once: the dying keep their rows for DEATH_S, so the table has
-// MAX_MINIONS less the cap free. The hold raises at most that many a tick, never once per missing minion (the raises
-// a full table would refuse, a nav query each, every tick until the dead are gone), the alive never pass the held
-// count, and the crowd stands whole again once the dead are gone and the risen have climbed out.
+// Every minion of a crowd the arena holds killed at once: the dying keep their rows for DEATH_S. The refill raises at
+// most RISE_PER_TICK a tick and never more than the table has rows free (never once per missing minion: the raises a
+// full table would refuse, a nav query each, every tick until the dead are gone), the alive never pass the held
+// count, and the crowd stands whole again over the next seconds.
 @(test)
 the_director_raises_only_into_free_rows :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Chase}, seated = g.PLAYERS)
@@ -255,17 +257,22 @@ the_director_raises_only_into_free_rows :: proc(t: ^testing.T) {
 	state := &run.simulation.state
 	held := int(state.held)
 	headless.run_command(&run, 0, g.Command_Dev_Kill_Minions{})
-	testing.expect_value(t, g.minions_alive(&state.minions), g.MAX_MINIONS - held) // the free rows, risen that tick
-	for _ in 0 ..< g.DEATH_TICKS + g.RISE_TICKS + g.TICK_HZ {
+	testing.expect(t, g.minions_alive(&state.minions) <= g.RISE_PER_TICK, "a few rose in the kill's tick")
+	whole := false
+	for _ in 0 ..< 10 * g.TICK_HZ {
 		free_before, rises_before := g.free_rows(&state.minions), state.rises
 		headless.run_step(&run)
 		raised, alive := int(state.rises - rises_before), g.minions_alive(&state.minions)
-		if raised > free_before || alive > held {
+		if raised > dmath.min(free_before, g.RISE_PER_TICK) || alive > held {
 			testing.expectf(t, false, "%d raised into %d free rows, %d alive", raised, free_before, alive)
 			break
 		}
+		if alive == held {
+			whole = true
+			break
+		}
 	}
-	testing.expect_value(t, g.minions_alive(&state.minions), held)
+	testing.expectf(t, whole, "the crowd isn't whole again: %d alive", g.minions_alive(&state.minions))
 	scenarios.expect_synced(t, &run)
 }
 

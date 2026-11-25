@@ -153,8 +153,9 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    follows the facing (`HOLD_*`), and the hero walks toward the stick's velocity at its class's speed, slowed by a
    carried prop or by ATTACK_SPEED.
 5. **Director.** A sleeping pack wakes when a hero one of its minions can see comes within AGGRO_RADIUS (each looks
-   every SIGHT_S) or one of them is hit. A surge rises SURGE_FIRST_S into a floor and every SURGE_EVERY_S after:
-   SURGE_BASE minions plus SURGE_PER_HERO per hero, at a grave out of sight beyond SURGE_NEAR and within SURGE_FAR of
+   every SIGHT_S) or one of them is hit. A surge is owed SURGE_FIRST_S into a floor and every SURGE_EVERY_S after:
+   SURGE_BASE minions plus SURGE_PER_HERO per hero and SURGE_GROWTH per surge faced, rising a few a tick
+   (RISE_PER_TICK, one per grave every RISE_GAP_S) at graves out of sight beyond SURGE_NEAR and within SURGE_FAR of
    the party, up to the floor's cap alive (CROWD_DENSITY to the square metre of walkable floor, at most MINION_CAP)
    and never into more rows than the table has free. A Setup may hold a crowd instead (`floor=arena,crowd=fight`): the
    floor's cap placed on the first tick, asleep, chasing or fighting, the felled rising again at the graves, its heroes

@@ -43,6 +43,7 @@ a_surge_rises_out_of_sight_and_within_reach :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
 	defer headless.run_end(&run)
 	until_the_first_surge(&run)
+	for run.simulation.state.rising > 0 do headless.run_step(&run) // it rises a few a tick
 	floor := floor_of(&run)
 	risen := 0
 	minions := sim.iterate(&run.simulation.state.minions)
@@ -115,5 +116,46 @@ the_cap_holds_and_minions_stay_on_the_floor :: proc(t: ^testing.T) {
 		}
 	}
 	testing.expect_value(t, most, floor.minion_cap) // the spawn filled it
+	scenarios.expect_synced(t, &run)
+}
+
+// A surge is a quota that rises over the next ticks: at most RISE_PER_TICK a tick, each of a tick's risers at another
+// grave, all of it in the end; and the next surge is SURGE_GROWTH larger.
+@(test)
+a_surge_rises_a_few_a_tick :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	clear_minions(&run) // the packs: only the surge's below
+	state := &run.simulation.state
+	floor := floor_of(&run)
+	counts: [2]int
+	for &count in counts {
+		surges := state.surges
+		risen := 0
+		for state.surges == surges || state.rising > 0 {
+			headless.run_step(&run)
+			if state.surges != surges && count == 0 {
+				surge, _ := headless.run_last_event(&run, g.Event_Surge) // the surge's own tick
+				count = int(surge.count)
+			}
+			graves: [g.MAX_GRAVES]bool
+			this_tick := 0
+			minions := sim.iterate(&state.minions)
+			for minion in sim.next(&minions) {
+				if minion.phase != .Rise || minion.since != state.clock.time do continue
+				this_tick += 1
+				nearest, best := 0, max(f32)
+				for &grave, i in sim.slice(&floor.places.graves) {
+					if apart := dmath.length(grave.point.xz - minion.pos.xz); apart < best do nearest, best = i, apart
+				}
+				testing.expectf(t, !graves[nearest], "two rose at grave %d in one tick", nearest)
+				graves[nearest] = true
+			}
+			testing.expectf(t, this_tick <= g.RISE_PER_TICK, "%d rose in one tick", this_tick)
+			risen += this_tick
+		}
+		testing.expect_value(t, risen, count)
+	}
+	testing.expect_value(t, counts[1], counts[0] + g.SURGE_GROWTH)
 	scenarios.expect_synced(t, &run)
 }

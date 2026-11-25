@@ -435,11 +435,11 @@ Checks:
 - The walk drives pads with unified's `UnifiedTool.pad_button(button, device)` and `pad_axis` (745e023).
 - The short scenarios' run crosses a surge (`the_suite_runs_cross_a_save`), so unified's save checks cover Game.save
   under rollback, churn and a late join.
-- `replays/lan_pair` (the host's recording, ticks 2 to 4754, about 74 s; recorded again in milestone 4 so its blows
+- `replays/lan_pair` (the host's recording, ticks 2 to 2856, about 45 s; recorded again in milestone 4 so its blows
   land): a Knight host and a Barbarian joiner (both asked for Any), each grabbing, carrying and throwing a prop twice;
-  the host grabbing a prop, sixteen skeletons raised round it (dev) and the prop thrown through their ring (a prop
+  the host grabbing a prop, thirty-two skeletons raised round it (dev) and the prop thrown through their ring (a prop
   hit); both attacking as they close in (blows land); the joiner's co-op pause and the host's resume; the host a Mage
-  and the joiner a Rogue (dev), both attacking; every skeleton killed (dev); the host downed (dev); five surges.
+  and the joiner a Rogue (dev), both attacking; every skeleton killed (dev); the host downed (dev); three surges.
   `the_lan_recording_fights` replays it and finds the heroes' own hits and a prop's.
 - `uni coop --host-profile/--join-profile` (unified b06ba4f) gives each side its Profile; coop.gd checks each class
   against its flag (a joiner asking Any plays a class the host doesn't), names its joiner "Friend", works both pause
@@ -548,3 +548,14 @@ Calls made in step 2 (the sim at 500):
 - The playthrough's claim is a thrown prop's hit, no longer its kill: a prop hit (25) leaves a fresh skeleton (30)
   standing, so a kill needs an earlier wound, chance in a bot's three minutes (attacks_test.odin holds the throw's
   rules).
+
+Calls made in step 3 (the crowd's rules):
+
+- A surge is a quota (State.rising) set when its clock runs out (SURGE_BASE, SURGE_PER_HERO a hero, SURGE_GROWTH 2 for
+  each surge faced; at most the floor's cap room and the table's free rows, less what is still owed) and raised a few
+  a tick: at most RISE_PER_TICK (4), one per grave per RISE_GAP_TICKS (8, the grave's turn by its index, no state),
+  the graves taken in order instead of a rolled one (Roll.Rise_Grave is gone). A held population's refill rises the
+  same way, so a mass kill on the arena refills over about two seconds, never 360 in a tick. Event_Surge and the save
+  point fire when the quota is set.
+- replays/lan_pair recorded again for the State's layout (ticks 2 to 2856): the ring round the host is 32 now (16 let
+  the thrown prop miss it on one recording).

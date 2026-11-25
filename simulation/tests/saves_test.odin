@@ -57,6 +57,7 @@ a_save_is_made_at_each_surge :: proc(t: ^testing.T) {
 	)
 	first := saves.at[0]
 	testing.expect_value(t, first, run.simulation.state.level.since + g.SURGE_FIRST_TICKS)
+	for run.simulation.state.rising > 0 do step_saving(&run, &saves) // the surge rises a few a tick
 	headless.run_command(&run, 0, g.Command_Dev_Kill_Minions{})
 	felled := run.simulation.state.kills
 	testing.expect(t, felled > before, "the surge's skeletons fell")
