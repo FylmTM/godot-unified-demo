@@ -45,10 +45,12 @@ theme_override_constants/separation = 14
 
 [node name="Heading" type="Label" parent="Center/Panel/Rows"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
 theme_type_variation = &"InkHeading"
 text = "Paused"
 horizontal_alignment = 1
+text_overrun_behavior = 3
 
 [node name="Status" type="Label" parent="Center/Panel/Rows"]
 unique_name_in_owner = true

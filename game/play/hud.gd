@@ -2,7 +2,7 @@ class_name Hud
 extends Control
 ## The HUD, quiet in the corners so the crypt keeps the middle: a plate for each local hero (its player's name, its
 ## class and health, or that it is down), the surges faced, the skeletons up and the felled (a save's tally included),
-## the co-op pause's banner naming who paused, the join and drop cards, and "[Start] Join the game" while a connected
+## the co-op pause's banner naming who paused and how to reach the menu (to resume), the join and drop cards, and "[Start] Join the game" while a connected
 ## pad plays nobody and the couch has room. Each plate carries its player's control hints, in the glyphs of that
 ## player's device, when Settings.hints says. Nothing on it takes a click or the focus: Space and a pad's A stay the
 ## game's.
@@ -12,6 +12,8 @@ extends Control
 ## game (a kill a rollback took back is counted again by the next real one, never shown falling).
 
 var _kills: int = 0
+## The pause menu shows (it says the pause itself: the banner hides).
+var _menu_open: bool = false
 
 @onready var _heroes: VBoxContainer = %Heroes
 @onready var _skeletons: Label = %Skeletons
@@ -43,9 +45,15 @@ func _show_data() -> void:
 	_skeletons.text = str(Unified.data.hud.minions)
 	_kills = maxi(_kills, Unified.data.hud.kills)
 	_kills_label.text = str(_kills)
-	_paused.visible = Unified.data.hud.paused
+	_paused.visible = Unified.data.hud.paused and not _menu_open
 	var pauser: String = Unified.session.get_player_name(Unified.data.hud.paused_by)
 	_paused_text.text = "Paused by %s" % pauser if pauser != "" else "Paused"
+
+
+## The pause menu opened (`open`) or closed: the co-op pause's banner hides under it.
+func set_menu_open(open: bool) -> void:
+	_menu_open = open
+	_show_data()
 
 
 ## The cards a pad picks its hero on to join, or confirms it drops out.

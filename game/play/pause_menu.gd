@@ -4,26 +4,30 @@ extends Control
 ## The play scene makes one when a player presses pause (Esc, a playing pad's Start), or when the window goes to the
 ## background in a single-player game, and it frees itself when it closes.
 ##
-## What it pauses follows the session: alone (couch included, UnifiedSession.MODE_SINGLE) it stops the session's clock
-## (UnifiedSession.paused) while it shows; with others it is an overlay over the running game, whose co-op pause is the
-## Pause for everyone button (the CommandSetPaused command: every peer pauses on one tick, the HUD's banner names who,
-## and anyone resumes). Either way the game's input is off while it shows, so its presses move nobody.
+## What it pauses follows what the library allows: opening asks for the single-player pause (UnifiedSession.paused),
+## and when it takes (alone, couch included) the clock stands while the menu shows; when it doesn't (others play in
+## this game, or did and could again: the library refuses it then) the menu is an overlay over the running game, whose
+## co-op pause is its Pause for everyone (the CommandSetPaused command: every peer pauses on one tick, the HUD's banner
+## names who, and anyone resumes). Over a replay it holds the replay's playhead and offers Resume and Leave only.
+## Either way the game's input is off while it shows, so its presses move nobody.
 ##
 ## Leaving asks first where something is lost or others are affected: alone or hosting, "Leave to the title?" says where
-## the crypt is saved; a host with others in ends the game for everyone; a joiner leaves at once (its game goes on).
-## Quit asks the same.
+## the crypt is saved (the slot's save); a host with others in ends the game for everyone, and that question stays on
+## Stay; a joiner and a replay leave at once. Quit asks the same.
 
 ## The menu closed (it frees itself).
 signal closed
 
 ## The input block it holds while it shows (Game.block_input).
 const BLOCK: StringName = &"pause_menu"
+## How many frames the single-player pause may take to take before the menu counts the game as online.
+const PAUSE_TAKES_FRAMES: int = 6
 
 ## The Players list (game/play/players_screen.tscn) and the settings (game/ui/settings/settings_screen.tscn).
 @export var players_scene: PackedScene
 @export var settings_scene: PackedScene
 
-## The couch, which drops a guest out (the play scene's).
+## The couch, which drops a guest out and says which pads play (the play scene's).
 var couch: Couch
 
 @onready var _session: UnifiedSession = Unified.session
@@ -34,17 +38,17 @@ var couch: Couch
 
 func _ready() -> void:
 	Game.block_input(BLOCK)
-	_session.paused = true  # alone, the clock stops; with others it reads false and the game runs on
+	_screen.plays = couch.claimed
 	_screen.resume_requested.connect(close)
 	_screen.pause_all_requested.connect(_pause_all)
 	_screen.players_requested.connect(_open_players)
 	_screen.settings_requested.connect(func() -> void: _stack.push(settings_scene))
 	_screen.leave_requested.connect(_leave.bind(false))
 	_screen.quit_requested.connect(_leave.bind(true))
-	_session.mode_changed.connect(func(_mode: UnifiedSession.Mode, _detail: String) -> void: _show_mode())
+	_session.mode_changed.connect(func(_mode: UnifiedSession.Mode, _detail: String) -> void: _settle_pause())
 	_stack.top_changed.connect(_prompt_bar.follow)
 	_prompt_bar.follow(_stack.top())
-	_show_mode()
+	_settle_pause()
 
 
 ## Leaving the tree (closed, or gone with the play scene when the game ends from it): the clock runs again (alone), the
@@ -65,13 +69,31 @@ func top() -> MenuScreen:
 	return _stack.top()
 
 
-func _show_mode() -> void:
+## Asks for the single-player pause and shows the menu for whether it took: alone (it did, within a few frames) or with
+## others (it didn't). Shown at once as the mode suggests, so a menu alone never flickers.
+func _settle_pause() -> void:
+	_session.paused = true
+	var replay: bool = _session.mode == UnifiedSession.MODE_REPLAY
+	_show_mode(replay, _session.mode != UnifiedSession.MODE_SINGLE and not replay)
+	if replay:
+		return
+	for i: int in PAUSE_TAKES_FRAMES:
+		if _session.paused or not is_inside_tree():
+			break
+		await get_tree().process_frame
+	if is_inside_tree():
+		_show_mode(false, not _session.paused)
+
+
+func _show_mode(replay: bool, online: bool) -> void:
 	var leave: String = "Leave to title"
-	if _joined():
+	if replay:
+		leave = "Leave the replay"
+	elif _joined():
 		leave = "Leave the game"
 	elif _others() > 0:
 		leave = "End the game"
-	_screen.show_mode(_online(), leave)
+	_screen.show_mode(replay, online, leave)
 
 
 ## Pauses or resumes the game for everyone: the co-op pause, as this machine's first player.
@@ -86,28 +108,25 @@ func _open_players() -> void:
 	players.drop_requested.connect(func(local: int) -> void: couch.drop(local))
 
 
-## Leaves the game (`quit`: quits the app), asking first unless this machine only joined someone else's game.
+## Leaves the game (`quit`: quits the app), asking first unless this machine only joined someone else's game or watches
+## a replay.
 func _leave(quit: bool) -> void:
 	var act: Callable = Game.quit_app if quit else Game.leave
-	if _joined():
+	if _joined() or _session.mode == UnifiedSession.MODE_REPLAY:
 		act.call()
 		return
 	var heading: String = "Quit to desktop?" if quit else "Leave to the title?"
 	var confirm: String = "Quit" if quit else "Leave"
-	if _others() > 0:
+	var others: bool = _others() > 0
+	if others:
 		heading = "End the game for everyone?"
 		confirm = "End the game"
-	var surges: int = Unified.data.hud.surges
-	var saved: String = ("Your crypt is saved at surge %d: Continue starts it there." % surges if surges > 0
-		else "Nothing is saved yet: the first surge saves your crypt.")
+	var saved: String = "Nothing is saved yet: the first surge saves your crypt."
+	if Game.saves.setup != null:
+		saved = "Your crypt is saved at surge %d: Continue starts it there." % Game.saves.setup.surges
 	Game.ask(heading, saved, confirm, "Stay", func(confirmed: bool) -> void:
 		if confirmed:
-			act.call())
-
-
-## Someone else plays in this game: it runs on under the menu.
-func _online() -> bool:
-	return _session.mode != UnifiedSession.MODE_SINGLE
+			act.call(), "", others or quit)
 
 
 func _joined() -> bool:

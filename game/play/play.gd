@@ -85,8 +85,11 @@ func open_pause_menu() -> void:
 		return
 	_pause_menu = pause_menu_scene.instantiate()
 	_pause_menu.couch = _couch
-	_pause_menu.closed.connect(func() -> void: _pause_menu = null)
+	_pause_menu.closed.connect(func() -> void:
+		_pause_menu = null
+		_hud.set_menu_open(false))
 	_menus.add_child(_pause_menu)
+	_hud.set_menu_open(true)
 
 
 ## The pause menu while it shows (null: closed): the walk reads it.
