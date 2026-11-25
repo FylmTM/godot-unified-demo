@@ -352,34 +352,60 @@ Step 2's review fixes, calls made on the way:
   waits for the hero to settle.
 
 
-Step 3, hero select and the couch, calls made on the way:
+Step 3, hero select and the couch, calls made on the way (as they stand after its review):
 
-- Hero select's first seat is the device that opened it; another takes the next free seat with a pad's Start or A, or
-  Enter. Back from a ready seat takes the ready back; back again gives the seat up (the first seat's goes back to the
-  title). Once every taken seat is ready, the first seat's accept starts (or a click on Start).
-- The mouse works only the keyboard's seat, through its card's arrows and Ready, which never take the focus (marked
-  `mouse_only`; the app checks exempt them from the focus rule). A seat's card shows "[Enter] Ready" and the button.
-- Names: the first seat is the player's name, every other seat "Guest" on its card and "Guest 2", "Guest 3"... in the
-  session, in the order they sit. The name's default is the system's user name (16 letters at most); the Gameplay
-  tab's "Your name" (a text row, a new setting row kind) changes the next session's.
-- Last picks are kept per seat (`hero_picks`, four); a pad joining mid-game preselects the pick of the seat it would
-  take.
-- The backdrop shows hero select's picks: each seated pick steps forward from the line and strikes its stance; Any
-  stays back.
-- Only a pad joins mid-game (the keyboard is the first player's while anyone else is in, as before). Its Start opens
-  its card on the HUD's right, at the middle (the plates are top left, the toasts bottom centre); A joins, B gives up.
-- Drop out is the pad's Back (View/Select; a new action, `drop_out`): a card asks, A drops out, B stays. The pause
-  menu's way (its Players list) comes with step 4's pause menu.
-- Toasts name the player and the hero: "Guest 2 joined as the Mage", "is back as", "Guest 2 left (the Mage)". The
-  class is the HUD data's, remembered per player so a leaver's is still known.
-- The HUD's plate: the portrait, then the HP bar (Kenney's small red progress bar over its transparent track) with the
-  number on it, the class small at its right, the hints below. 880 px wide, so both hint sets fit and the plate never
-  changes width. The full HP comes from the extension's HUD data (`Hud_Hero.hp_max`).
-- Portraits are rendered by `./uni tool render_portraits --window` (256 px, square, from the hero scenes, idling) and
-  committed; the app checks hold each class to a square one. It needs a renderer, so the suite doesn't re-render.
-- The seat card and the join card are one widget (`SeatCard`); `BindGlyph` became `InkGlyph`, as the cards' prompts
-  use it too.
-- `uni coop` gives both sides the same game arguments and starts their sessions from flags at boot, so the joiner
-  can't bring its own Profile yet (plan.md). The coop play checks what it can: the friend's own name (uni names the
-  joiner's user Friend), the host's toast naming it and its hero, and with `-- --profile class=Mage` the friend's
-  hero is the one asked for.
+- Hero select's first seat is the device that opened it; a pad takes the next free seat with its Start or A. Back from
+  a ready seat takes the ready back; back again gives the seat up (the first seat's goes back to the title). Once
+  every taken seat is ready, the first seat's accept starts (or a click on Start).
+- The keyboard and mouse sit only in the first seat (review: the keyboard could sit as a guest, with no way to drop
+  out or come back mid-game). They are the first player's, in the crypt as on hero select: an unseated keyboard's Esc
+  goes back to the title, and a mouse's Back button does too. A free seat invites a connected pad ("[Start] Join" in
+  its glyphs), or asks for one.
+- The mouse works only the keyboard's seat, through its card's arrows and its action line, a button ("[Enter] Ready",
+  one control), which never take the focus (marked `mouse_only`; the app checks exempt them from the focus rule).
+- A seat card is one size whatever it shows: two lines kept for a long name, the device on its own line, "Ready!"
+  over the portrait, the arrows hidden in place while ready. The seats scale down together to fit the view (130 %
+  interface size), as the join and drop cards do; hero select's buttons sit bottom left, clear of the prompt bar.
+- On hero select the backdrop's camera comes round to the crew (centred, high above the seats); each seated pick steps
+  forward and strikes its stance; Any stays back.
+- Hero select's own sounds: a step, a ready or its taking back, a seat taken (joined) or given up (left); Start
+  confirms. The mouse's clicks sound as every button does, never twice.
+- Sticks step once per push, each pad's own (`StickSteps`): on hero select and on the join cards.
+- A pad that disconnects on hero select gives its seat up; the first seat passes to the next taken seat, keeping its
+  pick and its ready, or the screen goes back to the title. In play its card closes (a join given up).
+- Any is resolved when the party is known: each Any becomes the first class no seat picked (Game.start_single). A
+  solo start and a mid-game join stay Any (the sim's arrival rule). The remembered pick stays Any.
+- Each taken seat is a place in the party, its local index: names ("Guest 2"... by place, so no two of a name after a
+  drop and a join) and the remembered picks (`hero_picks`, four, by place) go by it. A pad joining mid-game takes the
+  lowest free index, and its card preselects that place's pick. The picks read back from the file (JSON's numbers are
+  fractions: whole ones are taken), which they didn't before.
+- The player's name is never read from the system (it goes to every peer, and into every shot and log): a first run
+  picks one of the game's own (Sexton, Lantern, Gravedigger, ...) and saves it at once; a tool run's is "Adventurer".
+  The field says the other players see it. A name is stripped of control characters and its edges' spaces and cut to
+  31 bytes of UTF-8 (unified's NAME_MAX, mirrored as Settings.NAME_BYTES: unified doesn't expose it) on a character's
+  boundary, so the field shows what the peers get; a blank one is a game's name again.
+- The name field is passed over until asked: the focus doesn't start editing (a click does), so the d-pad, Q and E
+  move on; accept edits, Enter applies, Esc puts the setting back.
+- Only a pad joins mid-game. Its Start opens its card on the HUD's right, at the middle: "[A] Join", its left and
+  right, "[B] Back". Once the players and the pads picking reach four the couch is full: no hint, and a Start gets a
+  toast. A refused join toasts its reason.
+- Drop out is the pad's Back (View/Select; a new action, `drop_out`): a card asks "Drop out?", "[A] Drop out",
+  "[B] Stay". It takes only those two presses: the guest still plays, so its stick's release must reach the session.
+  A Start never confirms it. It closes when its guest is gone another way. The pause menu's way (its Players list)
+  comes with step 4's pause menu.
+- Toasts are short and at the top, in the middle, three at most: "Guest 2 joined (Mage)", "is back", "left". The
+  party's own seats arriving at the start are no news. The class is the HUD data's, remembered per player so a
+  leaver's is still known. The co-op pause's banner moved down to make room.
+- The HUD's plate: the portrait, the player's name (two Knights must be told apart) and the class above the HP bar
+  (Kenney's small red progress bar over its transparent track, every bar one length, the number on it), the hints
+  below in two rows. The hints show for a few seconds after a join or a change of device (the Control hints setting:
+  Briefly, the default; Always; Off), so four plates don't cover the crypt. The full HP comes from the extension's HUD
+  data (`Hud_Hero.hp_max`).
+- Portraits are rendered by `./uni tool render_portraits --window` (256 px, square, head and shoulders, from the hero
+  scenes, idling; mipmapped) and committed; the app checks hold each class to a square one. It needs a renderer, so
+  the suite doesn't re-render.
+- The seat card and the join and drop cards are one widget (`SeatCard`); `BindGlyph` became `InkGlyph`, as the cards'
+  prompts use it too. An ActionPrompt can show one device's glyphs, the keyboard's included (`device`).
+- `uni coop --host-profile/--join-profile` (unified b06ba4f) gives each side its own Profile; the coop play checks
+  each side's hero is its own Profile's class, and names its joiner "Friend" itself (uni's USERNAME=Friend no longer
+  matters to this game).

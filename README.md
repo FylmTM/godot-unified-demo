@@ -36,19 +36,22 @@ while held, and throws what you carry. Grab (E, the right mouse button, or a pad
 front, glowing faintly, and puts it down again. Esc, or Start on a pad that plays, pauses the game for everyone.
 Attack and Grab can be rebound on both the keyboard and mouse and a pad, and the moves on the keyboard (Settings,
 Controls: two bindings each; a pad's sticks and D-pad stay); the HUD shows each player's controls in the glyphs of the
-device they use.
+device they use: for a few seconds after a player joins or picks up another device, or always, or never (Settings,
+Gameplay).
 
 **Hero select.** Every new game starts there: four seats, the device that came there in the first; another pad's
-Start or A, or Enter, takes the next free one. Each seat answers to its own device: left and right step its hero
-(Any, or one of the four; two may pick the same), accept readies it, back takes the ready back and then gives the
-seat up. Once every seat taken is ready, the first seat's accept starts the game. Each seat's last pick is remembered,
-and your name (Settings, Gameplay) is what the other players see.
+Start or A takes the next free one. The keyboard and mouse sit only in the first seat: they are the first player's.
+Each seat answers to its own device: left and right step its hero (Any, or one of the four; two may pick the same),
+accept readies it, back takes the ready back and then gives the seat up. Once every seat taken is ready, the first
+seat's accept starts the game; an Any becomes a class nobody picked. Each place's last pick is remembered (the
+first seat's, the second's, ...), and your name (Settings, Gameplay; a game's own name until you choose one) is what
+the other players see.
 
 **Couch co-op.** Alone, the first player plays with any device, the keyboard and mouse or a pad, and can switch at
 will. Another pad's Start mid-game opens a card on the HUD where it picks its hero, then joins with A (B gives up);
 from then on the first player keeps the device they last played with. A guest's Back (the pad's View or Select)
-opens a card to drop out. A toast names who joined or left, and as which hero. Players joining over the LAN join the
-same session beside them.
+opens a card to drop out (A drops out, B stays). A toast names who joined or left, and as which hero. Four play at
+most. Players joining over the LAN join the same session beside them.
 
 ## What it shows of unified
 

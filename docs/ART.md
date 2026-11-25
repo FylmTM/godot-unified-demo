@@ -165,14 +165,18 @@ sets its glyph in the middle of a line twice its height, so a glyph sits in a bo
 choice for every on/off and every option, and an ink slider with a cream knob; a row lights up while the focus is in it.
 
 The menus stand over a graveyard at night built from the hub kit (`game/menu/backdrop.tscn`), lit as the hub is, with
-the four heroes idling at its gate; on hero select each seat's pick steps forward from the line and strikes its
-class's stance (Any stays back).
+the four heroes idling at its gate; on hero select the camera comes round to the crew, centred and high above the
+seats, and each seat's pick steps forward from the line and strikes its class's stance (Any stays back).
 
 A hero's portrait is rendered from its scene as the game poses it, head and shoulders, idling, on a transparent
-background (`game/tools/render_portraits.gd`): it changes when the hero does, and it sits in the brown frame wherever
-a hero is named (`PortraitFrame`). Hero select's seats and the HUD's join cards are one card
-(`game/ui/widgets/seat_card.tscn`): parchment while choosing, a green wash once ready, faded while the seat is free.
-The HUD's hero plates lead with the HP, a red bar over a dark track with the number on it, the class quieter beside
-it and the device's controls below; a plate is wide enough for either device's hints, so it never changes width. The interface's sounds are Kenney's Interface Sounds, played by `Sfx`
-(`game/app/sfx.gd`); `Game` gives every button of the game its press sound and the focus moving its select sound, so
-no screen plays one by hand.
+background (`game/tools/render_portraits.gd`), with mipmaps so it stays clean drawn small: it changes when the hero
+does, and it sits in the brown frame wherever a hero is shown (`PortraitFrame`). Hero select's seats and the HUD's
+join and drop cards are one card (`game/ui/widgets/seat_card.tscn`), one size whatever it shows: parchment while
+choosing, a green wash and "Ready!" over the portrait once ready, faded while the seat is free; its glyphs are its
+own device's. The HUD's hero plates lead with the HP, a red bar over a dark track with the number on it, every bar
+one length; the player's name and the class sit above it, the device's controls below for a few seconds (or as the
+setting says). Toasts sit at the top, in the middle, three at most, a name and a word or two each.
+
+The interface's sounds are Kenney's Interface Sounds, played by `Sfx` (`game/app/sfx.gd`); `Game` gives every button
+of the game its press sound and the focus moving its select sound, so no screen plays one by hand; hero select plays
+its seats' own (a step, a ready, a seat taken or given up).
