@@ -618,12 +618,16 @@ func _hide_connecting() -> void:
 ## Loads the play scene on a worker thread while the flow is at the menu, so its meshes and materials (and the shader
 ## compiles they start) are ready when a game starts instead of stalling the switch. In Godot 4.7 a resource a
 ## script first preloads on a worker thread is reported as leaked at exit, so the play scene's scripts load() what
-## they need (game/tools/validate.gd names the play scene, and the check holds them to it).
+## they need (game/tools/validate.gd names the play scene, and the check holds them to it). Only while the menu is the
+## scene: a tool script run with `-s` (uni bake, uni tool) has no main scene and may quit at any frame, which would
+## cut the load off mid-parse.
 func _preload_play_scene() -> void:
 	for i: int in 2:  # the menu's first frames first
 		await get_tree().process_frame
 	var idle: bool = ResourceLoader.load_threaded_get_status(PLAY_SCENE) == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE
-	if flow == Flow.MENU and idle:
+	var scene: Node = get_tree().current_scene
+	var at_menu: bool = scene != null and scene.scene_file_path == MENU_SCENE
+	if flow == Flow.MENU and idle and at_menu:
 		ResourceLoader.load_threaded_request(PLAY_SCENE)
 
 
