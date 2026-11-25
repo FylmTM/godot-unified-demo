@@ -1,4 +1,4 @@
-extends MenuTool
+extends PartyWalk
 ## A walk through Crypt Crew's app with real input events (keys, pad buttons and sticks of several pads, the mouse),
 ## the godot suite's `walk` step (`./uni tool ui_walk`; with `--window --shots` it saves a PNG at each moment worth
 ## looking at, into .out/shots/ui_walk/). In order:
@@ -9,20 +9,19 @@ extends MenuTool
 ##     every row, the focus never lost); a choice applies; the panel fits at 130 % interface size; rebinding on both
 ##     schemes (a key, a swap, a click outside cancelling, Esc and a reserved key, a mouse button and a trigger in the
 ##     second slot, a pad button, a refused clear, the prompt bar's Cancel and Clear, the resets); attack left on F;
-##   - pad A on New game: the crypt, F attacks, the hints follow the device, Esc pauses and resumes, the reconnecting
-##     plate takes nothing;
-##   - the couch: pads join with Start (keyboard last: pad 1 joins; pad 0 last: its Start pauses and pad 1 joins;
-##     the keyboard and two pads), with the toasts and the guests' own glyphs; a key held while a guest leaves and
-##     released while the first player is free walks nobody once the guest is back;
-##   - leave, the title (toasts gone; a settings file that didn't read is told once), a second game, a join that waits
-##     (the Connecting overlay; Esc and Cancel cancel it at once), a join that fails at once (one dialog, one error
-##     sound, the reason as a sentence; pad B and pad A close it); the run ends through Game.quit_app.
+##     the name field (PartyWalk);
+##   - pad A on New game: hero select on pads (PartyWalk), the party in the crypt, the guest dropping out, F attacks,
+##     the hints follow the device and the setting, Esc pauses and resumes, the reconnecting plate takes nothing;
+##   - the couch's join cards (PartyWalk), with the toasts and the guests' own glyphs; a key held while a guest leaves
+##     and released while the first player is free walks nobody once the guest is back;
+##   - leave, the title (toasts gone; a settings file that didn't read is told once), a second game through hero
+##     select on the keyboard and mouse, a join that waits (the Connecting overlay; Esc and Cancel cancel it at once),
+##     a join that fails at once (one dialog, one error sound, the reason as a sentence; pad B and pad A close it); the
+##     run ends through Game.quit_app.
 ## That the app adopts a session its menus didn't start is coop.gd's: both its processes start from uni's flags.
 
 ## A local port nothing listens on: a join to it waits until cancelled.
 const SILENT_PORT: int = 9
-## How far a hero may drift standing still in the stuck-key check (metres): its capsule settling.
-const STILL: float = 0.1
 
 
 func _run() -> void:
@@ -114,6 +113,7 @@ func _walk_settings() -> void:
 	expect(tabs.current_tab == 0, "E past the last tab wraps to the first")
 	await press_key(KEY_Q)
 	expect(tabs.get_current_tab_control().name == "Gameplay", "Q steps back, wrapping to the last")
+	await _walk_name_field(screen)
 	await pad_button(JOY_BUTTON_RIGHT_SHOULDER)
 	expect(tabs.current_tab == 0, "RB steps forward, wrapping to the first")
 	for tab: String in ["Video", "Audio", "Controls", "Gameplay"]:
@@ -254,86 +254,8 @@ func _tokens(action: StringName, kind: Bindings.Kind) -> Array[String]:
 	return out
 
 
-## Hero select: pad A on New game opens it with pad 0 in the first seat; Enter seats the keyboard and pad 1's Start
-## the third; each steps its own pick; the keyboard gives its seat up; both pads ready, and pad 0's A starts the game
-## with them: the first player a Knight on pad 0, pad 1's guest a Mage.
-func _walk_hero_select() -> void:
-	await pad_button(JOY_BUTTON_A)
-	var screen: Control = top_screen()
-	expect(screen != null and screen.name == "HeroSelect", "New game opens hero select")
-	if failed():
-		return
-	expect(_seat_of(screen, 0) == 0, "pad 0, which came here, has the first seat")
-	await press_key(KEY_ENTER)
-	expect(_seat_of(screen, UnifiedSession.DEVICE_KEYBOARD) == 1, "Enter seats the keyboard next")
-	await pad_button(JOY_BUTTON_START, 1)
-	expect(_seat_of(screen, 1) == 2, "pad 1's Start seats it third")
-	for device: int in [0, 1]:
-		await _pick(screen, device, EnumClass.KNIGHT if device == 0 else EnumClass.MAGE)
-	await press_key(KEY_RIGHT)
-	expect(_card_pick(screen, 1) == EnumClass.KNIGHT, "each seat steps its own pick: the keyboard's too")
-	await frames(10)
-	await shot("07_hero_select_three")
-	await press_key(KEY_ESCAPE)
-	expect(_seat_of(screen, UnifiedSession.DEVICE_KEYBOARD) < 0, "Esc gives the keyboard's seat up")
-	await pad_button(JOY_BUTTON_A, 0)
-	await pad_button(JOY_BUTTON_A, 1)
-	await frames(10)
-	await shot("08_hero_select_ready")
-	step("hero select: three seats, two ready")
-	await pad_button(JOY_BUTTON_A, 0)
-	await wait_for_scene("Play", 5.0)
-	await wait_for(func() -> bool: return local_hero() != null and _in_session(1), 8.0,
-		"the first player and pad 1's guest in the crypt")
-	if failed():
-		return
-	expect(session.get_local_device(0) == 0, "with a guest in, the first player plays on pad 0")
-	expect(Heroes.class_of(session.local_player) == EnumClass.KNIGHT, "the first player is the Knight it picked")
-	expect(Heroes.class_of(session.get_local_player_key(_local_of(1))) == EnumClass.MAGE, "pad 1's guest is the Mage")
-	var picks: Array = setting(&"hero_picks")
-	var first_pick: int = picks[0]
-	expect(first_pick == EnumClass.KNIGHT, "the first seat's pick is remembered: %s" % [picks])
-	step("the party in the crypt: a Knight and a Mage")
-
-
-## Steps pad `device`'s seat to `hero_class` with its d-pad.
-func _pick(screen: Control, device: int, hero_class: int) -> void:
-	var seat: int = _seat_of(screen, device)
-	for i: int in 5:
-		if _card_pick(screen, seat) == hero_class:
-			return
-		await pad_button(JOY_BUTTON_DPAD_RIGHT, device)
-	expect(_card_pick(screen, seat) == hero_class, "pad %d picks %s" % [device, EnumClass.name(hero_class)])
-
-
-func _seat_of(screen: Control, device: int) -> int:
-	var seat: int = screen.call(&"seat_of", device)
-	return seat
-
-
-func _card_pick(screen: Control, seat: int) -> int:
-	var card: Node = screen.call(&"card", seat)
-	var pick: int = card.get(&"pick")
-	return pick
-
-
-
-## The guest drops out: pad 1's Back opens its card, A confirms; the first player plays with every device again.
-func _walk_drop_out() -> void:
-	await pad_button(JOY_BUTTON_BACK, 1)
-	var cards: Node = find(current_scene, ^"Hud/%JoinCards")
-	var card: Node = cards.call(&"card_of", 1)
-	expect(card != null, "pad 1's Back opens its drop-out card")
-	await frames(5)
-	await shot("09_drop_out")
-	await pad_button(JOY_BUTTON_A, 1)
-	await _leave_guests()
-	await wait_for(func() -> bool: return _toast_starts("Guest 2 left"), 5.0, "a toast: Guest 2 left")
-	step("the guest dropped out")
-
-
-## Pad A on New game: the app goes to the crypt once the session is up, the local hero arrives with the HUD over it,
-## F (bound in the settings) attacks, the hints follow the device, and Esc pauses and resumes the game.
+## A pad's A on New game: hero select, then the crypt once the session is up, the HUD over it; the guest drops out,
+## F (bound in the settings) attacks, the hints follow the device and the setting, and Esc pauses and resumes.
 func _walk_new_game() -> void:
 	await _walk_hero_select()
 	if failed():
@@ -350,6 +272,7 @@ func _walk_new_game() -> void:
 		"F, bound to attack in the settings, attacks")
 	await key(KEY_F, false)
 	set_setting(&"bindings", {})
+	set_setting(&"hints", setting_value(&"Hints", &"ALWAYS"))
 	var hints: Control = find(hud, ^"Heroes/HeroPlate/Row/Info/Hints") as Control
 	expect(hints.is_visible_in_tree(), "the hero's plate shows its hints")
 	var attack_glyph: Label = find(hints, ^"Attack/GlyphBox/Glyphs") as Label
@@ -358,9 +281,14 @@ func _walk_new_game() -> void:
 	await shot("02_play_keyboard")
 	await pad_button(JOY_BUTTON_Y)
 	expect(attack_glyph.text == _glyph(&"attack", "XBOX"), "a pad turns them to its glyphs")
-	set_setting(&"show_hints", false)
-	expect(not hints.visible, "the hints setting hides them")
-	set_setting(&"show_hints", true)
+	set_setting(&"hints", setting_value(&"Hints", &"NEVER"))
+	await frames(1)
+	expect(not hints.visible, "Off hides them")
+	set_setting(&"hints", setting_value(&"Hints", &"BRIEFLY"))
+	await press_key(KEY_F)
+	await frames(2)
+	expect(hints.visible, "Briefly: a change of device shows them again")
+	set_setting(&"hints", setting_value(&"Hints", &"ALWAYS"))  # the couch's glyph checks read them
 	step("in the crypt: F attacks, the hints follow, tick %d" % session.tick)
 	await press_key(KEY_ESCAPE)
 	await wait_for(func() -> bool: return Unified.data.hud.paused, 2.0, "Esc pauses the game")
@@ -370,16 +298,6 @@ func _walk_new_game() -> void:
 	await wait_for(func() -> bool: return not Unified.data.hud.paused, 2.0, "Esc again resumes it")
 	step("Esc paused and resumed")
 	await _walk_link_status()
-
-
-## The glyph `action` shows in family `family_name` (Prompts.Family's member).
-func _glyph(action: StringName, family_name: String) -> String:
-	var prompts: Node = root.get_node(^"Prompts")
-	var script: Script = prompts.get_script()
-	var families: Dictionary = script.get_script_constant_map()["Family"]
-	var family: int = families[family_name]
-	var glyphs: String = prompts.call(&"glyphs", Array([action], TYPE_STRING_NAME, &"", null), family)
-	return glyphs
 
 
 ## The action a hero view shows (EnumAction; NONE without a view).
@@ -404,86 +322,6 @@ func _walk_link_status() -> void:
 	link.call(&"close")
 	expect(not link.visible and root.gui_get_focus_owner() == null, "closing it lets go of the focus")
 	step("the reconnecting plate")
-
-
-## Pads join with Start: with the keyboard last, pad 1 joins (a toast; the first player fixed to the keyboard; the
-## guest's plate in its pad's glyphs); with pad 0 last, pad 0's Start pauses and pad 1's joins; the keyboard and two
-## pads at once.
-func _walk_couch() -> void:
-	expect(session.get_local_device(0) == UnifiedSession.DEVICE_ANY, "alone, the first player plays with every device")
-	await press_key(KEY_D)  # the keyboard played last
-	await pad_button(JOY_BUTTON_START, 1)
-	var card: Node = find(current_scene, ^"Hud/%JoinCards").call(&"card_of", 1)
-	expect(card != null, "pad 1's Start opens its join card")
-	for i: int in 4:
-		if _pick_of(card) != EnumClass.ROGUE:
-			await pad_button(JOY_BUTTON_DPAD_RIGHT, 1)
-	expect(_pick_of(card) == EnumClass.ROGUE, "pad 1 steps its card to the Rogue")
-	await frames(5)
-	await shot("03a_join_card")
-	await pad_button(JOY_BUTTON_A, 1)
-	await wait_for(func() -> bool: return _in_session(1), 3.0, "pad 1's A joins it")
-	await wait_for(func() -> bool: return _toast_shows("Guest 2 joined as the Rogue"), 5.0,
-		"a toast: Guest 2 joined as the Rogue")
-	expect(session.get_local_device(0) == UnifiedSession.DEVICE_KEYBOARD,
-		"with a guest in, the first player keeps the keyboard")
-	await seconds(0.4)  # the toast faded in
-	var guest_attack: Label = find(current_scene,
-		^"Hud/Heroes/HeroPlate2/Row/Info/Hints/Attack/GlyphBox/Glyphs") as Label
-	expect(guest_attack != null and guest_attack.text == _glyph(&"attack", "XBOX"),
-		"the guest's plate: its pad's glyphs")
-	await shot("03_guest_joined")
-	await _leave_guests()
-	await wait_for(func() -> bool: return _toast_starts("Guest 2 left"), 5.0, "a toast: Guest 2 left")
-	await pad_button(JOY_BUTTON_A, 0)  # pad 0 played last
-	await pad_button(JOY_BUTTON_START, 0)
-	await wait_for(func() -> bool: return Unified.data.hud.paused, 2.0,
-		"pad 0's Start pauses: it is the first player's")
-	await pad_button(JOY_BUTTON_START, 0)
-	await wait_for(func() -> bool: return not Unified.data.hud.paused, 2.0, "and resumes")
-	await _join(1)
-	expect(session.get_local_device(0) == 0, "with a guest in, the first player keeps pad 0")
-	await _leave_guests()
-	await press_key(KEY_D)
-	await _join(1)
-	await _join(2)
-	expect(session.get_local_indices().size() == 3, "the keyboard and two pads play")
-	await shot("03b_three_players")
-	await _leave_guests()
-	step("pads join with Start")
-
-
-## Pad `device`'s Start opens its join card; its A joins with the card's pick, and its player is in the session (it
-## has a key).
-func _join(device: int) -> void:
-	await pad_button(JOY_BUTTON_START, device)
-	var card: Node = find(current_scene, ^"Hud/%JoinCards").call(&"card_of", device)
-	expect(card != null, "pad %d's Start opens its join card" % device)
-	expect(not _in_session(device), "the card first: pad %d isn't in yet" % device)
-	await pad_button(JOY_BUTTON_A, device)
-	await wait_for(func() -> bool: return _in_session(device), 3.0, "pad %d's A joins it" % device)
-
-
-## Whether a local player on pad `device` is in the session (it has a key).
-func _in_session(device: int) -> bool:
-	return _local_of(device) > 0 and session.get_local_player_key(_local_of(device)) != 0
-
-
-## The local player playing on `device` (-1: none).
-func _local_of(device: int) -> int:
-	for local: int in session.get_local_indices():
-		if session.get_local_device(local) == device:
-			return local
-	return -1
-
-
-func _leave_guests() -> void:
-	for local: int in session.get_local_indices():
-		if local > 0:
-			session.remove_local_player(local)
-	await wait_for(func() -> bool: return session.get_local_indices().size() == 1, 3.0, "the guests gone")
-	await wait_for(func() -> bool: return session.get_local_device(0) == UnifiedSession.DEVICE_ANY, 2.0,
-		"alone again, the first player plays with every device")
 
 
 ## A key held while a guest leaves and let go while the first player plays with every device must not keep the hero
@@ -528,12 +366,10 @@ func _walk_leave() -> void:
 	step("left to the title")
 
 
-## A second game after a leave starts like the first; back on the title, a settings file that didn't read is told
+## A second game after a leave starts like the first (through hero select on the keyboard); back on the title, a settings file that didn't read is told
 ## once.
 func _walk_new_game_again() -> void:
-	await click(title_control("NewGame"))
-	await press_key(KEY_ENTER)  # the keyboard's seat: ready
-	await press_key(KEY_ENTER)  # and start
+	await _walk_hero_select_keyboard()
 	await wait_for_scene("Play", 5.0)
 	await wait_for(func() -> bool: return local_hero() != null, 8.0, "the local hero, again")
 	if failed():
@@ -611,22 +447,3 @@ func _walk_failed_join() -> void:
 		expect(not dialog.visible, "the dialog closes")
 		expect(root.gui_get_focus_owner() == title_control("NewGame"), "the focus is back on New game")
 		step("a join that fails at once (%d): %s" % [attempt + 1, text])
-
-
-func _pick_of(card: Node) -> int:
-	var pick: int = card.get(&"pick")
-	return pick
-
-
-func _toast_starts(text: String) -> bool:
-	for toast: Node in overlay("Toasts").get_children():
-		if (toast.get_node(^"%Text") as Label).text.begins_with(text):
-			return true
-	return false
-
-
-func _toast_shows(text: String) -> bool:
-	for toast: Node in overlay("Toasts").get_children():
-		if (toast.get_node(^"%Text") as Label).text == text:
-			return true
-	return false
