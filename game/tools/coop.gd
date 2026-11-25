@@ -218,8 +218,8 @@ func _couch_guest() -> void:
 	await pad_button(JOY_BUTTON_A, 1)
 	var guest: Array[int] = [0]
 	await wait_for(func() -> bool:
-		guest[0] = session.get_local_player_key(1) if session.get_local_indices().size() > 1 else 0
-		return guest[0] != 0 and guest[0] in session.get_players(), 5.0, "pad 1's guest joins the joiner")
+		guest[0] = session.get_local_player_key(1) if session.local_indices.size() > 1 else 0
+		return guest[0] != 0 and guest[0] in session.players, 5.0, "pad 1's guest joins the joiner")
 	if failed():
 		return
 	var guest_name: String = session.get_player_name(guest[0])
@@ -228,7 +228,7 @@ func _couch_guest() -> void:
 	await shot("c03a_joiner_guest")
 	step("a couch guest joined the joiner: %s, %s" % [guest_name, players.text])
 	session.remove_local_player(1)
-	await wait_for(func() -> bool: return session.get_players().size() == 2 and players.text == "2 players", 5.0,
+	await wait_for(func() -> bool: return session.players.size() == 2 and players.text == "2 players", 5.0,
 		"the guest drops out: two players")
 	step("the guest dropped out")
 

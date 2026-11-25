@@ -40,7 +40,7 @@ func _show() -> void:
 	else:
 		_caption.text = "Friends"
 		_value.text = "Closed"
-	var count: int = _session.get_players().size()
+	var count: int = _session.players.size()
 	_players.text = "%d player%s" % [count, "" if count == 1 else "s"]
 	_slow.visible = _session.link_slow
 	_slow.text = "Slow link: %d ms (smooth up to %d)" % [roundi(_session.round_trip_ms),

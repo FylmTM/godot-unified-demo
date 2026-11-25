@@ -157,7 +157,7 @@ func _joined() -> bool:
 ## How many players present aren't on this machine.
 func _others() -> int:
 	var others: int = 0
-	for player: int in _session.get_players():
+	for player: int in _session.players:
 		if _session.get_local_index(player) < 0:
 			others += 1
 	return others

@@ -90,7 +90,7 @@ func _input(event: InputEvent) -> void:
 ## Whether a local player plays on the pad `device`: its own pad, or, for the first player alone, the device it last
 ## played with.
 func claimed(device: int) -> bool:
-	for local: int in _session.get_local_indices():
+	for local: int in _session.local_indices:
 		if _session.get_local_device(local) == device:
 			return true
 	return _session.get_local_device(0) == UnifiedSession.DEVICE_ANY and first_device == device
@@ -108,7 +108,7 @@ func idle_pad() -> int:
 
 ## The party place (local index) the next guest takes: the lowest free one.
 func next_place() -> int:
-	return Party.free_place(_session.get_local_indices())
+	return Party.free_place(_session.local_indices)
 
 
 ## Brings pad `device` in as a guest playing `hero_class` (its join card's pick), named by the place it takes.
@@ -132,12 +132,12 @@ func drop(local: int) -> void:
 
 ## How many more players the couch takes: LOCAL_MAX less the players and the pads picking their hero.
 func _room() -> int:
-	return UnifiedSession.LOCAL_MAX - _session.get_local_indices().size() - _picking.size()
+	return UnifiedSession.LOCAL_MAX - _session.local_indices.size() - _picking.size()
 
 
 ## The guest playing on pad `device` (0: none).
 func _guest_of(device: int) -> int:
-	for local: int in _session.get_local_indices():
+	for local: int in _session.local_indices:
 		if local > 0 and _session.get_local_device(local) == device:
 			return local
 	return 0
@@ -152,7 +152,7 @@ func _fix_first() -> void:
 
 ## The first player's device for who plays now: fixed while a guest is in, every device alone.
 func _place_first() -> void:
-	if _session.get_local_indices().size() > 1 or not _picking.is_empty():
+	if _session.local_indices.size() > 1 or not _picking.is_empty():
 		_fix_first()
 		return
 	if _session.get_local_device(0) != UnifiedSession.DEVICE_ANY:

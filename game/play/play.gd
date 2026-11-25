@@ -102,7 +102,7 @@ func pause_menu() -> PauseMenu:
 ## every device, while the keyboard and mouse are what was used last: a solo pad player never aims at the cursor
 ## left where it was), none for the others, and none while game input is off.
 func _set_aims() -> void:
-	for local: int in _session.get_local_indices():
+	for local: int in _session.local_indices:
 		var device: int = _session.get_local_device(local)
 		var keyboard: bool = (device == UnifiedSession.DEVICE_KEYBOARD
 			or device == UnifiedSession.DEVICE_ANY and Prompts.last_kind == Bindings.Kind.KEYBOARD)

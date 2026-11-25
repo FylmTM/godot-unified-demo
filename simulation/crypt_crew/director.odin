@@ -175,17 +175,17 @@ hold_population :: proc(t: ^Tick) {
 
 // The standard benchmark's population (sim.Game.bench_prepare): `count` minions chasing from places on the walkable
 // floor around the first room, held at that many alive (State.held) instead of the surges.
-bench_prepare :: proc(state: ^State, world: ^World, count: int) {
-	state.held = u32(count)
+bench_prepare :: proc(t: ^Tick, count: int) {
+	t.state.held = u32(count)
 	rng := sim.rng_seed(u64(count))
-	start := world.places.hero_spawns[0]
+	start := t.world.places.hero_spawns[0]
 	for placed, tries := 0, 0; placed < count && tries < count * BENCH_TRIES; tries += 1 {
 		offset := [2]f32 {
 			f32(sim.rng_below(&rng, u32(BENCH_SPREAD * 200))) / 100 - BENCH_SPREAD, // whole centimetres
 			f32(sim.rng_below(&rng, u32(BENCH_SPREAD * 200))) / 100 - BENCH_SPREAD,
 		}
-		spot := floor_spot(world, start + {offset.x, 0, offset.y}, 1) or_continue
-		if _, ok := spawn_minion(state, spot.point, spot.poly, {0, 1}, .Chase, 0); !ok do break
+		spot := floor_spot(t.world, start + {offset.x, 0, offset.y}, 1) or_continue
+		if _, ok := spawn_minion(t.state, spot.point, spot.poly, {0, 1}, .Chase, 0); !ok do break
 		placed += 1
 	}
 }

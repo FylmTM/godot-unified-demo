@@ -7,9 +7,31 @@ description: Writing the Godot side of a unified game without the editor - scene
 
 Nothing needs the editor. Write a small change as text (scenes, `.tres`, scripts, `project.godot`). Anything
 repetitive or verbose, such as a level of many pieces or the input map, is made the way the editor makes it: by
-Godot's own API from a **throwaway GDScript** run against the project. The rules for the files themselves (typed
-GDScript, `.uid` files, `.godot/`, what GDScript may do) are in `unified/.claude/rules/godot.md`. Checking and
-running the game is the `unified-godot` skill.
+Godot's own API from a **throwaway GDScript** run against the project. The rules for the files themselves are below.
+Checking and running the game is the `unified-godot` skill.
+
+## Rules for the files
+
+- Godot 4 (the version unified pins), the standard (non-.NET) build. Check APIs against the 4.x docs, not Godot 3:
+  what you remember mixes them.
+- GDScript is typed: every declaration has a type (`untyped_declaration` is an error, and every tool-script run fails
+  on a warning). Members in the order of Godot's style guide: signals, enums, constants, exports, vars, `@onready`
+  vars, virtuals, public, private.
+- Godot writes a `.uid` file next to every new script and shader: commit it with the file.
+- Never edit `.godot/`: it is Godot's cache. An asset's `.import` file is its import settings, which Godot writes
+  and the game commits: change a setting in its `[params]` (new files take theirs from `project.godot`'s
+  `[importer_defaults]`), keep its `uid`, and the next `uni` command re-imports it.
+- `res://unified/tools_godot/` is unified's tool scripts (the submodule): changed in unified, never in a game.
+- A tool script (`-s`) is compiled before the autoloads exist: it never names a script that uses an autoload (reach
+  those through the scene tree). Scripts the play scene loads never `preload()`.
+- Sim data is typed end to end: an event handler dispatches by class (`if event is EventRockHit: var hit := event
+  as EventRockHit`) with `state: UnifiedSession.EventState`, never on `event.kind`; nested data is read as its class
+  (`for p: DataHudPlayer in Unified.data.hud.players`), never with `.get("field")`. A view's data is its root
+  script's `var data: ViewCard` (the kind's class), set before `_ready` and anew on each change: react in its setter
+  (old value against new), and from another script read it typed (`var card_data: ViewCard = node.get(&"data")`).
+- GDScript is the view layer only: it reads the sim and never writes it (input and commands are the only way in).
+  Anything performance-critical is Odin.
+- After editing a level scene, `./uni bake`, and commit the scene and its `.level` together.
 
 ## Throwaway scripts
 

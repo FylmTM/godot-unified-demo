@@ -78,7 +78,7 @@ func _walk_players_list() -> void:
 	await shot("16_players")
 	await click(drops[0])
 	expect(find(players, ^"%List").get_child_count() == 1, "one row left at once")
-	await wait_for(func() -> bool: return session.get_local_indices().size() == 1, 3.0, "Drop out lets the guest go")
+	await wait_for(func() -> bool: return session.local_indices.size() == 1, 3.0, "Drop out lets the guest go")
 	await press_key(KEY_ESCAPE)
 	await press_key(KEY_ESCAPE)
 	expect(_pause_menu() == null, "back, and the menu closes")

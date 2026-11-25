@@ -225,7 +225,7 @@ func _walk_drop_out() -> void:
 	expect(_card(1) == null and _in_session(1), "B on the drop card: the guest stays")
 	await pad_button(JOY_BUTTON_BACK, 1)
 	await pad_button(JOY_BUTTON_A, 1)
-	expect(session.get_local_indices().size() == 1, "A drops the guest out")
+	expect(session.local_indices.size() == 1, "A drops the guest out")
 	await wait_for(func() -> bool: return session.get_local_device(0) == UnifiedSession.DEVICE_ANY, 2.0,
 		"alone again, the first player plays with every device")
 	await wait_for(func() -> bool: return _toast_shows("%s left (Barbarian)" % _guest(1)), 5.0,
@@ -318,7 +318,7 @@ func _walk_full_couch() -> void:
 	expect(_name_on(3) == _guest(1) and _name_on(2) == _guest(2),
 		"the next guest takes the free place's name: %s, %s" % [_name_on(3), _name_on(2)])
 	await _join(1)
-	expect(session.get_local_indices().size() == UnifiedSession.LOCAL_MAX, "the couch is full")
+	expect(session.local_indices.size() == UnifiedSession.LOCAL_MAX, "the couch is full")
 	await frames(2)
 	expect(not (find(current_scene, ^"Hud/%JoinHint") as Control).visible, "a full couch: no join hint")
 	await pad_button(JOY_BUTTON_START, 4)
@@ -375,7 +375,7 @@ func _in_session(device: int) -> bool:
 
 ## The local player playing on `device` (-1: none).
 func _local_of(device: int) -> int:
-	for local: int in session.get_local_indices():
+	for local: int in session.local_indices:
 		if session.get_local_device(local) == device:
 			return local
 	return -1
@@ -387,10 +387,10 @@ func _name_on(device: int) -> String:
 
 
 func _leave_guests() -> void:
-	for local: int in session.get_local_indices():
+	for local: int in session.local_indices:
 		if local > 0:
 			session.remove_local_player(local)
-	await wait_for(func() -> bool: return session.get_local_indices().size() == 1, 3.0, "the guests gone")
+	await wait_for(func() -> bool: return session.local_indices.size() == 1, 3.0, "the guests gone")
 	await wait_for(func() -> bool: return session.get_local_device(0) == UnifiedSession.DEVICE_ANY, 2.0,
 		"alone again, the first player plays with every device")
 

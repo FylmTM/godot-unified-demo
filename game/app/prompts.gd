@@ -252,7 +252,7 @@ func name_of(event: InputEvent) -> String:
 
 func _device_of_local(local: int) -> int:
 	var session: UnifiedSession = Unified.session
-	if session == null or not session.running or local not in session.get_local_indices():
+	if session == null or not session.running or local not in session.local_indices:
 		return UnifiedSession.DEVICE_ANY
 	return session.get_local_device(local)
 

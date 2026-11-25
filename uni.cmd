@@ -3,7 +3,7 @@ rem uni, the unified CLI, for this game repo: unified's own shim (unified\uni.cm
 rem so the bootstrap is always the pinned submodule's (unified/src/cli/README.md, Bootstrap and self-rebuild).
 setlocal
 if not exist "%~dp0unified\uni.cmd" (
-	echo uni: %~dp0unified is empty: run git submodule update --init 1>&2
+	echo uni: "%~dp0unified" is empty: run git submodule update --init 1>&2
 	exit /b 1
 )
 set "UNI_ROOT=%~dp0"

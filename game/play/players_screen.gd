@@ -28,11 +28,11 @@ func _show_players() -> void:
 	if not is_inside_tree():
 		return  # the app is quitting, or the menu closing: nothing to show
 	var players: Array[int] = []
-	for local: int in _session.get_local_indices():
+	for local: int in _session.local_indices:
 		var key: int = _session.get_local_player_key(local)
 		if key != 0:
 			players.append(key)
-	for player: int in _session.get_players():
+	for player: int in _session.players:
 		if player not in players and _session.get_local_index(player) < 0:
 			players.append(player)
 	var rows: Array[Node] = _list.get_children()
