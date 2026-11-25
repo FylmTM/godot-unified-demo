@@ -4,8 +4,11 @@
 [ext_resource type="FontFile" path="res://assets/kenney/fonts/Kenney Future.ttf" id="2_iqa2u"]
 [ext_resource type="Texture2D" path="res://assets/kenney/ui/button_brown.png" id="3_h0vmm"]
 [ext_resource type="FontFile" path="res://assets/kenney/fonts/Kenney Mini Square.ttf" id="3_o035o"]
+[ext_resource type="Texture2D" path="res://assets/kenney/ui/panel_border_brown.png" id="6_fd5p1"]
 [ext_resource type="Texture2D" path="res://assets/kenney/ui/panel_brown_corners_a.png" id="6_v71b0"]
+[ext_resource type="Texture2D" path="res://assets/kenney/ui/progress_transparent_small.png" id="7_iqa2u"]
 [ext_resource type="Texture2D" path="res://assets/kenney/ui/panel_brown_dark.png" id="7_rajry"]
+[ext_resource type="Texture2D" path="res://assets/kenney/ui/progress_red_small.png" id="8_h0vmm"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_o035o"]
 content_margin_left = 80.0
@@ -83,6 +86,41 @@ texture_margin_right = 16.0
 texture_margin_bottom = 16.0
 modulate_color = Color(0.82, 0.8, 0.78, 1)
 
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_v71b0"]
+content_margin_left = 28.0
+content_margin_top = 28.0
+content_margin_right = 28.0
+content_margin_bottom = 28.0
+texture = ExtResource("6_v71b0")
+texture_margin_left = 32.0
+texture_margin_top = 32.0
+texture_margin_right = 32.0
+texture_margin_bottom = 32.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_rajry"]
+content_margin_left = 28.0
+content_margin_top = 28.0
+content_margin_right = 28.0
+content_margin_bottom = 28.0
+texture = ExtResource("6_v71b0")
+texture_margin_left = 32.0
+texture_margin_top = 32.0
+texture_margin_right = 32.0
+texture_margin_bottom = 32.0
+modulate_color = Color(1, 1, 1, 0.55)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_7rvps"]
+content_margin_left = 28.0
+content_margin_top = 28.0
+content_margin_right = 28.0
+content_margin_bottom = 28.0
+texture = ExtResource("6_v71b0")
+texture_margin_left = 32.0
+texture_margin_top = 32.0
+texture_margin_right = 32.0
+texture_margin_bottom = 32.0
+modulate_color = Color(0.82, 1, 0.78, 1)
+
 [sub_resource type="Gradient" id="Gradient_h0vmm"]
 offsets = PackedFloat32Array(0, 0.62, 0.7, 0.78, 0.84)
 colors = PackedColorArray(0.9529412, 0.8862745, 0.7529412, 1, 0.9529412, 0.8862745, 0.7529412, 1, 0.23921569, 0.14901961, 0.08627451, 1, 0.23921569, 0.14901961, 0.08627451, 1, 0.23921569, 0.14901961, 0.08627451, 0)
@@ -111,6 +149,22 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_rajry"]
+content_margin_left = 16.0
+content_margin_top = 10.0
+content_margin_right = 16.0
+content_margin_bottom = 10.0
+bg_color = Color(0.23921569, 0.14901961, 0.08627451, 0.1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.23921569, 0.14901961, 0.08627451, 0.5)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_mippt"]
 content_margin_left = 52.0
 content_margin_top = 52.0
@@ -133,6 +187,32 @@ texture_margin_top = 24.0
 texture_margin_right = 24.0
 texture_margin_bottom = 24.0
 modulate_color = Color(0.6, 0.55, 0.52, 0.9)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_q0k0p"]
+content_margin_left = 10.0
+content_margin_top = 10.0
+content_margin_right = 10.0
+content_margin_bottom = 10.0
+texture = ExtResource("6_fd5p1")
+texture_margin_left = 22.0
+texture_margin_top = 22.0
+texture_margin_right = 22.0
+texture_margin_bottom = 22.0
+draw_center = false
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_qijwx"]
+texture = ExtResource("7_iqa2u")
+texture_margin_left = 15.0
+texture_margin_top = 15.0
+texture_margin_right = 15.0
+texture_margin_bottom = 15.0
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_0wk5b"]
+texture = ExtResource("8_h0vmm")
+texture_margin_left = 15.0
+texture_margin_top = 15.0
+texture_margin_right = 15.0
+texture_margin_bottom = 15.0
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_o035o"]
 content_margin_left = 14.0
@@ -236,9 +316,6 @@ default_font = ExtResource("3_o035o")
 default_font_size = 30
 Banner/base_type = &"PanelContainer"
 Banner/styles/panel = SubResource("StyleBoxTexture_o035o")
-BindGlyph/base_type = &"Label"
-BindGlyph/colors/font_color = Color(0.23921569, 0.14901961, 0.08627451, 1)
-BindGlyph/font_sizes/font_size = 96
 Button/colors/font_color = Color(0.23921569, 0.14901961, 0.08627451, 1)
 Button/colors/font_disabled_color = Color(0.23921569, 0.14901961, 0.08627451, 0.5)
 Button/colors/font_focus_color = Color(0.23921569, 0.14901961, 0.08627451, 1)
@@ -251,6 +328,12 @@ Button/styles/focus = SubResource("StyleBoxFlat_c0k8g")
 Button/styles/hover = SubResource("StyleBoxTexture_fd5p1")
 Button/styles/normal = SubResource("StyleBoxTexture_iqa2u")
 Button/styles/pressed = SubResource("StyleBoxTexture_h0vmm")
+Card/base_type = &"PanelContainer"
+Card/styles/panel = SubResource("StyleBoxTexture_v71b0")
+CardEmpty/base_type = &"PanelContainer"
+CardEmpty/styles/panel = SubResource("StyleBoxTexture_rajry")
+CardReady/base_type = &"PanelContainer"
+CardReady/styles/panel = SubResource("StyleBoxTexture_7rvps")
 Dim/base_type = &"Label"
 Dim/colors/font_color = Color(0.9529412, 0.8862745, 0.7529412, 0.75)
 Dim/font_sizes/font_size = 26
@@ -266,6 +349,11 @@ Heading/colors/font_outline_color = Color(0.07058824, 0.039215688, 0.023529412, 
 Heading/constants/outline_size = 10
 Heading/font_sizes/font_size = 44
 Heading/fonts/font = ExtResource("3_o035o")
+HudSmall/base_type = &"Label"
+HudSmall/colors/font_color = Color(0.9529412, 0.8862745, 0.7529412, 1)
+HudSmall/colors/font_outline_color = Color(0.07058824, 0.039215688, 0.023529412, 1)
+HudSmall/constants/outline_size = 8
+HudSmall/font_sizes/font_size = 24
 HudText/base_type = &"Label"
 HudText/colors/font_color = Color(0.9529412, 0.8862745, 0.7529412, 1)
 HudText/colors/font_outline_color = Color(0.07058824, 0.039215688, 0.023529412, 1)
@@ -280,14 +368,28 @@ InkDim/base_type = &"Label"
 InkDim/colors/font_color = Color(0.42, 0.29, 0.2, 0.85)
 InkDim/font_sizes/font_size = 26
 InkDim/fonts/font = ExtResource("3_o035o")
+InkGlyph/base_type = &"Label"
+InkGlyph/colors/font_color = Color(0.23921569, 0.14901961, 0.08627451, 1)
+InkGlyph/font_sizes/font_size = 96
 InkHeading/base_type = &"Label"
 InkHeading/colors/font_color = Color(0.23921569, 0.14901961, 0.08627451, 1)
 InkHeading/font_sizes/font_size = 44
 InkHeading/fonts/font = ExtResource("3_o035o")
 Label/colors/font_color = Color(0.9529412, 0.8862745, 0.7529412, 1)
+LineEdit/colors/caret_color = Color(0.23921569, 0.14901961, 0.08627451, 1)
+LineEdit/colors/font_color = Color(0.23921569, 0.14901961, 0.08627451, 1)
+LineEdit/colors/font_placeholder_color = Color(0.23921569, 0.14901961, 0.08627451, 0.5)
+LineEdit/colors/selection_color = Color(0.23921569, 0.14901961, 0.08627451, 0.25)
+LineEdit/styles/focus = SubResource("StyleBoxFlat_c0k8g")
+LineEdit/styles/normal = SubResource("StyleBoxFlat_rajry")
+LineEdit/styles/read_only = SubResource("StyleBoxFlat_rajry")
 PanelContainer/styles/panel = SubResource("StyleBoxTexture_mippt")
 Plate/base_type = &"PanelContainer"
 Plate/styles/panel = SubResource("StyleBoxTexture_ta3wi")
+PortraitFrame/base_type = &"PanelContainer"
+PortraitFrame/styles/panel = SubResource("StyleBoxTexture_q0k0p")
+ProgressBar/styles/background = SubResource("StyleBoxTexture_qijwx")
+ProgressBar/styles/fill = SubResource("StyleBoxTexture_0wk5b")
 PromptGlyph/base_type = &"Label"
 PromptGlyph/colors/font_color = Color(0.9529412, 0.8862745, 0.7529412, 1)
 PromptGlyph/font_sizes/font_size = 96

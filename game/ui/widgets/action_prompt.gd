@@ -13,6 +13,10 @@ extends HBoxContainer
 @export var text: String = ""
 ## The local player whose device the glyph is for (0: the first; the menus' too).
 @export var local: int = 0
+## On parchment (a seat card): ink, rather than the cream that reads over the world.
+@export var ink: bool = false
+## The words' look when not the usual (HudSmall: a hero plate's hints).
+@export var text_variation: StringName = &""
 ## A pad's glyph, in that pad's family, whoever plays (-1: follow `local`): the join hint, which speaks to a pad
 ## nobody plays.
 @export var pad_device: int = -1
@@ -26,6 +30,7 @@ var _shown: String = ""
 
 
 func _ready() -> void:
+	_text.theme_type_variation = text_variation if text_variation != &"" else &"Ink" if ink else &"HudText"
 	Prompts.changed.connect(refresh)
 	Unified.session.local_players_changed.connect(refresh)
 	visibility_changed.connect(refresh)
@@ -46,7 +51,7 @@ func refresh() -> void:
 		return
 	_shown = shown
 	if glyphs != "":
-		_glyphs.theme_type_variation = &"PromptGlyph"
+		_glyphs.theme_type_variation = &"InkGlyph" if ink else &"PromptGlyph"
 		_glyphs.add_theme_font_override(&"font", Prompts.font(family))
 		_glyphs.text = glyphs
 	else:

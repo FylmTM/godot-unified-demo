@@ -65,7 +65,7 @@ func refresh() -> void:
 		return
 	var events: Array[InputEvent] = Bindings.events(action, kind)
 	_glyph.text = ""
-	_glyph.theme_type_variation = &"BindGlyph"
+	_glyph.theme_type_variation = &"InkGlyph"
 	if slot >= events.size():
 		text = "-"
 		return

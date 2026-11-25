@@ -4,60 +4,99 @@
 [ext_resource type="PackedScene" path="res://game/ui/widgets/action_prompt.tscn" id="action_prompt"]
 
 [node name="HeroPlate" type="PanelContainer"]
-custom_minimum_size = Vector2(560, 0)
+custom_minimum_size = Vector2(880, 0)
 size_flags_horizontal = 0
 mouse_filter = 2
 theme_type_variation = &"Plate"
 script = ExtResource("hero_plate")
 
-[node name="Rows" type="VBoxContainer" parent="."]
+[node name="Row" type="HBoxContainer" parent="."]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 16
 
-[node name="Row" type="HBoxContainer" parent="Rows"]
+[node name="Frame" type="PanelContainer" parent="Row"]
 layout_mode = 2
+size_flags_vertical = 4
 mouse_filter = 2
-theme_override_constants/separation = 24
+theme_type_variation = &"PortraitFrame"
 
-[node name="Class" type="Label" parent="Rows/Row"]
+[node name="Portrait" type="TextureRect" parent="Row/Frame"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(88, 88)
+layout_mode = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Info" type="VBoxContainer" parent="Row"]
 layout_mode = 2
 size_flags_horizontal = 3
-clip_text = true
-theme_type_variation = &"Heading"
-text = "Knight"
+mouse_filter = 2
+theme_override_constants/separation = 2
 
-[node name="Health" type="Label" parent="Rows/Row"]
+[node name="Top" type="HBoxContainer" parent="Row/Info"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="Health" type="ProgressBar" parent="Row/Info/Top"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 32)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+step = 1.0
+value = 100.0
+show_percentage = false
+
+[node name="Amount" type="Label" parent="Row/Info/Top/Health"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"HudSmall"
+text = "100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Class" type="Label" parent="Row/Info/Top"]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_vertical = 8
-theme_type_variation = &"HudText"
-text = "100 HP"
-horizontal_alignment = 2
+size_flags_vertical = 4
+theme_type_variation = &"Dim"
+text = "Knight"
 
-[node name="Hints" type="HBoxContainer" parent="Rows"]
+[node name="Hints" type="HBoxContainer" parent="Row/Info"]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 20
+theme_override_constants/separation = 18
 
-[node name="Move" parent="Rows/Hints" instance=ExtResource("action_prompt")]
+[node name="Move" parent="Row/Info/Hints" instance=ExtResource("action_prompt")]
 layout_mode = 2
 actions = Array[StringName]([&"move_up", &"move_left", &"move_down", &"move_right"])
 text = "Move"
+text_variation = &"HudSmall"
 
-[node name="Aim" parent="Rows/Hints" instance=ExtResource("action_prompt")]
+[node name="Aim" parent="Row/Info/Hints" instance=ExtResource("action_prompt")]
 layout_mode = 2
 actions = Array[StringName]([&"aim"])
 text = "Aim"
+text_variation = &"HudSmall"
 
-[node name="Attack" parent="Rows/Hints" instance=ExtResource("action_prompt")]
+[node name="Attack" parent="Row/Info/Hints" instance=ExtResource("action_prompt")]
 layout_mode = 2
 actions = Array[StringName]([&"attack"])
 text = "Attack"
+text_variation = &"HudSmall"
 
-[node name="Interact" parent="Rows/Hints" instance=ExtResource("action_prompt")]
+[node name="Interact" parent="Row/Info/Hints" instance=ExtResource("action_prompt")]
 layout_mode = 2
 actions = Array[StringName]([&"interact"])
 text = "Grab"
+text_variation = &"HudSmall"

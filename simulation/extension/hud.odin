@@ -24,8 +24,10 @@ Data_Hud :: struct {
 Hud_Hero :: struct {
 	player: sim.Player, // its key (0: the slot is empty)
 	hp:     i16,
+	hp_max: i16, // the health it rises with: the HUD's bar is hp of hp_max
 	class:  g.Class, // EnumClass
 	local:  bool, // one of this machine's players
+	_pad:   [2]u8,
 }
 
 // The HUD's data from the frame's state.
@@ -40,6 +42,7 @@ fill_hud :: proc(f: ^Frame) {
 		hud.heroes[slot] = {
 			player = player,
 			hp     = hero.hp,
+			hp_max = g.HERO_HP,
 			class  = hero.class,
 			local  = godot.is_local(f, player),
 		}
