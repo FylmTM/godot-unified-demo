@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://game/ui/widgets/dialog.gd" id="dialog"]
 [ext_resource type="PackedScene" path="res://game/ui/widgets/prompt_bar.tscn" id="prompt_bar"]
+[ext_resource type="Script" path="res://game/ui/widgets/fit_to_view.gd" id="fit_to_view"]
 
 [node name="Dialog" type="Control"]
 visible = false
@@ -95,3 +96,6 @@ text = "Cancel"
 unique_name_in_owner = true
 layout_mode = 1
 covered_by_dialogs = false
+
+[node name="FitToView" type="Node" parent="Center"]
+script = ExtResource("fit_to_view")

@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://game/ui/overlays/connecting.gd" id="connecting"]
+[ext_resource type="Script" path="res://game/ui/widgets/fit_to_view.gd" id="fit_to_view"]
 
 [node name="Connecting" type="Control"]
 visible = false
@@ -64,3 +65,6 @@ focus_neighbor_bottom = NodePath(".")
 focus_next = NodePath(".")
 focus_previous = NodePath(".")
 text = "Cancel"
+
+[node name="FitToView" type="Node" parent="Center"]
+script = ExtResource("fit_to_view")

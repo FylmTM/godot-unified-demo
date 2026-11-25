@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://game/menu/join_code.gd" id="join_code"]
 [ext_resource type="Script" path="res://game/ui/widgets/code_field.gd" id="code_field"]
+[ext_resource type="Script" path="res://game/ui/widgets/fit_to_view.gd" id="fit_to_view"]
 
 [node name="JoinCode" type="Control" node_paths=PackedStringArray("first_focus")]
 layout_mode = 3
@@ -97,3 +98,6 @@ custom_minimum_size = Vector2(280, 0)
 layout_mode = 2
 size_flags_horizontal = 4
 text = "Back"
+
+[node name="FitToView" type="Node" parent="Center"]
+script = ExtResource("fit_to_view")

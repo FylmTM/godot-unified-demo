@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://game/play/pause_screen.gd" id="pause_screen"]
+[ext_resource type="Script" path="res://game/ui/widgets/fit_to_view.gd" id="fit_to_view"]
 
 [node name="PauseScreen" type="Control" node_paths=PackedStringArray("first_focus")]
 layout_mode = 3
@@ -99,3 +100,6 @@ text = "Leave to title"
 unique_name_in_owner = true
 layout_mode = 2
 text = "Quit to desktop"
+
+[node name="FitToView" type="Node" parent="Center"]
+script = ExtResource("fit_to_view")

@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://game/menu/title_screen.gd" id="title"]
+[ext_resource type="Script" path="res://game/ui/widgets/fit_to_view.gd" id="fit_to_view"]
 
 [sub_resource type="Gradient" id="shade_gradient"]
 offsets = PackedFloat32Array(0, 0.45, 1)
@@ -114,3 +115,7 @@ offset_right = 650.0
 offset_bottom = -40.0
 grow_vertical = 0
 theme_type_variation = &"Dim"
+
+[node name="FitToView" type="Node" parent="Column"]
+script = ExtResource("fit_to_view")
+pivot = Vector2(0, 0.5)

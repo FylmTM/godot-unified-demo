@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://game/app/library_check.gd" id="library_check"]
+[ext_resource type="Script" path="res://game/ui/widgets/fit_to_view.gd" id="fit_to_view"]
 
 [node name="LibraryCheck" type="CanvasLayer"]
 layer = 200
@@ -38,3 +39,6 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 4
 text = "Quit"
+
+[node name="FitToView" type="Node" parent="Center"]
+script = ExtResource("fit_to_view")
