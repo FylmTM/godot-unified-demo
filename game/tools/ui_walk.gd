@@ -1,4 +1,4 @@
-extends SessionWalk
+extends TogetherWalk
 ## A walk through Crypt Crew's app with real input events (keys, pad buttons and sticks of several pads, the mouse),
 ## the godot suite's `walk` step (`./uni tool ui_walk`; with `--window --shots` it saves a PNG at each moment worth
 ## looking at, into .out/shots/ui_walk/). In order:
@@ -18,10 +18,15 @@ extends SessionWalk
 ##     back; the window in the background pauses;
 ##   - a surge's save, leaving from the pause menu (it asks), the title's Continue, New game over a save (it asks), the
 ##     continued game (SessionWalk); a settings file that didn't read is told once; the pause menu online (a LAN host
-##     alone: Pause and Resume for everyone, input under it moving nobody); the pause menu over a replay; a join that
-##     waits (the Connecting overlay; Esc and Cancel cancel it at once), a join that fails at once (one dialog, one error
-##     sound, the reason as a sentence; pad B and pad A close it); the run ends through Game.quit_app.
-## That the app adopts a session its menus didn't start is coop.gd's: both its processes start from uni's flags.
+##     alone: Pause and Resume for everyone, input under it moving nobody); the pause menu over a replay;
+##   - Play together (TogetherWalk): online greyed with the library's sentence, the code field and a join by code that
+##     can't start, a LAN host from the menus (the session panel, Invite friends, Stop inviting), a game alone opened
+##     to friends and closed, a join by address that fails and is offered as Rejoin;
+##   - a join that waits (the Connecting overlay; Esc and Cancel cancel it at once), a join that fails at once (one
+##     dialog, one error sound, the reason as a sentence; pad B and pad A close it); the run ends through
+##     Game.quit_app.
+## That the app adopts a session its menus didn't start is coop.gd's (`uni coop`: both processes start from uni's
+## flags); `uni coop --menus` proves the menus' host and join across two processes.
 
 ## A local port nothing listens on: a join to it waits until cancelled.
 const SILENT_PORT: int = 9
@@ -38,7 +43,8 @@ func _run() -> void:
 	step("the title")
 	for walk: Callable in [_walk_title_wiring, _walk_pad, _walk_prompt_device, _walk_settings, _walk_new_game,
 			_walk_couch, _walk_players_list, _walk_stuck_key, _walk_focus_pause, _walk_setting, _walk_leave,
-			_walk_new_game_again, _walk_online_pause, _walk_replay_pause, _walk_connecting, _walk_failed_join]:
+			_walk_new_game_again, _walk_online_pause, _walk_replay_pause, _walk_play_together, _walk_join_code,
+			_walk_lan_host, _walk_open_to_friends, _walk_join_address, _walk_connecting, _walk_failed_join]:
 		if failed():
 			return
 		await walk.call()
@@ -67,7 +73,7 @@ func _walk_title_wiring() -> void:
 ## A pad moves the focus between the title's buttons, and back.
 func _walk_pad() -> void:
 	await pad_button(JOY_BUTTON_DPAD_DOWN)
-	expect(root.gui_get_focus_owner() == title_control("Settings"), "the d-pad moves the focus to Settings")
+	expect(root.gui_get_focus_owner() == title_control("PlayTogether"), "the d-pad moves the focus to Play together")
 	await pad_button(JOY_BUTTON_DPAD_UP)
 	expect(root.gui_get_focus_owner() == title_control("NewGame"), "and back to New game")
 	step("pad navigation")

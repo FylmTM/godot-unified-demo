@@ -9,6 +9,10 @@ extends UnifiedCoop
 ## which it does, through hero select, from the surge it saw. Both sessions start from uni's flags, so this also proves the app adopts a session its
 ## menus didn't start.
 ##
+## With `uni coop --menus` (and `--lan`), neither side starts from session flags: each goes through the game's own menus
+## (_start_host, _start_join: Play together, Host or Join, a code or an address typed with key events, hero select
+## with its Profile's class picked, Start), so the menu-driven host and join are proved across two processes too.
+##
 ## Each side arrives with its own name and its own Profile: the joiner names its player FRIEND_NAME itself (a tool
 ## run's is Settings.TOOL_NAME), and each side checks its hero is the class its own Profile asked for, as the sim they
 ## share says; the host's toast names the friend and its hero. Run it as
@@ -50,6 +54,40 @@ func _run() -> void:
 		if session != null and session.mode in [UnifiedSession.MODE_JOIN_DIRECT, UnifiedSession.MODE_JOIN_ONLINE]:
 			_surges_seen = maxi(_surges_seen, Unified.data.hud.surges))
 	await super()
+
+
+## Hosts through the game's own menus (uni coop --menus): Play together, then Host on this network (on `port`, made
+## Game.lan_port) or Host online (`port` 0), then hero select with this side's Profile's class picked, and Start.
+func _start_host(port: int) -> void:
+	if port > 0:
+		game.set(&"lan_port", port)
+	await _open_play_together()
+	await click(_on_top("HostLan" if port > 0 else "HostOnline"))
+	await _pick_and_start("Host a crypt")
+	step("hosted through the menus (%s)" % ("port %d" % port if port > 0 else "online"))
+
+
+## Joins through the game's own menus (uni coop --menus; again for --rejoin and after --crash): Play together, then
+## Join an address (`code` is the host's address) or Join with a code, typed with key events, Join, then hero select
+## with this side's Profile's class picked, and Start.
+func _start_join(code: String) -> void:
+	await _open_play_together()
+	if code.contains(":"):
+		await click(_on_top("JoinAddress"))
+		var field: LineEdit = _on_top("Address") as LineEdit
+		await click(field)
+		field.select_all()
+		await type_text(code)
+	else:
+		await click(_on_top("JoinCode"))
+		var cells: Control = _on_top("Code")
+		if cells.call(&"code") != code:
+			await click(cells)
+			await type_text(code)
+	expect(not (_on_top("Join") as Button).disabled, "the typed %s can be joined" % code)
+	await click(_on_top("Join"))
+	await _pick_and_start("Join %s" % code)
+	step("joined through the menus (%s)" % code)
 
 
 func _host_play() -> void:
@@ -206,6 +244,40 @@ func _host_left() -> void:
 	expect(Unified.data.hud.surges == seen, "it continues from the host's last surge (%d, saw %d)"
 		% [Unified.data.hud.surges, seen])
 	step("continued on its own: surge %d, %d felled" % [Unified.data.hud.surges, Unified.data.hud.kills])
+
+
+## The title's Play together, once the menu shows the title (the run's main scene, loaded here: no session flag
+## started a game to take the app past it).
+func _open_play_together() -> void:
+	if current_scene == null:
+		change_scene_to_file(str(ProjectSettings.get_setting("application/run/main_scene")))
+	await wait_for(func() -> bool: return _menu_top() != null and _menu_top().name == "TitleScreen", 10.0, "the title")
+	await click(_on_top("PlayTogether"))
+
+
+## Hero select under `heading`: the first seat (the keyboard and mouse) steps its card to this side's Profile's class
+## (its --host-profile or --join-profile), readies it and starts.
+func _pick_and_start(heading: String) -> void:
+	await wait_for(func() -> bool: return _menu_top() != null and _menu_top().name == "HeroSelect", 3.0, "hero select")
+	if failed():
+		return
+	var hero_select: Control = _menu_top()
+	var shown: String = (find(hero_select, ^"%Heading") as Label).text
+	expect(shown == heading, "hero select says what it starts: %s" % shown)
+	var card: Control = hero_select.call(&"card", 0)
+	var wanted: int = Unified.profile.class
+	for i: int in Heroes.choices().size():
+		var pick: int = card.get(&"pick")
+		if pick == wanted:
+			break
+		await click(find(card, ^"%Next") as Control)
+	await click(find(card, ^"%Act") as Control)
+	await click(find(hero_select, ^"%Start") as Control)
+
+
+## The control `unique_name` on the menu's screen on top.
+func _on_top(unique_name: String) -> Control:
+	return find(_menu_top(), "%" + unique_name) as Control
 
 
 ## The play scene's pause menu while it shows (null: closed).
