@@ -23,12 +23,17 @@ const BLOCK: StringName = &"pause_menu"
 ## How many frames the single-player pause may take to take before the menu counts the game as online.
 const PAUSE_TAKES_FRAMES: int = 6
 
-## The Players list (game/play/players_screen.tscn) and the settings (game/ui/settings/settings_screen.tscn).
+## Invite friends (game/play/friends_screen.tscn), the Players list (players_screen.tscn) and the settings
+## (game/ui/settings/settings_screen.tscn).
+@export var friends_scene: PackedScene
 @export var players_scene: PackedScene
 @export var settings_scene: PackedScene
 
 ## The couch, which drops a guest out and says which pads play (the play scene's).
 var couch: Couch
+
+## The single-player pause took (the game is alone): opened to friends while it is, the co-op pause keeps it paused.
+var _alone: bool = false
 
 @onready var _session: UnifiedSession = Unified.session
 @onready var _stack: MenuStack = %Stack
@@ -41,11 +46,12 @@ func _ready() -> void:
 	_screen.plays = couch.claimed
 	_screen.resume_requested.connect(close)
 	_screen.pause_all_requested.connect(_pause_all)
+	_screen.friends_requested.connect(func() -> void: _stack.push(friends_scene))
 	_screen.players_requested.connect(_open_players)
 	_screen.settings_requested.connect(func() -> void: _stack.push(settings_scene))
 	_screen.leave_requested.connect(_leave.bind(false))
 	_screen.quit_requested.connect(_leave.bind(true))
-	_session.mode_changed.connect(func(_mode: UnifiedSession.Mode, _detail: String) -> void: _settle_pause())
+	_session.mode_changed.connect(func(_mode: UnifiedSession.Mode, _detail: String) -> void: _on_mode_changed())
 	_stack.top_changed.connect(_prompt_bar.follow)
 	_prompt_bar.follow(_stack.top())
 	_settle_pause()
@@ -69,6 +75,15 @@ func top() -> MenuScreen:
 	return _stack.top()
 
 
+## The game was opened to friends (or closed again) under the menu: a game paused alone stays paused, now for everyone
+## (the co-op pause), so the host reads the code out with the clock still standing.
+func _on_mode_changed() -> void:
+	var was_alone: bool = _alone
+	await _settle_pause()
+	if was_alone and not _alone and is_inside_tree():
+		_pause_all(true)
+
+
 ## Asks for the single-player pause and shows the menu for whether it took: alone (it did, within a few frames) or with
 ## others (it didn't). Shown at once as the mode suggests, so a menu alone never flickers.
 func _settle_pause() -> void:
@@ -82,7 +97,8 @@ func _settle_pause() -> void:
 			break
 		await get_tree().process_frame
 	if is_inside_tree():
-		_show_mode(false, not _session.paused)
+		_alone = _session.paused
+		_show_mode(false, not _alone)
 
 
 func _show_mode(replay: bool, online: bool) -> void:
@@ -93,7 +109,7 @@ func _show_mode(replay: bool, online: bool) -> void:
 		leave = "Leave the game"
 	elif _others() > 0:
 		leave = "End the game"
-	_screen.show_mode(replay, online, leave)
+	_screen.show_mode(replay, online, leave, not _joined())
 
 
 ## Pauses or resumes the game for everyone: the co-op pause, as this machine's first player.

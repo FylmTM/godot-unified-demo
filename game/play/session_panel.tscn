@@ -1,0 +1,51 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/play/session_panel.gd" id="session_panel"]
+
+[node name="SessionPanel" type="PanelContainer"]
+visible = false
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -36.0
+offset_top = 150.0
+offset_right = -36.0
+offset_bottom = 150.0
+grow_horizontal = 0
+mouse_filter = 2
+theme_type_variation = &"Plate"
+script = ExtResource("session_panel")
+
+[node name="Rows" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(290, 0)
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="Caption" type="Label" parent="Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Dim"
+text = "Code"
+horizontal_alignment = 1
+
+[node name="Value" type="Label" parent="Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HudText"
+horizontal_alignment = 1
+text_overrun_behavior = 3
+
+[node name="Players" type="Label" parent="Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HudSmall"
+horizontal_alignment = 1
+
+[node name="Slow" type="Label" parent="Rows"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"HudSmall"
+horizontal_alignment = 1
+autowrap_mode = 3

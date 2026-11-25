@@ -75,6 +75,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Pause for everyone"
 
+[node name="Friends" type="Button" parent="Center/Panel/Rows/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Invite friends"
+
 [node name="Players" type="Button" parent="Center/Panel/Rows/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2

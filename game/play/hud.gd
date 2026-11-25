@@ -2,10 +2,10 @@ class_name Hud
 extends Control
 ## The HUD, quiet in the corners so the crypt keeps the middle: a plate for each local hero (its player's name, its
 ## class and health, or that it is down), the surges faced, the skeletons up and the felled (a save's tally included),
-## the co-op pause's banner naming who paused and how to reach the menu (to resume), the join and drop cards, and "[Start] Join the game" while a connected
-## pad plays nobody and the couch has room. Each plate carries its player's control hints, in the glyphs of that
-## player's device, when Settings.hints says. Nothing on it takes a click or the focus: Space and a pad's A stay the
-## game's.
+## a game with friends' code or address and its players (SessionPanel), the co-op pause's banner naming who paused and
+## how to reach the menu (to resume), the join and drop cards, and "[Start] Join the game" while a connected pad plays
+## nobody and the couch has room. Each plate carries its player's control hints, in the glyphs of that player's device,
+## when Settings.hints says. Nothing on it takes a click or the focus: Space and a pad's A stay the game's.
 ##
 ## What it shows is session data (Unified.data.hud), the newest prediction, which a rollback may change and the next
 ## frame puts right. The felled are a count, which must never take one back: it shows the most the data has said this

@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://game/play/hud.gd" id="hud"]
 [ext_resource type="PackedScene" path="res://game/play/hero_plate.tscn" id="hero_plate"]
+[ext_resource type="PackedScene" path="res://game/play/session_panel.tscn" id="session_panel"]
 [ext_resource type="PackedScene" path="res://game/ui/widgets/action_prompt.tscn" id="action_prompt"]
 [ext_resource type="Script" path="res://game/play/join_cards.gd" id="join_cards"]
 [ext_resource type="PackedScene" path="res://game/ui/widgets/seat_card.tscn" id="seat_card"]
@@ -113,6 +114,9 @@ layout_mode = 2
 theme_type_variation = &"Dim"
 text = "Felled"
 horizontal_alignment = 1
+
+[node name="SessionPanel" parent="." instance=ExtResource("session_panel")]
+layout_mode = 1
 
 [node name="Paused" type="PanelContainer" parent="."]
 unique_name_in_owner = true

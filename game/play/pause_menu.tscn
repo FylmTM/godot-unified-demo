@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://game/ui/screens/menu_stack.gd" id="menu_stack"]
 [ext_resource type="PackedScene" path="res://game/play/pause_screen.tscn" id="pause_screen"]
 [ext_resource type="PackedScene" path="res://game/play/players_screen.tscn" id="players_screen"]
+[ext_resource type="PackedScene" path="res://game/play/friends_screen.tscn" id="friends_screen"]
 [ext_resource type="PackedScene" path="res://game/ui/settings/settings_screen.tscn" id="settings"]
 [ext_resource type="PackedScene" path="res://game/ui/widgets/prompt_bar.tscn" id="prompt_bar"]
 
@@ -16,6 +17,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("pause_menu")
+friends_scene = ExtResource("friends_screen")
 players_scene = ExtResource("players_screen")
 settings_scene = ExtResource("settings")
 
