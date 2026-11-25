@@ -104,7 +104,9 @@ use_hands :: proc(t: ^Tick) {
 	}
 }
 
-// Every hero holding a prop holds it where its facing now puts the hold (hold_frame).
+// Every hero holding a prop holds it where its facing now puts the hold (hold_frame). A hold's joint is live while
+// `held` is set: every way a prop or a hero's body goes lets go first (release_hold: a leave and going down drop the
+// prop, a level change releases every hold before the props and bodies go), and the physics joint calls assert it.
 update_holds :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero in sim.next(&heroes) {
