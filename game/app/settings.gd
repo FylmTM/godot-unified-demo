@@ -227,8 +227,8 @@ func _notification(what: int) -> void:
 		_apply_master()
 
 
-## Writes every setting to the file now (a change does it by itself a moment later); the app's quit calls it. It is
-## written beside and moved over the old one, so a crash mid-write never leaves half a file.
+## Writes every setting to the file now (a change does it by itself a moment later); the app's quit calls it. Through
+## UserFile: beside first, then moved over the old one, so a crash mid-write never leaves half a file.
 func save() -> void:
 	_save_timer.stop()
 	if isolated:
@@ -238,29 +238,22 @@ func save() -> void:
 		var setting_name: StringName = setting["name"]
 		var section: Dictionary = out.get_or_add(setting["section"], {})
 		section[setting_name] = get(setting_name)
-	var temp: String = path + ".tmp"
-	var file := FileAccess.open(temp, FileAccess.WRITE)
-	if file == null:
-		push_warning("Settings: can't write %s (%s)" % [temp, error_string(FileAccess.get_open_error())])
-		return
-	file.store_string(JSON.stringify(out, "	", true) + "
+	UserFile.write(path, JSON.stringify(out, "	", true) + "
 ")
-	file.close()
-	DirAccess.rename_absolute(temp, path)
 
 
 ## The file's sections; empty when there is none. One that doesn't parse is moved to <path>.bad, so the next save
 ## starts a fresh file without losing what the player wrote, and says why in `read_problem` and the log. (Printed,
 ## not a warning: uni fails a run on any warning of the game's, and the app checks make this happen on purpose.)
 func _read() -> Dictionary:
-	if not FileAccess.file_exists(path):
+	if not UserFile.exists(path):
 		return {}
 	var json := JSON.new()
-	if json.parse(FileAccess.get_file_as_string(path)) == OK and json.data is Dictionary:
+	if json.parse(UserFile.read(path)) == OK and json.data is Dictionary:
 		return json.data
 	read_problem = "%s, line %d" % [json.get_error_message(), json.get_error_line() + 1]
 	print("Settings: %s doesn't read (%s): kept as %s.bad, the defaults used" % [path, read_problem, path.get_file()])
-	DirAccess.rename_absolute(path, path + ".bad")
+	UserFile.set_aside(path, path + ".bad")
 	return {}
 
 

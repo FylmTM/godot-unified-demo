@@ -23,8 +23,9 @@ extends RefCounted
 ##   the other players get, a blank one is a game's name again; the picks are always four valid choices; a value
 ##   missing, of the wrong type or out of range falls back or is clamped, a whole number is taken for a fraction; a
 ##   file that doesn't parse is kept as .bad, defaults used, and a fresh file written.
-## - The save slot round-trips a file (Saves): a save kept reads back as itself, with its line; a damaged file and one
-##   another version made are moved aside to save.bad.json, with the reason, and the slot is empty.
+## - The save slot round-trips a file of its own (Saves): a save kept reads back as itself, with its line; a second
+##   one replaces it; a write cut before its move reads from the .tmp; a write that fails says so and keeps the save
+##   for the session; a damaged file and one another version made are moved aside, with the reason, the slot empty.
 ##
 ## Each problem is reported through the validate run's log capture, named by the file it is in.
 
@@ -38,8 +39,10 @@ const SETTINGS: String = "res://game/app/settings.gd"
 ## The scenes whose buttons a pad must reach: the menus and the app's overlays and widgets.
 const FOCUS_DIRS: Array[String] = ["res://game/menu/", "res://game/ui/", "res://game/app/"]
 const GAME: String = "res://game/"
-## The file the settings check writes, under the run's own user data (uni gives every tool run its own).
+## The files the settings and saves checks write, under the run's own user data (uni gives every tool run its own):
+## never the player's.
 const SETTINGS_FILE: String = "user://settings_check.json"
+const SAVE_FILE: String = "user://save_check.json"
 
 ## How many problems the checks found.
 var problems: int = 0
@@ -378,28 +381,42 @@ func _check_names(settings: Node) -> void:
 
 
 func _check_saves() -> void:
-	for path: String in [Saves.PATH, Saves.BAD_PATH]:
+	var slot := Saves.new(true, SAVE_FILE)
+	for path: String in [slot.path, slot.path + ".tmp", slot.bad_path]:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	var save := UnifiedSetup.new()
 	save.version = Unified.constants.save_version
 	save.surges = 7
 	save.kills = 312
-	Saves.new(false).keep(save)
-	var read := Saves.new(false)
+	_expect_save(Saves.new(false, SAVE_FILE).keep(save), "a save is written")
+	var read := Saves.new(false, SAVE_FILE)
 	var ok: bool = read.setup != null and read.setup.to_json() == save.to_json() and read.problem == ""
 	_expect_save(ok, "a kept save reads back as itself")
 	_expect_save(read.summary() == "Floor 1 · Surge 7 · 312 felled", "its line: %s" % read.summary())
+	var later: UnifiedSetup = UnifiedSetup.from_json(save.to_json())
+	later.surges = 8
+	_expect_save(read.keep(later), "a second save is written over the first")
+	read = Saves.new(false, SAVE_FILE)
+	_expect_save(read.setup != null and read.setup.surges == 8, "and reads back as the newer one")
+	DirAccess.rename_absolute(ProjectSettings.globalize_path(SAVE_FILE), ProjectSettings.globalize_path(SAVE_FILE
+		+ ".tmp"))
+	read = Saves.new(false, SAVE_FILE)
+	_expect_save(read.setup != null and read.setup.surges == 8, "a write cut before its move reads from the .tmp")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_FILE + ".tmp"))
+	var unwritable := Saves.new(false, "user://no_such_folder/save.json")
+	_expect_save(not unwritable.keep(save) and unwritable.setup == save,
+		"a write that fails says so and keeps the save for the session")
 	var other: UnifiedSetup = UnifiedSetup.from_json(save.to_json())
 	other.version = save.version + 1
 	for broken: String in ["{\"version\": 1, \"surges\": ", other.to_json()]:
-		var file := FileAccess.open(Saves.PATH, FileAccess.WRITE)
+		var file := FileAccess.open(SAVE_FILE, FileAccess.WRITE)
 		file.store_string(broken)
 		file.close()
-		read = Saves.new(false)
+		read = Saves.new(false, SAVE_FILE)
 		_expect_save(read.setup == null and read.problem != "", "a save that can't continue is refused (%s)" % broken)
-		_expect_save(FileAccess.file_exists(Saves.BAD_PATH) and not FileAccess.file_exists(Saves.PATH),
-			"and kept aside as %s" % Saves.BAD_PATH.get_file())
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(Saves.BAD_PATH))
+		_expect_save(FileAccess.file_exists(read.bad_path) and not FileAccess.file_exists(SAVE_FILE),
+			"and kept aside as %s" % read.bad_path.get_file())
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(read.bad_path))
 
 
 func _expect_save(cond: bool, what: String) -> void:
