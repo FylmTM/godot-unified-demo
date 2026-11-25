@@ -14,16 +14,14 @@ extends PanelContainer
 
 
 func _ready() -> void:
-	_session.mode_changed.connect(func(_mode: UnifiedSession.Mode, _detail: String) -> void: _show())
-	_session.link_slow_changed.connect(func(_slow_now: bool) -> void: _show())
-	_session.roster_changed.connect(_show)  # someone came or went: the count
-	Game.invite_changed.connect(_show)
+	Game.listen(self, _session.mode_changed, func(_mode: UnifiedSession.Mode, _detail: String) -> void: _show())
+	Game.listen(self, _session.link_slow_changed, func(_slow_now: bool) -> void: _show())
+	Game.listen(self, _session.roster_changed, _show)  # someone came or went: the count
+	Game.listen(self, Game.invite_changed, _show)
 	_show()
 
 
 func _show() -> void:
-	if not is_inside_tree():
-		return  # the play scene is going: the session's signals reach it until it is freed
 	var mode: int = _session.mode
 	var joined: bool = mode in [UnifiedSession.MODE_JOIN_ONLINE, UnifiedSession.MODE_JOIN_DIRECT]
 	visible = mode != UnifiedSession.MODE_REPLAY and (joined or Game.hosting() or Game.inviting)
@@ -47,4 +45,3 @@ func _show() -> void:
 	_slow.visible = _session.link_slow
 	_slow.text = "Slow link: %d ms (smooth up to %d)" % [roundi(_session.round_trip_ms),
 		roundi(_session.round_trip_ceiling_ms)]
-

@@ -48,7 +48,7 @@ func _ready() -> void:
 	_session.level_root = _level
 	_session.view_root = _views
 	_session.level_changed.connect(_on_level_changed)
-	_session.input_wanted.connect(_set_aims)
+	Game.listen(self, _session.input_wanted, _set_aims)
 	_session.sim_event.connect(_on_sim_event)
 	_couch.idle_pad_changed.connect(_hud.show_join_hint)
 	_hud.show_join_hint(_couch.idle_pad())

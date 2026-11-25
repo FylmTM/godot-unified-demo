@@ -28,7 +28,7 @@ func _ready() -> void:
 	_lan.pressed.connect(Game.invite.bind(false))
 	_stop.pressed.connect(Game.stop_inviting)
 	_back.pressed.connect(back_requested.emit)
-	Game.invite_changed.connect(_show)
+	Game.listen(self, Game.invite_changed, _show)
 	_show()
 
 
@@ -42,8 +42,6 @@ func _copy_code() -> void:
 
 
 func _show() -> void:
-	if not is_inside_tree():
-		return  # the menu closed: Game's signals reach it until it is freed
 	var code: String = _session.join_code
 	var online_problem: String = _session.online_problem
 	_code.text = code if code != "" else ("Getting a code..." if Game.inviting_online else "Opening...")

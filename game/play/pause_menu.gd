@@ -51,7 +51,7 @@ func _ready() -> void:
 	_screen.settings_requested.connect(func() -> void: _stack.push(settings_scene))
 	_screen.leave_requested.connect(_leave.bind(false))
 	_screen.quit_requested.connect(_leave.bind(true))
-	_session.mode_changed.connect(_on_mode_changed)
+	Game.listen(self, _session.mode_changed, _on_mode_changed)
 	_stack.top_changed.connect(_prompt_bar.follow)
 	_stack.top_changed.connect(func(screen: MenuScreen) -> void:
 		if screen == _screen:
@@ -84,8 +84,6 @@ func top() -> MenuScreen:
 ## everyone (the co-op pause, sent at once, on the mode change), so the host reads the code out with the clock still
 ## standing; back alone, the menu pauses the clock again (Game lifts the co-op pause).
 func _on_mode_changed(mode: UnifiedSession.Mode, _detail: String) -> void:
-	if not is_inside_tree():
-		return  # closing (the session's signals outlive the menu until it is freed)
 	if _alone and mode != UnifiedSession.MODE_SINGLE:
 		_pause_all(true)
 	_settle_pause()
