@@ -435,7 +435,7 @@ Checks:
 - The walk drives pads with unified's `UnifiedTool.pad_button(button, device)` and `pad_axis` (745e023).
 - The short scenarios' run crosses a surge (`the_suite_runs_cross_a_save`), so unified's save checks cover Game.save
   under rollback, churn and a late join.
-- `replays/lan_pair` (the host's recording, ticks 2 to 2856, about 45 s; recorded again in milestone 4 so its blows
+- `replays/lan_pair` (the host's recording, ticks 2 to 3111, about 49 s; recorded again in milestone 4 so its blows
   land): a Knight host and a Barbarian joiner (both asked for Any), each grabbing, carrying and throwing a prop twice;
   the host grabbing a prop, thirty-two skeletons raised round it (dev) and the prop thrown through their ring (a prop
   hit); both attacking as they close in (blows land); the joiner's co-op pause and the host's resume; the host a Mage
