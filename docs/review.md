@@ -459,3 +459,35 @@ Step 4's review fixes, calls made on the way:
   skeleton killed (dev); the host downed (dev); three surges.
 - The short scenarios' run crosses a surge (`the_suite_runs_cross_a_save`), so unified's save checks cover the demo's
   Game.save under rollback, churn and a late join.
+- "Continue on your own" takes the host's save into the joiner's slot (asking first when that holds a crypt of its
+  own: "This replaces your own crypt (...)") and continues it through hero select, as the title's Continue, so the
+  player picks a hero and couch guests come back. A joiner keeps its host's starting Setup when it is a save (a
+  host's Continue), so the offer is there before the first surge. The question carries the library's words.
+- The Leave question reads the slot's save (Game.saves), not the HUD's surge.
+- The Dialog owns the answer: `ask` takes the callable, and anything shown over an open question answers it no first.
+  Questions that affect others ("End the game for everyone?", "Quit to desktop?") open on Stay. The dialog shows its
+  own prompt bar (Select, and Esc as the no) while the menus' hide.
+- The pause menu over a replay says "Replay paused" and offers Resume and Leave only, leaving at once (unified posts
+  LEFT for a left replay since 38ea413).
+- The pause menu is alone or online by whether the library's single-player pause took (asked on open, settled within
+  a few frames), not by the mode: a session that had others and is single again still refuses it. Online and
+  running, its first button reads "Back to the game"; reopened while paused for everyone, Resume for everyone has the
+  focus. Its back and pause presses resume only from the keyboard or a pad that plays (Couch.claimed).
+- The co-op pause's banner hides while the pause menu shows, cuts a long name short, and shows "[Esc] Menu" in the
+  first player's glyphs; the menu's heading cuts a long name too.
+- Toasts have their own layer (Game's Notices, 5) under the play scene's menus (10) and the app's overlays (50): the
+  pause menu dims them, and they never cover a heading or a question.
+- The Players list is this couch's players by local index first (what the session has, also while its clock stands),
+  then the others present; a Drop out takes its row away at once. 960 wide.
+- The focus-loss pause counts once the window has had the focus: true at boot when it has it, or on its first frame
+  with it; never in a `--no-settings` run until a check sends the focus in.
+- Settings and the save write through one helper (UserFile): the text beside the file, checked written, then moved
+  over it (its error checked); a write that fails is printed and the session keeps its copy; a missing file is read
+  from its `.tmp`. Saves takes its file's path (the app checks write their own).
+- Two read problems at boot are told one after the other: the save's when the settings' dialog closes.
+- Moves held under the pause menu reach nobody while it shows, but a held move counts again as soon as it closes:
+  unified swallows a held button (attack, grab) until it is let go, not a held direction (`action_vector`), though
+  `game_input`'s doc says any action. Reported to unified; the walk checks the button.
+- coop.gd works the pause menus for real: the host opens its menu and clicks Pause for everyone, its Leave asks "End
+  the game for everyone?" on Stay; the joiner opens its own, reads "Paused by ...", clicks Resume for everyone; after
+  the host leaves the joiner continues on its own through hero select, at the surge it saw, the save in its slot.

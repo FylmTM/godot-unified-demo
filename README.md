@@ -55,8 +55,9 @@ most. Players joining over the LAN join the same session beside them.
 
 **Saves and pauses.** The crypt saves itself each time a surge rises (the floor, the surges faced, the skeletons
 felled), in one slot; Continue on the title starts it again from there. Only the host, or a player alone, keeps it:
-a player in someone else's game keeps the host's last save in memory, and is offered "Continue on your own" if the
-host leaves. Alone (couch included) the pause menu pauses the game; with others the game runs on under it, and
+a player in someone else's game keeps the host's last save in memory (from the start, when the host continued a
+crypt), and is offered "Continue on your own" if the host leaves: it takes that save as its own (asking first if it
+replaces one) and continues it through hero select. Alone (couch included) the pause menu pauses the game; with others the game runs on under it, and
 "Pause for everyone" pauses it for every player (anyone may resume it), the banner naming who paused. Alone, the game
 also pauses when its window goes to the background (Settings, Gameplay).
 
