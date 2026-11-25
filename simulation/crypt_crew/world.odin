@@ -316,9 +316,8 @@ extra :: proc(world: ^World) -> sim.Extra {
 // The tick-0 state: the party starts on the Setup's floor, a save's with its tally (saves.odin), holding the Setup's
 // crowd if it names one (director.odin); heroes arrive as their players do (presence.odin).
 init :: proc(t: ^Tick) {
-	t.state.crowd = t.setup.crowd // first: entering the floor reads it
 	enter_level(t, start_from_setup(t))
-	if t.state.crowd != .None do place_crowd(t, floor_of(t).minion_cap)
+	if t.setup.crowd != .None do place_crowd(t, floor_of(t).minion_cap)
 }
 
 // Takes the party to level `to` (init, the wipe's floor restart; the next floor later): every hero lets go and its body
@@ -337,7 +336,7 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 	sim.despawn_all(&t.state.bolts)
 	physics.level_change(t, t.world.phys, to)
 	spawn_props(t)
-	if t.state.crowd == .None do spawn_packs(t) // a held crowd is the floor's whole population
+	if t.setup.crowd == .None do spawn_packs(t) // a held crowd is the floor's whole population
 	sim.timer_start_ticks(t, &t.state.surge, SURGE_FIRST_TICKS)
 	entering := sim.iterate_present(t)
 	for _, player in sim.next(&entering) {

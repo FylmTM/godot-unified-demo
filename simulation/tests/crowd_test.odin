@@ -41,11 +41,11 @@ CROWD_REFERENCE :: scenarios.Reference {
 	ticks         = 1200,
 	snapshot_tick = 600,
 	setup         = "floor=arena,crowd=fight",
-	checkpoints   = {0x20c6d4527261ba5d, 0xab6511bf0eda9b0a, 0x4bec9a0dbefa3758, 0x0f09bb53193a9ab4},
-	trace         = 0xa8988086c2a6c21d,
-	snapshot      = 0x91947eb6599737ff,
-	log           = 0x2d815705211cf661,
-	compat        = 0x1d5f00b4dc7bd383,
+	checkpoints   = {0x2e3c58270ef26ba2, 0x77c77f4bf4465a14, 0x199324d07702d6e7, 0xdb6e3ab0688f9d2d},
+	trace         = 0x3f996f8624ed5146,
+	snapshot      = 0x81429386b0cd8772,
+	log           = 0xa094cca2c21b079b,
+	compat        = 0xfedcb70926adc908,
 }
 
 // What a chaser closes on a neighbour or a spawn in the tick a run seats its heroes.
@@ -202,14 +202,12 @@ the_script_sends_no_command_under_a_crowd :: proc(t: ^testing.T) {
 	}
 	defer delete(out.list)
 	for crowd in g.Crowd {
-		state := g.State {
-			crowd = crowd,
-		}
+		state: g.State
 		sent := 0
 		for slot in 0 ..< g.PLAYERS {
 			for tick in u32(0) ..< 4 * g.SCRIPT_HURT_EVERY {
 				clear(&out.list)
-				g.scripted_commands(1, slot, tick, &state, {}, &out)
+				g.scripted_commands(1, slot, tick, &state, {crowd = crowd}, &out)
 				sent += len(out.list)
 			}
 		}

@@ -35,7 +35,7 @@ hero_up :: proc(t: ^Tick, player: sim.Player) -> bool {
 // `player`'s hero takes `damage` from something at `from`, unless it is down or in its grace, or a crowd is held (a
 // wipe would restart the floor and empty it: director.odin, Crowd); at 0 HP it goes down.
 damage_hero :: proc(t: ^Tick, player: sim.Player, damage: i16, from: [3]f32) {
-	if damage <= 0 || !hero_up(t, player) || t.state.crowd != .None do return
+	if damage <= 0 || !hero_up(t, player) || t.setup.crowd != .None do return
 	hero := sim.player_data(t, player)
 	if sim.timer_running(t, hero.grace) do return
 	hero.hp = dmath.max(hero.hp - damage, 0)

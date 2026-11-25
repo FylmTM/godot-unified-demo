@@ -26,7 +26,7 @@ Roll :: enum u8 {
 	Crowd_Place, // where a held crowd's minions start (a stream: place_crowd)
 }
 
-// A held crowd (Setup.crowd; State.crowd keeps it for the scripted player): what the population does while it is held.
+// A held crowd (Setup.crowd, which the rules and the scripted player read): what the population does while it is held.
 // Its heroes take no damage (a wipe would restart the floor and empty it), and the scripted player sends no dev command
 // and no pause, so the population stays what was asked.
 Crowd :: enum u8 {
@@ -189,7 +189,7 @@ raise_minion :: proc(t: ^Tick, graves: []int, phase: Minion_Phase) -> bool {
 @(private = "file")
 refill_held :: proc(t: ^Tick) {
 	floor := floor_of(t)
-	asleep := t.state.crowd == .Idle
+	asleep := t.setup.crowd == .Idle
 	graves: sim.List(int, MAX_GRAVES)
 	places: for &grave, i in sim.slice(&floor.places.graves) {
 		for spawn in floor.places.hero_spawns {
@@ -208,7 +208,7 @@ free_rows :: proc(minions: ^sim.Table(Minion, MAX_MINIONS)) -> int {
 	return MAX_MINIONS - int(minions.count)
 }
 
-// `count` minions held alive (State.held) as the session's crowd does (State.crowd): placed on the walkable floor,
+// `count` minions held alive (State.held) as the session's crowd does (Setup.crowd): placed on the walkable floor,
 // each at least SEPARATION from the rest and clear of the props (which would push it out onto a neighbour); asleep
 // (each alone, no pack) at least CROWD_IDLE_CLEAR from every hero_spawn, out of sight, or chasing at least CROWD_CLEAR
 // from them. Places are drawn uniformly over the floor's area (floor_point) from a stream keyed by the session's seed,
@@ -217,7 +217,7 @@ free_rows :: proc(minions: ^sim.Table(Minion, MAX_MINIONS)) -> int {
 place_crowd :: proc(t: ^Tick, count: int) {
 	t.state.held = u32(count)
 	floor := floor_of(t)
-	asleep := t.state.crowd == .Idle
+	asleep := t.setup.crowd == .Idle
 	clear := CROWD_IDLE_CLEAR if asleep else CROWD_CLEAR
 	rng := sim.rng_keyed(t.seed, Roll.Crowd_Place)
 	placed := 0
@@ -247,7 +247,7 @@ place_crowd :: proc(t: ^Tick, count: int) {
 // that count instead of the floor's cap (the crowd rows); without one, a held surge among the props (the floor's own
 // row): chasers from places within BENCH_SPREAD of slot 0's spawn, beside the floor's sleeping packs.
 bench_prepare :: proc(t: ^Tick, count: int) {
-	if t.state.crowd != .None {
+	if t.setup.crowd != .None {
 		sim.despawn_all(&t.state.minions)
 		place_crowd(t, count)
 		return

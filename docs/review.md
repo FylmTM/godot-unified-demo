@@ -435,7 +435,7 @@ Checks:
 - The walk drives pads with unified's `UnifiedTool.pad_button(button, device)` and `pad_axis` (745e023).
 - The short scenarios' run crosses a surge (`the_suite_runs_cross_a_save`), so unified's save checks cover Game.save
   under rollback, churn and a late join.
-- `replays/lan_pair` (the host's recording, ticks 2 to 2966, about 46 s; recorded again for milestone 4's State layout
+- `replays/lan_pair` (the host's recording, ticks 2 to 2858, about 45 s; recorded again for milestone 4's State layout
   and levels): a Knight host and a Barbarian joiner (both asked for Any), each grabbing, carrying and throwing a prop
   twice; eight skeletons raised (dev) and attacked by both; the joiner's co-op pause and the host's resume; the host a
   Mage and the joiner a Rogue (dev), both attacking; every skeleton killed (dev); the host downed (dev); three surges.
@@ -465,8 +465,8 @@ Decided with the developer (docs/plan.md, Milestone 4), one line each:
 
 Calls made in step 1:
 
-- A held crowd is a Setup field, `crowd` (None, Idle, Chase, Fight; `--setup floor=arena,crowd=fight`), copied into
-  the State so the scripted player reads it: idle heroes stand still, chasing ones walk, fighting ones walk holding
+- A held crowd is a Setup field, `crowd` (None, Idle, Chase, Fight; `--setup floor=arena,crowd=fight`), which the
+  rules and the scripted player read (since unified f438281 the script gets the Setup; State.crowd is gone): idle heroes stand still, chasing ones walk, fighting ones walk holding
   Attack (let go a tick each half second, so a throw's press lands) and press Interact in play's bursts (grabs,
   throws and prop hits at 500); under any crowd the script sends no dev command and no pause, heroes take no damage (a
   wipe would empty the floor), and the floor's packs aren't placed. A save never holds one. bench_prepare re-places

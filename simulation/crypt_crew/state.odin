@@ -23,8 +23,7 @@ State :: struct {
 	saved_kills: u32, // `kills` when the last surge rose: what the save holds (saves.odin)
 	paused_by:   sim.Player, // who paused the game for everyone (pause.odin; {}: nobody, or it runs)
 	saved_floor: Level_Id, // the floor the party was on when the last surge rose: what the save holds
-	crowd:       Crowd, // the Setup's held crowd (director.odin), kept for the scripted player, which reads the state
-	_pad:        [6]u8,
+	_pad:        [7]u8,
 }
 
 // What a hero is doing, for the view to pose (a one-shot clip at its age).
