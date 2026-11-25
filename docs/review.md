@@ -485,9 +485,9 @@ Step 4's review fixes, calls made on the way:
   over it (its error checked); a write that fails is printed and the session keeps its copy; a missing file is read
   from its `.tmp`. Saves takes its file's path (the app checks write their own).
 - Two read problems at boot are told one after the other: the save's when the settings' dialog closes.
-- Moves held under the pause menu reach nobody while it shows, but a held move counts again as soon as it closes:
-  unified swallows a held button (attack, grab) until it is let go, not a held direction (`action_vector`), though
-  `game_input`'s doc says any action. Reported to unified; the walk checks the button.
+- Moves held under the pause menu reach nobody while it shows; when it closes, a held button (attack, grab) waits for
+  its release and a held direction reads at once, as unified intends (its `game_input` doc since 7d982a9). The walk
+  checks both halves of that.
 - coop.gd works the pause menus for real: the host opens its menu and clicks Pause for everyone, its Leave asks "End
   the game for everyone?" on Stay; the joiner opens its own, reads "Paused by ...", clicks Resume for everyone; after
   the host leaves the joiner continues on its own through hero select, at the surge it saw, the save in its slot.

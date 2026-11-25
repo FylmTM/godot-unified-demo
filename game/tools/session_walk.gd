@@ -171,9 +171,11 @@ func _walk_online_pause() -> void:
 	expect((_pause_control("Resume") as Button).text == "Back to the game", "online and running: Back to the game")
 	await press_key(KEY_ESCAPE)
 	expect(_pause_menu() == null, "Esc closes the overlay")
-	await key(KEY_D, false)
+	from = hero.global_position
 	await seconds(0.3)
+	expect(hero.global_position.distance_to(from) > STILL, "a direction still held reads at once once it closes")
 	expect(_hero_action(hero) != EnumAction.ATTACK, "an attack still held from under the menu acts only once let go")
+	await key(KEY_D, false)
 	await key(KEY_SPACE, false)
 	await key(KEY_SPACE, true)
 	await wait_for(func() -> bool: return _hero_action(hero) == EnumAction.ATTACK, 2.0, "pressed again, it attacks")
