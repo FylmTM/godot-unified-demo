@@ -12,6 +12,9 @@ extends RefCounted
 ## Where each class's portrait is (game/tools/render_portraits.gd renders them from the hero scenes).
 const PORTRAITS: String = "res://game/ui/portraits/%s.png"
 
+## Each class's portrait once loaded (null: it has none), so a HUD redrawn every frame never asks the loader.
+static var _portraits: Dictionary[int, Texture2D] = {}
+
 
 ## The picks in the order a player steps through them: Any first, then the four classes.
 static func choices() -> Array[int]:
@@ -54,8 +57,15 @@ static func class_of(player: int) -> int:
 static func portrait(hero_class: int) -> Texture2D:
 	if hero_class == EnumClass.ANY:
 		return null
-	var path: String = PORTRAITS % EnumClass.name(hero_class).to_lower()
-	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+	if not _portraits.has(hero_class):
+		var path: String = portrait_path(hero_class)
+		_portraits[hero_class] = load(path) as Texture2D if ResourceLoader.exists(path) else null
+	return _portraits[hero_class]
+
+
+## Where a class's portrait is (PORTRAITS, by the class's name).
+static func portrait_path(hero_class: int) -> String:
+	return PORTRAITS % EnumClass.name(hero_class).to_lower()
 
 
 ## The Profile a player who picked `hero_class` brings into a session.

@@ -1,14 +1,14 @@
 extends UnifiedTool
 ## Renders each hero's portrait (`./uni tool render_portraits --window`: it needs a renderer) into
-## game/ui/portraits/<class>.png, from the hero scenes as the game poses them: head and shoulders, idling, lit as the
+## Heroes.portrait_path(), from the hero scenes as the game poses them: head and shoulders, idling, lit as the
 ## look-dev scene lights a hero, on a transparent background. Run it again when a hero's look changes; the app checks
 ## hold every class to having one.
 
 const SIZE: int = 256
 const HEROES: String = "res://game/characters/heroes/%s.tscn"
-const OUT: String = "res://game/ui/portraits/%s.png"
-## Where the camera stands and looks, from a hero standing at the origin facing +Z (metres).
-const EYE: Vector3 = Vector3(0.7, 2.0, 4.2)
+## Where the camera stands and looks, from a hero standing at the origin facing +Z (metres): nearly face on, the head
+## and shoulders filling the frame, the head a little above its middle.
+const EYE: Vector3 = Vector3(0.25, 1.9, 3.9)
 const TARGET: Vector3 = Vector3(0.0, 1.6, 0.0)
 const FOV: float = 32.0
 ## How far into its idle each hero is posed (seconds): a calm moment.
@@ -19,11 +19,11 @@ func _run() -> void:
 	if DisplayServer.get_name() == "headless":
 		fail("portraits need a renderer: run with --window")
 		return
-	for hero_name: String in ["knight", "barbarian", "mage", "rogue"]:
-		var image: Image = await _render(hero_name)
+	for hero_class: int in Heroes.classes():
+		var image: Image = await _render(EnumClass.name(hero_class).to_lower())
 		if failed():
 			return
-		var path: String = OUT % hero_name
+		var path: String = Heroes.portrait_path(hero_class)
 		expect(image.save_png(ProjectSettings.globalize_path(path)) == OK, "saved " + path)
 		step(path)
 
