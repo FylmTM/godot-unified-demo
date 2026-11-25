@@ -7,7 +7,8 @@ extends Node
 ## attacked or grabbed with: the menus and a mouse's nudge don't count) is theirs, so its Start pauses instead. A
 ## guest's Back asks to drop out (`drop_requested`; drop() lets it go). While a guest is in, or a pad is picking its
 ## hero, the first player is fixed to that device, so another pad moves only its own player; once the last guest has
-## left, or a join was refused or given up, the first player has every device again.
+## left, or a join was refused or given up, the first player has every device again. Once the players and the pads
+## picking reach UnifiedSession.LOCAL_MAX the couch is full: no hint, and a Start gets a toast instead of a card.
 ##
 ## The join is read in _input, which reaches the scene before the autoloads: what the first player last played with is
 ## decided from before the press, never from the Start being pressed (Prompts, an autoload, sees it after).
@@ -38,17 +39,21 @@ var _picking: Array[int] = []
 
 
 func _ready() -> void:
-	first_device = (UnifiedSession.DEVICE_KEYBOARD if Prompts.last_kind == Bindings.Kind.KEYBOARD
-		else Prompts.last_pad)
+	var party: Party = Game.take_party()
+	if party != null:
+		first_device = party.seats[0].device
+	else:
+		first_device = (UnifiedSession.DEVICE_KEYBOARD if Prompts.last_kind == Bindings.Kind.KEYBOARD
+			else Prompts.last_pad)
 	_session.local_player_refused.connect(func(_local: int, _reason: String) -> void: _place_first.call_deferred())
 	_session.local_players_changed.connect(_place_first)
 	Input.joy_connection_changed.connect(_announce_idle_pad.unbind(2))
-	var party: Party = Game.take_party()
 	if party != null and party.seats.size() > 1:
-		first_device = party.seats[0].device
 		_fix_first()
 		for seat: Party.Seat in party.seats.slice(1):
-			_session.add_local_player(seat.device, seat.player_name, Heroes.profile(seat.hero_class))
+			var local: int = _session.add_local_player(seat.device, seat.player_name, Heroes.profile(seat.hero_class))
+			if local > 0:
+				Game.party_seated(local)
 	_place_first()
 
 
@@ -57,10 +62,14 @@ func _input(event: InputEvent) -> void:
 		return  # an overlay holds the game's input: its keys aren't the game's
 	if event.is_action_pressed(&"join") and not claimed(event.device):
 		get_viewport().set_input_as_handled()
-		if event.device not in _picking:
-			_picking.append(event.device)
-			_fix_first()  # at once: while it picks, its pad must not move the first player
-			join_requested.emit(event.device)
+		if event.device in _picking:
+			return
+		if _room() <= 0:
+			Game.toast("The couch is full")
+			return
+		_picking.append(event.device)
+		_fix_first()  # at once: while it picks, its pad must not move the first player
+		join_requested.emit(event.device)
 		return
 	if event.is_action_pressed(&"drop_out"):
 		var guest: int = _guest_of(event.device)
@@ -87,19 +96,25 @@ func claimed(device: int) -> bool:
 	return _session.get_local_device(0) == UnifiedSession.DEVICE_ANY and first_device == device
 
 
-## The first connected pad nobody plays and that isn't picking its hero (-1: none).
+## The first connected pad nobody plays and that isn't picking its hero (-1: none, or the couch is full).
 func idle_pad() -> int:
+	if _room() <= 0:
+		return -1
 	for device: int in Input.get_connected_joypads():
 		if not claimed(device) and device not in _picking:
 			return device
 	return -1
 
 
-## Brings pad `device` in as a guest playing `hero_class` (its join card's pick), named "Guest" and its place.
+## The party place (local index) the next guest takes: the lowest free one.
+func next_place() -> int:
+	return Party.free_place(_session.get_local_indices())
+
+
+## Brings pad `device` in as a guest playing `hero_class` (its join card's pick), named by the place it takes.
 func join(device: int, hero_class: int) -> void:
 	_picking.erase(device)
-	var guest_name: String = "Guest %d" % (_session.get_local_indices().size() + 1)
-	if _session.add_local_player(device, guest_name, Heroes.profile(hero_class)) < 0:
+	if _session.add_local_player(device, Party.name_of(next_place()), Heroes.profile(hero_class)) < 0:
 		_place_first()
 
 
@@ -113,6 +128,11 @@ func give_up(device: int) -> void:
 func drop(local: int) -> void:
 	_session.remove_local_player(local)
 	_place_first()
+
+
+## How many more players the couch takes: LOCAL_MAX less the players and the pads picking their hero.
+func _room() -> int:
+	return UnifiedSession.LOCAL_MAX - _session.get_local_indices().size() - _picking.size()
 
 
 ## The guest playing on pad `device` (0: none).

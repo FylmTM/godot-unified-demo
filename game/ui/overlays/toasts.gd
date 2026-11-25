@@ -1,11 +1,12 @@
 class_name Toasts
 extends VBoxContainer
-## The column of toasts low in the middle of the screen (clear of the HUD's corners and its banner at the top), newest
-## at the bottom; it keeps at most MAX_SHOWN, dropping the oldest. It lives with the app's overlays, so a toast
-## outlives a change of scene within a game; Game clears it when the game is over.
+## The column of toasts at the top of the screen, in the middle: between the HUD's plates and its counts, above the
+## join cards and clear of the crypt's middle; newest at the bottom, at most MAX_SHOWN, the oldest dropped. A toast's
+## text is short (a name and a word or two). It lives with the app's overlays, so a toast outlives a change of scene
+## within a game; Game clears it when the game is over.
 
 ## The most toasts shown at once.
-const MAX_SHOWN: int = 4
+const MAX_SHOWN: int = 3
 
 ## A toast (game/ui/widgets/toast.tscn).
 @export var toast_scene: PackedScene

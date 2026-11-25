@@ -48,7 +48,7 @@ func _ready() -> void:
 	_couch.join_requested.connect(func(device: int) -> void: cards.open_join(device, _remembered_pick()))
 	_couch.drop_requested.connect(func(local: int) -> void:
 		var player: int = _session.get_local_player_key(local)
-		cards.open_drop(local, _session.get_local_device(local), _session.get_player_name(player),
+		cards.open_drop(local, player, _session.get_local_device(local), _session.get_player_name(player),
 			Heroes.class_of(player)))
 	cards.join_chosen.connect(_couch.join)
 	cards.join_given_up.connect(_couch.give_up)
@@ -101,13 +101,12 @@ func _cursor_aim(local: int) -> Vector2:
 	return aim if aim.length() >= AIM_DEAD_RADIUS else Vector2.ZERO
 
 
-## The pick hero select remembers for the seat a joining pad would take (Settings.hero_picks), else Any.
+## The pick remembered for the party place a joining pad would take (Settings.hero_picks, by local index).
 func _remembered_pick() -> int:
-	var seat: int = _session.get_local_indices().size()
 	var picks: Array = Settings.hero_picks
-	var pick: Variant = picks[seat] if seat < picks.size() else EnumClass.ANY
-	return pick if pick is int and pick in Heroes.choices() else EnumClass.ANY
-
+	var place: int = _couch.next_place()
+	var pick: int = picks[place] if place < picks.size() else EnumClass.ANY
+	return pick
 
 
 ## The floor is on screen: the camera frames its hero spawns until a local hero is there.

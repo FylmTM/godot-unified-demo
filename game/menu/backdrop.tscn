@@ -41,6 +41,9 @@ shadow_enabled = true
 transform = Transform3D(0.99539554, 0.011230156, -0.09519276, 0, 0.9931131, 0.11716032, 0.0958529, -0.11662086, 0.9885403, -3.6, 3.1, 12.5)
 fov = 34.0
 
+[node name="PickView" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.9872026, 0.1594712, 0, -0.1594712, 0.9872026, 0.35, 1.6, 13)
+
 [node name="Graveyard" type="Node3D" parent="."]
 
 [node name="FloorDirt" type="StaticBody3D" parent="Graveyard" instance=ExtResource("3_xq11a")]

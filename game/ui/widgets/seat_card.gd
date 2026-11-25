@@ -1,80 +1,95 @@
 class_name SeatCard
 extends PanelContainer
-## One seat's card: who sits there (their device and name) and the hero they pick, stepped through Any and the four
-## classes, its portrait and a line of what it does; then ready. Hero select shows four, one per seat; in play the HUD
-## shows one for a pad that asks to join (or for a guest that asks to drop out). The card only shows: whoever holds
-## it routes its device's presses (Godot's one focus can't serve four players at once), and the mouse's arrows and
-## Ready are for the keyboard's seat (`mouse_only`: they never take the pad's focus).
+## One seat's card: who sits there (their name, and their device on its own line) and the hero they pick, stepped
+## through Any and the four classes, its portrait and a line of what it does; then ready. Hero select shows four, one
+## per seat; in play the HUD shows one for a pad that asks to join (`on_hud`: it shows its own left, right and back,
+## as no prompt bar is there), or for a guest that asks to drop out.
+##
+## The card only shows: whoever holds it routes its device's presses (Godot's one focus can't serve four players at
+## once). Its glyphs are its device's, whatever was used last. Its size never changes with its state: the portrait's
+## "Ready!" is drawn over it, a free seat keeps its layout with nothing in it, and the arrows hide in place. For the
+## keyboard's seat the mouse works it too: the arrows step the pick, and the action line is a button (`act_requested`),
+## "[Enter] Ready" one control; both are `mouse_only`, never taking the focus.
 
-## The mouse asked to step the pick (by -1 or +1), or to ready the seat.
+## The mouse asked to step the pick (by -1 or +1), or pressed the action line (ready, or change).
 signal step_requested(by: int)
-signal ready_requested
+signal act_requested
 
 enum State { EMPTY, CHOOSING, READY, DROPPING }
 
 ## What the card shows now.
 var state: State = State.EMPTY
 ## The pick (EnumClass, Any included).
-var pick: int = 0
+var pick: int = EnumClass.ANY
+## The seat's device (UnifiedSession.DEVICE_KEYBOARD or a pad's id; DEVICE_ANY while free).
+var device: int = UnifiedSession.DEVICE_ANY
 ## What accept does while choosing: "Ready" on hero select, "Join" on a join card.
 var accept_text: String = "Ready"
+## A card on the HUD: it shows its own hints (left and right, and back).
+var on_hud: bool = false
 
 @onready var _who: Label = %Who
+@onready var _device: Label = %Device
+@onready var _body: Control = %Body
 @onready var _portrait: TextureRect = %Portrait
 @onready var _anyone: Label = %Anyone
+@onready var _ready_mark: Label = %ReadyMark
 @onready var _hero: Label = %Hero
 @onready var _line: Label = %Line
-@onready var _status: ActionPrompt = %Status
 @onready var _arrows: Array[Button] = [%Previous as Button, %Next as Button]
-@onready var _ready_button: Button = %Ready
-@onready var _body: Control = %Body
-@onready var _ready_mark: Label = %ReadyMark
+@onready var _act: Button = %Act
+@onready var _accept: ActionPrompt = %Accept
+@onready var _more: Control = %More
+@onready var _steps: ActionPrompt = %Steps
+@onready var _back: ActionPrompt = %Back
 
 
 func _ready() -> void:
 	_arrows[0].pressed.connect(step_requested.emit.bind(-1))
 	_arrows[1].pressed.connect(step_requested.emit.bind(1))
-	_ready_button.pressed.connect(ready_requested.emit)
-	show_empty([&"ui_accept"], -1)
+	_act.pressed.connect(act_requested.emit)
+	show_empty(-1)
 
 
-## An empty seat, inviting a device to sit with `actions` ("[Start] Join"; the glyphs of pad `device`, or of the device
-## used last for -1).
-func show_empty(actions: Array[StringName], device: int) -> void:
+## A free seat: "[Start] Join" in the glyphs of `pad`, a connected pad nobody seated (-1: none, so it asks for one).
+func show_empty(pad: int) -> void:
 	state = State.EMPTY
+	device = UnifiedSession.DEVICE_ANY
 	theme_type_variation = &"CardEmpty"
-	_body.hide()
-	_ready_mark.hide()
-	for control: Button in _arrows + [_ready_button]:
-		control.hide()
 	_who.text = "A free seat"
-	_status.actions = actions
-	_status.pad_device = device
-	_status.text = "Join"
-	_status.refresh()
+	_device.text = "" if pad >= 0 else "Connect a pad to join"
+	_body.modulate = Color.TRANSPARENT
+	_accept.visible = pad >= 0
+	_accept.actions = [&"join"]
+	_accept.device = pad
+	_accept.text = "Join"
+	_show_state()
 
 
-## A seat taken by `device` (UnifiedSession.DEVICE_KEYBOARD or a pad's id), named `player_name`, picking `hero_class`;
-## the mouse's controls show only for the keyboard.
-func show_seat(device: int, player_name: String, hero_class: int) -> void:
+## A seat taken by `device` (UnifiedSession.DEVICE_KEYBOARD or a pad's id), named `player_name`, picking `hero_class`.
+func show_seat(seat_device: int, player_name: String, hero_class: int) -> void:
 	state = State.CHOOSING
-	var with: String = "Keyboard" if device == UnifiedSession.DEVICE_KEYBOARD else "Pad %d" % (device + 1)
-	_who.text = "%s · %s" % [player_name, with]
-	for control: Button in _arrows + [_ready_button]:
-		control.visible = device == UnifiedSession.DEVICE_KEYBOARD
-	_status.pad_device = device if device >= 0 else -1
+	device = seat_device
+	_who.text = player_name
+	_device.text = "Keyboard" if device == UnifiedSession.DEVICE_KEYBOARD else "Pad %d" % (device + 1)
+	_body.modulate = Color.WHITE
+	_accept.visible = true
 	show_pick(hero_class)
+
+
+## Names the seat's player `player_name` (its place in the party changed).
+func show_name(player_name: String) -> void:
+	_who.text = player_name
 
 
 ## Shows pick `hero_class` (EnumClass).
 func show_pick(hero_class: int) -> void:
 	pick = hero_class
-	_body.show()
 	var portrait: Texture2D = Heroes.portrait(hero_class)
 	_portrait.texture = portrait
 	_anyone.visible = portrait == null
 	_hero.text = Heroes.name_of(hero_class)
-	_line.text = Heroes.line_of(hero_class)
+	_line.text = "Drop out?" if state == State.DROPPING else Heroes.line_of(hero_class)
 	_show_state()
 
 
@@ -90,28 +105,37 @@ func set_ready(is_ready: bool) -> void:
 	_show_state()
 
 
-## A guest asking to drop out: the card asks it to confirm.
-func show_dropping(player_name: String, hero_class: int) -> void:
-	show_pick(hero_class)
+## Guest `player_name` on `seat_device` asks to drop out, playing `hero_class`: the card asks it to confirm.
+func show_dropping(seat_device: int, player_name: String, hero_class: int) -> void:
+	show_seat(seat_device, player_name, hero_class)
 	state = State.DROPPING
-	_who.text = player_name
-	for control: Button in _arrows + [_ready_button]:
-		control.hide()
-	_show_state()
+	show_pick(hero_class)
 
 
 func _show_state() -> void:
-	theme_type_variation = &"CardReady" if state == State.READY else &"Card"
+	theme_type_variation = (&"CardEmpty" if state == State.EMPTY else &"CardReady" if state == State.READY
+		else &"Card")
 	_ready_mark.visible = state == State.READY
+	for arrow: Button in _arrows:
+		arrow.visible = state == State.CHOOSING and device == UnifiedSession.DEVICE_KEYBOARD
+	var clickable: bool = device == UnifiedSession.DEVICE_KEYBOARD and state in [State.CHOOSING, State.READY]
+	_act.flat = not clickable
+	_act.mouse_filter = Control.MOUSE_FILTER_STOP if clickable else Control.MOUSE_FILTER_IGNORE
 	match state:
 		State.CHOOSING:
-			_status.actions = [&"ui_accept"]
-			_status.text = accept_text
+			_accept.actions = [&"ui_accept"]
+			_accept.text = accept_text
 		State.READY:
-			_status.actions = [&"ui_cancel"]
-			_status.text = "Change"
+			_accept.actions = [&"ui_cancel"]
+			_accept.text = "Change"
 		State.DROPPING:
-			_status.actions = [&"ui_accept"]
-			_status.text = "Drop out"
-	_ready_button.text = accept_text if state == State.CHOOSING else "Change"
-	_status.refresh()
+			_accept.actions = [&"ui_accept"]
+			_accept.text = "Drop out"
+	if state != State.EMPTY:
+		_accept.device = device
+	_more.visible = on_hud
+	_steps.visible = state == State.CHOOSING
+	_back.text = "Stay" if state == State.DROPPING else "Back"
+	for prompt: ActionPrompt in [_accept, _steps, _back]:
+		prompt.device = _accept.device
+		prompt.refresh()

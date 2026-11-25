@@ -26,8 +26,11 @@ func _open_hero_select() -> void:
 	var hero_select := _stack.push(hero_select_scene) as HeroSelect
 	hero_select.picks_changed.connect(_backdrop.feature)
 	hero_select.start_requested.connect(Game.start_single)
-	hero_select.tree_exiting.connect(_backdrop.feature.bind([] as Array[int]))
+	hero_select.tree_exiting.connect(func() -> void:
+		_backdrop.feature([] as Array[int])
+		_backdrop.pick_view(false))
 	_backdrop.feature(hero_select.picks())
+	_backdrop.pick_view(true)
 
 
 ## Shows `screen`'s hints on the prompt bar, and follows them while it is on top.

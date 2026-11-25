@@ -17,9 +17,9 @@ extends HBoxContainer
 @export var ink: bool = false
 ## The words' look when not the usual (HudSmall: a hero plate's hints).
 @export var text_variation: StringName = &""
-## A pad's glyph, in that pad's family, whoever plays (-1: follow `local`): the join hint, which speaks to a pad
-## nobody plays.
-@export var pad_device: int = -1
+## One device's glyphs whoever plays: a pad's id (in that pad's family), or UnifiedSession.DEVICE_KEYBOARD (-2) for
+## the keyboard's; -1 follows `local`. The join hint speaks to a pad nobody plays; a seat card to its seat's device.
+@export var device: int = -1
 
 ## What the prompt shows now: its family and glyphs (or words), to redraw only on a change.
 var _shown: String = ""
@@ -38,12 +38,15 @@ func _ready() -> void:
 
 
 ## Draws the glyphs again if they differ from those shown (they follow the device, the style and the bindings by
-## themselves; a caller changing `local` or `pad_device` calls this).
+## themselves; a caller changing `local` or `device` calls this).
 func refresh() -> void:
 	if not is_visible_in_tree():
 		return
-	var family: Prompts.Family = (Prompts.pad_family(pad_device) if pad_device >= 0
-		else Prompts.family_of_local(local))
+	var family: Prompts.Family = Prompts.family_of_local(local)
+	if device == UnifiedSession.DEVICE_KEYBOARD:
+		family = Prompts.Family.KEYBOARD
+	elif device >= 0:
+		family = Prompts.pad_family(device)
 	var glyphs: String = Prompts.glyphs(actions, family)
 	var words: String = Prompts.text_of(actions, family) if glyphs == "" else ""
 	var shown: String = "%d %s %s %s" % [family, glyphs, words, text]

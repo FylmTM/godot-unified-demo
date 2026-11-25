@@ -64,6 +64,8 @@ var flow: Flow = Flow.MENU
 var _party: Party = null
 ## Each present player's class (EnumClass) as the HUD's data last said, by key: a leaver's, for its toast.
 var _classes: Dictionary[int, int] = {}
+## The local indices the Couch seated from the party: their arrival is the game's start, no news (party_seated()).
+var _party_locals: Array[int] = []
 
 ## Shown on the menu once it is back (null: the session ended as the player asked).
 var _ending: Ending = null
@@ -116,6 +118,7 @@ func _ready() -> void:
 	session.view_root = null  # no views until the play scene hands over its root (else they would go under Game)
 	session.status_changed.connect(_on_status_changed)
 	session.sim_event.connect(_on_sim_event)
+	session.local_player_refused.connect(_on_local_player_refused)
 	session.local_name = Settings.player_name
 	Unified.data.hud.changed.connect(_remember_classes)
 	add_child(session)  # last: the command line's session flags start it here, and the flow must already follow
@@ -138,13 +141,16 @@ func _notification(what: int) -> void:
 		quit_app()
 
 
-## Starts a new single-player game with `party` (hero select's seats; couch co-op is single player too): the first
-## seat's pick is the session's Profile, and the play scene's Couch brings the other seats in (take_party). Without a
-## party, the first player plays Any. Ignored while a game is starting or playing, or the app quits; a start that
-## fails says why through the session's status.
+## Starts a new single-player game with `party` (hero select's seats; couch co-op is single player too): each Any among
+## its seats becomes a class nobody picked (Party.resolve_any), the first seat's pick is the session's Profile, and
+## the play scene's Couch brings the other seats in (take_party). Without a party, the first player plays Any (the
+## sim resolves it on arrival). Ignored while a game is starting or playing, or the app quits; a start that fails says
+## why through the session's status.
 func start_single(party: Party = null) -> void:
 	if flow != Flow.MENU:
 		return
+	if party != null:
+		party.resolve_any()
 	_party = party
 	Unified.profile.class = party.seats[0].hero_class if party != null else EnumClass.ANY
 	session.start_single()
@@ -155,6 +161,11 @@ func take_party() -> Party:
 	var party: Party = _party
 	_party = null
 	return party
+
+
+## The Couch seated local player `local` from the party: its arrival is the game's start, so no toast says it.
+func party_seated(local: int) -> void:
+	_party_locals.append(local)
 
 
 ## Ends the session (the player leaves it, or cancels a start); the menu follows once it has said goodbye. A start
@@ -285,6 +296,9 @@ func _go_to_menu() -> void:
 	flow = Flow.MENU
 	_link_status.close()
 	_toasts.clear()
+	_party = null
+	_classes.clear()
+	_party_locals.clear()
 	if get_tree().current_scene == null or get_tree().current_scene.scene_file_path != MENU_SCENE:
 		get_tree().change_scene_to_file(MENU_SCENE)
 		await get_tree().scene_changed
@@ -346,18 +360,21 @@ func _collect_play_scene() -> PackedScene:
 	return ResourceLoader.load_threaded_get(PLAY_SCENE) as PackedScene
 
 
-## Joins and leaves as toasts naming the player and the hero, once they are certain (CONFIRMED). The first local
-## player's own arrival is no news.
+## Joins and leaves as toasts naming the player and the hero ("Guest 2 joined (Mage)"), once they are certain
+## (CONFIRMED). The first local player's own arrival is no news, nor the party's seats' at the start.
 func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
 	if state != UnifiedSession.EVENT_CONFIRMED:
 		return
 	if event is EventPlayerJoined:
 		var joined := event as EventPlayerJoined
-		if session.get_local_index(joined.player) != 0:
+		var local: int = session.get_local_index(joined.player)
+		_remember_classes()
+		if local in _party_locals:
+			_party_locals.erase(local)
+		elif local != 0:
 			Sfx.play(&"joined")
-			_remember_classes()
-			toast("%s %s %s" % [session.get_player_name(joined.player), "is back as" if joined.returning
-				else "joined as", _hero_of(joined.player)])
+			toast("%s %s (%s)" % [session.get_player_name(joined.player), "is back" if joined.returning else "joined",
+				_hero_of(joined.player)])
 	elif event is EventPlayerLeft:
 		var left := event as EventPlayerLeft
 		if session.get_local_index(left.player) != 0:
@@ -366,9 +383,15 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 			_classes.erase(left.player)
 
 
-## Player `player`'s hero as a toast says it ("the Mage"), from what the HUD's data last said.
+## A local player the session refused (the game is full, or closed): a toast says why; its place is free again.
+func _on_local_player_refused(local: int, reason: String) -> void:
+	_party_locals.erase(local)
+	toast("A guest couldn't join: %s" % reason)
+
+
+## Player `player`'s hero as a toast says it ("Mage"), from what the HUD's data last said.
 func _hero_of(player: int) -> String:
-	return "the " + Heroes.name_of(_classes[player]) if _classes.has(player) else "a hero"
+	return Heroes.name_of(_classes[player]) if _classes.has(player) else "a hero"
 
 
 ## Wires `node` when it is one of the game's buttons: its press sounds, and the mouse over it gives it the focus.

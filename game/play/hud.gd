@@ -1,8 +1,9 @@
 class_name Hud
 extends Control
-## The HUD, quiet in the corners so the crypt keeps the middle: a plate for each local hero (its class and health, or
-## that it is down), the skeletons up and the kills, the co-op pause's banner, and "[Start] Join the game" while a
-## connected pad plays nobody. Each plate carries its player's control hints, in the glyphs of that player's device.
+## The HUD, quiet in the corners so the crypt keeps the middle: a plate for each local hero (its player's name, its
+## class and health, or that it is down), the skeletons up and the kills, the co-op pause's banner, the join and drop
+## cards, and "[Start] Join the game" while a connected pad plays nobody and the couch has room. Each plate carries
+## its player's control hints, in the glyphs of that player's device, when Settings.hints says.
 ## Nothing on it takes a click or the focus: Space and a pad's A stay the game's.
 ##
 ## What it shows of the moment (the heroes, the skeletons up, the pause) is session data (Unified.data.hud), the newest
@@ -51,7 +52,7 @@ func join_cards() -> JoinCards:
 func show_join_hint(device: int) -> void:
 	_join_hint.visible = device >= 0
 	if device >= 0:
-		_join_prompt.pad_device = device
+		_join_prompt.device = device
 		_join_prompt.refresh()
 
 
