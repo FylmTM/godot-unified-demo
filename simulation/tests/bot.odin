@@ -28,7 +28,7 @@ BOT_SPAWN_COUNT :: 6
 bot_world: ^g.World
 
 // The input of the bot in `slot` (zero when nobody holds it or its hero is down), a sim.Game.scripted_input.
-bot_input :: proc(seed: u64, slot: int, tick: u32, state: ^g.State) -> (input: g.Input) {
+bot_input :: proc(seed: u64, slot: int, tick: u32, state: ^g.State, _: g.Setup) -> (input: g.Input) {
 	hero := sim.slot_data(&state.players, slot)
 	if hero == nil || hero.action == .Down || hero.body == {} do return
 	target, distance, found := nearest_minion(state, hero.pos.xz)
@@ -56,7 +56,7 @@ bot_input :: proc(seed: u64, slot: int, tick: u32, state: ^g.State) -> (input: g
 }
 
 // The bot's commands (a sim.Game.scripted_commands): slot 0 raises skeletons around its hero every BOT_SPAWN_EVERY.
-bot_commands :: proc(seed: u64, slot: int, tick: u32, state: ^g.State, out: ^sim.Command_Out(g.Command)) {
+bot_commands :: proc(seed: u64, slot: int, tick: u32, state: ^g.State, _: g.Setup, out: ^sim.Command_Out(g.Command)) {
 	if slot == 0 && tick % BOT_SPAWN_EVERY == BOT_SPAWN_EVERY / 2 {
 		sim.send_command(out, g.Command_Dev_Spawn_Minions{BOT_SPAWN_COUNT})
 	}

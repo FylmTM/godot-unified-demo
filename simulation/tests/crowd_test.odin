@@ -209,7 +209,7 @@ the_script_sends_no_command_under_a_crowd :: proc(t: ^testing.T) {
 		for slot in 0 ..< g.PLAYERS {
 			for tick in u32(0) ..< 4 * g.SCRIPT_HURT_EVERY {
 				clear(&out.list)
-				g.scripted_commands(1, slot, tick, &state, &out)
+				g.scripted_commands(1, slot, tick, &state, {}, &out)
 				sent += len(out.list)
 			}
 		}
