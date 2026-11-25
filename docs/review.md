@@ -140,7 +140,7 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
 - Views: flashes and the grace blink run on the shown game time; a chaser that isn't moving stands. "Skeletons" is the
   prediction (the felled count is milestone 3's, from the State). `View_Hero.carrying` and `View_Prop.held_by` are
   gone.
-- The minion grid is laid over the mesh's extent in world_create (at most 1024 cells of 3 m: 96 m by 96 m).
+- The minion grid is laid over each floor's mesh in world_create (since milestone 4: cells of 1 m, at most 16,384).
 - Attacks, step 4: Knight 18 damage, 1.8 m, 50° either side, 0.25 s windup, 0.5 s cooldown; Barbarian 30, 2.3 m, 80°,
   0.44 s windup, 1 s cooldown, knock 9; Mage bolt 14 m/s for 1.5 s (21 m), 20 damage plus an 8-damage burst within
   1.5 m (walls shield it), 0.625 s cooldown; Rogue crossbow 25 m, 30 damage, 0.75 s cooldown, look-back capped at
@@ -435,10 +435,12 @@ Checks:
 - The walk drives pads with unified's `UnifiedTool.pad_button(button, device)` and `pad_axis` (745e023).
 - The short scenarios' run crosses a surge (`the_suite_runs_cross_a_save`), so unified's save checks cover Game.save
   under rollback, churn and a late join.
-- `replays/lan_pair` (the host's recording, ticks 2 to 2858, about 45 s; recorded again for milestone 4's State layout
-  and levels): a Knight host and a Barbarian joiner (both asked for Any), each grabbing, carrying and throwing a prop
-  twice; eight skeletons raised (dev) and attacked by both; the joiner's co-op pause and the host's resume; the host a
-  Mage and the joiner a Rogue (dev), both attacking; every skeleton killed (dev); the host downed (dev); three surges.
+- `replays/lan_pair` (the host's recording, ticks 2 to 4754, about 74 s; recorded again in milestone 4 so its blows
+  land): a Knight host and a Barbarian joiner (both asked for Any), each grabbing, carrying and throwing a prop twice;
+  the host grabbing a prop, sixteen skeletons raised round it (dev) and the prop thrown through their ring (a prop
+  hit); both attacking as they close in (blows land); the joiner's co-op pause and the host's resume; the host a Mage
+  and the joiner a Rogue (dev), both attacking; every skeleton killed (dev); the host downed (dev); five surges.
+  `the_lan_recording_fights` replays it and finds the heroes' own hits and a prop's.
 - `uni coop --host-profile/--join-profile` (unified b06ba4f) gives each side its Profile; coop.gd checks each class
   against its flag (a joiner asking Any plays a class the host doesn't), names its joiner "Friend", works both pause
   menus, and the joiner continues on its own after the host leaves. With `--menus` each side goes through the menus
@@ -466,9 +468,9 @@ Decided with the developer (docs/plan.md, Milestone 4), one line each:
 Calls made in step 1:
 
 - A held crowd is a Setup field, `crowd` (None, Idle, Chase, Fight; `--setup floor=arena,crowd=fight`), which the
-  rules and the scripted player read (since unified f438281 the script gets the Setup; State.crowd is gone): idle heroes stand still, chasing ones walk, fighting ones walk holding
-  Attack (let go a tick each half second, so a throw's press lands) and press Interact in play's bursts (grabs,
-  throws and prop hits at 500); under any crowd the script sends no dev command and no pause, heroes take no damage (a
+  rules and the scripted player read: idle heroes stand still, chasing ones walk, fighting ones walk holding Attack
+  (let go a tick each half second, so a throw's press lands) and press Interact in play's bursts (grabs, throws and
+  prop hits at 500); under any crowd the script sends no dev command and no pause, heroes take no damage (a
   wipe would empty the floor), and the floor's packs aren't placed. A save never holds one. bench_prepare re-places
   the crowd at the row's count; init places it at the floor's cap, so the scenarios play it without a bench.
 - A held crowd is allowed in any build, a public one too: a sandbox (invulnerable heroes in a crowd Setup are harmless
@@ -517,9 +519,12 @@ Calls made in step 2 (the sim at 500):
   10 s, no hero to wake them): a crowd chasing heroes who stand still still packs onto them (closest pairs about
   1 cm apart, step 3's queueing), so no test can hold that crowd apart yet.
 - A far chaser's steering is sliced: beyond STEER_NEAR (3 m, straight line) of its target it steers every
-  STEER_TICKS (4) by its index and walks its facing (state) between; within 3 m every tick. It pays about 6 % of the
-  crowd rows' re-sim means; a test walks Floor 1's cap round its corners and finds no step off the floor or through a
-  wall or low cover.
+  STEER_TICKS (4) by its index and walks its facing (state) between; within 3 m every tick, and also in its chase's
+  first STEER_TICKS (`since`, which a chaser now resets when it takes a new target: a woken sleeper, a risen minion,
+  one out of a swing or retargeted off its turn) and while its target is off the floor (no field: it stands, where its
+  stale facing walked it 0.55 m). It saves about 6 % of the crowd rows' re-sim means. Tests hold a far chaser's
+  arrival through the doorway to its path at MINION_SPEED plus a quarter second, a near chaser's turn the tick its
+  hero sidesteps, and each stale-heading case; a_crowd_stays_on_the_floor holds only nav.move's guarantee.
 - Separation reads its neighbours where the moves began (World.starts, scratch copied before the pass), not
   half-moved (earlier rows had already moved): no minion's push depends on the table's order, and it measured about
   4 % cheaper on the crowd rows' re-sim means (a compact array instead of 60-byte rows).
@@ -527,7 +532,19 @@ Calls made in step 2 (the sim at 500):
   scratch) and a minion in an unmarked cell skips the loop. It computes exactly what it did (the pins didn't move); a
   flip (each obstacle walking its nearby minions after the moves) would push in another order and need the grid
   rebuilt after the moves.
-- Floor 1's row after step 2, A/B against step 1's build on a quiet machine (3 runs each, alternating, 3000 ticks):
-  step means equal (19.6 to 19.9 us), re-sim means 315 against 310 us (+1.6 %), p99s within each other's spread.
-  The few microseconds are the 1 m grid's cells: Floor 1's grid has about 1,300 to clear and file twice a tick, where
-  the 3 m grid had about 150; left as it is.
+- The strikes build their grid lazily: the first strike query of a tick builds it (`strike_grid`; the zone clears
+  World.strike_grid), so a tick whose strikes ask nothing builds none. Step 2's 1 m grid had cost Floor 1's row
+  +1.6 % of its re-sim mean (about 1,300 cells to clear and file twice a tick, where the 3 m grid had 150); now, A/B
+  against step 1's build on a quiet machine (load 5 then 3 %, 3 runs each, alternating, 3000 ticks): step means 18.4
+  to 19.0 us against 19.9 to 20.3, re-sim means 291 to 303 us against 306 to 323 (about 5 % faster).
+- Every strike's query is one walk, `minions_within(t, centre, reach)`: the grid's box over the reach padded by
+  GRID_BOX_PAD (1 cm), the dying skipped, each minion's distance measured exactly, so no call site can disagree with
+  its own measure. A test puts a victim a centimetre inside each reach (each melee blow, a burst, a grazing bolt, a
+  sliding heavy crate), four ways round; it fails on each of the reviewers' mutants. Another puts a minion a centimetre
+  inside a crate's reach on each side and sees it pushed out in one tick, and another swaps two sleepers' rows and
+  sees the same separation.
+- crowd_chase sits at the 3 ms line, not under it: 2.73, 3.03, 3.14 and 2.71 ms p99 over this step's quiet runs (means
+  about 106 + 1,500 us); crowd_fight 1.75 to 2.57 ms. Step 3's queueing is what thins the chase's crush.
+- The playthrough's claim is a thrown prop's hit, no longer its kill: a prop hit (25) leaves a fresh skeleton (30)
+  standing, so a kill needs an earlier wound, chance in a bot's three minutes (attacks_test.odin holds the throw's
+  rules).

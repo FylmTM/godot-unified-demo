@@ -1,7 +1,7 @@
 // The scripted player, for the headless modes, the tests and Godot's `--scripted` sessions: pure functions of (seed,
-// slot, tick), so any tick can be asked for in any order and every client of a session, every offline run and a Godot
-// scripted session play the same players. It exercises every control the rules read. Under a held crowd (the session's
-// Setup) it plays the crowd's part instead (director.odin, Crowd).
+// slot, tick) and the session's Setup (it reads no state), so any tick can be asked for in any order and every client
+// of a session, every offline run and a Godot scripted session play the same players. It exercises every control the
+// rules read. Under a held crowd (Setup.crowd) it plays the crowd's part instead (director.odin, Crowd).
 package crypt_crew
 
 import "unified:dmath"
@@ -32,7 +32,7 @@ SCRIPT_PAUSE_TICKS :: 40 // how long one lasts
 // directions at a reach, or none (other draws), holds Attack in bursts and presses Interact now and then.
 // Under a held crowd: standing still (Idle), walking and aiming only (Chase), or holding Attack, let go one tick in
 // each SCRIPT_PERIOD so the next is a press (a throw), with Interact's presses (grabs) as in play (Fight).
-scripted_input :: proc(seed: u64, slot: int, tick: u32, state: ^State, setup: Setup) -> Input {
+scripted_input :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup) -> Input {
 	if setup.crowd == .Idle do return {}
 	bits := sim.script_bits(seed, slot, tick, SCRIPT_PERIOD)
 	input: Input
@@ -61,14 +61,7 @@ scripted_input :: proc(seed: u64, slot: int, tick: u32, state: ^State, setup: Se
 // mass deaths whatever the attacks reach), one slot downs its own hero every SCRIPT_HURT_EVERY (every slot every third time: a wipe and the floor's
 // restart), and slot 0 pauses the game for SCRIPT_PAUSE_TICKS of every SCRIPT_PAUSE_EVERY, so the standard scenarios
 // roll back over all of it. Under a held crowd, nothing: the population stays what was asked.
-scripted_commands :: proc(
-	seed: u64,
-	slot: int,
-	tick: u32,
-	state: ^State,
-	setup: Setup,
-	out: ^sim.Command_Out(Command),
-) {
+scripted_commands :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup, out: ^sim.Command_Out(Command)) {
 	if setup.crowd != .None do return
 	if (tick + u32(slot) * SCRIPT_SLOT_OFFSET) % SCRIPT_CLASS_EVERY == SCRIPT_CLASS_AT {
 		sim.send_command(out, Command_Dev_Set_Class{Class((tick / SCRIPT_CLASS_EVERY + u32(slot)) % len(Class))})

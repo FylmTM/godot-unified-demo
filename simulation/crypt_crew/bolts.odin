@@ -50,19 +50,10 @@ fly_bolts :: proc(t: ^Tick) {
 		if struck do reach = hit.fraction
 		victim: sim.Handle(Minion)
 		middle := bolt.pos.xz + step.xz / 2 // the segment's minions: within half its length and the sweep of its middle
-		walk := minions_near(&t.world.grid, middle, dmath.length(step.xz) / 2 + MINION_RADIUS + BOLT_RADIUS)
-		for row in sim.grid_box_next(&walk) {
-			for index in row {
-				minion, minion_handle, _ := sim.item_at(&t.state.minions, int(index))
-				if minion.phase == .Dying do continue
-				fraction, meets := segment_meets_circle(
-					bolt.pos.xz,
-					step.xz,
-					minion.pos.xz,
-					MINION_RADIUS + BOLT_RADIUS,
-				)
-				if meets && fraction < reach do victim, reach = minion_handle, fraction
-			}
+		walk := minions_within(t, middle, dmath.length(step.xz) / 2 + MINION_RADIUS + BOLT_RADIUS)
+		for minion, minion_handle in next_within(&walk) {
+			fraction, meets := segment_meets_circle(bolt.pos.xz, step.xz, minion.pos.xz, MINION_RADIUS + BOLT_RADIUS)
+			if meets && fraction < reach do victim, reach = minion_handle, fraction
 		}
 		if victim == {} && !struck {
 			bolt.pos += step
@@ -91,18 +82,13 @@ fly_bolts :: proc(t: ^Tick) {
 burst :: proc(t: ^Tick, at: [3]f32, flight: [2]f32, caster: sim.Player, victim: sim.Handle(Minion)) {
 	spec := &CLASS_SPECS[.Mage]
 	if victim != {} do damage_minion(t, victim, spec.damage, flight, spec.knock, caster, .Bolt)
-	walk := minions_near(&t.world.grid, at.xz, BURST_RADIUS)
-	for row in sim.grid_box_next(&walk) {
-		for index in row {
-			minion, handle, _ := sim.item_at(&t.state.minions, int(index))
-			if handle == victim || minion.phase == .Dying do continue
-			offset := minion.pos.xz - at.xz
-			if dmath.length_sq(offset) > BURST_RADIUS * BURST_RADIUS do continue
-			target := minion.pos + {0, CHEST_HEIGHT, 0}
-			if _, walled := physics.world_cast_ray_closest(t.world.phys, at, target - at, SIGHT_FILTER); walled do continue
-			away := dmath.normalize(offset)
-			damage_minion(t, handle, BURST_DAMAGE, away, BURST_KNOCK, caster, .Bolt)
-		}
+	walk := minions_within(t, at.xz, BURST_RADIUS)
+	for minion, handle in next_within(&walk) {
+		if handle == victim do continue
+		target := minion.pos + {0, CHEST_HEIGHT, 0}
+		if _, walled := physics.world_cast_ray_closest(t.world.phys, at, target - at, SIGHT_FILTER); walled do continue
+		away := dmath.normalize(minion.pos.xz - at.xz)
+		damage_minion(t, handle, BURST_DAMAGE, away, BURST_KNOCK, caster, .Bolt)
 	}
 	sim.emit(t, Event_Bolt_Burst{position = sim.Position(at)})
 }

@@ -96,6 +96,8 @@ World :: struct {
 	starts:         [MAX_MINIONS][2]f32, // scratch: each minion's place on the floor plan when the moves began, by row
 	// scratch: the grid's cells an obstacle's reach touches this tick (set and cleared by move_minions)
 	in_way:         [MINION_GRID_CELLS]bool,
+	// scratch: the grid holds the minions where the physics step left them (strike_grid; cleared as the strikes begin)
+	strike_grid:    bool,
 }
 
 // Builds the world from the levels (unified/src/level/README.md): their static geometry, and each level's floor

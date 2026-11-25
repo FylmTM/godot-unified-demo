@@ -41,11 +41,11 @@ CROWD_REFERENCE :: scenarios.Reference {
 	ticks         = 1200,
 	snapshot_tick = 600,
 	setup         = "floor=arena,crowd=fight",
-	checkpoints   = {0x2e3c58270ef26ba2, 0x77c77f4bf4465a14, 0x199324d07702d6e7, 0xdb6e3ab0688f9d2d},
-	trace         = 0x3f996f8624ed5146,
-	snapshot      = 0x81429386b0cd8772,
-	log           = 0xa094cca2c21b079b,
-	compat        = 0xfedcb70926adc908,
+	checkpoints   = {0x9df2cdecf8f33199, 0x3b37732a48d24257, 0x45db5579d6b5574d, 0xd647f8fcb38a08d5},
+	trace         = 0x5361055f5b728b30,
+	snapshot      = 0xcd3b534e1e5ffe14,
+	log           = 0x2da9b1fa80a63d96,
+	compat        = 0x167ee8ca52ce98bb,
 }
 
 // What a chaser closes on a neighbour or a spawn in the tick a run seats its heroes.
@@ -340,9 +340,9 @@ expect_spread :: proc(t: ^testing.T, state: ^g.State, floor: ^g.Floor, clear, sl
 	}
 }
 
-// The grid's box walk (minions_near) finds exactly the live minions a walk of the whole table finds within a reach, at
-// every reach a query asks (a separation's, a burst's, a cleave's, a thrown heavy crate's), around every minion of a
-// dense crowd and around points between them.
+// The strikes' walk (walk_within, what minions_within walks) finds exactly the live minions a walk of the whole table
+// finds within a reach, at every reach a strike asks (each melee class's blow, a burst, a bolt's tick of flight, a
+// thrown prop of each kind), around every minion of a dense crowd and around points between them.
 @(test)
 the_grid_finds_what_the_table_finds :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Chase}, seated = g.PLAYERS)
@@ -352,7 +352,11 @@ the_grid_finds_what_the_table_finds :: proc(t: ^testing.T) {
 	grid := new(g.Minion_Grid)
 	defer free(grid)
 	g.fill_grid(grid, floor_of(&run), &state.minions)
-	reaches := []f32{g.SEPARATION, g.BURST_RADIUS, g.CLASS_SPECS[.Barbarian].reach + g.MINION_RADIUS, 3.2}
+	reaches: [dynamic]f32
+	defer delete(reaches)
+	for spec in g.CLASS_SPECS do if spec.reach > 0 do append(&reaches, spec.reach + g.MINION_RADIUS)
+	append(&reaches, g.BURST_RADIUS, g.BOLT_SPEED / g.TICK_HZ / 2 + g.MINION_RADIUS + g.BOLT_RADIUS)
+	for spec in g.PROP_SPECS do append(&reaches, spec.footprint + g.MINION_RADIUS)
 	checked := 0
 	centres := sim.iterate(&state.minions)
 	for centre_minion in sim.next(&centres) {
@@ -360,12 +364,8 @@ the_grid_finds_what_the_table_finds :: proc(t: ^testing.T) {
 			centre := centre_minion.pos.xz + shift
 			for reach in reaches {
 				found: [g.MAX_MINIONS]bool
-				walk := g.minions_near(grid, centre, reach)
-				for row in sim.grid_box_next(&walk) {
-					for index in row {
-						if dmath.length_sq(state.minions.items[index].pos.xz - centre) <= reach * reach do found[index] = true
-					}
-				}
+				walk := g.walk_within(grid, &state.minions, centre, reach)
+				for _, handle in g.next_within(&walk) do found[handle.index] = true
 				minions := sim.iterate(&state.minions)
 				for minion, handle in sim.next(&minions) {
 					want := minion.phase != .Dying && dmath.length_sq(minion.pos.xz - centre) <= reach * reach
@@ -389,16 +389,16 @@ the_grid_finds_what_the_table_finds :: proc(t: ^testing.T) {
 	testing.expect(t, checked > 1000, "it checked a crowd")
 }
 
-// Separation at density: sixty sleepers dropped within 2 m of one point (five to the square metre, more than any crowd
-// packs) push apart until none is closer than SEPARATION less a hand's breadth within ten seconds, every one still on
-// the floor. (Chasers packed round a hero overlap until step 3's queueing: their chase outruns the push.)
+// Separation at density: sixty sleepers dropped within 2 m of the arena's first hero spawn (five to the square metre)
+// push apart until none is closer than SEPARATION less a hand's breadth within ten seconds, every one still on the
+// floor. (Chasers packed round a hero overlap closer still until step 3's queueing: their chase outruns the push.)
 @(test)
 separation_spreads_a_crush :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Idle}) // no hero: nobody wakes them
 	defer headless.run_end(&run)
 	clear_minions(&run)
 	run.simulation.state.held = 0 // these sixty only
-	centre := [3]f32{0, 0, -11} // open floor between the braziers
+	centre := floor_of(&run).places.hero_spawns[0] // the open middle, and no hero there: the run seats none
 	for i in 0 ..< 60 {
 		ring := dmath.sqrt(f32(i) / 60) * 2
 		dir := dmath.angle_vec(f32(i) * 0.381966) // the golden angle, in turns: an even spiral
@@ -419,11 +419,11 @@ separation_spreads_a_crush :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// A crowd of Floor 1's cap chasing heroes round its corners and doorways for 6 s: every tick every minion stands on
-// the walkable floor (nav.locate finds it on its polygon) and no minion's step crosses a wall or low cover, steered
-// every tick near its target or every few ticks farther off.
+// A crowd of Floor 1's cap chasing heroes round its corners and doorways for 6 s stays on the floor: every tick every
+// minion has floor under it (nav.locate finds a polygon there) on the walkable island, and no minion's step crosses a
+// wall or low cover. nav.move's guarantee, whatever steers them (a_far_chaser_takes_the_short_way holds the slicing).
 @(test)
-a_crowd_never_crosses_a_wall :: proc(t: ^testing.T) {
+a_crowd_stays_on_the_floor :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Floor_1, crowd = .Chase}, seated = g.PLAYERS)
 	defer headless.run_end(&run)
 	floor := floor_of(&run)

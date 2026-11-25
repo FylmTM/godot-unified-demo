@@ -76,27 +76,23 @@ prop_hits :: proc(t: ^Tick) {
 		velocity := physics.body_linear_velocity(t.world.phys, prop.body)
 		centre := physics.body_position(t.world.phys, prop.body)
 		reach := PROP_SPECS[prop.kind].footprint + MINION_RADIUS
-		walk := minions_near(&t.world.grid, centre.xz, reach)
-		rows: for row in sim.grid_box_next(&walk) {
-			for index in row {
-				if dmath.length_sq(velocity) < PROP_HIT_SPEED * PROP_HIT_SPEED do break rows // slowed by its hits
-				minion, handle, _ := sim.item_at(&t.state.minions, int(index))
-				bottom := centre.y - PROP_SPECS[prop.kind].half.y
-				if minion.phase == .Dying || bottom - minion.pos.y > MINION_HEIGHT do continue
-				if dmath.length_sq(minion.pos.xz - centre.xz) > reach * reach do continue
-				if prop_hit(prop, handle) || !sim.append(&prop.hits, handle) do continue
-				damage_minion(
-					t,
-					handle,
-					PROP_HIT_DAMAGE,
-					dmath.normalize(velocity.xz),
-					PROP_HIT_KNOCK,
-					prop.thrown_by,
-					.Prop,
-				)
-				velocity *= PROP_HIT_KEEP
-				physics.body_set_linear_velocity(t.world.phys, prop.body, velocity)
-			}
+		walk := minions_within(t, centre.xz, reach)
+		for minion, handle in next_within(&walk) {
+			if dmath.length_sq(velocity) < PROP_HIT_SPEED * PROP_HIT_SPEED do break // slowed by its hits
+			bottom := centre.y - PROP_SPECS[prop.kind].half.y
+			if bottom - minion.pos.y > MINION_HEIGHT do continue
+			if prop_hit(prop, handle) || !sim.append(&prop.hits, handle) do continue
+			damage_minion(
+				t,
+				handle,
+				PROP_HIT_DAMAGE,
+				dmath.normalize(velocity.xz),
+				PROP_HIT_KNOCK,
+				prop.thrown_by,
+				.Prop,
+			)
+			velocity *= PROP_HIT_KEEP
+			physics.body_set_linear_velocity(t.world.phys, prop.body, velocity)
 		}
 	}
 }

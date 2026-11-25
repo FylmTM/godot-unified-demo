@@ -517,3 +517,86 @@ a_slow_or_spent_throw_hurts_nobody :: proc(t: ^testing.T) {
 		scenarios.expect_synced(t, &run)
 	}
 }
+
+// The four ways a hero faces in the edge tests (and across each, a quarter turn on).
+@(private = "file")
+EDGE_WAYS := [4][2]f32{{1, 0}, {0, 1}, {-1, 0}, {0, -1}}
+
+// Every wide query finds a victim a centimetre inside its reach, in another cell of the grid than the query's centre,
+// whichever way it lies (each melee class's blow facing it; a bolt's burst beside its victim; a bolt grazing it; a
+// thrown heavy crate passing it): the grid's box must cover the whole reach, each call site measuring what it asks.
+// Each victim is rising (it stands still and wakes nobody).
+@(test)
+strikes_reach_their_edge :: proc(t: ^testing.T) {
+	inside :: 0.01 // how far inside each reach the victim stands
+	for way in EDGE_WAYS {
+		across := [2]f32{-way.y, way.x}
+		for class in ([]g.Class{.Knight, .Barbarian}) {
+			run := hero_of(class)
+			defer headless.run_end(&run)
+			spawn := spawn_of(&run, 0)
+			place_hero(&run, 0, spawn, way)
+			reach := g.CLASS_SPECS[class].reach + g.MINION_RADIUS - inside
+			victim := place_minion(&run, spawn + {way.x, 0, way.y} * reach, .Rise)
+			attack_for(&run, g.CLASS_SPECS[class].windup + 1)
+			testing.expectf(t, edge_hit(&run, victim), "%v facing %v: the blow missed its edge", class, way)
+		}
+		{ 	// a bolt bursting on a minion 3 m ahead: a second one, the burst's reach from where it burst, across the flight
+			run := hero_of(.Mage)
+			defer headless.run_end(&run)
+			spawn := spawn_of(&run, 0)
+			place_hero(&run, 0, spawn, way)
+			front := spawn + {way.x, 0, way.y} * 3
+			place_minion(&run, front, .Rise)
+			burst_at := front - {way.x, 0, way.y} * (g.MINION_RADIUS + g.BOLT_RADIUS) // the orb's centre as it meets it
+			beside := place_minion(&run, burst_at + {across.x, 0, across.y} * (g.BURST_RADIUS - inside), .Rise)
+			attack_for(&run, g.CLASS_SPECS[.Mage].windup + 1)
+			play(&run, {}, 0.5)
+			testing.expectf(t, edge_hit(&run, beside), "a burst facing %v missed its edge", way)
+		}
+		{ 	// a bolt grazing a minion 3 m ahead, its centre the sweep's width less a centimetre off the flight
+			run := hero_of(.Mage)
+			defer headless.run_end(&run)
+			spawn := spawn_of(&run, 0)
+			place_hero(&run, 0, spawn, way)
+			side := g.MINION_RADIUS + g.BOLT_RADIUS - inside
+			grazed := place_minion(&run, spawn + {way.x, 0, way.y} * 3 + {across.x, 0, across.y} * side, .Rise)
+			attack_for(&run, g.CLASS_SPECS[.Mage].windup + 1)
+			play(&run, {}, 0.5)
+			testing.expectf(t, edge_hit(&run, grazed), "a bolt facing %v missed a graze", way)
+		}
+		{ 	// a heavy crate sent sliding past a minion, its footprint and the minion's radius less a centimetre across
+			run := hero_of(.Knight)
+			defer headless.run_end(&run)
+			spawn := spawn_of(&run, 0)
+			place_hero(&run, 0, spawn - {way.x, 0, way.y} * 2, way) // behind the throw, out of its way
+			side := g.PROP_SPECS[.Heavy_Crate].footprint + g.MINION_RADIUS - inside
+			passed := place_minion(&run, spawn + {way.x, 0, way.y} * 2 + {across.x, 0, across.y} * side, .Rise)
+			fling_prop(&run, HEAVY_CRATE, spawn, way * 10)
+			play(&run, {}, 0.5)
+			testing.expectf(t, edge_hit(&run, passed), "a heavy crate sliding along %v missed its edge", way)
+		}
+	}
+}
+
+// Whether `minion` was hurt (alive or not: a burst's victim may die of the bolt).
+@(private = "file")
+edge_hit :: proc(run: ^headless.Run(g.Game), minion: sim.Handle(g.Minion)) -> bool {
+	struck := sim.get(&run.simulation.state.minions, minion)
+	return struck != nil && struck.hp < g.MINION_HP
+}
+
+// The prop of marker `index`, at rest at `at`, sent along the floor at `velocity` as slot 0's throw, the run pinned.
+@(private = "file")
+fling_prop :: proc(run: ^headless.Run(g.Game), index: int, at: [3]f32, velocity: [2]f32) {
+	place_prop(run, index, at)
+	prop, _ := prop_at(run, index)
+	now := run.simulation.state.clock.time
+	prop.thrown_by = sim.player_in_slot(run.simulation, 0)
+	prop.thrown = {
+		start  = now,
+		target = now + sim.Game_Time(g.THROWN_TICKS),
+	}
+	physics.body_set_linear_velocity(run.simulation.world.phys, prop.body, {velocity.x, 0, velocity.y})
+	headless.run_pin(run)
+}

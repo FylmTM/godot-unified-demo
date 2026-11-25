@@ -8,6 +8,7 @@ import "unified:godot"
 import "unified:headless"
 import "unified:headless/scenarios"
 import "unified:lint"
+import "unified:sim"
 
 import g "../crypt_crew"
 import ext "../extension"
@@ -86,4 +87,31 @@ the_suite_runs_cross_a_save :: proc(t: ^testing.T) {
 @(test)
 the_extension_installs :: proc(t: ^testing.T) {
 	for problem in godot.install_problems(&g.GAME, ext.GLUE) do testing.expect(t, false, problem)
+}
+
+// The LAN recording fights for real: replayed, its heroes' own blows, bolts or shots land on skeletons, and a thrown
+// prop hits one (not only the dev commands' kills), so the regression holds the strikes' results.
+@(test)
+the_lan_recording_fights :: proc(t: ^testing.T) {
+	input_log, decoded := sim.log_decode(#load("replays/lan_pair/inputs.unil"), g.Game)
+	defer sim.log_destroy(&input_log)
+	if !testing.expect(t, decoded, "inputs.unil decodes") do return
+	simulation, err := sim.from_snapshot(&g.GAME, #load("replays/lan_pair/snapshot.unis"), any_build = true)
+	if !testing.expectf(t, err == .None, "snapshot.unis loads: %v", err) do return
+	defer sim.destroy(simulation)
+	struck: [g.Hit_Source]int
+	for k in 0 ..< len(input_log.ticks) {
+		inputs := sim.log_inputs(&input_log, k)
+		sim.step(simulation, &inputs)
+		for &raw in sim.events_at(simulation, simulation.tick) {
+			if hit, is := sim.event_value(&raw, g.Event).(g.Event_Minion_Hit); is do struck[hit.source] += 1
+		}
+	}
+	testing.expectf(
+		t,
+		struck[.Blow] + struck[.Bolt] + struck[.Crossbow] > 0,
+		"no hero's own attack landed: %v",
+		struck,
+	)
+	testing.expectf(t, struck[.Prop] > 0, "no thrown prop hit: %v", struck)
 }

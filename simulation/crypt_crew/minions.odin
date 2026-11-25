@@ -1,10 +1,11 @@
 // The skeleton minions: rows of the State with no physics body, walking the floor's navigation mesh (unified:nav), so a
 // crowd costs no Box3D bodies. Each tick: every minion picks its target (sliced: the nearest hero up by path, ties by
 // slot), steers along that hero's distance field (memoized in the World; sliced too while it is far off), keeps apart
-// from its neighbours over a grid (scratch, rebuilt from the block), is pushed out of heroes and props one way (they never feel it), carries a
-// knockback of its own that decays, and moves with nav.move, which never leaves the mesh. In reach it winds up a
-// telegraphed swing, which lands only if the hero is still in reach, in front and in sight. damage_minion is the only
-// way a minion takes damage and dies; a dead minion falls (Dying) and its row is freed after DEATH_S.
+// from its neighbours over a grid (scratch, rebuilt from the block), is pushed out of heroes and props one way (they
+// never feel it), carries a knockback of its own that decays, and moves with nav.move, which never leaves the mesh.
+// In reach it winds up a telegraphed swing, which lands only if the hero is still in reach, in front and in sight.
+// damage_minion is the only way a minion takes damage and dies; a dead minion falls (Dying) and its row is freed after
+// DEATH_S.
 package crypt_crew
 
 import "unified:dmath"
@@ -29,7 +30,7 @@ Minion :: struct {
 	facing: [2]f32, // unit (x, z)
 	poly:   nav.Poly, // the mesh polygon it stands on
 	target: sim.Player, // the hero it chases ({}: none)
-	since:  sim.Game_Time, // when `phase` began
+	since:  sim.Game_Time, // when `phase` began (a chaser's: when it took its target)
 	struck: sim.Game_Time, // when it was last hit (0: never; the view's flash)
 	hp:     i16,
 	phase:  Minion_Phase,
@@ -40,9 +41,21 @@ Minion :: struct {
 // before the strikes).
 Minion_Grid :: sim.Grid(MINION_GRID_CELLS, MAX_MINIONS)
 
-// A walk over the grid's cells around a point (minions_near): `for ids in sim.grid_box_next(&walk)`, a row of cells
-// at a time.
-Minion_Box :: sim.Grid_Box(MINION_GRID_CELLS, MAX_MINIONS)
+// The live minions within a reach of a point, after the physics step (minions_within): `for minion, handle in
+// next_within(&walk)`, in the grid's order: a row of cells at a time from the smallest z, each row by cell and then
+// index, a fixed order whatever the reach.
+Minions_Within :: struct {
+	box:      sim.Grid_Box(MINION_GRID_CELLS, MAX_MINIONS),
+	row:      []i32, // the row of cells being walked, and where in it
+	at:       int,
+	centre:   [2]f32,
+	reach_sq: f32,
+	minions:  ^sim.Table(Minion, MAX_MINIONS),
+}
+
+// What a box of cells reaches past a query's reach: a minion exactly at the reach, filed in the next cell by a last
+// bit of rounding, is still walked (the exact distance test decides).
+GRID_BOX_PAD :: f32(0.01)
 
 // A circle minions are pushed out of (a hero, a prop in the way), on the floor plan.
 Obstacle :: struct {
@@ -195,12 +208,14 @@ target_heroes :: proc(t: ^Tick) {
 			cost := nav.field(fields, spot.poly).cost[minion.poly]
 			if cost < best_cost do best, best_cost = player, cost
 		}
+		if best != minion.target && minion.phase == .Chase do minion.since = t.time // a new chase: steered at once
 		minion.target = best
 	}
 }
 
 // Every minion moves (move_minion), against the grid and the obstacles of this tick's start.
 move_minions :: proc(t: ^Tick) {
+	t.world.strike_grid = false // the grid is about to hold the moves' picture
 	build_grid(t)
 	starts := sim.iterate(&t.state.minions)
 	for minion, handle in sim.next(&starts) do t.world.starts[handle.index] = minion.pos.xz
@@ -218,19 +233,12 @@ move_minions :: proc(t: ^Tick) {
 mark_in_way :: proc(t: ^Tick, obstacles: []Obstacle, value: bool) {
 	grid := &t.world.grid
 	for obstacle in obstacles {
-		reach := obstacle.radius + MINION_RADIUS
-		low, high := grid_cell_of(grid, obstacle.pos - reach), grid_cell_of(grid, obstacle.pos + reach)
-		for row in low.y ..= high.y {
-			for column in low.x ..= high.x do t.world.in_way[row * grid.columns + column] = value
+		reach := obstacle.radius + MINION_RADIUS + GRID_BOX_PAD
+		first_column, first_row := sim.grid_cell(grid, obstacle.pos - reach)
+		last_column, last_row := sim.grid_cell(grid, obstacle.pos + reach)
+		for row in first_row ..= last_row {
+			for column in first_column ..= last_column do t.world.in_way[row * grid.columns + column] = value
 		}
-	}
-}
-
-// The grid cell holding `pos` (column, row), as the grid files it: a position past an edge counts in the edge's cell.
-grid_cell_of :: proc(grid: ^Minion_Grid, pos: [2]f32) -> [2]i32 {
-	return {
-		dmath.to_i32_clamped((pos.x - grid.origin.x) / grid.cell_size, 0, grid.columns - 1),
-		dmath.to_i32_clamped((pos.y - grid.origin.y) / grid.cell_size, 0, grid.rows - 1),
 	}
 }
 
@@ -261,9 +269,17 @@ age_minions :: proc(t: ^Tick) {
 }
 
 // The live minions into the World's grid, in table order, so a cell's minions come in index order: scratch, rebuilt
-// by each pass that asks it (the moves; the strikes after the step).
+// by each pass that asks it (the moves; the strikes after the step, strike_grid).
 build_grid :: proc(t: ^Tick) {
 	fill_grid(&t.world.grid, floor_of(t), &t.state.minions)
+}
+
+// The grid of the minions where the physics step left them, built by the tick's first strike query (a tick whose
+// strikes ask nothing builds none) and kept for the rest of the strikes: World.strike_grid, cleared as they begin.
+strike_grid :: proc(t: ^Tick) -> ^Minion_Grid {
+	if !t.world.strike_grid do build_grid(t)
+	t.world.strike_grid = true
+	return &t.world.grid
 }
 
 // `minions` (the live ones) into `grid`, laid over `floor`'s mesh (its grid_origin, columns and rows).
@@ -276,10 +292,41 @@ fill_grid :: proc(grid: ^Minion_Grid, floor: ^Floor, minions: ^sim.Table(Minion,
 	sim.grid_end(grid)
 }
 
-// The grid's cells that hold every minion within `reach` of `centre` (and some farther: the caller measures each), a
-// row at a time from the smallest z, each row's minions by cell and then index: a fixed order, whatever the reach.
-minions_near :: proc(grid: ^Minion_Grid, centre: [2]f32, reach: f32) -> Minion_Box {
-	return sim.grid_box(grid, centre - reach, centre + reach)
+// Every live minion within `reach` of `centre` on the floor plan where the physics step left them (every strike's
+// query: a blow, a burst, a bolt's segment, a thrown prop): the strike grid's cells over the reach (padded by
+// GRID_BOX_PAD), each minion measured exactly. Walk it with next_within.
+minions_within :: proc(t: ^Tick, centre: [2]f32, reach: f32) -> Minions_Within {
+	return walk_within(strike_grid(t), &t.state.minions, centre, reach)
+}
+
+// The walk minions_within makes, over `grid` filled with `minions` (fill_grid): a test's own grid, say.
+walk_within :: proc(
+	grid: ^Minion_Grid,
+	minions: ^sim.Table(Minion, MAX_MINIONS),
+	centre: [2]f32,
+	reach: f32,
+) -> Minions_Within {
+	return {
+		box      = sim.grid_box(grid, centre - (reach + GRID_BOX_PAD), centre + (reach + GRID_BOX_PAD)),
+		centre   = centre,
+		reach_sq = reach * reach,
+		minions  = minions,
+	}
+}
+
+// The walk's next live minion within its reach; ok is false past the last.
+next_within :: proc(walk: ^Minions_Within) -> (minion: ^Minion, handle: sim.Handle(Minion), ok: bool) {
+	for {
+		for walk.at < len(walk.row) {
+			index := walk.row[walk.at]
+			walk.at += 1
+			minion, handle, _ = sim.item_at(walk.minions, int(index))
+			within := dmath.length_sq(minion.pos.xz - walk.centre) <= walk.reach_sq
+			if minion.phase != .Dying && within do return minion, handle, true
+		}
+		walk.row = sim.grid_box_next(&walk.box) or_return
+		walk.at = 0
+	}
 }
 
 // What minions are pushed out of this tick: every present hero's capsule, and every prop held or at rest.
@@ -312,13 +359,16 @@ move_minion :: proc(
 	velocity := minion.knock
 	minion.knock *= decay
 	if minion.phase == .Chase && minion.target != {} {
-		// Steered every tick within STEER_NEAR of its target (the last turns are quick), and farther off every
-		// STEER_TICKS (sliced by its index), walking its facing between: the heading a tick-old steer gave, kept in the
-		// state, so a rollback resumes it.
+		// Steered every tick within STEER_NEAR of its target (the last turns are quick), in its chase's first
+		// STEER_TICKS (it woke, rose, ended a swing or took a new target: its facing says nothing of the way yet), and
+		// while the target is off the floor (no field: it stands); otherwise every STEER_TICKS (sliced by its index),
+		// walking its facing between: the heading a steer up to three ticks old gave, kept in the state, so a rollback
+		// resumes it.
 		spot := t.world.hero_spots[sim.player_slot(t, minion.target)]
 		heading := minion.facing
 		near := dmath.length_sq(spot.point.xz - minion.pos.xz) < STEER_NEAR * STEER_NEAR
-		if near || sim.due(t, handle.index, STEER_TICKS) {
+		fresh := u32(t.time - minion.since) < STEER_TICKS
+		if near || fresh || spot.poly == nav.NO_POLY || sim.due(t, handle.index, STEER_TICKS) {
 			field := nav.field(&floor.fields, spot.poly)
 			next := nav.steer(&floor.mesh, field, minion.poly, minion.pos, spot.point)
 			heading = dmath.normalize((next - minion.pos).xz)
@@ -331,8 +381,7 @@ move_minion :: proc(
 		to := minion.pos + {velocity.x, 0, velocity.y} * t.dt
 		minion.poly, minion.pos = nav.move(&floor.mesh, minion.poly, minion.pos, to)
 	}
-	cell := grid_cell_of(&t.world.grid, minion.pos.xz)
-	if minion.phase != .Dying && t.world.in_way[cell.y * t.world.grid.columns + cell.x] {
+	if minion.phase != .Dying && t.world.in_way[sim.grid_cell_index(&t.world.grid, minion.pos.xz)] {
 		out := minion.pos.xz
 		for obstacle in obstacles {
 			away := out - obstacle.pos

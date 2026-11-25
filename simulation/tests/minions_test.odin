@@ -218,3 +218,170 @@ a_hit_wakes_a_sleeper :: proc(t: ^testing.T) {
 	testing.expect_value(t, sleeper.hp, 1)
 	scenarios.expect_synced(t, &run)
 }
+
+// A minion a centimetre inside a crate's reach (its footprint and a minion's radius), on each of its four sides, is
+// pushed out of it in one tick, wherever the grid's cells fall (World.in_way marks every cell the reach touches).
+@(test)
+minions_are_pushed_out_at_a_props_edge :: proc(t: ^testing.T) {
+	for way in ([][2]f32{{1, 0}, {0, 1}, {-1, 0}, {0, -1}}) {
+		run := headless.run_begin(&g.GAME, 1, seated = 1)
+		defer headless.run_end(&run)
+		clear_minions(&run)
+		crate, _ := prop_at(&run, CRATE)
+		at := physics.body_position(run.simulation.world.phys, crate.body)
+		reach := g.PROP_SPECS[crate.kind].footprint + g.MINION_RADIUS
+		inside := place_minion(&run, {at.x, 0, at.z} + {way.x, 0, way.y} * (reach - 0.01), .Rise) // rising: it stands
+		headless.run_step(&run)
+		minion := sim.get(&run.simulation.state.minions, inside)
+		out := dmath.length(minion.pos.xz - at.xz)
+		testing.expectf(t, out >= reach - 0.001, "on the %v side still in the crate: %v m from its centre", way, out)
+		scenarios.expect_synced(t, &run)
+	}
+}
+
+// Separation reads where the neighbours stood when the moves began, so the table's order changes nothing: two
+// sleepers half a metre apart push each other to the same places whichever row each has.
+@(test)
+separation_ignores_the_tables_order :: proc(t: ^testing.T) {
+	places := [2][3]f32{PAST_THE_DOORWAY, PAST_THE_DOORWAY + {0.5, 0, 0}}
+	ended: [2][2][3]f32 // by order, by place
+	for order in 0 ..< 2 {
+		run := headless.run_begin(&g.GAME, 1, seated = 1)
+		defer headless.run_end(&run)
+		clear_minions(&run)
+		handles: [2]sim.Handle(g.Minion)
+		for k in 0 ..< 2 {
+			place := (k + order) % 2 // the first row holds the first place, then the second
+			handles[place] = place_minion(&run, places[place], .Idle) // out of the hero's sight: they sleep
+		}
+		play(&run, {}, 0.25)
+		for place in 0 ..< 2 do ended[order][place] = sim.get(&run.simulation.state.minions, handles[place]).pos
+		scenarios.expect_synced(t, &run)
+	}
+	testing.expect_value(t, ended[1], ended[0])
+	testing.expectf(t, dmath.length(ended[0][1].xz - ended[0][0].xz) > 0.5, "they didn't part: %v", ended[0])
+}
+
+// A chaser more than STEER_NEAR from its hero, which steers every STEER_TICKS, takes the short way through the doorway:
+// it arrives within its path's length (the field's cost, an upper bound of the shortest path) at MINION_SPEED and a
+// quarter of a second, and every half second of its chase it walked most of what MINION_SPEED walks (no stall, no
+// stale heading into a wall).
+@(test)
+a_far_chaser_takes_the_short_way :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 1)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	minion := sim.get(&run.simulation.state.minions, place_minion(&run, PAST_THE_DOORWAY, .Chase))
+	floor := floor_of(&run)
+	goal, _ := g.floor_spot(floor, sim.slot_data(run.simulation, 0).pos, g.HERO_NAV_REACH)
+	field := nav.field(&floor.fields, goal.poly)
+	path := field.cost[minion.poly]
+	bound := int((path / g.MINION_SPEED + 0.25) * g.TICK_HZ)
+	last := minion.pos
+	ticks := 0
+	for minion.phase != .Attack && ticks < 2 * bound {
+		headless.run_step(&run)
+		ticks += 1
+		if ticks % (g.TICK_HZ / 2) == 0 && minion.phase == .Chase {
+			walked := dmath.length(minion.pos.xz - last.xz)
+			testing.expectf(
+				t,
+				walked > 0.75 * g.MINION_SPEED / 2,
+				"it walked %v m in half a second, to %v",
+				walked,
+				minion.pos,
+			)
+			last = minion.pos
+		}
+	}
+	testing.expectf(t, ticks <= bound, "arrived in %d ticks, its %v m of path in %d", ticks, path, bound)
+	scenarios.expect_synced(t, &run)
+}
+
+// A chaser near its hero (within STEER_NEAR) turns the very tick its hero sidesteps.
+@(test)
+a_near_chaser_turns_with_its_hero :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 1)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	spawn := spawn_of(&run, 0)
+	minion := sim.get(&run.simulation.state.minions, place_minion(&run, spawn + {2.6, 0, 0}, .Chase, {-1, 0}))
+	play(&run, {}, 0.25) // it chases: no longer a fresh chase
+	place_hero(&run, 0, spawn + {0, 0, 1.4}) // a sidestep, still within STEER_NEAR
+	headless.run_step(&run)
+	toward := dmath.normalize(sim.slot_data(run.simulation, 0).pos.xz - minion.pos.xz)
+	testing.expectf(t, dmath.dot(minion.facing, toward) > 0.99, "faces %v, the hero is %v", minion.facing, toward)
+	scenarios.expect_synced(t, &run)
+}
+
+// Chasers placed facing away from their hero, farther than STEER_NEAR, steer at once in their chase's first ticks
+// whatever their turn (a woken sleeper's facing says nothing of the way), and so do chasers whose target went down
+// and who took another the same tick, off their turn.
+@(test)
+a_fresh_chase_steers_at_once :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 2)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	spawn := spawn_of(&run, 0)
+	place_hero(&run, 1, spawn + {0, 0, 2.5})
+	ways := [4][2]f32{{1, 0}, {0, -1}, {-1, 0}, {1, -1}}
+	chasers: [4]sim.Handle(g.Minion) // indexes 0 to 3: whatever the tick, three are off their STEER_TICKS turn
+	for way, k in ways {
+		away := dmath.normalize(way)
+		chasers[k] = place_minion(&run, spawn + {away.x, 0, away.y} * 3.5, .Chase, away)
+	}
+	headless.run_step(&run)
+	for chaser in chasers do expect_facing_hero(t, &run, chaser)
+	play(&run, {}, 0.25)
+	hurt(&run, 0, g.HERO_HP) // slot 0 goes down: every chaser of it takes slot 1 that tick
+	for chaser in chasers {
+		if minion := sim.get(&run.simulation.state.minions, chaser);
+		   minion.target == sim.player_in_slot(run.simulation, 1) {
+			expect_facing_hero(t, &run, chaser)
+		}
+	}
+	scenarios.expect_synced(t, &run)
+}
+
+// A far chaser whose hero climbed off the floor (no field to steer by until it retargets) stands, never walking the
+// facing its last steer left it.
+@(test)
+a_chaser_of_a_hero_off_the_floor_stands :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 1)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	spawn := spawn_of(&run, 0)
+	minion := sim.get(&run.simulation.state.minions, place_minion(&run, spawn + {5, 0, 0}, .Chase, {-1, 0}))
+	play(&run, {}, 0.25)
+	testing.expect(t, minion.target != {}, "it chases")
+	place_hero(&run, 0, {spawn.x, 4, -8}) // on the top of the room's north wall
+	from := minion.pos
+	for _ in 0 ..< g.STEER_TICKS do headless.run_step(&run)
+	testing.expectf(
+		t,
+		dmath.length(minion.pos.xz - from.xz) < 0.001,
+		"it walked %v m",
+		dmath.length(minion.pos.xz - from.xz),
+	)
+	scenarios.expect_synced(t, &run)
+}
+
+// The chaser faces (within a few degrees) the hero it chases, straight across open floor.
+@(private = "file")
+expect_facing_hero :: proc(
+	t: ^testing.T,
+	run: ^headless.Run(g.Game),
+	chaser: sim.Handle(g.Minion),
+	loc := #caller_location,
+) {
+	minion := sim.get(&run.simulation.state.minions, chaser)
+	toward := dmath.normalize(sim.player_data(&run.simulation.state.players, minion.target).pos.xz - minion.pos.xz)
+	testing.expectf(
+		t,
+		dmath.dot(minion.facing, toward) > 0.99,
+		"faces %v, its hero is %v",
+		minion.facing,
+		toward,
+		loc = loc,
+	)
+}

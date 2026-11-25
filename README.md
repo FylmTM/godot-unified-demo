@@ -159,8 +159,9 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    and never into more rows than the table has free. A Setup may hold a crowd instead (`floor=arena,crowd=fight`): the
    floor's cap placed on the first tick, asleep, chasing or fighting, the felled rising again at the graves, its heroes
    taking no damage; the benchmark rows and the scale tests play it.
-6. **Minions.** Each picks the nearest hero up by path (every RETARGET_S), steers along that hero's field, keeps
-   SEPARATION from its neighbours and carries its knockback (KNOCK_DECAY).
+6. **Minions.** Each picks the nearest hero up by path (every RETARGET_S), steers along that hero's field (every
+   tick within STEER_NEAR of it or in its chase's first ticks, else every STEER_S, walking its facing between), keeps
+   SEPARATION from its neighbours (where they stood when the moves began) and carries its knockback (KNOCK_DECAY).
 7. **Physics.** Box3D steps; the heroes' feet and velocities are read back into the state.
 8. **Strikes.** A blow lands at its windup on the minions in its reach and arc, or touching the hero (`CLASS_SPECS`,
    STRIKE_TOUCH), and shoves the props there. Bolts fly at BOLT_SPEED for BOLT_LIFE_S and burst at the first thing
@@ -200,8 +201,9 @@ dev command; a bot playthrough of the four classes; a replay regression recorded
 the pinned reference runs (the scripted party on Floor 1, and a crowd of MINION_CAP fighting on the arena:
 `crowd_test.odin`, which also plays the standard scenarios at that size), the cross-platform check in CI; the godot
 suite, which holds the art to `docs/ART.md` and the app layer to its contract (`game/tools/art_checks.gd`,
-`app_checks.gd`) and walks the app with real input events (`game/tools/ui_walk.gd`); and `./uni coop`, a host and a joiner in two processes, from session flags or, with
-`--menus`, each side through the game's own menus (`UnifiedCoop._start_host`, `_start_join`: `game/tools/coop.gd`).
+`app_checks.gd`) and walks the app with real input events (`game/tools/ui_walk.gd`); and `./uni coop`, a host and a
+joiner in two processes, from session flags or, with `--menus`, each side through the game's own menus
+(`UnifiedCoop._start_host`, `_start_join`: `game/tools/coop.gd`).
 Commands: `./uni help`.
 
 ## Benchmarks

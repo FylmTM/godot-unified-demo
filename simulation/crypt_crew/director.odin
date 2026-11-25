@@ -165,9 +165,9 @@ surge_graves :: proc(t: ^Tick) -> (graves: sim.List(int, MAX_GRAVES)) {
 	return
 }
 
-// A minion in `phase` (Rise; a sleeping crowd's Idle) within SURGE_SPREAD of one of `graves` (indices into the floor's),
-// its grave, place and facing rolled by the session's count of raised minions; false when the floor isn't there or the
-// table is full.
+// A minion in `phase` (Rise; a sleeping crowd's Idle) within SURGE_SPREAD of one of `graves` (indices into the
+// floor's), its grave, place and facing rolled by the session's count of raised minions; false when the floor isn't
+// there or the table is full.
 @(private = "file")
 raise_minion :: proc(t: ^Tick, graves: []int, phase: Minion_Phase) -> bool {
 	key := u64(t.state.rises)

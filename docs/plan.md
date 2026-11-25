@@ -54,7 +54,8 @@ About 500 skeletons alive, drawn as one MultiMesh, and the benchmark rows that p
    queries, far minions' steering every 4 ticks.)
 4. **Crowd rules** (step 3): queueing (the back rows stop compressing the front) and a stagger while knocked.
 5. **Bench rows:** today's kept; crowd_idle, crowd_chase and crowd_fight on the arena through the Setup (built);
-   target frame p99 at most 3 ms on the developer's machine, half the library's line.
+   target frame p99 at most 3 ms on the developer's machine, half the library's line (after step 2 crowd_fight is
+   under it, crowd_chase at it: 2.7 to 3.1 ms, its crush round the heroes step 3's to thin).
 6. **The bake tool** lives here first and moves into unified's `tools_godot` by the milestone's end. Crowd shadows are
    decided from shots and frame times in step 4.
 7. **From unified:** `View_Policy.ages` for the crowd's clip times (step 5), scenarios and reference runs on a Setup
