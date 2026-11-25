@@ -523,3 +523,7 @@ Calls made in step 2 (the sim at 500):
 - Separation reads its neighbours where the moves began (World.starts, scratch copied before the pass), not
   half-moved (earlier rows had already moved): no minion's push depends on the table's order, and it measured about
   4 % cheaper on the crowd rows' re-sim means (a compact array instead of 60-byte rows).
+- The obstacle push is culled, not flipped: each tick marks the grid cells an obstacle's reach touches (World.in_way,
+  scratch) and a minion in an unmarked cell skips the loop. It computes exactly what it did (the pins didn't move); a
+  flip (each obstacle walking its nearby minions after the moves) would push in another order and need the grid
+  rebuilt after the moves.

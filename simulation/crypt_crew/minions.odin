@@ -205,10 +205,33 @@ move_minions :: proc(t: ^Tick) {
 	starts := sim.iterate(&t.state.minions)
 	for minion, handle in sim.next(&starts) do t.world.starts[handle.index] = minion.pos.xz
 	obstacles := obstacles_of(t)
+	mark_in_way(t, sim.slice(&obstacles), true) // a minion in no marked cell is in no obstacle's way: it skips them
 	decay := dmath.exp_decay(KNOCK_DECAY, t.dt)
 	floor := floor_of(t)
 	minions := sim.iterate(&t.state.minions)
 	for minion, handle in sim.next(&minions) do move_minion(t, floor, minion, handle, sim.slice(&obstacles), decay)
+	mark_in_way(t, sim.slice(&obstacles), false)
+}
+
+// Sets (or clears) World.in_way over the grid's cells each obstacle's reach (its radius and a minion's) touches.
+@(private = "file")
+mark_in_way :: proc(t: ^Tick, obstacles: []Obstacle, value: bool) {
+	grid := &t.world.grid
+	for obstacle in obstacles {
+		reach := obstacle.radius + MINION_RADIUS
+		low, high := grid_cell_of(grid, obstacle.pos - reach), grid_cell_of(grid, obstacle.pos + reach)
+		for row in low.y ..= high.y {
+			for column in low.x ..= high.x do t.world.in_way[row * grid.columns + column] = value
+		}
+	}
+}
+
+// The grid cell holding `pos` (column, row), as the grid files it: a position past an edge counts in the edge's cell.
+grid_cell_of :: proc(grid: ^Minion_Grid, pos: [2]f32) -> [2]i32 {
+	return {
+		dmath.to_i32_clamped((pos.x - grid.origin.x) / grid.cell_size, 0, grid.columns - 1),
+		dmath.to_i32_clamped((pos.y - grid.origin.y) / grid.cell_size, 0, grid.rows - 1),
+	}
 }
 
 // After the physics step, the minions' phases advance: a risen minion chases after RISE_S, a chaser with its target in
@@ -308,7 +331,8 @@ move_minion :: proc(
 		to := minion.pos + {velocity.x, 0, velocity.y} * t.dt
 		minion.poly, minion.pos = nav.move(&floor.mesh, minion.poly, minion.pos, to)
 	}
-	if minion.phase != .Dying {
+	cell := grid_cell_of(&t.world.grid, minion.pos.xz)
+	if minion.phase != .Dying && t.world.in_way[cell.y * t.world.grid.columns + cell.x] {
 		out := minion.pos.xz
 		for obstacle in obstacles {
 			away := out - obstacle.pos
