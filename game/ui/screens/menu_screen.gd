@@ -1,10 +1,10 @@
 class_name MenuScreen
 extends Control
-## One screen of a menu (the title, the settings; later the pause menu's): what MenuStack shows one at a time. A screen
-## names the control that takes the focus when it opens (`first_focus`, also its default: the `default_focus` group a
-## modal gives the focus back to), what the prompt bar says under it (`prompts`, which may change while it shows:
-## `prompts_changed`), and asks to be closed with `back_requested` (its Back button). It takes input only while the
-## focus is in it: never while it is covered or a modal is over it.
+## One screen of a menu (the title, hero select, the settings, the pause menu's): what MenuStack shows one at a time.
+## A screen names the control that takes the focus when it opens (`first_focus`, also its default: the
+## `default_focus` group a modal gives the focus back to), what the prompt bar says under it (`prompts`, which may
+## change while it shows: `prompts_changed`), and asks to be closed with `back_requested` (its Back button). It takes
+## input only while the focus is in it: never while it is covered or a modal is over it.
 
 ## The screen asks to close (MenuStack pops it).
 signal back_requested

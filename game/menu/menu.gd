@@ -18,9 +18,15 @@ func _ready() -> void:
 	var title := %TitleScreen as TitleScreen
 	title.settings_requested.connect(func() -> void: _stack.push(settings_scene))
 	title.new_game_requested.connect(_open_hero_select.bind(null))
-	title.continue_requested.connect(func() -> void: _open_hero_select(Game.saves.setup))
+	title.continue_requested.connect(_continue)
+	Game.continue_wanted.connect(_continue)
 	_stack.top_changed.connect(_prompt_bar.follow)
 	_prompt_bar.follow(_stack.top())
+
+
+## Hero select on the slot's save (the title's Continue, or a joiner continuing its host's alone).
+func _continue() -> void:
+	_open_hero_select(Game.saves.setup)
 
 
 ## Hero select over the title: its picks step the backdrop's heroes forward, and its start is the game's, on `save`

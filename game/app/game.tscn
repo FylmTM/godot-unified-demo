@@ -9,11 +9,14 @@
 [node name="Game" type="Node"]
 script = ExtResource("game")
 
+[node name="Notices" type="CanvasLayer" parent="."]
+layer = 5
+
+[node name="Toasts" parent="Notices" instance=ExtResource("toasts")]
+unique_name_in_owner = true
+
 [node name="Overlays" type="CanvasLayer" parent="."]
 layer = 50
-
-[node name="Toasts" parent="Overlays" instance=ExtResource("toasts")]
-unique_name_in_owner = true
 
 [node name="LinkStatus" parent="Overlays" instance=ExtResource("link_status")]
 unique_name_in_owner = true

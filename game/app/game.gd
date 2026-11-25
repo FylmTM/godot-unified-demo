@@ -24,7 +24,9 @@ extends Node
 ##
 ## Saves: the session hands over a save at each surge (save_changed). When this machine plays alone or hosts it is kept
 ## in the one slot (Saves), which the title's Continue starts from; a joiner keeps the host's newest in memory only (a
-## friend's game never overwrites its own crypt), and when the host is gone it is offered "Continue on your own".
+## friend's game never overwrites its own crypt; a host's continued crypt counts from the start), and when the host is
+## gone it is offered "Continue on your own": that save goes into its slot (asking first if it holds another crypt)
+## and the menu continues it through hero select, as Continue does.
 ##
 ## The name and quit_app(exit_code) are a contract: UnifiedTool finds this autoload by its name and ends every tool
 ## run through quit_app, so a run quits the way a player does.
@@ -32,6 +34,8 @@ extends Node
 ## The window went to the background while a single-player game plays and the player wants it paused then
 ## (Settings.pause_in_background): the play scene opens its pause menu.
 signal pause_wanted
+## The slot's save is to be continued (a joiner chose to continue its host's alone): the menu opens hero select on it.
+signal continue_wanted
 
 enum Flow { MENU, STARTING, PLAYING, QUITTING }
 
@@ -77,7 +81,8 @@ var saves: Saves
 var _party: Party = null
 ## The host's newest save, while this machine plays in someone else's game (null: none yet, or not joined).
 var _host_save: UnifiedSetup = null
-## The window has had the focus (a tool run's, never in front, never has: its focus changes mean nothing).
+## The window has had the focus, so losing it means the player turned away (a tool run's, never in front, never has:
+## its focus changes mean nothing until a check sends the focus in).
 var _had_focus: bool = false
 ## Each present player's class (EnumClass) as the HUD's data last said, by key: a leaver's, for its toast.
 var _classes: Dictionary[int, int] = {}
@@ -91,8 +96,8 @@ var _quit_asked: bool = false
 ## The session quits the app when it ends (`--quit-at-end`: the godot suite's session step, a replay's check): its
 ## end is the app's quit, with no menu to go back to.
 var _quits_at_end: bool = false
-## Why the game's input is off, by name (an overlay, later the pause menu): on only when nothing holds it off. Names,
-## not objects, so a blocker that is freed can't leave it off for good.
+## Why the game's input is off, by name (an overlay, a dialog, the pause menu): on only when nothing holds it off.
+## Names, not objects, so a blocker that is freed can't leave it off for good.
 var _input_blocks: Array[StringName] = []
 ## The control that had the focus, to tell a move between controls (a sound) from a screen taking it.
 var _focused: Control = null
@@ -128,6 +133,7 @@ func _ready() -> void:
 	_connecting.cancelled.connect(leave)
 	_link_status.leave_pressed.connect(leave)
 	_dialog.closed.connect(unblock_input.bind(BLOCK_DIALOG))
+	_had_focus = not Settings.isolated and get_window().has_focus()
 	_fps.visible = Settings.show_fps
 	Settings.changed.connect(_on_setting_changed)
 	saves = Saves.new(Settings.isolated)
@@ -143,11 +149,13 @@ func _ready() -> void:
 	add_child(session)  # last: the command line's session flags start it here, and the flow must already follow
 	_preload_play_scene()
 	await get_tree().process_frame  # the main scene is up
-	_tell_settings_problem()
+	_tell_read_problems()
 
 
 func _process(delta: float) -> void:
 	_time += delta
+	if not _had_focus and not Settings.isolated and get_window().has_focus():
+		_had_focus = true  # a real launch's window takes the focus a moment after _ready
 	var strength: float = lerpf(FOCUS_PULSE_LOW, 1.0, 0.5 + 0.5 * cos(TAU * _time / FOCUS_PULSE_S))
 	_focus_frame.border_color = Color(_focus_border, _focus_border.a * strength)
 	_focus_frame.shadow_color = Color(_focus_glow, _focus_glow.a * strength)
@@ -239,14 +247,15 @@ func toast(text: String) -> void:
 	_toasts.show_toast(text)
 
 
-## Asks the player `heading` (`text` saying what follows) with two answers, the game's input off meanwhile; `answer`
-## gets true for `confirm_text` (it has the focus), false for `cancel_text`, Esc or a pad's B.
-func ask(heading: String, text: String, confirm_text: String, cancel_text: String, answer: Callable) -> void:
+## Asks the player `heading` (`text` saying what follows, `detail` the library's words under it) with two answers, the
+## game's input off meanwhile; `answer` gets true for `confirm_text`, false for `cancel_text`, Esc, a pad's B, or another
+## dialog shown over it. `affects_others`: the answer that stays has the focus, else the one that does it.
+func ask(heading: String, text: String, confirm_text: String, cancel_text: String, answer: Callable,
+		detail: String = "", affects_others: bool = false) -> void:
 	block_input(BLOCK_DIALOG)
 	_quiet_focus = true
-	_dialog.ask(heading, text, confirm_text, cancel_text)
+	_dialog.ask(heading, text, confirm_text, cancel_text, answer, detail, affects_others)
 	_quiet_focus = false
-	_dialog.answered.connect(answer, CONNECT_ONE_SHOT)
 
 
 ## Whether this machine keeps the saves: it plays alone or hosts (a joiner keeps the host's in memory only).
@@ -270,6 +279,7 @@ func _on_status_changed(status: UnifiedSession.Status, detail: String) -> void:
 		UnifiedSession.STATUS_CONNECTED:
 			if flow == Flow.MENU:
 				_start()
+			_keep_host_setup()
 			if flow == Flow.STARTING:
 				_hide_connecting()
 				_enter_play()
@@ -350,41 +360,69 @@ func _go_to_menu() -> void:
 	if _ending != null:
 		_show_ending(_ending)
 		_ending = null
-	_tell_settings_problem()
+	_tell_read_problems()
 	_preload_play_scene()
 
 
-## The settings file, or the save, didn't read at boot: the menu says so, once each (the walk sets a problem to see it
-## said), naming the folder the file was kept in as the player's system names it.
-func _tell_settings_problem() -> void:
+## The settings file, or the save, didn't read at boot: the menu says so, once each, the save's when the settings'
+## dialog closes (the walk sets a problem to see it said), naming the folder each file was kept in as the player's
+## system names it.
+func _tell_read_problems() -> void:
 	if flow != Flow.MENU or _dialog.visible:
 		return
+	var told: Callable = func(_acknowledged: bool) -> void: _tell_read_problems.call_deferred()
 	if Settings.read_problem != "":
 		var kept: String = ProjectSettings.globalize_path(Settings.path + ".bad")
 		_show_ending(Ending.new("Your settings didn't read", "The defaults are in use; your file is kept as %s in %s."
-			% [kept.get_file(), OS.get_user_data_dir()], _sentence(Settings.read_problem, "")))
+			% [kept.get_file(), OS.get_user_data_dir()], _sentence(Settings.read_problem, "")), told)
 		Settings.read_problem = ""
 	elif saves.problem != "":
 		_show_ending(Ending.new("Your save can't continue", "Another version of Crypt Crew made it, or it was "
-			+ "damaged; it is kept as %s in %s." % [Saves.BAD_PATH.get_file(), OS.get_user_data_dir()],
+			+ "damaged; it is kept as %s in %s." % [saves.bad_path.get_file(), OS.get_user_data_dir()],
 			_sentence(saves.problem, "")))
 		saves.problem = ""
 
 
-## Says why the game ended; a joiner whose host left with a save is offered to continue it alone.
-func _show_ending(ending: Ending) -> void:
+## Says why the game ended (`then` once the player read it); a joiner whose host left with a save is offered to
+## continue it alone.
+func _show_ending(ending: Ending, then: Callable = Callable()) -> void:
 	Sfx.play(&"error")
 	if ending.save != null:
 		var save: UnifiedSetup = ending.save
 		ask(ending.heading, ending.reason + " You can carry on from the last surge on your own.",
 			"Continue on your own", "Back to the title", func(confirmed: bool) -> void:
 				if confirmed:
-					start_single(null, save))
+					_continue_alone(save), ending.detail)
 		return
 	block_input(BLOCK_DIALOG)
 	_quiet_focus = true
-	_dialog.open(ending.heading, ending.reason, ending.detail)
+	_dialog.open(ending.heading, ending.reason, ending.detail, then)
 	_quiet_focus = false
+
+
+## A joiner continues its host's `save` on its own: into its slot (asking first when that holds a crypt of its own),
+## then hero select on it, as the title's Continue.
+func _continue_alone(save: UnifiedSetup) -> void:
+	var take: Callable = func() -> void:
+		saves.keep(save)
+		continue_wanted.emit()
+	if saves.setup == null or saves.setup.to_json() == save.to_json():
+		take.call()
+		return
+	ask("Replace your crypt?", "This replaces your own crypt (%s)." % saves.summary(), "Replace it", "Keep mine",
+		func(confirmed: bool) -> void:
+			if confirmed:
+				take.call())
+
+
+## A joiner keeps the Setup its host's game started from when it is a save (a host's Continue): the host's save until
+## the next surge gives a newer one, so "Continue on your own" is offered from the start.
+func _keep_host_setup() -> void:
+	if keeps_saves() or _host_save != null:
+		return
+	var setup: UnifiedSetup = session.setup
+	if setup != null and setup.version == Unified.constants.save_version:
+		_host_save = setup
 
 
 func _show_connecting(heading: String, text: String) -> void:

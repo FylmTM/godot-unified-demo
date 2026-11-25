@@ -1,10 +1,22 @@
 class_name PromptBar
 extends HBoxContainer
 ## The menus' prompt bar: the current screen's hints ("[A] Select  [B] Back"), drawn as ActionPrompts in the glyphs of
-## the device used last.
+## the device used last. A menu's hides while a dialog shows its own (Dialog.PROMPT_BARS).
 
 ## An action prompt (game/ui/widgets/action_prompt.tscn).
 @export var prompt_scene: PackedScene
+## Hidden while a dialog shows (a menu's bar); the dialog's own bar keeps showing.
+@export var covered_by_dialogs: bool = true
+
+
+func _ready() -> void:
+	if covered_by_dialogs:
+		add_to_group(Dialog.PROMPT_BARS)
+
+
+## Hides the bar while a dialog covers it, and shows it again.
+func set_covered(covered: bool) -> void:
+	visible = not covered
 
 
 ## Shows `screen`'s hints, and follows them while it shows (a menu's screen on top: MenuStack.top_changed), no longer

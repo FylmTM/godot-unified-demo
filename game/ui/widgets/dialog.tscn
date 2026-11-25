@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://game/ui/widgets/dialog.gd" id="dialog"]
+[ext_resource type="PackedScene" path="res://game/ui/widgets/prompt_bar.tscn" id="prompt_bar"]
 
 [node name="Dialog" type="Control"]
 visible = false
@@ -89,3 +90,8 @@ focus_neighbor_bottom = NodePath(".")
 focus_next = NodePath("../Ok")
 focus_previous = NodePath("../Ok")
 text = "Cancel"
+
+[node name="PromptBar" parent="." instance=ExtResource("prompt_bar")]
+unique_name_in_owner = true
+layout_mode = 1
+covered_by_dialogs = false

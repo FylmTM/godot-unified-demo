@@ -25,18 +25,26 @@ signal settings_requested
 
 
 func _ready() -> void:
-	var saved: bool = Game.saves.setup != null
-	_continue.visible = saved
-	_save_line.visible = saved
-	_save_line.text = Game.saves.summary()
-	if saved:
+	if Game.saves.setup != null:
 		first_focus = _continue
 	super()
+	_show_save()
+	visibility_changed.connect(_show_save)  # back from a screen over it: a save may have come meanwhile
 	_continue.pressed.connect(continue_requested.emit)
 	_new_game.pressed.connect(_ask_new_game)
 	_settings.pressed.connect(settings_requested.emit)
 	_quit.pressed.connect(Game.quit_app)
 	_version.text = "Version %s" % ProjectSettings.get_setting("application/config/version")
+
+
+## Continue and the save's line, while the slot holds a crypt.
+func _show_save() -> void:
+	var saved: bool = Game.saves.setup != null
+	_continue.visible = saved
+	_save_line.visible = saved
+	_save_line.text = Game.saves.summary()
+	if saved:
+		set_first_focus(_continue)
 
 
 ## A new game, asking first when the slot holds a crypt: the new game's first surge replaces it.
