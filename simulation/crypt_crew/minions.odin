@@ -202,6 +202,8 @@ target_heroes :: proc(t: ^Tick) {
 // Every minion moves (move_minion), against the grid and the obstacles of this tick's start.
 move_minions :: proc(t: ^Tick) {
 	build_grid(t)
+	starts := sim.iterate(&t.state.minions)
+	for minion, handle in sim.next(&starts) do t.world.starts[handle.index] = minion.pos.xz
 	obstacles := obstacles_of(t)
 	decay := dmath.exp_decay(KNOCK_DECAY, t.dt)
 	floor := floor_of(t)
@@ -323,14 +325,15 @@ move_minion :: proc(
 	minion.vel = (minion.pos - from) * TICK_HZ
 }
 
-// The push apart from the live minions within SEPARATION, at most SEPARATION_SPEED; two on the same spot part by index.
+// The push apart from the live minions within SEPARATION where the moves began (World.starts: so no minion's push
+// depends on which neighbours moved before it), at most SEPARATION_SPEED; two on the same spot part by index.
 @(private = "file")
 separation :: proc(t: ^Tick, minion: ^Minion, handle: sim.Handle(Minion)) -> [2]f32 {
 	push: [2]f32
 	for row in sim.grid_near(&t.world.grid, minion.pos.xz) {
 		for other_index in row {
 			if other_index == i32(handle.index) do continue
-			away := minion.pos.xz - t.state.minions.items[other_index].pos.xz
+			away := minion.pos.xz - t.world.starts[other_index]
 			distance_sq := dmath.length_sq(away)
 			if distance_sq >= SEPARATION * SEPARATION do continue
 			if distance_sq < 0.0001 {

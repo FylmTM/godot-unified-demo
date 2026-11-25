@@ -520,3 +520,6 @@ Calls made in step 2 (the sim at 500):
   STEER_TICKS (4) by its index and walks its facing (state) between; within 3 m every tick. It pays about 6 % of the
   crowd rows' re-sim means; a test walks Floor 1's cap round its corners and finds no step off the floor or through a
   wall or low cover.
+- Separation reads its neighbours where the moves began (World.starts, scratch copied before the pass), not
+  half-moved (earlier rows had already moved): no minion's push depends on the table's order, and it measured about
+  4 % cheaper on the crowd rows' re-sim means (a compact array instead of 60-byte rows).

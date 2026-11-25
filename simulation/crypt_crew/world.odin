@@ -93,6 +93,7 @@ World :: struct {
 	contacts:       [dynamic]physics.Contact_Event, // scratch: the step's contact events (prop_impacts)
 	grid:           Minion_Grid, // scratch: the live minions by cell, rebuilt by move_minions and before the strikes
 	hero_spots:     [PLAYERS]Nav_Point, // scratch: each slot's hero up on the mesh (locate_heroes), by slot
+	starts:         [MAX_MINIONS][2]f32, // scratch: each minion's place on the floor plan when the moves began, by row
 }
 
 // Builds the world from the levels (unified/src/level/README.md): their static geometry, and each level's floor
