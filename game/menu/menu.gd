@@ -5,15 +5,29 @@ extends Node
 
 ## The settings screen (game/ui/settings/settings_screen.tscn), opened over the title.
 @export var settings_scene: PackedScene
+## Hero select (game/menu/hero_select.tscn), opened by New game.
+@export var hero_select_scene: PackedScene
 
 @onready var _stack: MenuStack = %Stack
 @onready var _prompt_bar: PromptBar = %PromptBar
+@onready var _backdrop: Backdrop = %Backdrop
 
 
 func _ready() -> void:
-	(%TitleScreen as TitleScreen).settings_requested.connect(func() -> void: _stack.push(settings_scene))
+	var title := %TitleScreen as TitleScreen
+	title.settings_requested.connect(func() -> void: _stack.push(settings_scene))
+	title.new_game_requested.connect(_open_hero_select)
 	_stack.top_changed.connect(_follow)
 	_follow(_stack.top())
+
+
+## Hero select over the title: its picks step the backdrop's heroes forward, and its start is the game's.
+func _open_hero_select() -> void:
+	var hero_select := _stack.push(hero_select_scene) as HeroSelect
+	hero_select.picks_changed.connect(_backdrop.feature)
+	hero_select.start_requested.connect(Game.start_single)
+	hero_select.tree_exiting.connect(_backdrop.feature.bind([] as Array[int]))
+	_backdrop.feature(hero_select.picks())
 
 
 ## Shows `screen`'s hints on the prompt bar, and follows them while it is on top.

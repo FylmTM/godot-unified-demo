@@ -1,17 +1,23 @@
 class_name Couch
 extends Node
-## Who plays on which device, for couch co-op. Alone, the first player plays with every device: a solo player picks up
-## the pad or the keyboard whenever. A pad nobody plays joins as another local player when it presses Start; the
-## device the first player last played with (moved, aimed, attacked or grabbed with: the menus and a mouse's nudge
-## don't count) is theirs, so its Start pauses instead. While a couch guest is in, the first player is fixed to that
-## device, so a guest's pad moves only the guest; once the last guest has left, or the session refused the join, the
-## first player has every device again.
+## Who plays on which device, for couch co-op. It seats hero select's party when the crypt is up (each guest on its
+## device, with its pick). Alone, the first player plays with every device: a solo player picks up the pad or the
+## keyboard whenever. A pad nobody plays asks to join when it presses Start (`join_requested`: the HUD shows it a card
+## to pick its hero on, and join() brings it in); the device the first player last played with (moved, aimed,
+## attacked or grabbed with: the menus and a mouse's nudge don't count) is theirs, so its Start pauses instead. A
+## guest's Back asks to drop out (`drop_requested`; drop() lets it go). While a guest is in, or a pad is picking its
+## hero, the first player is fixed to that device, so another pad moves only its own player; once the last guest has
+## left, or a join was refused or given up, the first player has every device again.
 ##
 ## The join is read in _input, which reaches the scene before the autoloads: what the first player last played with is
 ## decided from before the press, never from the Start being pressed (Prompts, an autoload, sees it after).
 
 ## The first connected pad nobody plays changed (-1: none): the HUD's join hint speaks to it.
 signal idle_pad_changed(device: int)
+## Pad `device` nobody plays pressed Start: it wants to pick a hero and join.
+signal join_requested(device: int)
+## Local player `local` (a guest) pressed Back: it wants to drop out.
+signal drop_requested(local: int)
 
 ## The actions whose input says which device the first player plays with.
 const PLAY_ACTIONS: Array[StringName] = [
@@ -24,6 +30,8 @@ const PLAY_ACTIONS: Array[StringName] = [
 var first_device: int = UnifiedSession.DEVICE_KEYBOARD
 ## The idle pad last announced.
 var _idle_pad: int = -2
+## The pads picking their hero on a join card.
+var _picking: Array[int] = []
 
 ## The session whose local players this assigns devices to: the app's.
 @onready var _session: UnifiedSession = Unified.session
@@ -35,6 +43,12 @@ func _ready() -> void:
 	_session.local_player_refused.connect(func(_local: int, _reason: String) -> void: _place_first.call_deferred())
 	_session.local_players_changed.connect(_place_first)
 	Input.joy_connection_changed.connect(_announce_idle_pad.unbind(2))
+	var party: Party = Game.take_party()
+	if party != null and party.seats.size() > 1:
+		first_device = party.seats[0].device
+		_fix_first()
+		for seat: Party.Seat in party.seats.slice(1):
+			_session.add_local_player(seat.device, seat.player_name, Heroes.profile(seat.hero_class))
 	_place_first()
 
 
@@ -43,8 +57,17 @@ func _input(event: InputEvent) -> void:
 		return  # an overlay holds the game's input: its keys aren't the game's
 	if event.is_action_pressed(&"join") and not claimed(event.device):
 		get_viewport().set_input_as_handled()
-		_join(event.device)
+		if event.device not in _picking:
+			_picking.append(event.device)
+			_fix_first()  # at once: while it picks, its pad must not move the first player
+			join_requested.emit(event.device)
 		return
+	if event.is_action_pressed(&"drop_out"):
+		var guest: int = _guest_of(event.device)
+		if guest > 0:
+			get_viewport().set_input_as_handled()
+			drop_requested.emit(guest)
+			return
 	var device: int = _device_of(event)
 	if device == UnifiedSession.DEVICE_ANY or _session.get_local_device(0) != UnifiedSession.DEVICE_ANY:
 		return
@@ -64,20 +87,40 @@ func claimed(device: int) -> bool:
 	return _session.get_local_device(0) == UnifiedSession.DEVICE_ANY and first_device == device
 
 
-## The first connected pad nobody plays (-1: none).
+## The first connected pad nobody plays and that isn't picking its hero (-1: none).
 func idle_pad() -> int:
 	for device: int in Input.get_connected_joypads():
-		if not claimed(device):
+		if not claimed(device) and device not in _picking:
 			return device
 	return -1
 
 
-func _join(device: int) -> void:
-	var profile := UnifiedProfile.new()
-	profile.class = EnumClass.ANY  # the first class no hero plays (the sim resolves it on arrival)
-	_fix_first()  # at once: until the session has the guest in, its pad must not move the first player
-	if _session.add_local_player(device, "Pad %d" % (device + 1), profile) < 0:
+## Brings pad `device` in as a guest playing `hero_class` (its join card's pick), named "Guest" and its place.
+func join(device: int, hero_class: int) -> void:
+	_picking.erase(device)
+	var guest_name: String = "Guest %d" % (_session.get_local_indices().size() + 1)
+	if _session.add_local_player(device, guest_name, Heroes.profile(hero_class)) < 0:
 		_place_first()
+
+
+## Pad `device` gave up joining (its card closed).
+func give_up(device: int) -> void:
+	_picking.erase(device)
+	_place_first()
+
+
+## Guest `local` drops out: its player leaves the session, the others play on.
+func drop(local: int) -> void:
+	_session.remove_local_player(local)
+	_place_first()
+
+
+## The guest playing on pad `device` (0: none).
+func _guest_of(device: int) -> int:
+	for local: int in _session.get_local_indices():
+		if local > 0 and _session.get_local_device(local) == device:
+			return local
+	return 0
 
 
 ## Fixes the first player to the device it last played with (a guest is coming in).
@@ -89,7 +132,7 @@ func _fix_first() -> void:
 
 ## The first player's device for who plays now: fixed while a guest is in, every device alone.
 func _place_first() -> void:
-	if _session.get_local_indices().size() > 1:
+	if _session.get_local_indices().size() > 1 or not _picking.is_empty():
 		_fix_first()
 		return
 	if _session.get_local_device(0) != UnifiedSession.DEVICE_ANY:

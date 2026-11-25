@@ -24,6 +24,8 @@ enum PromptStyle { AUTO, XBOX, PLAYSTATION, SWITCH }
 
 ## The settings file, unless `--settings-path=` names another.
 const PATH: String = "user://settings.json"
+## The longest a player's name may be.
+const NAME_LENGTH: int = 16
 ## How long after the last change the file is written, in seconds.
 const SAVE_DELAY_S: float = 0.3
 
@@ -114,6 +116,18 @@ const SAVE_DELAY_S: float = 0.3
 			InputMap.action_set_deadzone(action, value)
 		_changed(&"move_deadzone")
 
+@export_category("player")
+## The name this player goes by in a session (the session's local_name); a new player's is the system's user name.
+@export var player_name: String = "":
+	set(value):
+		player_name = value.strip_edges().left(NAME_LENGTH)
+		_changed(&"player_name")
+## Each hero select seat's last pick (EnumClass), preselected the next time.
+@export var hero_picks: Array = [0, 0, 0, 0]:
+	set(value):
+		hero_picks = value
+		_changed(&"hero_picks")
+
 @export_category("gameplay")
 ## How hard the camera shakes when a local hero is hurt, 0 (never) to 1 (full).
 @export_range(0.0, 1.0, 0.05) var screen_shake: float = 1.0:
@@ -157,6 +171,7 @@ func _ready() -> void:
 	_save_timer.wait_time = SAVE_DELAY_S
 	_save_timer.timeout.connect(save)
 	add_child(_save_timer)
+	player_name = _system_name()  # the default: a file's name replaces it
 	if not isolated:
 		var saved: Dictionary = _read()
 		for setting: Dictionary in _settings():
@@ -278,6 +293,13 @@ func _apply_master() -> void:
 	_set_bus_volume(&"Master", master_volume)
 	if mute_in_background and _in_background and _applies_window:
 		AudioServer.set_bus_mute(AudioServer.get_bus_index(&"Master"), true)
+
+
+## The system's user name, as a player's name by default ("Adventurer" where there is none).
+static func _system_name() -> String:
+	var user: String = OS.get_environment("USERNAME") if OS.has_environment("USERNAME") else OS.get_environment("USER")
+	user = user.strip_edges().left(NAME_LENGTH)
+	return user if user != "" else "Adventurer"
 
 
 static func _set_bus_volume(bus: StringName, linear: float) -> void:

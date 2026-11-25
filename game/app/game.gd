@@ -60,6 +60,11 @@ class Ending:
 var session: UnifiedSession
 var flow: Flow = Flow.MENU
 
+## The party a game started with, until the Couch takes it.
+var _party: Party = null
+## Each present player's class (EnumClass) as the HUD's data last said, by key: a leaver's, for its toast.
+var _classes: Dictionary[int, int] = {}
+
 ## Shown on the menu once it is back (null: the session ended as the player asked).
 var _ending: Ending = null
 ## The app asked to quit (quit_app): it goes through whatever else is under way.
@@ -111,6 +116,8 @@ func _ready() -> void:
 	session.view_root = null  # no views until the play scene hands over its root (else they would go under Game)
 	session.status_changed.connect(_on_status_changed)
 	session.sim_event.connect(_on_sim_event)
+	session.local_name = Settings.player_name
+	Unified.data.hud.changed.connect(_remember_classes)
 	add_child(session)  # last: the command line's session flags start it here, and the flow must already follow
 	_preload_play_scene()
 	await get_tree().process_frame  # the main scene is up
@@ -131,12 +138,23 @@ func _notification(what: int) -> void:
 		quit_app()
 
 
-## Starts a new single-player game (couch co-op is single player too: a pad's Start adds its player). Ignored while
-## a game is starting or playing, or the app quits; a start that fails says why through the session's status.
-func start_single() -> void:
+## Starts a new single-player game with `party` (hero select's seats; couch co-op is single player too): the first
+## seat's pick is the session's Profile, and the play scene's Couch brings the other seats in (take_party). Without a
+## party, the first player plays Any. Ignored while a game is starting or playing, or the app quits; a start that
+## fails says why through the session's status.
+func start_single(party: Party = null) -> void:
 	if flow != Flow.MENU:
 		return
+	_party = party
+	Unified.profile.class = party.seats[0].hero_class if party != null else EnumClass.ANY
 	session.start_single()
+
+
+## The party the game started with, for the Couch to seat (null: none, or already taken).
+func take_party() -> Party:
+	var party: Party = _party
+	_party = null
+	return party
 
 
 ## Ends the session (the player leaves it, or cancels a start); the menu follows once it has said goodbye. A start
@@ -328,7 +346,8 @@ func _collect_play_scene() -> PackedScene:
 	return ResourceLoader.load_threaded_get(PLAY_SCENE) as PackedScene
 
 
-## Joins and leaves as toasts, once they are certain (CONFIRMED). The first local player's own arrival is no news.
+## Joins and leaves as toasts naming the player and the hero, once they are certain (CONFIRMED). The first local
+## player's own arrival is no news.
 func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
 	if state != UnifiedSession.EVENT_CONFIRMED:
 		return
@@ -336,12 +355,20 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 		var joined := event as EventPlayerJoined
 		if session.get_local_index(joined.player) != 0:
 			Sfx.play(&"joined")
-			toast("%s %s" % [session.get_player_name(joined.player), "is back" if joined.returning else "joined"])
+			_remember_classes()
+			toast("%s %s %s" % [session.get_player_name(joined.player), "is back as" if joined.returning
+				else "joined as", _hero_of(joined.player)])
 	elif event is EventPlayerLeft:
 		var left := event as EventPlayerLeft
 		if session.get_local_index(left.player) != 0:
 			Sfx.play(&"left")
-			toast("%s left" % session.get_player_name(left.player))
+			toast("%s left (%s)" % [session.get_player_name(left.player), _hero_of(left.player)])
+			_classes.erase(left.player)
+
+
+## Player `player`'s hero as a toast says it ("the Mage"), from what the HUD's data last said.
+func _hero_of(player: int) -> String:
+	return "the " + Heroes.name_of(_classes[player]) if _classes.has(player) else "a hero"
 
 
 ## Wires `node` when it is one of the game's buttons: its press sounds, and the mouse over it gives it the focus.
@@ -390,6 +417,14 @@ func _on_focus_changed(control: Control) -> void:
 func _on_setting_changed(setting: StringName) -> void:
 	if setting == &"show_fps":
 		_fps.visible = Settings.show_fps
+	elif setting == &"player_name":
+		session.local_name = Settings.player_name  # the next session's
+
+
+func _remember_classes() -> void:
+	for hero: DataHudHero in Unified.data.hud.heroes:
+		if hero.player != 0:
+			_classes[hero.player] = hero.class
 
 
 ## `detail` (the library's words) as a sentence: a capital first, a full stop last; `otherwise` when it is empty.

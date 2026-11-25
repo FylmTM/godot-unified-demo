@@ -1,0 +1,127 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/ui/widgets/seat_card.gd" id="seat_card"]
+[ext_resource type="PackedScene" path="res://game/ui/widgets/action_prompt.tscn" id="action_prompt"]
+
+[node name="SeatCard" type="PanelContainer"]
+custom_minimum_size = Vector2(420, 0)
+theme_type_variation = &"Card"
+script = ExtResource("seat_card")
+
+[node name="Rows" type="VBoxContainer" parent="."]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="Who" type="Label" parent="Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"InkDim"
+horizontal_alignment = 1
+clip_text = true
+
+[node name="Body" type="VBoxContainer" parent="Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="Pick" type="HBoxContainer" parent="Rows/Body"]
+layout_mode = 2
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="Previous" type="Button" parent="Rows/Body/Pick"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+text = "<"
+metadata/mouse_only = true
+
+[node name="Frame" type="PanelContainer" parent="Rows/Body/Pick"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"PortraitFrame"
+
+[node name="Stack" type="Control" parent="Rows/Body/Pick/Frame"]
+custom_minimum_size = Vector2(176, 176)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Portrait" type="TextureRect" parent="Rows/Body/Pick/Frame/Stack"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Anyone" type="Label" parent="Rows/Body/Pick/Frame/Stack"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"Title"
+text = "?"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Next" type="Button" parent="Rows/Body/Pick"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+text = ">"
+metadata/mouse_only = true
+
+[node name="Hero" type="Label" parent="Rows/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"InkHeading"
+horizontal_alignment = 1
+
+[node name="Line" type="Label" parent="Rows/Body"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(360, 70)
+layout_mode = 2
+theme_type_variation = &"InkDim"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="ReadyMark" type="Label" parent="Rows"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"InkHeading"
+text = "Ready!"
+horizontal_alignment = 1
+
+[node name="Bottom" type="HBoxContainer" parent="Rows"]
+layout_mode = 2
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="Status" parent="Rows/Bottom" instance=ExtResource("action_prompt")]
+unique_name_in_owner = true
+layout_mode = 2
+ink = true
+
+[node name="Ready" type="Button" parent="Rows/Bottom"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+focus_mode = 0
+text = "Ready"
+metadata/mouse_only = true

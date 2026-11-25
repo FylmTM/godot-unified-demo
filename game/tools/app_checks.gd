@@ -9,13 +9,15 @@ extends RefCounted
 ## - The project's theme is game/ui/theme.tres, and every type variation a scene names is in it: Godot silently draws a
 ##   missing one with the plain type's look.
 ## - Every control of the HUD lets clicks through and never takes the focus, so the mouse aims and a pad's A plays.
-## - Every button of the menus and overlays can take the focus (the d-pad reaches it only if it can).
+## - Every button of the menus and overlays can take the focus (the d-pad reaches it only if it can), but those marked
+##   `mouse_only` (a seat card's arrows: each seat answers to its own device, not to the one focus), which never may.
 ## - Every sound a button names (its `sfx` metadata) is one Sfx has. (That the buttons sound at all is the walk's.)
 ## - Bindings: every default binding's token reads back as itself; the one rule (a swap both ways alike, an action's
 ##   last binding kept), a mouse button, a trigger and a second slot bind; reserved keys and buttons, the wheel and
 ##   junk are refused, by a press or from the file, and an empty list in the file is no binding, not the defaults.
 ## - Prompts: each baked glyph map is its source's; real pad names read as their family; every glyph the prompts'
 ##   tables name, and every default binding's, is in its family's map.
+## - Every class has a portrait.
 ## - Settings round-trip a file: saved values read back (the bindings, the pads' glyphs and the dead zone among them);
 ##   a value missing, of the wrong type or out of range falls back or is clamped, a whole number is taken for a
 ##   fraction; a file that doesn't parse is kept as .bad, defaults used.
@@ -56,6 +58,7 @@ func run() -> void:
 	_check_focus()
 	_check_bindings()
 	_check_prompts()
+	_check_portraits()
 	_check_settings()
 
 
@@ -118,7 +121,8 @@ func _check_focus() -> void:
 			var scene: Node = (load(path) as PackedScene).instantiate()
 			for found: Node in scene.find_children("*", "BaseButton", true, false):
 				var button := found as BaseButton
-				if button.focus_mode != Control.FOCUS_ALL:
+				var mouse_only: bool = button.get_meta(&"mouse_only", false)
+				if button.focus_mode != Control.FOCUS_ALL and not mouse_only:
 					_problem("%s can't take the focus: a pad can't reach it" % scene.get_path_to(button), path)
 			scene.free()
 
@@ -258,6 +262,17 @@ func _check_prompts() -> void:
 		for glyph_name: String in wanted[family]:
 			if glyph_name != "" and not map.glyphs.has(glyph_name):
 				_problem("glyph %s isn't in family %s's map" % [glyph_name, families.find_key(family)], AT)
+
+
+## Every class has its portrait (game/tools/render_portraits.gd renders them), square, as the cards and plates draw it.
+func _check_portraits() -> void:
+	for hero_class: int in Heroes.classes():
+		var portrait: Texture2D = Heroes.portrait(hero_class)
+		var at: String = Heroes.PORTRAITS % EnumClass.name(hero_class).to_lower()
+		if portrait == null:
+			_problem("no portrait: run ./uni tool render_portraits --window", at)
+		elif portrait.get_width() != portrait.get_height():
+			_problem("a portrait isn't square (%s)" % portrait.get_size(), at)
 
 
 func _check_settings() -> void:

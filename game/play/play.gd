@@ -10,7 +10,8 @@ extends Node3D
 ## The mouse's aim reaches the sim through it, as only a script knows it: just before the session samples (its
 ## input_wanted, so this frame's sample takes it), the cursor's ray meets a plane at chest height, and the direction
 ## from the keyboard player's shown hero to that point is that player's input value. Esc, or a pad's Start that the
-## Couch left (a pad that plays already), pauses or resumes the game for everyone.
+## Couch left (a pad that plays already), pauses or resumes the game for everyone. A pad joining, or a guest dropping
+## out, gets its card in the HUD (JoinCards), and the Couch does the rest.
 
 ## The height of the plane the cursor aims on: a hero's chest, so the hero looks at what the cursor is over.
 const AIM_PLANE_HEIGHT: float = 1.2
@@ -43,6 +44,15 @@ func _ready() -> void:
 	_session.sim_event.connect(_on_sim_event)
 	_couch.idle_pad_changed.connect(_hud.show_join_hint)
 	_hud.show_join_hint(_couch.idle_pad())
+	var cards: JoinCards = _hud.join_cards()
+	_couch.join_requested.connect(func(device: int) -> void: cards.open_join(device, _remembered_pick()))
+	_couch.drop_requested.connect(func(local: int) -> void:
+		var player: int = _session.get_local_player_key(local)
+		cards.open_drop(local, _session.get_local_device(local), _session.get_player_name(player),
+			Heroes.class_of(player)))
+	cards.join_chosen.connect(_couch.join)
+	cards.join_given_up.connect(_couch.give_up)
+	cards.drop_chosen.connect(_couch.drop)
 	if not _session.running and Game.flow == Game.Flow.MENU:
 		Game.start_single()  # the scene run on its own (the editor's Run Current Scene)
 
@@ -89,6 +99,15 @@ func _cursor_aim(local: int) -> Vector2:
 	var point: Vector3 = hit
 	var aim := Vector2(point.x - hero.global_position.x, point.z - hero.global_position.z)
 	return aim if aim.length() >= AIM_DEAD_RADIUS else Vector2.ZERO
+
+
+## The pick hero select remembers for the seat a joining pad would take (Settings.hero_picks), else Any.
+func _remembered_pick() -> int:
+	var seat: int = _session.get_local_indices().size()
+	var picks: Array = Settings.hero_picks
+	var pick: Variant = picks[seat] if seat < picks.size() else EnumClass.ANY
+	return pick if pick is int and pick in Heroes.choices() else EnumClass.ANY
+
 
 
 ## The floor is on screen: the camera frames its hero spawns until a local hero is there.

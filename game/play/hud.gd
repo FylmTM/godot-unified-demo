@@ -17,6 +17,7 @@ var _kills: int = 0
 @onready var _paused: Control = %Paused
 @onready var _join_hint: Control = %JoinHint
 @onready var _join_prompt: ActionPrompt = %JoinPrompt
+@onready var _join_cards: JoinCards = %JoinCards
 
 
 func _ready() -> void:
@@ -38,6 +39,11 @@ func _show_data() -> void:
 	_skeletons.text = str(Unified.data.hud.minions)
 	_kills_label.text = str(_kills)
 	_paused.visible = Unified.data.hud.paused
+
+
+## The cards a pad picks its hero on to join, or confirms it drops out.
+func join_cards() -> JoinCards:
+	return _join_cards
 
 
 ## Shows the join hint to pad `device` ("[Start] Join the game" in its glyphs), or hides it (-1: every connected

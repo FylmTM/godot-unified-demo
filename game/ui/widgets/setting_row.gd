@@ -3,8 +3,9 @@ extends FocusRow
 ## One player setting on the settings screen, bound by name to the Settings property it shows: its label, and the
 ## control its type calls for, read from the property itself (Settings' property list), so a new setting is a
 ## property and a row naming it. A ranged number is a slider shown as a percentage (every ranged setting is a share);
-## a bool (On, Off) and an enum are a choice, stepped with left and right, a press, or a click on either half. The
-## row's scene holds both controls and shows the one it needs. A change applies at once (Settings saves it a moment
+## a bool (On, Off) and an enum are a choice, stepped with left and right, a press, or a click on either half; a text
+## (the player's name) is a field, applied when it is entered or left. The row's scene holds every control and shows
+## the one it needs. A change applies at once (Settings saves it a moment
 ## later), except a slider with `on_release` while it is dragged (the interface's size, which would move the slider
 ## under the mouse); the row follows Settings.changed, so a change made elsewhere shows.
 
@@ -28,6 +29,7 @@ var _dragging: bool = false
 @onready var _slider: HSlider = %Slider
 @onready var _amount: Label = %Amount
 @onready var _choice: Button = %Choice
+@onready var _field: LineEdit = %Field
 
 
 func _ready() -> void:
@@ -39,7 +41,8 @@ func _ready() -> void:
 	var type: int = property.get("type", TYPE_NIL)
 	_slider.visible = hint == PROPERTY_HINT_RANGE
 	_amount.visible = _slider.visible
-	_choice.visible = not _slider.visible
+	_field.visible = type == TYPE_STRING
+	_choice.visible = not _slider.visible and not _field.visible
 	if _slider.visible:
 		var bounds: PackedStringArray = hint_string.split(",")
 		_slider.min_value = bounds[0].to_float()
@@ -59,6 +62,8 @@ func _ready() -> void:
 		_dragging = false
 		_apply(_slider.value))
 	_choice.pressed.connect(_on_choice_pressed)
+	_field.text_submitted.connect(func(text: String) -> void: _apply(text))
+	_field.focus_exited.connect(func() -> void: _apply(_field.text))
 	_choice.gui_input.connect(_on_choice_input)
 	Settings.changed.connect(func(changed: StringName) -> void:
 		if changed == setting:
@@ -69,7 +74,11 @@ func _ready() -> void:
 func _show() -> void:
 	_showing = true
 	var value: Variant = Settings.get(setting)
-	if _slider.visible:
+	if _field.visible:
+		var text: String = value
+		if _field.text != text:
+			_field.text = text
+	elif _slider.visible:
 		var share: float = value
 		_slider.value = share
 		_show_amount(share)

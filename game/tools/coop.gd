@@ -3,7 +3,9 @@ extends UnifiedCoop
 ## (a late join lands by the party, not at the floor's start), as each side sees it; then the host raises skeletons
 ## around itself (a dev command) and swings at them until one is hit, then walks a square, swinging as it goes, while
 ## the joiner keeps moving, until the host leaves. The joiner's app then takes it back to the title and says why.
-## Both sessions start from uni's flags, so this also proves the app adopts a session its menus didn't start.
+## Both sessions start from uni's flags, so this also proves the app adopts a session its menus didn't start. The
+## friend arrives with its own name (uni names the joiner's user Friend) and its Profile's hero: the host's toast names
+## both, and with a class asked of both sides (`uni coop --lan -- --profile class=Mage`) the friend's hero is that one.
 
 ## How far past an arrival's farther ring (twice Unified.constants.arrival_ring: the nearer one may be taken) the
 ## friend's hero may stand from the host's, in metres: the capsule settling on the floor.
@@ -28,6 +30,7 @@ func _host_play() -> void:
 	var gap: float = _floor_distance(_hero(session.local_player), _hero(friend))
 	expect(gap < _beside(), "the friend's hero arrived %.2f m from the host's (at most %.1f)" % [gap, _beside()])
 	step("friend's hero arrived %.2f m from the host's" % gap)
+	await _check_friend(friend)
 	await shot("c03_arrived_beside")
 	session.sim_event.connect(_count_hits)
 	var raise := CommandDevSpawnMinions.new()
@@ -57,6 +60,25 @@ func _join_play() -> void:
 	step("hero in, %.2f m from the host's" % gap)
 	await seconds(STILL_S)
 	Input.action_press(&"move_down")  # keeps moving while the host plays on
+
+
+## The friend as the host sees it: its own name, the hero its Profile asked for (when the host's asked for a class too,
+## both had the same flags), and a toast naming both.
+func _check_friend(friend: int) -> void:
+	var friend_name: String = session.get_player_name(friend)
+	expect(friend_name != "" and friend_name != session.get_player_name(session.local_player),
+		"the friend has its own name: '%s'" % friend_name)
+	var asked: int = Unified.profile.class
+	var arrived: int = Heroes.class_of(friend)
+	if asked != EnumClass.ANY:
+		expect(arrived == asked, "the friend is the %s its Profile asked for (%s)" % [Heroes.name_of(asked),
+			Heroes.name_of(arrived)])
+	var text: String = "%s joined as the %s" % [friend_name, Heroes.name_of(arrived)]
+	var toasts: Node = find(game, ^"Overlays/Toasts")
+	await wait_for(func() -> bool: return toasts.get_children().any(func(toast: Node) -> bool:
+		return (toast.get_node(^"%Text") as Label).text == text), 5.0, "a toast: " + text)
+	step(text)
+
 
 
 ## The host, after its play: it leaves (the library's), and is back on the title with nothing to explain.

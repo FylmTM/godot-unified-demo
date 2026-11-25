@@ -6,12 +6,15 @@
 [ext_resource type="Script" path="res://game/ui/screens/menu_stack.gd" id="menu_stack"]
 [ext_resource type="PackedScene" path="res://game/ui/widgets/prompt_bar.tscn" id="prompt_bar"]
 [ext_resource type="PackedScene" path="res://game/ui/settings/settings_screen.tscn" id="settings"]
+[ext_resource type="PackedScene" path="res://game/menu/hero_select.tscn" id="hero_select"]
 
 [node name="Menu" type="Node"]
 script = ExtResource("menu")
 settings_scene = ExtResource("settings")
+hero_select_scene = ExtResource("hero_select")
 
 [node name="Backdrop" parent="." instance=ExtResource("backdrop")]
+unique_name_in_owner = true
 
 [node name="UI" type="CanvasLayer" parent="."]
 
