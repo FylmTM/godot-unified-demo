@@ -63,9 +63,10 @@ banner naming who paused. Alone, the game also pauses when its window goes to th
 
 **Playing together.** Play together on the title hosts a game (online, by a lobby code; or on this network, by this
 machine's address) or joins one (with a code, or an address), each side's couch picking its heroes first; Rejoin
-last game joins the last one again. In play the HUD shows the code or address and who plays; the pause menu's Invite
-friends opens a game played alone to friends (online or on this network), with Copy and Stop inviting. A game that
-can't start, or ends, says why; a lost link shows a plate while the game reconnects.
+last game joins the last one again. Hosting online starts the crypt at once and gets its code while it plays. In
+play the HUD shows the code or address and how many play; the pause menu's Invite friends opens a game played alone
+to friends (online or on this network), with Copy and Stop inviting. A couch guest is named after the first player
+("Sexton +1"). A game that can't start, or ends, says why; a lost link shows a plate while the game reconnects.
 
 **Online (EOS).** Online play needs the demo's own Epic product and the EOS SDK, which the repo never holds: without
 them the online rows are greyed with the reason, and everything else plays. To try it, follow

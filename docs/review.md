@@ -508,13 +508,15 @@ Step 5, playing together, calls made on the way:
   taken as upper; anything else refused), Backspace, a paste (Ctrl+V or Paste, through `clean_join_code`), and on a
   pad left/right for the cursor and up/down to step a cell; accept joins a whole code. No Paste or Copy where there's
   no clipboard (headless runs).
-- An address joins on Game.LAN_PORT (7777) when it names no port. The screen checks it reads as `host[:port]`; the
-  library takes only a numeric address today (it says "bad address" for a name; host names are later, plan.md).
+- An address joins on Game.LAN_PORT (7777) when it names no port; the screen checks it reads as `host[:port]` and
+  always hands the library `host:port`, which resolves a host name itself. A name that doesn't resolve says "Couldn't
+  find <host> on the network.", the library's words small under it.
 - The LAN host uses `Game.lan_port` (7777; checks set their own: the walk a free port, coop the port `uni coop
   --menus` hands `_start_host`).
 - The session panel (the HUD, under the crypt's counts) shows the code (online) or the address (LAN), a joiner the one
-  it joined, how many play and a slow link's round trip. It takes no clicks: Copy is in Invite friends, and an online
-  host's code goes to the clipboard once, as it comes (a toast says so).
+  it joined, how many play and a slow link's round trip. It takes no clicks: Copy is in Invite friends (its button says
+  "Copied" a moment), and the code of an online host or invite the player started goes to the clipboard once, as it
+  comes, without a word.
 - Invite friends (the pause menu, alone or hosting): Invite online / on this network, then the code or address large,
   Copy and Stop inviting; inviting again opens it the way it was hosted. An opening that fails says why there. A game
   paused alone and opened to friends stays paused, for everyone (the co-op pause, sent as the mode changes). A lobby
@@ -524,3 +526,41 @@ Step 5, playing together, calls made on the way:
   can start; elsewhere it says why and passes. `uni coop --menus` (`_start_host`, `_start_join` in coop.gd) clicks
   through Play together, types the code or address with key events and picks each side's Profile's class on hero
   select.
+
+Step 5 review fixes, calls made on the way:
+
+- Hosting online is start_single, then open_online once the crypt is up: the same path as Invite friends. The crypt
+  plays at once; the code comes later ("Getting a code..." on the panel and in Invite friends), and a lobby that
+  fails leaves the game alone, single, with a toast. A LAN host stays host_direct (it binds at once).
+- Game keeps `inviting` (open to new players, set by invite and stop_inviting, and cleared when an opening fails), so
+  the panel says "Closed" only after Stop inviting, never while a code is coming.
+- One clipboard seam on Game (clipboard_get, clipboard_set): a `--no-settings` run (tool, drive, coop) keeps its own
+  in memory, so no run reads or writes the player's. The auto-copy goes through it too, so the walk and online_check
+  check it; a game a session flag started (an adopted session) never copies.
+- A couch guest is named after the first player: "<name> +1", "+2" (cut to the name limit), on hero select, the join
+  cards and the toasts.
+- A join never resolves Any locally (the host's sim resolves it against the party it sees); single and hosting do,
+  a joiner's couch guests included.
+- Leaving a start that is still connecting goes to the menu at once; that start's goodbye (LEFT) is dropped, and a
+  start queued over it goes on (a FAILED after it is reported).
+- The Connecting modal shows only after 0.3 s, so a start that fails or connects at once never flashes it. A failed
+  start emits start_failed before its dialog, so the screen it came from is back under it.
+- A lost link's DISCONNECTED detail is the dialog's reason as a sentence, unless it is the plain "session ended".
+- Focus: Play together focuses its first enabled row, and greyed rows take no focus; after inviting from a paused
+  game, Resume for everyone has it. Join with a code opens empty; Join an address opens with its text selected, and
+  its first Esc goes back.
+- An opening that fails toasts only while the game takes input (under the pause menu, Invite friends' problem line
+  says it, once).
+- The code field: left and right past either end let the focus move on (the field is one control among the
+  screen's); up and down repeat while held (0.4 s, then every 0.09 s); the cursor's cell wears the theme's pulsing
+  focus frame.
+- A host whose start fails can't be forced in a check: Odin's UDP bind reuses the port on Windows, so a taken port
+  still binds. The failed-start path is checked through joins (a refused code, an unknown host) and a failed open.
+- The pending-code state ("Getting a code...") is checked only by online_check: offline, open_online fails at once.
+- The session panel's count follows roster_changed (a joiner's own arrival, a couch guest) and the confirmed
+  player joined/left events: roster_changed misses a new game's first player when the last game ended with the same
+  slots taken (unified compares the shown tick's slots across sessions; reported).
+- coop.gd checks each side's class against its `--profile` flag (hero select sets Unified.profile); a joiner that
+  asked for Any plays a class the host doesn't. `--menus --rejoin` rejoins through the title's Rejoin. The joiner's
+  panel says what it joined and the count, and a couch guest on pad 1 joins the joiner as "Friend +1" and drops out,
+  across the two processes.

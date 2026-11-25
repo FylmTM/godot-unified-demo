@@ -100,6 +100,5 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 - A typed end reason (`UnifiedSession.end_reason`: no online play, lobby not found, full, closed, another build, the
   host left, the link lost), so the game writes its own sentence for each end instead of showing the library's
   detail. Later.
-- Host names in a joined address (`join_direct` takes a numeric IPv4 address and port today). Later.
 - Later, filed when it hurts: a shared app layer for games; composing a level from room scenes; the real-UDP net
   suite for game repos; a doc-comment lint a game's tests can run.
