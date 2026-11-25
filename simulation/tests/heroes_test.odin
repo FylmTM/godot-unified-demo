@@ -184,6 +184,25 @@ a_co_op_pause_holds_the_heroes :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
+// A pauser who leaves stays named as who paused (the game stays paused: nobody else asked to resume), and another
+// player's resume clears it.
+@(test)
+a_pauser_who_left_stays_named :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 2)
+	defer headless.run_end(&run)
+	pauser := sim.player_in_slot(run.simulation, 1)
+	headless.run_command(&run, 1, g.Command_Set_Paused{true})
+	headless.run_seat(&run, 1, 0)
+	play(&run, {}, 0.25)
+	state := &run.simulation.state
+	testing.expect(t, state.clock.paused, "still paused after the pauser left")
+	testing.expect_value(t, state.paused_by, pauser)
+	headless.run_command(&run, 0, g.Command_Set_Paused{false})
+	testing.expect(t, !state.clock.paused, "another player's resume resumes it")
+	testing.expect_value(t, state.paused_by, sim.Player{})
+	scenarios.expect_synced(t, &run)
+}
+
 // People come and go during the co-op pause: an arrival gets its body and a leaver loses its own on the paused tick,
 // game time stands still, the State still names who paused (what a late joiner's snapshot shows it), and the newcomer
 // walks once the game resumes.

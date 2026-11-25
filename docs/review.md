@@ -420,9 +420,7 @@ Step 4, saves and pauses, calls made on the way:
 - The State's `kills` counts every skeleton felled, a dev kill included (it goes through `damage_minion`).
 - `paused_by` is set by the pause command and cleared by the resume, whoever sends it; a pauser who leaves stays named
   until someone resumes.
-- VERSION "3", the reference run re-pinned; `replays/lan_pair` recorded again by two `uni drive` instances (Knight and
-  Barbarian, a Mage and a Rogue by dev commands, spawns and kills, the joiner's co-op pause and the host's resume, a
-  dev down, three surges). `uni bench` unchanged.
+- VERSION "3", the reference run re-pinned, `replays/lan_pair` recorded again; `uni bench` unchanged.
 - The HUD shows the surge, the skeletons up and the felled from the State (Data_Hud gains `surges`, `kills`,
   `paused_by`): the felled never count back (the most the data said this game), replacing the count of CONFIRMED
   deaths, which a late joiner and a continue could not start from.
@@ -449,3 +447,15 @@ Step 4, saves and pauses, calls made on the way:
 - The Dialog asks questions too (two answers; Esc is no); `Game.ask`.
 - Coop: once a surge has risen the host pauses for everyone; the joiner sees the State's `paused_by` and the banner
   name the host, resumes for everyone; after the host leaves it continues the host's save on its own.
+
+Step 4's review fixes, calls made on the way:
+
+- The save compares the State's surges with the Setup's only when the Setup is a save (another version starts from
+  none), and holds the floor the party was on when the surge rose (`saved_floor`, set at each rise and at init),
+  never the live level. VERSION "4", the reference run re-pinned.
+- `replays/lan_pair` (the host's recording, ticks 2 to 3650, about 57 s): a Barbarian host and a Knight joiner each
+  walk to a prop, grab it, carry it and throw it, twice each; eight skeletons raised and attacked by both; the joiner's
+  co-op pause and the host's resume; the host a Mage and the joiner a Rogue (dev commands), both attacking; every
+  skeleton killed (dev); the host downed (dev); three surges.
+- The short scenarios' run crosses a surge (`the_suite_runs_cross_a_save`), so unified's save checks cover the demo's
+  Game.save under rollback, churn and a late join.

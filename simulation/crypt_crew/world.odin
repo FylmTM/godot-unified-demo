@@ -211,8 +211,7 @@ extra :: proc(world: ^World) -> sim.Extra {
 // The tick-0 state: the party starts on Floor 1, or a save's floor with its tally (saves.odin); heroes arrive as their
 // players do (presence.odin).
 init :: proc(t: ^Tick) {
-	start_tally(t)
-	enter_level(t, start_floor(t))
+	enter_level(t, start_from_setup(t))
 }
 
 // Takes the party to level `to` (init, the wipe's floor restart; the next floor later): every hero lets go and its body

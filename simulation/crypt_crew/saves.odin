@@ -17,37 +17,39 @@ Setup :: struct {
 	floor:   Level_Id, // the floor the party continues on
 	_pad:    [2]u8,
 	surges:  u32, // the surges it had faced by the save
-	kills:   u32, // the skeletons it had felled when the last of them rose
+	kills:   u32, // the skeletons it had felled when the last surge rose
 }
 
-// The save from a tick's state (sim.Game.save): the tally as it stood at the last surge's rise. Nothing while no surge
-// has risen this session (the Setup it started from is still the save), so a save is made at each surge and never
-// between (unified keeps a save only when its bytes change).
+// The save from a tick's state (sim.Game.save): the floor and the tally as they stood at the last surge's rise.
+// Nothing while no surge has risen this session (the surges a save it continues held, else none): the Setup it started
+// from is still the save. So a save is made at each surge and never between (unified keeps a save only when its bytes
+// change), whatever happens on the floor between two surges.
 save :: proc(state: ^State, setup: ^Setup) -> bool {
-	if state.surges == setup.surges do return false
+	if state.surges == (setup.surges if setup.version == SAVE_VERSION else 0) do return false
 	setup^ = {
 		version = SAVE_VERSION,
-		floor   = state.level.id,
+		floor   = state.saved_floor,
 		surges  = state.surges,
 		kills   = state.saved_kills,
 	}
 	return true
 }
 
-// The tally a session starts with (init): a save's, or none for a new game.
-start_tally :: proc(t: ^Tick) {
-	if t.setup.version != SAVE_VERSION do return
+// The floor a session starts on, with its tally (init): a save's, or Floor 1 and none for a new game.
+start_from_setup :: proc(t: ^Tick) -> Level_Id {
+	if t.setup.version != SAVE_VERSION {
+		t.state.saved_floor = .Floor_1
+		return .Floor_1
+	}
 	t.state.surges = t.setup.surges
 	t.state.kills = t.setup.kills
 	t.state.saved_kills = t.setup.kills
+	t.state.saved_floor = t.setup.floor
+	return t.setup.floor
 }
 
-// The floor a session starts on (init): a save's, else Floor 1.
-start_floor :: proc(t: ^Tick) -> Level_Id {
-	return t.setup.floor if t.setup.version == SAVE_VERSION else .Floor_1
-}
-
-// A surge rose: the tally the next save holds is this tick's (raise_surges).
+// A surge rose: the floor and the tally the next save holds are this tick's (raise_surges).
 mark_save_point :: proc(t: ^Tick) {
 	t.state.saved_kills = t.state.kills
+	t.state.saved_floor = t.state.level.id
 }

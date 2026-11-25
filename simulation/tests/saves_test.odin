@@ -94,7 +94,8 @@ a_continue_starts_from_the_save :: proc(t: ^testing.T) {
 	headless.run_command(&run, 0, g.Command_Dev_Kill_Minions{}) // the floor's sleeping packs
 	felled := u32(headless.run_events(&run, g.Event_Minion_Died))
 	testing.expect_value(t, state.kills, 312 + felled)
-	testing.expect_value(t, saves.count, 0)
+	for _ in 0 ..< g.TICK_HZ do step_saving(&run, &saves)
+	testing.expect_value(t, saves.count, 0) // a second in, before the next surge: the save it continues stands
 	until_surges(&run, &saves, 8)
 	testing.expect_value(t, saves.count, 1)
 	testing.expect_value(
@@ -105,13 +106,55 @@ a_continue_starts_from_the_save :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// A Setup of another save version starts a new game: Floor 1, no tally.
+// A Setup of another save version starts a new game: Floor 1, no tally, and no save before its first surge, whose
+// save is a new game's (its own surges, not the Setup's).
 @(test)
 another_save_version_starts_a_new_game :: proc(t: ^testing.T) {
-	run := headless.run_begin(&g.GAME, 1, g.Setup{version = g.SAVE_VERSION + 1, surges = 9, kills = 99}, seated = 1)
+	setup := g.Setup {
+		version = g.SAVE_VERSION + 1,
+		surges  = 9,
+		kills   = 99,
+	}
+	run := headless.run_begin(&g.GAME, 1, setup, seated = 1)
 	defer headless.run_end(&run)
 	testing.expect_value(t, run.simulation.state.surges, 0)
 	testing.expect_value(t, run.simulation.state.kills, 0)
+	saves := Saves {
+		last = run.simulation.setup,
+	}
+	for _ in 0 ..< g.TICK_HZ do step_saving(&run, &saves)
+	testing.expect_value(t, saves.count, 0)
+	until_surges(&run, &saves, 1)
+	testing.expect_value(t, saves.count, 1)
+	testing.expect_value(t, saves.last, g.Setup{version = g.SAVE_VERSION, floor = .Floor_1, surges = 1})
+	scenarios.expect_synced(t, &run)
+}
+
+// The tally outlives a wipe: the floor starts over (restart_floor) with the surges faced and the skeletons felled
+// kept, no save is made by the restart, and the next surge's save carries them on.
+@(test)
+the_tally_outlives_a_wipe :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 2)
+	defer headless.run_end(&run)
+	saves := Saves {
+		last = run.simulation.setup,
+	}
+	headless.run_command(&run, 0, g.Command_Dev_Kill_Minions{})
+	until_surges(&run, &saves, 1)
+	felled := run.simulation.state.kills
+	for slot in 0 ..< 2 do hurt(&run, slot, g.HERO_HP)
+	for _ in 0 ..< g.TICK_HZ / 4 do step_saving(&run, &saves)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 1)
+	testing.expect_value(t, run.simulation.state.surges, 1)
+	testing.expect_value(t, run.simulation.state.kills, felled)
+	testing.expect_value(t, saves.count, 1) // the restart makes no save
+	until_surges(&run, &saves, 2)
+	testing.expect_value(t, saves.count, 2)
+	testing.expect_value(
+		t,
+		saves.last,
+		g.Setup{version = g.SAVE_VERSION, floor = .Floor_1, surges = 2, kills = felled},
+	)
 	scenarios.expect_synced(t, &run)
 }
 

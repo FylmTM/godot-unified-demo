@@ -5,12 +5,16 @@ package test_crypt_crew
 
 import "core:testing"
 import "unified:godot"
+import "unified:headless"
 import "unified:headless/scenarios"
 import "unified:lint"
 
 import g "../crypt_crew"
 import ext "../extension"
 
+// The scenarios' runs: long enough to cross a surge (SURGE_FIRST_S of game time, the script's co-op pauses held out),
+// so the sessions' Game.save, which unified checks every client against the offline replay and against each other,
+// is made under rollback, late join and churn (the_suite_runs_cross_a_save proves the short run does).
 SUITE := scenarios.Suite(g.Game) {
 	game    = &g.GAME,
 	players = g.PLAYERS,
@@ -68,6 +72,13 @@ when scenarios.LONG {
 	clients_agree_on_an_ideal_network :: proc(t: ^testing.T) {scenarios.session_agrees(t, &SUITE, CLIENTS, .Ideal)}
 	@(test)
 	clients_agree_on_a_wan :: proc(t: ^testing.T) {scenarios.session_agrees(t, &SUITE, CLIENTS, .Wan)}
+}
+
+// The short scenarios' scripted run makes at least one save (a surge rises in it), so their save checks are not vacuous.
+@(test)
+the_suite_runs_cross_a_save :: proc(t: ^testing.T) {
+	result := headless.run_sim(&g.GAME, u32(SUITE.ticks), SUITE.seed, CLIENTS)
+	testing.expectf(t, result.saves >= 1, "the %d-tick run made no save", SUITE.ticks)
 }
 
 // The extension installs: what Godot would report when it loads it (a Data_ struct with padding, a bad Glue), here in
