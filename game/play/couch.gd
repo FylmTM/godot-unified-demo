@@ -20,6 +20,8 @@ signal join_requested(device: int)
 ## Local player `local` (a guest) pressed Back: it wants to drop out.
 signal drop_requested(local: int)
 
+## How many frames the party's guests are tried for while the session's start waits (_seat_guests).
+const SEAT_FRAMES: int = 60
 ## The actions whose input says which device the first player plays with.
 const PLAY_ACTIONS: Array[StringName] = [
 	&"move_left", &"move_right", &"move_up", &"move_down",
@@ -50,10 +52,7 @@ func _ready() -> void:
 	Input.joy_connection_changed.connect(_announce_idle_pad.unbind(2))
 	if party != null and party.seats.size() > 1:
 		_fix_first()
-		for seat: Party.Seat in party.seats.slice(1):
-			var local: int = _session.add_local_player(seat.device, seat.player_name, Heroes.profile(seat.hero_class))
-			if local > 0:
-				Game.party_seated(local)
+		_seat_guests(party.seats.slice(1))
 	_place_first()
 
 
@@ -104,6 +103,25 @@ func idle_pad() -> int:
 		if not claimed(device) and device not in _picking:
 			return device
 	return -1
+
+
+## Seats the party's guests (every seat after the first) as local players. add_local_player says -1 while the session's
+## start still waits for the last session's goodbye: those seats are tried again each frame, up to SEAT_FRAMES.
+func _seat_guests(seats: Array[Party.Seat]) -> void:
+	var waiting: Array[Party.Seat] = seats
+	for frame: int in SEAT_FRAMES:
+		var refused: Array[Party.Seat] = []
+		for seat: Party.Seat in waiting:
+			var local: int = _session.add_local_player(seat.device, seat.player_name, Heroes.profile(seat.hero_class))
+			if local > 0:
+				Game.party_seated(local)
+			else:
+				refused.append(seat)
+		waiting = refused
+		if waiting.is_empty() or not is_inside_tree():
+			return
+		await get_tree().process_frame
+	push_error("Couch: %d of the party's guests couldn't be seated" % waiting.size())
 
 
 ## The party place (local index) the next guest takes: the lowest free one.
