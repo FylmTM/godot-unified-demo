@@ -1,7 +1,7 @@
 class_name Toast
 extends PanelContainer
 ## One short line on a dark plate that fades in, stays a few seconds, fades out and frees itself: news that needs no
-## answer ("Mira joined"). Toasts stacks them.
+## answer ("Sexton joined (Mage)"). Toasts stacks them.
 
 ## How long it fades in and out, and how long it stays fully shown between, in seconds.
 const FADE_S: float = 0.25
@@ -17,6 +17,13 @@ func _ready() -> void:
 	tween.tween_callback(queue_free)
 
 
-## The line it shows; set before it enters the tree.
-func set_text(text: String) -> void:
-	(%Text as Label).text = text
+## What it says: `player`'s name (cut to one line of a toast `width` wide, by NameLabel's rule, keeping its "+1"),
+## then `text`; or `text` alone when `player` is "".
+func set_text(text: String, player: String = "", width: float = 0.0) -> void:
+	var label: Label = %Text as Label
+	if player == "":
+		label.text = text
+		return
+	var room: float = width - get_theme_stylebox(&"panel").get_minimum_size().x
+	var font_size: int = label.get_theme_font_size(&"font_size")
+	label.text = NameLabel.fitted(player, room, label.get_theme_font(&"font"), font_size) + text

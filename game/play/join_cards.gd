@@ -127,19 +127,24 @@ func _on_joy_connection_changed(device: int, connected: bool) -> void:
 		join_given_up.emit(device)
 
 
-## Keeps the cards clear of the HUD's plates that reach down to `top` (canvas units) at the view's top right.
+## Hangs the cards below the HUD's plates that reach down to `top` (canvas units) at the view's top right.
 func keep_below(top: float) -> void:
 	_top = top
 	_fit()
 
 
-## Scales the cards down together when the view is too short, or too narrow, for them (pivot: their right middle).
+## Scales the cards down together when the room below the HUD's top-right plates (keep_below), or the view's width,
+## is too small for them (pivot: their right middle), and centres them in that room.
 func _fit() -> void:
 	var view: Vector2 = get_parent_control().size
 	var natural: Vector2 = get_combined_minimum_size()
 	if natural.x <= 0.0 or natural.y <= 0.0:
 		return
-	var margin: float = maxf(EDGE_MARGIN, _top + EDGE_MARGIN / 2.0)
-	var fit: float = minf(1.0, minf((view.y - 2.0 * margin) / natural.y, view.x * WIDTH_SHARE / natural.x))
+	var top: float = maxf(EDGE_MARGIN, _top + EDGE_MARGIN / 2.0)
+	var room: float = view.y - top - EDGE_MARGIN
+	var fit: float = minf(1.0, minf(room / natural.y, view.x * WIDTH_SHARE / natural.x))
 	pivot_offset = Vector2(size.x, size.y / 2.0)
 	scale = Vector2(fit, fit)
+	var from_middle: float = top + room / 2.0 - view.y / 2.0
+	offset_top = from_middle - size.y / 2.0
+	offset_bottom = from_middle + size.y / 2.0

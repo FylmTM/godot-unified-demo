@@ -14,14 +14,16 @@ extends Control
 var _kills: int = 0
 ## The pause menu shows (it says the pause itself: the banner hides).
 var _menu_open: bool = false
+## The banner's text width when the lane allows it (the scene's).
+var _banner_width: float = 0.0
 
 @onready var _heroes: VBoxContainer = %Heroes
-@onready var _crypt: Control = $Crypt
-@onready var _session_panel: Control = $SessionPanel
+@onready var _crypt: Control = %Crypt
+@onready var _session_panel: Control = %SessionPanel
 @onready var _skeletons: Label = %Skeletons
 @onready var _kills_label: Label = %Kills
 @onready var _paused: Control = %Paused
-@onready var _paused_text: Label = %PausedText
+@onready var _paused_text: NameLabel = %PausedText
 @onready var _surges: Label = %Surges
 @onready var _join_hint: Control = %JoinHint
 @onready var _join_prompt: ActionPrompt = %JoinPrompt
@@ -29,31 +31,37 @@ var _menu_open: bool = false
 
 
 func _ready() -> void:
+	_banner_width = _paused_text.custom_minimum_size.x
 	Unified.data.hud.changed.connect(_show_data)
-	for plates: Control in [_heroes, _crypt, _session_panel]:
-		plates.resized.connect(_keep_clear_of_plates)
-		plates.visibility_changed.connect(_keep_clear_of_plates)
+	for plate: Control in [_heroes, _crypt, _session_panel]:
+		plate.resized.connect(_keep_clear_of_plates)
+		plate.visibility_changed.connect(_keep_clear_of_plates)
 	get_viewport().size_changed.connect(_keep_clear_of_plates)
 	_show_data()
 	_keep_clear_of_plates.call_deferred()
 
 
-## The toasts keep to the lane between the hero plates and the counts (with the session panel under them), and the
-## join cards below the counts and the panel.
+## The toasts, the co-op pause's banner and the link plate keep to the lane between the hero plates and the counts
+## (with the session panel under them), the toasts above the banner; the join cards hang below the counts and the
+## panel.
 func _keep_clear_of_plates() -> void:
-	var left: float = _heroes.get_global_rect().end.x
 	var right: float = _crypt.get_global_rect().position.x
 	var bottom: float = _crypt.get_global_rect().end.y
 	if _session_panel.visible:
 		right = minf(right, _session_panel.get_global_rect().position.x)
 		bottom = _session_panel.get_global_rect().end.y
-	Game.keep_toasts_between(left, right)
+	var lane := Lane.new(_heroes.get_global_rect().end.x, right)
+	var room: float = lane.width() - _paused.get_theme_stylebox(&"panel").get_minimum_size().x
+	_paused_text.theme_type_variation = &"Heading" if room >= _banner_width else &"HudText"  # a narrow lane: smaller
+	_paused_text.custom_minimum_size.x = minf(_banner_width, room)
+	lane.centre(_paused)
+	Game.keep_in_lane(lane, _paused.position.y - Lane.MARGIN)
 	_join_cards.keep_below(bottom)
 
 
 ## A plate per local hero (in slot order; the spare plates hide), the crypt's counts, and the pause.
 func _show_data() -> void:
-	var plates: Array[Node] = _heroes.get_children()
+	var plates: Array[Node] = _heroes.get_children().filter(func(child: Node) -> bool: return child is HeroPlate)
 	var shown: int = 0
 	for hero: DataHudHero in Unified.data.hud.heroes:
 		if hero.player != 0 and hero.local and shown < plates.size():
@@ -67,7 +75,7 @@ func _show_data() -> void:
 	_kills_label.text = str(_kills)
 	_paused.visible = Unified.data.hud.paused and not _menu_open
 	var pauser: String = Unified.session.get_player_name(Unified.data.hud.paused_by)
-	_paused_text.text = "Paused by %s" % pauser if pauser != "" else "Paused"
+	_paused_text.show_name("Paused by " if pauser != "" else "Paused", pauser)
 
 
 ## The pause menu opened (`open`) or closed: the co-op pause's banner hides under it.
@@ -88,4 +96,3 @@ func show_join_hint(device: int) -> void:
 	if device >= 0:
 		_join_prompt.device = device
 		_join_prompt.refresh()
-

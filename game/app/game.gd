@@ -297,6 +297,7 @@ func sentence(detail: String, otherwise: String) -> String:
 	if text == "":
 		return otherwise
 	text = text[0].to_upper() + text.substr(1)
+	text = text.replace("\\", "\\\u200b").replace("/", "/\u200b")  # a path wraps after a separator, not mid-name
 	return text if text.ends_with(".") or text.ends_with("!") or text.ends_with("?") else text + "."
 
 
@@ -377,9 +378,21 @@ func toast(text: String) -> void:
 	_toasts.show_toast(text)
 
 
-## Keeps the toasts between `left` and `right` (canvas units): the HUD's lane between its plates (Toasts.keep_between).
-func keep_toasts_between(left: float, right: float) -> void:
-	_toasts.keep_between(left, right)
+## Connects `callable` to `sig` (the session's or Game's, which outlive scenes) while `node` is in the tree: the
+## connection goes as the node leaves it, so a menu closing, or the app quitting, never hears a signal it can't answer
+## (a node out of the tree has no viewport and no tree to await on).
+func listen(node: Node, sig: Signal, callable: Callable) -> void:
+	sig.connect(callable)
+	node.tree_exiting.connect(func() -> void:
+		if sig.is_connected(callable):
+			sig.disconnect(callable), CONNECT_ONE_SHOT)
+
+
+## Keeps the toasts and the link plate in `lane` (the HUD's, between its plates), the toasts above `bottom` (the co-op
+## pause's banner, in canvas units).
+func keep_in_lane(lane: Lane, bottom: float) -> void:
+	_toasts.keep_in(lane, bottom)
+	_link_status.keep_in(lane)
 
 
 ## Asks the player `heading` (`text` saying what follows, `detail` the library's words under it) with two answers, the
@@ -635,13 +648,13 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 			_party_locals.erase(local)
 		elif local != 0:
 			Sfx.play(&"joined")
-			toast("%s %s (%s)" % [session.get_player_name(joined.player), "is back" if joined.returning else "joined",
-				_hero_of(joined.player)])
+			_toasts.show_toast_about(session.get_player_name(joined.player), " %s (%s)"
+				% ["is back" if joined.returning else "joined", _hero_of(joined.player)])
 	elif event is EventPlayerLeft:
 		var left := event as EventPlayerLeft
 		if session.get_local_index(left.player) != 0:
 			Sfx.play(&"left")
-			toast("%s left (%s)" % [session.get_player_name(left.player), _hero_of(left.player)])
+			_toasts.show_toast_about(session.get_player_name(left.player), " left (%s)" % _hero_of(left.player))
 			_classes.erase(left.player)
 
 
