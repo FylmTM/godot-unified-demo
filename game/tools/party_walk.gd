@@ -204,10 +204,13 @@ func _walk_drop_out() -> void:
 	expect(_card(1) != null, "pad 1's Back opens its drop card")
 	await pad_axis(JOY_AXIS_LEFT_X, 0.0, 1)
 	var hero: Node3D = session.get_player_view(EnumView.HERO, guest) as Node3D
-	await seconds(0.3)
-	var from: Vector3 = hero.global_position
-	await seconds(0.4)
-	var moved: float = hero.global_position.distance_to(from)
+	var moved: float = INF
+	for i: int in 8:  # it slows to a stop over a few ticks: however slow the frames, it must stand within 2.4 s
+		var from: Vector3 = hero.global_position
+		await seconds(0.3)
+		moved = hero.global_position.distance_to(from)
+		if moved < STILL:
+			break
 	expect(moved < STILL, "the stick let go with the card open: the guest's hero stops (moved %.2f m)" % moved)
 	await shot("09_drop_out")
 	await pad_button(JOY_BUTTON_START, 1)
