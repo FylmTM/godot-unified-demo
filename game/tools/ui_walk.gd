@@ -408,8 +408,9 @@ func _walk_connecting() -> void:
 	step("Cancel cancels")
 
 
-## A join that fails at once (this build has no online play): one dialog saying why as a sentence, one error sound and
-## no focus sound; pad B closes it and the focus is back on New game. Again, the same (OK pressed with pad A).
+## A join that fails at once (online play can't start on this machine): one dialog saying why as a sentence, one error
+## sound and no focus sound; pad B closes it and the focus is back on the title's first control. Again, the same (OK
+## pressed with pad A).
 func _walk_failed_join() -> void:
 	var dialog: Control = overlay("Dialog")
 	var ok: Control = find(dialog, ^"%Ok") as Control
@@ -423,7 +424,7 @@ func _walk_failed_join() -> void:
 		var heading: String = (find(dialog, ^"%Heading") as Label).text
 		var text: String = (find(dialog, ^"%Text") as Label).text
 		expect(heading == "Couldn't join the game", "the dialog's heading: %s" % heading)
-		expect(text == "Online play is not available in this build.", "the dialog's reason: %s" % text)
+		expect(text != "" and text.ends_with("."), "the dialog's reason, a sentence: %s" % text)
 		expect(played(&"error", mark) == 1 and played(&"select", mark) == 0,
 			"one error sound and no other (%s)" % [sounds.slice(mark)])
 		expect(root.gui_get_focus_owner() == ok, "OK has the focus")

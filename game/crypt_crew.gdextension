@@ -17,7 +17,7 @@ linux.x86_64 = "res://.out/bin/libcrypt_crew.so"
 ; the EOS SDK): written by `uni build`, which also copies this OS's into .out/bin.
 [dependencies]
 
-macos.debug = { "res://.out/bin/libbox3d.dylib": "Contents/Frameworks" }
-macos.release = { "res://.out/bin/libbox3d.dylib": "Contents/Frameworks" }
-windows.x86_64 = { "res://.out/bin/box3d.dll": "" }
+macos.debug = { "res://.out/bin/libbox3d.dylib": "Contents/Frameworks", "res://.out/bin/libEOSSDK-Mac-Shipping.dylib": "Contents/Frameworks" }
+macos.release = { "res://.out/bin/libbox3d.dylib": "Contents/Frameworks", "res://.out/bin/libEOSSDK-Mac-Shipping.dylib": "Contents/Frameworks" }
+windows.x86_64 = { "res://.out/bin/box3d.dll": "", "res://.out/bin/EOSSDK-Win64-Shipping.dll": "" }
 linux.x86_64 = { "res://.out/bin/libbox3d.so": "" }

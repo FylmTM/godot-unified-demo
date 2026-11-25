@@ -3,6 +3,7 @@
 // InputMap and the mouse become an Input input.odin. Built by `uni build` (and by every command that runs the game).
 package crypt_crew_extension
 
+import "unified:eos"
 import "unified:godot"
 
 import g "../crypt_crew"
@@ -48,5 +49,7 @@ crypt_crew_init :: proc "c" (
 	library: godot.Class_Library,
 	initialization: ^godot.Initialization,
 ) -> godot.Init_Result {
-	return godot.init(&g.GAME, GLUE, get_proc_address, library, initialization, constants = constants)
+	// online play: EOS lobbies and P2P (the SDK loads at run time: a build without it, or without the .env's
+	// credentials, plays alone, on a couch and on the LAN, and UnifiedSession.online_problem says why not online)
+	return godot.init(&g.GAME, GLUE, get_proc_address, library, initialization, eos.lobby({}), constants = constants)
 }
