@@ -13,11 +13,18 @@ extends UnifiedCoop
 ## (_start_host, _start_join: Play together, Host or Join, a code or an address typed with key events, hero select
 ## with its Profile's class picked, Start), so the menu-driven host and join are proved across two processes too.
 ##
+## With `--rejoin` too, the second join goes through the title's Rejoin (the last game this side joined).
+##
 ## Each side arrives with its own name and its own Profile: the joiner names its player FRIEND_NAME itself (a tool
-## run's is Settings.TOOL_NAME), and each side checks its hero is the class its own Profile asked for, as the sim they
-## share says; the host's toast names the friend and its hero. Run it as
+## run's is Settings.TOOL_NAME), and each side checks its hero is the class its --host-profile or --join-profile asked
+## for (the flag's, not Unified.profile, which hero select sets), as the sim they share says; a joiner that asked for
+## Any plays a class the host doesn't. The host's toast names the friend and its hero. Run it as
 ## `./uni coop --lan --host-profile class=Knight --join-profile class=Mage` (and `--rejoin`); without the profiles
 ## both play Any, which the sim resolves to two classes.
+##
+## The joiner's HUD says what it joined (the code or address its menus joined, "A friend's game" for a session uni's
+## flags started) and how many play; then a couch guest joins it on pad 1, named after the joiner ("Friend +1"), and
+## drops out again, across the two processes.
 
 ## How far past an arrival's farther ring (twice Unified.constants.arrival_ring: the nearer one may be taken) the
 ## friend's hero may stand from the host's, in metres: the capsule settling on the floor.
@@ -41,6 +48,10 @@ const PAUSE_WITHIN_S: float = 40.0
 var _hits: int = 0
 ## The most surges this side saw while it played in the host's game (the joiner continues from them).
 var _surges_seen: int = 0
+## How many times this side joined through the menus (the second is a --rejoin: the title's Rejoin).
+var _menu_joins: int = 0
+## What this side's menus joined ("" while it joined from uni's flags).
+var _joined: String = ""
 
 
 func _init() -> void:
@@ -67,11 +78,21 @@ func _start_host(port: int) -> void:
 	step("hosted through the menus (%s)" % ("port %d" % port if port > 0 else "online"))
 
 
-## Joins through the game's own menus (uni coop --menus; again for --rejoin and after --crash): Play together, then
-## Join an address (`code` is the host's address) or Join with a code, typed with key events, Join, then hero select
-## with this side's Profile's class picked, and Start.
+## Joins through the game's own menus (uni coop --menus; again after --crash): Play together, then Join an address
+## (`code` is the host's address) or Join with a code, typed with key events, Join, then hero select with this side's
+## Profile's class picked, and Start. The second time in one process (--rejoin) it presses Rejoin instead.
 func _start_join(code: String) -> void:
+	_menu_joins += 1
+	_joined = code
 	await _open_play_together()
+	if _menu_joins > 1:
+		var again: Button = _on_top("Rejoin") as Button
+		expect(again.visible and not again.disabled and again.text == "Rejoin %s" % code,
+			"the title offers the last game: %s" % again.text)
+		await click(again)
+		await _pick_and_start("Join %s" % code)
+		step("rejoined through the title's Rejoin (%s)" % code)
+		return
 	if code.contains(":"):
 		await click(_on_top("JoinAddress"))
 		var field: LineEdit = _on_top("Address") as LineEdit
@@ -147,7 +168,11 @@ func _join_play() -> void:
 	expect(gap < _beside(), "the hero arrived %.2f m from the host's (at most %.1f)" % [gap, _beside()])
 	step("hero in, %.2f m from the host's" % gap)
 	_check_own_class()
+	var host_class: int = Heroes.class_of(_friend_player())
+	if _asked() == EnumClass.ANY:
+		expect(Heroes.class_of(session.local_player) != host_class, "asking for Any, it plays a class the host doesn't")
 	await seconds(STILL_S)
+	await _couch_guest()
 	Input.action_press(&"move_down")  # keeps moving while the host plays on
 	await wait_for(func() -> bool: return Unified.data.hud.paused, PAUSE_WITHIN_S, "the host pauses for everyone")
 	if failed():
@@ -179,14 +204,55 @@ func _name_friend(node: Node) -> void:
 		node_added.disconnect(_name_friend)
 
 
-## This side's hero is the class its own Profile asked for (unless it asked for Any).
+## The joiner's HUD panel (what it joined, two players), and a couch guest on pad 1 that joins it as "Friend +1" (the
+## panel then counts three) and drops out again, before the host's pause.
+func _couch_guest() -> void:
+	var panel: Control = find(current_scene, ^"Hud/SessionPanel") as Control
+	var value: String = (find(panel, ^"%Value") as Label).text
+	var players: Label = find(panel, ^"%Players") as Label
+	var target: String = _joined if _joined != "" else "A friend's game"
+	expect(panel.visible and value == target, "the joiner's panel says what it joined: %s" % value)
+	expect(players.text == "2 players", "and who plays: %s" % players.text)
+	await pad_button(JOY_BUTTON_START, 1)
+	await pad_button(JOY_BUTTON_A, 1)
+	var guest: Array[int] = [0]
+	await wait_for(func() -> bool:
+		guest[0] = session.get_local_player_key(1) if session.get_local_indices().size() > 1 else 0
+		return guest[0] != 0 and guest[0] in session.get_players(), 5.0, "pad 1's guest joins the joiner")
+	if failed():
+		return
+	var guest_name: String = session.get_player_name(guest[0])
+	expect(guest_name == FRIEND_NAME + " +1", "the guest is named after the joiner: %s" % guest_name)
+	await wait_for(func() -> bool: return players.text == "3 players", 3.0, "the panel counts three: %s" % players.text)
+	await shot("c03a_joiner_guest")
+	step("a couch guest joined the joiner: %s, %s" % [guest_name, players.text])
+	session.remove_local_player(1)
+	await wait_for(func() -> bool: return session.get_players().size() == 2 and players.text == "2 players", 5.0,
+		"the guest drops out: two players")
+	step("the guest dropped out")
+
+
+## This side's hero is the class its --host-profile or --join-profile asked for (unless it asked for Any).
 func _check_own_class() -> void:
-	var asked: int = Unified.profile.class
+	var asked: int = _asked()
 	var arrived: int = Heroes.class_of(session.local_player)
 	if asked != EnumClass.ANY:
 		expect(arrived == asked, "the %s's Profile asked for the %s: it plays the %s" % [role, Heroes.name_of(asked),
 			Heroes.name_of(arrived)])
 	step("plays the %s, as its Profile asked (%s)" % [Heroes.name_of(arrived), Heroes.name_of(asked)])
+
+
+## The class this side's --profile (uni's --host-profile or --join-profile) asked for (Any without one).
+func _asked() -> int:
+	for assignment: String in arg("profile").split(",", false):
+		var key: String = assignment.get_slice("=", 0).strip_edges()
+		var value: String = assignment.get_slice("=", 1).strip_edges()
+		if key == "class":
+			for hero_class: int in Heroes.choices():
+				if EnumClass.name(hero_class).to_lower() == value.to_lower():
+					return hero_class
+			fail("--profile class=%s: no such class" % value)
+	return EnumClass.ANY
 
 
 ## The friend as the host sees it: its own name, and a toast naming it and its hero.
