@@ -417,15 +417,15 @@ func _walk_connecting() -> void:
 	step("Cancel cancels")
 
 
-## A join that fails at once (online play can't start on this machine): one dialog saying why as a sentence, one error
-## sound and no focus sound; pad B closes it and the focus is back on the title's first control. Again, the same (OK
+## A join that fails at once (an address no network has): one dialog saying why as a sentence, one error sound and no
+## focus sound; pad B closes it and the focus is back on the title's first control. Again, the same (OK
 ## pressed with pad A).
 func _walk_failed_join() -> void:
 	var dialog: Control = overlay("Dialog")
 	var ok: Control = find(dialog, ^"%Ok") as Control
 	for attempt: int in 2:
 		var mark: int = sounds.size()
-		session.join_online("ZZZZZZ")
+		session.join_direct(NOWHERE)  # fails at once, online play set up here or not
 		await wait_for(func() -> bool: return dialog.visible, 10.0, "the dialog says why the join failed")
 		if failed():
 			return
