@@ -71,22 +71,20 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 
 ## Milestone 3: the app layer
 
-Six steps, each landing on its own. The first four are in: the app's skeleton (the `Game` autoload owns the session
+Six steps, each landing on its own. The first five are in: the app's skeleton (the `Game` autoload owns the session
 and the flow; the title, the theme, the overlays, `Sfx`), the settings, bindings and prompts (the settings screen
 over the menu's screen stack, rebinding, the input prompts following the device, the HUD's hints, the first player's
 device free while alone), hero select and the couch (the Profile is the pick; a seat per device; a pad joining
 mid-game picks on a card in the HUD, a guest drops out on one; hero plates with portraits and HP bars; the player's
-name), and saves and pauses (the sim's Setup and save, Continue, the pause menu alone and online, who paused).
-Audio has Master and Interface only: Music and Effects come with their sounds (milestone 8). Still to come:
+name), saves and pauses (the sim's Setup and save, Continue, the pause menu alone and online, who paused), and
+playing together (Play together's host and joins, the code field, the session panel, Invite friends, the extension's
+EOS lobby). Audio has Master and Interface only: Music and Effects come with their sounds (milestone 8). Still to come:
 
-5. **Playing together.** Host online or on the LAN, join by code or address, open to friends from the pause menu,
-   reconnect and slow-link states, every end's reason, the extension's EOS lobby. The join code is the invite: Copy,
-   and Rejoin last game.
 6. **Close-out.** README, ART.md, the review log; every screen's shots at 720p, 1080p and 1440p.
 
 What a step needs from unified is built there (pushed to unified's `main`, then the submodule bumped in its own
-commit), not worked around: `online_problem` and an end-reason enum (step 5); `uni drive pad` and `uni drive type`
-with a device (a second pad's own events, for play-checks); `uni coop` driving the game's menus, or `--open` (step 5).
+commit), not worked around: `uni drive pad` and `uni drive type` with a device (a second pad's own events, for
+play-checks).
 
 ## Needed from unified
 
@@ -99,5 +97,9 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
   the invite until then. Later.
 - LAN discovery (a host's beacon and a list of the games on the network), so a pad player joins without typing an
   address. Later.
+- A typed end reason (`UnifiedSession.end_reason`: no online play, lobby not found, full, closed, another build, the
+  host left, the link lost), so the game writes its own sentence for each end instead of showing the library's
+  detail. Later.
+- Host names in a joined address (`join_direct` takes a numeric IPv4 address and port today). Later.
 - Later, filed when it hurts: a shared app layer for games; composing a level from room scenes; the real-UDP net
   suite for game repos; a doc-comment lint a game's tests can run.

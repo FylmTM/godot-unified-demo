@@ -491,3 +491,36 @@ Step 4's review fixes, calls made on the way:
 - coop.gd works the pause menus for real: the host opens its menu and clicks Pause for everyone, its Leave asks "End
   the game for everyone?" on Stay; the joiner opens its own, reads "Paused by ...", clicks Resume for everyone; after
   the host leaves the joiner continues on its own through hero select, at the surge it saw, the save in its slot.
+
+Step 5, playing together, calls made on the way:
+
+- EOS lobbies are wired as unified's examples do: `eos.lobby({})` in the extension, and in the headless binary with
+  no keychain prompts and no device left behind. No SDK in the repo; the build copies it when `.env` points at it.
+- Play together is one screen: Host online, Host on this network, Join with a code, Join an address, Rejoin last game.
+  The online rows are greyed with `online_problem`'s sentence, read as the screen shows. Rejoin offers the last code
+  or address this machine joined (`Settings.last_join`), greyed when it's a code and online can't start.
+- Hosting with a crypt saved asks which (HostCrypt: Continue your crypt, with its line, or A new crypt); without one,
+  a new crypt. Every host and join then goes through hero select ("Host a crypt", "Join <code>"), each side's couch
+  picking its own heroes (a joiner's couch guests come in as a host's do).
+- A start that fails before it plays comes back to the screen it was asked from (the code or address kept), the
+  dialog over it with the library's sentence; the end-reason enum is later (plan.md).
+- The code field: as many framed cells as `join_code_length`, letters of `join_code_alphabet`; typing (lower case
+  taken as upper; anything else refused), Backspace, a paste (Ctrl+V or Paste, through `clean_join_code`), and on a
+  pad left/right for the cursor and up/down to step a cell; accept joins a whole code. No Paste or Copy where there's
+  no clipboard (headless runs).
+- An address joins on Game.LAN_PORT (7777) when it names no port. The screen checks it reads as `host[:port]`; the
+  library takes only a numeric address today (it says "bad address" for a name; host names are later, plan.md).
+- The LAN host uses `Game.lan_port` (7777; checks set their own: the walk a free port, coop the port `uni coop
+  --menus` hands `_start_host`).
+- The session panel (the HUD, under the crypt's counts) shows the code (online) or the address (LAN), a joiner the one
+  it joined, how many play and a slow link's round trip. It takes no clicks: Copy is in Invite friends, and an online
+  host's code goes to the clipboard once, as it comes (a toast says so).
+- Invite friends (the pause menu, alone or hosting): Invite online / on this network, then the code or address large,
+  Copy and Stop inviting; inviting again opens it the way it was hosted. An opening that fails says why there. A game
+  paused alone and opened to friends stays paused, for everyone (the co-op pause, sent as the mode changes). A lobby
+  that dies later toasts why, and the game plays on alone.
+- The reconnecting and catching-up plate is the existing LinkStatus; a slow link is the session panel's line.
+- `online_check` (`./uni tool online_check`) hosts online from the menus and checks the code, only where online play
+  can start; elsewhere it says why and passes. `uni coop --menus` (`_start_host`, `_start_join` in coop.gd) clicks
+  through Play together, types the code or address with key events and picks each side's Profile's class on hero
+  select.

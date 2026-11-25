@@ -180,7 +180,10 @@ their own under the menus. The pause menu is the parchment panel in the middle o
 with it), its prompt bar in the corner like the title's; the co-op pause's banner hangs below the HUD's top row, names
 who paused (a long name cut short) and how to reach the menu, and hides under the menu. A question (Leave, New game
 over a save) is the dialog with its two answers, the one that does it focused unless it affects others; its own prompt
-bar replaces the menu's while it shows.
+bar replaces the menu's while it shows. Play together and its screens (the crypt a host opens, a code, an address) are
+the same parchment panel over the title; a code is one framed cell per character, the cursor's lit while the field
+has the focus. The session panel is a plate under the crypt's counts: the code or address, then who plays, and a
+slow link's warning.
 
 The interface's sounds are Kenney's Interface Sounds, played by `Sfx` (`game/app/sfx.gd`); `Game` gives every button
 of the game its press sound and the focus moving its select sound, so no screen plays one by hand; hero select plays

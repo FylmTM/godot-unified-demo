@@ -7,8 +7,8 @@ the rules written in Odin, Godot as the host for rendering, audio, UI and the ed
 dungeon crawler for 1–4 players, and the answer to "what does a real game built on unified look like?".
 
 > [!NOTE]
-> **The first playable.** Up to four heroes, on one couch or over the LAN (a host and its joiners, by address; online
-> lobbies come with the app layer), fight down Floor 1 of the crypt: skeleton packs asleep in its rooms and surges
+> **The first playable.** Up to four heroes, on one couch, over the LAN or online (a host and its joiners, by address
+> or by a lobby's code), fight down Floor 1 of the crypt: skeleton packs asleep in its rooms and surges
 > rising from its graves, against the Knight's quick sword, the Barbarian's wide cleave, the Mage's bursting bolts and
 > the Rogue's crossbow, and the barrels and crates any hero picks up and throws. A hero at 0 HP goes down and, for
 > now, rises beside the party on its own; the whole party down restarts the floor. What the game becomes, and in what
@@ -57,9 +57,23 @@ most. Players joining over the LAN join the same session beside them.
 felled), in one slot; Continue on the title starts it again from there. Only the host, or a player alone, keeps it:
 a player in someone else's game keeps the host's last save in memory (from the start, when the host continued a
 crypt), and is offered "Continue on your own" if the host leaves: it takes that save as its own (asking first if it
-replaces one) and continues it through hero select. Alone (couch included) the pause menu pauses the game; with others the game runs on under it, and
-"Pause for everyone" pauses it for every player (anyone may resume it), the banner naming who paused. Alone, the game
-also pauses when its window goes to the background (Settings, Gameplay).
+replaces one) and continues it through hero select. Alone (couch included) the pause menu pauses the game; with
+others the game runs on under it, and "Pause for everyone" pauses it for every player (anyone may resume it), the
+banner naming who paused. Alone, the game also pauses when its window goes to the background (Settings, Gameplay).
+
+**Playing together.** Play together on the title hosts a game (online, by a lobby code; or on this network, by this
+machine's address) or joins one (with a code, or an address), each side's couch picking its heroes first; Rejoin
+last game joins the last one again. In play the HUD shows the code or address and who plays; the pause menu's Invite
+friends opens a game played alone to friends (online or on this network), with Copy and Stop inviting. A game that
+can't start, or ends, says why; a lost link shows a plate while the game reconnects.
+
+**Online (EOS).** Online play needs the demo's own Epic product and the EOS SDK, which the repo never holds: without
+them the online rows are greyed with the reason, and everything else plays. To try it, follow
+[`unified/docs/EOS.md`](unified/docs/EOS.md): create a product "Crypt Crew" in the Epic developer portal, a custom
+client policy with only Lobbies and a client using it; download the EOS C SDK at the version `unified/pins.cfg`
+pins and unzip it outside the repo; write the repo's `.env` (`UNIFIED_EOS_SDK` and the five `UNIFIED_EOS_*` IDs).
+Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check` (hosts online from the menus), and
+`./uni coop`, `./uni coop --menus`, `./uni coop --rejoin`, `./uni coop --crash` (one at a time).
 
 ## What it shows of unified
 
@@ -76,6 +90,11 @@ also pauses when its window goes to the background (Settings, Gameplay).
 - **Keyed rolls**: surges and packs roll on the state they place (`director.odin`), so when a pause or a command lands
   moves no outcome.
 - **Late join and rejoin beside the party** (`presence.odin`), a player's hero kept for their return.
+- **Online and LAN, from the menus**: hosting and joining by a lobby code or an address, opening a game to friends
+  and closing it, the code's format and whether online play can start read from the library
+  (`UnifiedSession.join_code_alphabet`, `online_problem`: `game/menu/`, `game/ui/widgets/code_field.gd`,
+  `game/play/friends_screen.gd`); EOS lobbies in the extension and the headless binary (`simulation/extension/`,
+  `simulation/headless/`).
 - **Both pauses**: alone, the pause menu stops the session's clock (`UnifiedSession.paused`); with others, its Pause
   for everyone is the co-op pause (`pause.odin`), the game clock standing for every peer, and the State keeps who
   paused, so a late joiner's banner names them too (`game/play/pause_menu.gd`).
