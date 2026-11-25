@@ -9,7 +9,8 @@ extends HBoxContainer
 ## pad plays nobody yet, so its picking moves nobody. A drop card takes only its pad's accept and back presses: its
 ## guest still plays, and the session must see its stick come back to rest. Only accept confirms a drop (a Start
 ## there would be a join's habit). A card closes by itself when its pad disconnects (a join given up) or its guest is
-## gone. The cards scale down together when the view is too small for them, so they always fit.
+## gone. The cards scale down together when the view is too small for them, so they always fit, clear of the HUD's
+## top-right plates (keep_below).
 
 ## Pad `device` picked `hero_class` and joins.
 signal join_chosen(device: int, hero_class: int)
@@ -30,6 +31,8 @@ var _cards: Dictionary[int, SeatCard] = {}
 ## The guest each drop-out card is for, by its pad: its local index (x) and its player's key (y).
 var _dropping: Dictionary[int, Vector2i] = {}
 var _sticks := StickSteps.new()
+## How far down the HUD's top-right plates reach (canvas units): the cards, centred, keep clear of it above and below.
+var _top: float = 0.0
 
 @onready var _session: UnifiedSession = Unified.session
 
@@ -124,12 +127,19 @@ func _on_joy_connection_changed(device: int, connected: bool) -> void:
 		join_given_up.emit(device)
 
 
+## Keeps the cards clear of the HUD's plates that reach down to `top` (canvas units) at the view's top right.
+func keep_below(top: float) -> void:
+	_top = top
+	_fit()
+
+
 ## Scales the cards down together when the view is too short, or too narrow, for them (pivot: their right middle).
 func _fit() -> void:
 	var view: Vector2 = get_parent_control().size
 	var natural: Vector2 = get_combined_minimum_size()
 	if natural.x <= 0.0 or natural.y <= 0.0:
 		return
-	var fit: float = minf(1.0, minf((view.y - 2.0 * EDGE_MARGIN) / natural.y, view.x * WIDTH_SHARE / natural.x))
+	var margin: float = maxf(EDGE_MARGIN, _top + EDGE_MARGIN / 2.0)
+	var fit: float = minf(1.0, minf((view.y - 2.0 * margin) / natural.y, view.x * WIDTH_SHARE / natural.x))
 	pivot_offset = Vector2(size.x, size.y / 2.0)
 	scale = Vector2(fit, fit)

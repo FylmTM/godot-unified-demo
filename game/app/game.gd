@@ -377,9 +377,14 @@ func toast(text: String) -> void:
 	_toasts.show_toast(text)
 
 
+## Keeps the toasts between `left` and `right` (canvas units): the HUD's lane between its plates (Toasts.keep_between).
+func keep_toasts_between(left: float, right: float) -> void:
+	_toasts.keep_between(left, right)
+
+
 ## Asks the player `heading` (`text` saying what follows, `detail` the library's words under it) with two answers, the
-## game's input off meanwhile; `answer` gets true for `confirm_text`, false for `cancel_text`, Esc, a pad's B, or another
-## dialog shown over it. `affects_others`: the answer that stays has the focus, else the one that does it.
+## game's input off meanwhile; `answer` gets true for `confirm_text`, false for `cancel_text`, Esc, a pad's B, or
+## another dialog shown over it. `affects_others`: the answer that stays has the focus, else the one that does it.
 func ask(heading: String, text: String, confirm_text: String, cancel_text: String, answer: Callable,
 		detail: String = "", affects_others: bool = false) -> void:
 	block_input(BLOCK_DIALOG)

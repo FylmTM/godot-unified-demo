@@ -16,6 +16,8 @@ var _kills: int = 0
 var _menu_open: bool = false
 
 @onready var _heroes: VBoxContainer = %Heroes
+@onready var _crypt: Control = $Crypt
+@onready var _session_panel: Control = $SessionPanel
 @onready var _skeletons: Label = %Skeletons
 @onready var _kills_label: Label = %Kills
 @onready var _paused: Control = %Paused
@@ -28,7 +30,25 @@ var _menu_open: bool = false
 
 func _ready() -> void:
 	Unified.data.hud.changed.connect(_show_data)
+	for plates: Control in [_heroes, _crypt, _session_panel]:
+		plates.resized.connect(_keep_clear_of_plates)
+		plates.visibility_changed.connect(_keep_clear_of_plates)
+	get_viewport().size_changed.connect(_keep_clear_of_plates)
 	_show_data()
+	_keep_clear_of_plates.call_deferred()
+
+
+## The toasts keep to the lane between the hero plates and the counts (with the session panel under them), and the
+## join cards below the counts and the panel.
+func _keep_clear_of_plates() -> void:
+	var left: float = _heroes.get_global_rect().end.x
+	var right: float = _crypt.get_global_rect().position.x
+	var bottom: float = _crypt.get_global_rect().end.y
+	if _session_panel.visible:
+		right = minf(right, _session_panel.get_global_rect().position.x)
+		bottom = _session_panel.get_global_rect().end.y
+	Game.keep_toasts_between(left, right)
+	_join_cards.keep_below(bottom)
 
 
 ## A plate per local hero (in slot order; the spare plates hide), the crypt's counts, and the pause.
