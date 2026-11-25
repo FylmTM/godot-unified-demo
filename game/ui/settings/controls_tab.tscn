@@ -1,53 +1,73 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://game/ui/settings/controls_tab.gd" id="controls_tab"]
+[ext_resource type="Script" path="res://game/ui/widgets/focus_row.gd" id="focus_row"]
 [ext_resource type="PackedScene" path="res://game/ui/settings/bind_row.tscn" id="bind_row"]
 [ext_resource type="PackedScene" path="res://game/ui/widgets/setting_row.tscn" id="setting_row"]
 
 [node name="Controls" type="ScrollContainer"]
 horizontal_scroll_mode = 0
+vertical_scroll_mode = 4
 follow_focus = true
 script = ExtResource("controls_tab")
 bind_row_scene = ExtResource("bind_row")
 
-[node name="Content" type="VBoxContainer" parent="."]
+[node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_type_variation = &"TabMargin"
+
+[node name="Content" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="SchemeRow" type="HBoxContainer" parent="Content"]
+[node name="SchemeRow" type="PanelContainer" parent="Margin/Content"]
+layout_mode = 2
+script = ExtResource("focus_row")
+
+[node name="Row" type="HBoxContainer" parent="Margin/Content/SchemeRow"]
 custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 theme_override_constants/separation = 24
 
-[node name="Label" type="Label" parent="Content/SchemeRow"]
+[node name="Label" type="Label" parent="Margin/Content/SchemeRow/Row"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"Ink"
 text = "Scheme"
 
-[node name="Scheme" type="Button" parent="Content/SchemeRow"]
+[node name="Scheme" type="Button" parent="Margin/Content/SchemeRow/Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(524, 0)
+custom_minimum_size = Vector2(420, 0)
 layout_mode = 2
 
-[node name="Bindings" type="VBoxContainer" parent="Content"]
+[node name="Bindings" type="VBoxContainer" parent="Margin/Content"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 8
 
-[node name="PromptStyle" parent="Content" instance=ExtResource("setting_row")]
+[node name="Notice" type="Label" parent="Margin/Content"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"InkDim"
+horizontal_alignment = 2
+
+[node name="PromptStyle" parent="Margin/Content" instance=ExtResource("setting_row")]
+unique_name_in_owner = true
 layout_mode = 2
 setting = &"prompt_style"
 label = "Pad glyphs"
 
-[node name="MoveDeadzone" parent="Content" instance=ExtResource("setting_row")]
+[node name="MoveDeadzone" parent="Margin/Content" instance=ExtResource("setting_row")]
+unique_name_in_owner = true
 layout_mode = 2
 setting = &"move_deadzone"
 label = "Move stick dead zone"
 
-[node name="Reset" type="Button" parent="Content"]
+[node name="Reset" type="Button" parent="Margin/Content"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(420, 0)
 layout_mode = 2
 size_flags_horizontal = 8
 text = "Reset scheme"

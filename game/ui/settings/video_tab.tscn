@@ -4,44 +4,51 @@
 
 [node name="Video" type="ScrollContainer"]
 horizontal_scroll_mode = 0
+vertical_scroll_mode = 4
 follow_focus = true
 
-[node name="Rows" type="VBoxContainer" parent="."]
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"TabMargin"
+
+[node name="Rows" type="VBoxContainer" parent="Margin"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
-[node name="WindowMode" parent="Rows" instance=ExtResource("setting_row")]
+[node name="WindowMode" parent="Margin/Rows" instance=ExtResource("setting_row")]
 layout_mode = 2
 setting = &"window_mode"
 label = "Window"
 
-[node name="Vsync" parent="Rows" instance=ExtResource("setting_row")]
+[node name="Vsync" parent="Margin/Rows" instance=ExtResource("setting_row")]
 layout_mode = 2
 setting = &"vsync"
 label = "V-Sync"
 
-[node name="FrameLimit" parent="Rows" instance=ExtResource("setting_row")]
+[node name="FrameLimit" parent="Margin/Rows" instance=ExtResource("setting_row")]
 layout_mode = 2
 setting = &"frame_limit"
 label = "Frame limit"
 
-[node name="RenderScale" parent="Rows" instance=ExtResource("setting_row")]
+[node name="RenderScale" parent="Margin/Rows" instance=ExtResource("setting_row")]
 layout_mode = 2
 setting = &"render_scale"
 label = "3D resolution"
 
-[node name="AntiAliasing" parent="Rows" instance=ExtResource("setting_row")]
+[node name="AntiAliasing" parent="Margin/Rows" instance=ExtResource("setting_row")]
 layout_mode = 2
 setting = &"anti_aliasing"
 label = "Anti-aliasing"
 
-[node name="UiScale" parent="Rows" instance=ExtResource("setting_row")]
+[node name="UiScale" parent="Margin/Rows" instance=ExtResource("setting_row")]
 layout_mode = 2
 setting = &"ui_scale"
 label = "Interface size"
+on_release = true
 
-[node name="ShowFps" parent="Rows" instance=ExtResource("setting_row")]
+[node name="ShowFps" parent="Margin/Rows" instance=ExtResource("setting_row")]
 layout_mode = 2
 setting = &"show_fps"
 label = "Show FPS"

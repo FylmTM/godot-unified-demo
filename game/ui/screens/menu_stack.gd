@@ -1,8 +1,8 @@
 class_name MenuStack
 extends Control
 ## The screens of a menu, one shown at a time: push() opens a screen over the current one, which waits hidden with the
-## focus it had; pop() (Back, Esc, a pad's B) frees the top one and gives the one under it its focus back. The title
-## and, in play, the pause menu use one each.
+## focus it had; pop() (Back, Esc or a pad's B while the focus is in it) frees the top one and gives the one under it
+## its focus back. The title and, in play, the pause menu use one each.
 ##
 ## A screen pushed again is a new instance: a screen's state is the settings it shows, read when it opens. Its buttons
 ## are wired by Game as they enter the tree, guarded, so a screen kept, hidden and shown again stays wired once.
@@ -21,7 +21,7 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed(&"ui_cancel") and get_child_count() > 1:
+	if event.is_action_pressed(&"ui_cancel") and get_child_count() > 1 and top().has_focus_within():
 		get_viewport().set_input_as_handled()
 		pop()
 

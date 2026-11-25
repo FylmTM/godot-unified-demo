@@ -1,10 +1,21 @@
 class_name BindButton
 extends Button
 ## One binding slot on the controls screen: an action's first or second binding in one scheme (keyboard and mouse, or
-## gamepad), drawn as its glyph. Pressed, it listens: the next key or mouse button (keyboard), or pad button or
-## trigger (gamepad), becomes the binding, and an action that held it takes the one replaced (Bindings.bind). Esc or a
-## pad's Start cancels, Delete, Backspace or a pad's Back clears the slot. While it listens it takes every press
-## (in _input, before the GUI and the menus' Back), so nothing else reacts to the press being bound.
+## gamepad), drawn as its glyph. Pressed, it listens: the next key (keyboard) or pad button or trigger (gamepad)
+## becomes the binding, and a mouse button too when it is clicked on this slot; a click anywhere else cancels, so the
+## left button is never bound by accident. Esc or a pad's Start (bind_cancel) cancels, Delete, Backspace or a pad's
+## Back (bind_clear) clears the slot. Bindings' one rule may refuse a change (an action's last binding, another
+## action's only one): `refused` says why, and the slot shakes. While it listens it takes every press, in _input,
+## before the GUI and the menus' Back, so nothing else reacts to the press being bound.
+
+## It started or stopped listening (the screen's prompts follow).
+signal listening_changed(listening: bool)
+## A change was refused, and why.
+signal refused(why: String)
+
+## How far and how long a refused slot shakes (pixels, seconds).
+const SHAKE: float = 10.0
+const SHAKE_S: float = 0.3
 
 ## The action, scheme and slot this binds (set before it enters the tree).
 var action: StringName
@@ -29,21 +40,23 @@ func _input(event: InputEvent) -> void:
 	if not _listening or event is InputEventMouseMotion:
 		return
 	get_viewport().set_input_as_handled()
-	var press: bool = event.is_pressed() and not event.is_echo()
-	if event is InputEventJoypadMotion:
-		press = Bindings.can_bind(event, kind)
-	if not press:
+	if event is InputEventMouseButton:
+		var click := event as InputEventMouseButton
+		if not click.pressed:
+			return
+		if not get_global_rect().has_point(click.position):
+			_stop()
+			return
+	elif event.is_action_pressed(&"bind_cancel"):
+		_stop()
 		return
-	var key: Key = Bindings.key_of(event as InputEventKey) if event is InputEventKey else KEY_NONE
-	var button: int = (event as InputEventJoypadButton).button_index if event is InputEventJoypadButton else -1
-	if key == KEY_ESCAPE or button == JOY_BUTTON_START:
+	elif event.is_action_pressed(&"bind_clear"):
 		_stop()
-	elif key in [KEY_DELETE, KEY_BACKSPACE] or button == JOY_BUTTON_BACK:
+		_change(Bindings.clear(Settings.bindings, action, kind, slot))
+		return
+	if Bindings.can_bind(event, kind) and (event.is_pressed() or event is InputEventJoypadMotion):
 		_stop()
-		Settings.bindings = Bindings.clear(Settings.bindings, action, kind, slot)
-	elif Bindings.can_bind(event, kind):
-		_stop()
-		Settings.bindings = Bindings.bind(Settings.bindings, action, kind, slot, event)
+		_change(Bindings.bind(Settings.bindings, action, kind, slot, event))
 
 
 ## Shows the slot's binding: its glyph in its family's font, its name where the font has none, a dash when empty.
@@ -52,13 +65,14 @@ func refresh() -> void:
 		return
 	var events: Array[InputEvent] = Bindings.events(action, kind)
 	_glyph.text = ""
+	_glyph.theme_type_variation = &"BindGlyph"
 	if slot >= events.size():
 		text = "-"
 		return
 	var family: Prompts.Family = (Prompts.Family.KEYBOARD if kind == Bindings.Kind.KEYBOARD
 		else Prompts.pad_family(Prompts.last_pad))
 	var glyph: String = Prompts.glyph_of(events[slot], family)
-	text = events[slot].as_text().get_slice(" (", 0) if glyph == "" else ""
+	text = Prompts.name_of(events[slot]) if glyph == "" else ""
 	_glyph.add_theme_font_override(&"font", Prompts.font(family))
 	_glyph.text = glyph
 
@@ -70,10 +84,25 @@ func is_listening() -> bool:
 
 func _listen() -> void:
 	_listening = true
-	_glyph.text = ""
-	text = "Press a key" if kind == Bindings.Kind.KEYBOARD else "Press a button"
+	text = ""
+	_glyph.theme_type_variation = &"InkDim"  # the button's own text would be clipped to its narrow middle
+	_glyph.remove_theme_font_override(&"font")
+	_glyph.text = "Press a key" if kind == Bindings.Kind.KEYBOARD else "Press a button"
+	listening_changed.emit(true)
 
 
 func _stop() -> void:
 	_listening = false
 	refresh()
+	listening_changed.emit(false)
+
+
+func _change(change: Bindings.Change) -> void:
+	if change.refused != "":
+		refused.emit(change.refused)
+		var rest: float = position.x
+		var tween: Tween = create_tween()
+		for offset: float in [SHAKE, -SHAKE, SHAKE / 2.0, 0.0]:
+			tween.tween_property(self, ^"position:x", rest + offset, SHAKE_S / 4.0)
+		return
+	Settings.bindings = change.bindings

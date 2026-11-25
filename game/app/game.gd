@@ -277,12 +277,14 @@ func _go_to_menu() -> void:
 	_preload_play_scene()
 
 
-## The settings file didn't read at boot: the menu says so, once (the walk sets the problem to see it said).
+## The settings file didn't read at boot: the menu says so, once (the walk sets the problem to see it said), naming
+## the folder the file was kept in as the player's system names it.
 func _tell_settings_problem() -> void:
 	if flow != Flow.MENU or Settings.read_problem == "" or _dialog.visible:
 		return
-	_show_ending(Ending.new("Your settings didn't read", "The defaults are used, and your file is kept beside.",
-		_sentence(Settings.read_problem, "")))
+	var kept: String = ProjectSettings.globalize_path(Settings.path + ".bad")
+	_show_ending(Ending.new("Your settings didn't read", "The defaults are in use; your file is kept as %s in %s."
+		% [kept.get_file(), OS.get_user_data_dir()], _sentence(Settings.read_problem, "")))
 	Settings.read_problem = ""
 
 

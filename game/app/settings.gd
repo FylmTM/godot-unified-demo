@@ -2,9 +2,10 @@ extends Node
 ## The player's settings (the `Settings` autoload): one typed property per setting, applied by its setter the moment
 ## it is set, kept in `user://settings.json`.
 ##
-## Each exported property is a setting and its `@export_category` its section in the file, so loading, saving and the
-## settings screen walk one list, the property list, and a new setting is one property. A setting applies at once
-## (there is no Apply button: a slider previews live) and is written 0.3 s after the last change, one write per drag.
+## Each exported property is a setting and its `@export_category` its section in the file, so loading and saving walk
+## one list, the property list, and a settings screen row reads its control from the property it names: a new
+## setting is a property and a row. A setting applies at once (there is no Apply button: a slider previews live) and
+## is written 0.3 s after the last change, one write per drag.
 ##
 ## The file is JSON a player can read and fix, and loading it runs nothing (a .tres under user:// could carry a script,
 ## and breaks when a property is renamed). Each value is taken on its own: one that is missing, of another type or
@@ -93,8 +94,8 @@ const SAVE_DELAY_S: float = 0.3
 		_changed(&"mute_in_background")
 
 @export_category("controls")
-## The rebound actions, as Bindings stores them (text tokens by action and device kind); an action or kind missing
-## keeps project.godot's binding. Bindings checks every token as it applies them.
+## The rebound actions, as Bindings stores them (text tokens by action and scheme); a scheme absent for an action keeps
+## project.godot's bindings. Bindings holds every token to what a press may bind as it applies them.
 @export var bindings: Dictionary = {}:
 	set(value):
 		bindings = value
@@ -129,7 +130,8 @@ const SAVE_DELAY_S: float = 0.3
 var path: String = PATH
 ## Nothing is read, written or applied at load (`--no-settings`). Set before the node enters the tree to change it.
 var isolated: bool = false
-## Why the file didn't read at load ("" when it did, or there was none): the menu tells the player once (Game).
+## Why the file didn't read at load, the parser's words ("" when it did, or there was none): the menu tells the player
+## once (Game).
 var read_problem: String = ""
 
 ## The window is this process's to change: not isolated, not headless.
@@ -202,9 +204,8 @@ func _read() -> Dictionary:
 	var json := JSON.new()
 	if json.parse(FileAccess.get_file_as_string(path)) == OK and json.data is Dictionary:
 		return json.data
-	read_problem = "%s doesn't read (%s, line %d): it is kept as %s.bad, and the defaults are used" % [path,
-		json.get_error_message(), json.get_error_line() + 1, path.get_file()]
-	print("Settings: " + read_problem)
+	read_problem = "%s, line %d" % [json.get_error_message(), json.get_error_line() + 1]
+	print("Settings: %s doesn't read (%s): kept as %s.bad, the defaults used" % [path, read_problem, path.get_file()])
 	DirAccess.rename_absolute(path, path + ".bad")
 	return {}
 
