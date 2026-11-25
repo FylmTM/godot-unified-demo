@@ -567,3 +567,16 @@ Calls made in step 3 (the crowd's rules):
 - Stagger is the knock itself, no timer: faster than KNOCK_STAGGER (1.5 m/s) a minion walks at nothing and starts or
   lands no swing (a Knight's 5 m/s reels it 13 ticks, a Barbarian's 9 about 19); its separation and the knock still
   move it.
+- Queueing: a chaser gives way to neighbours within QUEUE_REACH (1 m), where the moves began. First it slides: the part
+  of its chase toward each one goes, as much as that one is close (none at 1 m, all at QUEUE_STOP = SEPARATION); then,
+  if the slid chase still heads at a close one, it waits as much as the closest is close. Both designs proposed
+  scaling the chase by the way ahead (Fable's half-plane, a neighbour ahead slowing it to a stop); measured on the
+  arena's chase (four heroes standing, ten seconds): scaling alone held 0.9 m apart but stalled the back rows against
+  the front (5 in reach of the heroes); a 60° cone filled the ring (10) but let it press to 0.27 m; the slide alone let
+  it press to 0.31 m; the slide then the wait holds the closest pair at 0.78 m with 10 in reach (it was 1 cm, 5,584
+  pairs overlapping, without). The arena's shots read as rings of skeletons, not a dome. Its cost: still minions skip
+  it (sleepers only keep apart), and it made the crowd rows cheaper (a thinner crowd has fewer neighbours: chase 1.9 ms
+  from 2.5); Floor 1's 40 chasers pay about 2 % of its re-sim mean (A/B, 300 against 294 us, inside the runs' spread).
+- The front row reaching its heroes: the ring test asks at least two in reach per hero (it has ten round four heroes
+  standing together); the fight's Knight fells fewer in its first seconds (12 against 140 at the same tick: a ring of
+  six or seven to cut through, not a pile pressing on its blade).

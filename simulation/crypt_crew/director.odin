@@ -178,7 +178,8 @@ surge_graves :: proc(t: ^Tick) -> (graves: sim.List(int, MAX_GRAVES)) {
 // order. How many it raised, or tried to (a place off the floor counts: the owed one is spent).
 @(private = "file")
 rise_owed :: proc(t: ^Tick, graves: []int, count: int, phase: Minion_Phase) -> int {
-	budget := dmath.min(dmath.min(count, RISE_PER_TICK), free_rows(&t.state.minions)) // taken first: each raise takes a row
+	// taken first: each raise takes a row
+	budget := dmath.min(dmath.min(count, RISE_PER_TICK), free_rows(&t.state.minions))
 	raised := 0
 	for grave in graves {
 		if raised >= budget do break

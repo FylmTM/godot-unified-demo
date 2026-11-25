@@ -221,6 +221,10 @@ STEER_S :: f32(0.0625) // ... and a farther one this often (time-sliced by its i
 STEER_TICKS :: u32(STEER_S * TICK_HZ)
 SEPARATION :: f32(0.9) // minions closer than this push apart ...
 SEPARATION_SPEED :: f32(2.5) // ... at up to this speed
+QUEUE_REACH :: f32(1) // a chaser gives way to a neighbour ahead from this far ...
+QUEUE_STOP :: SEPARATION // ... to a stop this close: the back rows wait, never pressing the front onto the hero
+#assert(QUEUE_REACH <= MINION_GRID_CELL) // the grid's 3 by 3 cells hold every neighbour this close
+QUEUE_NEIGHBOURS :: 16 // the most neighbours within QUEUE_REACH a chaser weighs (kept apart, it has six or seven)
 KNOCK_DECAY :: f32(6) // a knockback's velocity decays at this rate per second
 KNOCK_MAX :: f32(10) // a minion's knockback adds up to at most this fast (metres per second): a pile-up of blows
 // A minion knocked faster than this staggers: it neither walks at its target nor starts or lands a swing until its

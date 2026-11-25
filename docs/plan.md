@@ -49,21 +49,20 @@ About 500 skeletons alive, drawn as one MultiMesh, and the benchmark rows that p
    mesh (a KayKit minion is 9 meshes and about 5,000 triangles), rather than per-vertex positions. Step 4.
 2. **Where 500 fit:** the arena (built, reached by the Setup: `floor=arena`); the endless mode around it stays
    milestone 7's. A floor's cap comes from its walkable area (built: Floor 1 about 110, the arena 500).
-3. **Sim speed** (step 2): a surge a quota in the state, raised a few a tick (with step 3); one radial knock for
-   blasts and charges, clamped. (Built: the director counting free rows, the 1 m grid with `sim.grid_box` for wider
-   queries, far minions' steering every 4 ticks.)
-4. **Crowd rules** (step 3): queueing (the back rows stop compressing the front) and a stagger while knocked.
+3. **Sim speed** (built: the director counting free rows, the 1 m grid with `sim.grid_box` for wider queries, far
+   minions' steering every 4 ticks, the surge a quota raised a few a tick, one radial knock for blasts, clamped).
+4. **Crowd rules** (built: queueing, a stagger while knocked).
 5. **Bench rows:** today's kept; crowd_idle, crowd_chase and crowd_fight on the arena through the Setup (built);
-   target frame p99 at most 3 ms on the developer's machine, half the library's line (after step 2 crowd_fight is
-   under it, crowd_chase at it: 2.7 to 3.1 ms, its crush round the heroes step 3's to thin).
+   target frame p99 at most 3 ms on the developer's machine, half the library's line (after step 3 every row is
+   under it: crowd_chase about 1.9 ms, crowd_fight 1.7, the queue having thinned the crush round the heroes).
 6. **The bake tool** lives here first and moves into unified's `tools_godot` by the milestone's end. Crowd shadows are
    decided from shots and frame times in step 4.
 7. **From unified:** `View_Policy.ages` for the crowd's clip times (step 5), scenarios and reference runs on a Setup
    (the crowd's scale tests: built).
 
-Steps: 1 the arena, held crowds and honest rows (done); 2 the sim at 500 (done but the quota and the knock); 3 the
-crowd's rules; 4 the bake and its look-dev shots; 5 minions become the MultiMesh (the pooled minion view goes); 6 the
-tool lifted into unified, the README, the reviews.
+Steps: 1 the arena, held crowds and honest rows, 2 the sim at 500 and 3 the crowd's rules (done); 4 the bake and its
+look-dev shots; 5 minions become the MultiMesh (the pooled minion view goes); 6 the tool lifted into unified, the
+README, the reviews.
 
 ## How it's tested
 

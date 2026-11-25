@@ -41,11 +41,11 @@ CROWD_REFERENCE :: scenarios.Reference {
 	ticks         = 1200,
 	snapshot_tick = 600,
 	setup         = "floor=arena,crowd=fight",
-	checkpoints   = {0xb55cc30d30b66844, 0xbac708881e293e5b, 0x0b4c014a35a9fcb0, 0x1dc81ef26963e655},
-	trace         = 0xcd030137b7dc3e8f,
-	snapshot      = 0x6c3b1f5db530c872,
-	log           = 0x6dc1fe1da15a97d9,
-	compat        = 0x960ab189a24c61bb,
+	checkpoints   = {0x6fc9b48b58b58dfa, 0x29d9525a54a6140e, 0xf1b82714f8bf9744, 0xcf466a37376cbc04},
+	trace         = 0x0e6122fce9551781,
+	snapshot      = 0x729d45d46b058cb1,
+	log           = 0xa8377fd1768c1af7,
+	compat        = 0x80946353d7618760,
 }
 
 // What a chaser closes on a neighbour or a spawn in the tick a run seats its heroes.
@@ -398,7 +398,7 @@ the_grid_finds_what_the_table_finds :: proc(t: ^testing.T) {
 
 // Separation at density: sixty sleepers dropped within 2 m of the arena's first hero spawn (five to the square metre)
 // push apart until none is closer than SEPARATION less a hand's breadth within ten seconds, every one still on the
-// floor. (Chasers packed round a hero overlap closer still until step 3's queueing: their chase outruns the push.)
+// floor. (Chasers round a hero are kept apart by the queue as well: a_crowd_rings_its_heroes.)
 @(test)
 separation_spreads_a_crush :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Idle}) // no hero: nobody wakes them
@@ -468,5 +468,34 @@ a_crowd_stays_on_the_floor :: proc(t: ^testing.T) {
 			before^ = {handle, minion.pos}
 		}
 	}
+	scenarios.expect_synced(t, &run)
+}
+
+// The queue holds a ring: the arena's crowd chasing four heroes who stand still for ten seconds keeps apart where it
+// gathers round them (no two live minions closer than RING_APART, where without the queue they pressed to within a
+// centimetre), and it doesn't stall there: its front row stands within swinging reach, at least RING_FRONT of them.
+@(test)
+a_crowd_rings_its_heroes :: proc(t: ^testing.T) {
+	RING_APART :: g.SEPARATION - 0.2
+	RING_FRONT :: 2 * g.PLAYERS
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Chase}, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	play(&run, {}, 10)
+	state := &run.simulation.state
+	closest := max(f32)
+	front := 0
+	minions := sim.iterate(&state.minions)
+	for minion, handle in sim.next(&minions) {
+		if minion.target != {} {
+			hero := sim.player_data(&state.players, minion.target)
+			front += int(dmath.length(hero.pos.xz - minion.pos.xz) <= g.MINION_RADIUS + g.HERO_RADIUS + g.MINION_REACH)
+		}
+		others := sim.iterate(&state.minions)
+		for other, other_handle in sim.next(&others) {
+			if other_handle.index > handle.index do closest = dmath.min(closest, dmath.length(other.pos.xz - minion.pos.xz))
+		}
+	}
+	testing.expectf(t, closest >= RING_APART, "two minions %v m apart", closest)
+	testing.expectf(t, front >= RING_FRONT, "only %d in reach of the heroes", front)
 	scenarios.expect_synced(t, &run)
 }

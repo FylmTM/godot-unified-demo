@@ -162,7 +162,9 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    taking no damage; the benchmark rows and the scale tests play it.
 6. **Minions.** Each picks the nearest hero up by path (every RETARGET_S), steers along that hero's field (every
    tick within STEER_NEAR of it or in its chase's first ticks, else every STEER_S, walking its facing between), keeps
-   SEPARATION from its neighbours (where they stood when the moves began) and carries its knockback (KNOCK_DECAY, at
+   SEPARATION from its neighbours (where they stood when the moves began), gives way to the ones ahead (it slides round
+   one within QUEUE_REACH, and waits behind one it still heads at, stopping at QUEUE_STOP: the back rows queue behind
+   the front), and carries its knockback (KNOCK_DECAY, at
    most KNOCK_MAX); knocked faster than KNOCK_STAGGER it staggers, walking at nothing and swinging at nothing.
 7. **Physics.** Box3D steps; the heroes' feet and velocities are read back into the state.
 8. **Strikes.** A blow lands at its windup on the minions in its reach and arc, or touching the hero (`CLASS_SPECS`,
