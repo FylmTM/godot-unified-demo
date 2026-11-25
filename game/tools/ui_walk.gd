@@ -27,7 +27,7 @@ extends TogetherWalk
 ##     Game.quit_app.
 ## That the app adopts a session its menus didn't start is coop.gd's (`uni coop`: both processes start from uni's
 ## flags); `uni coop --menus` proves the menus' host and join across two processes. A look pass runs it at another
-## window or interface size: `./uni tool --window --shots ui_walk -- --size=2560x1440 --ui-scale=0.8`.
+## window or interface size: `./uni tool --window --shots --offline --size 2560x1440 ui_walk -- --ui-scale=0.8`.
 
 ## A local port nothing listens on: a join to it waits until cancelled.
 const SILENT_PORT: int = 9
@@ -35,7 +35,7 @@ const SILENT_PORT: int = 9
 
 func _run() -> void:
 	record_sounds()
-	await look_at_size()
+	await look_at_scale()
 	change_scene_to_file(str(ProjectSettings.get_setting("application/run/main_scene")))
 	await wait_for_scene("Menu", 5.0)
 	await frames(10)
@@ -147,7 +147,24 @@ func _walk_settings() -> void:
 	expect(top_screen() == title(), "Esc closes the settings")
 	expect(root.gui_get_focus_owner() == title_control("Settings"), "Settings has the focus back")
 	title_control("NewGame").grab_focus()
+	await _walk_title_fits()
 	step("back to the title")
+
+
+## The title's column follows the interface size: at 130 % it shrinks to fit the view less FitToView's margin, and
+## back at the run's size it is whole again.
+func _walk_title_fits() -> void:
+	var column: Control = find(title(), ^"Column") as Control
+	set_setting(&"ui_scale", 1.3)
+	await frames(4)
+	var view: Rect2 = column.get_viewport_rect()
+	var room: Rect2 = view.grow_individual(0.0, -FitToView.MARGIN.y, 0.0, -FitToView.MARGIN.y)
+	expect(room.grow(1.0).encloses(column.get_global_rect()), "at 130 %%, the title's column fits: %s in %s"
+		% [column.get_global_rect(), room])
+	set_setting(&"ui_scale", ui_scale)
+	await frames(4)
+	expect(column.get_viewport_rect().encloses(column.get_global_rect()), "and back, it still does: %s"
+		% column.get_global_rect())
 
 
 ## Down the shown tab with the d-pad, row by row, and back up: the focus is never lost and never leaves the screen.
@@ -297,7 +314,8 @@ func _walk_new_game() -> void:
 	expect(not hints.visible, "Off hides them")
 	set_setting(&"hints", setting_value(&"Hints", &"BRIEFLY"))
 	await press_key(KEY_F)
-	await wait_for(func() -> bool: return hints.visible, 1.0, "Briefly: a change of device shows them again")
+	await frames(2)
+	expect(hints.visible, "Briefly: a change of device shows them again")
 	set_setting(&"hints", setting_value(&"Hints", &"ALWAYS"))  # the couch's glyph checks read them
 	step("in the crypt: F attacks, the hints follow, tick %d" % session.tick)
 	await _walk_single_pause()
@@ -418,8 +436,8 @@ func _walk_connecting() -> void:
 
 
 ## A join that fails at once (an address no network has): one dialog saying why as a sentence, one error sound and no
-## focus sound; pad B closes it and the focus is back on the title's first control. Again, the same (OK
-## pressed with pad A).
+## focus sound; pad B closes it and the focus is back on the title's first control. Again, the same (OK pressed with
+## pad A). Its look is 25_join_failed's (TogetherWalk).
 func _walk_failed_join() -> void:
 	var dialog: Control = overlay("Dialog")
 	var ok: Control = find(dialog, ^"%Ok") as Control
@@ -438,7 +456,6 @@ func _walk_failed_join() -> void:
 			"one error sound and no other (%s)" % [sounds.slice(mark)])
 		expect(root.gui_get_focus_owner() == ok, "OK has the focus")
 		if attempt == 0:
-			await shot("05_failed_join")
 			await pad_button(JOY_BUTTON_B)
 		else:
 			mark = sounds.size()

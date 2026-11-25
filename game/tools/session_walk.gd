@@ -160,12 +160,21 @@ func _walk_online_pause() -> void:
 	expect(pause_all.visible and pause_all.text == "Pause for everyone", "Pause for everyone is its own button")
 	await click(pause_all)
 	await wait_for(func() -> bool: return Unified.data.hud.paused, 2.0, "the game pauses for everyone")
-	var pauser: String = "Paused by %s" % setting(&"player_name")
-	var banner: Label = find(current_scene, ^"Hud/%PausedText") as Label
-	expect(banner.text == pauser, "the banner names who: %s" % banner.text)
-	expect((_pause_control("Heading") as Label).text == pauser, "and the menu's heading")
+	var banner: NameLabel = find(current_scene, ^"Hud/%PausedText") as NameLabel
+	var heading: NameLabel = _pause_control("Heading") as NameLabel
+	var me: String = setting(&"player_name")
+	expect(banner.player_name == me and banner.text.begins_with("Paused by"),
+		"the banner names who: %s" % banner.text)
+	expect(heading.text == banner.text or heading.player_name == banner.player_name, "and the menu's heading: %s"
+		% heading.text)
 	expect(pause_all.text == "Resume for everyone", "the button resumes it for everyone")
 	await shot("19_paused_for_everyone")
+	await press_key(KEY_ESCAPE)
+	expect(banner.is_visible_in_tree(), "with the menu closed, the banner shows who paused")
+	await shot("19b_banner")
+	await _walk_hosted_hud_fits(banner)
+	await press_key(KEY_ESCAPE)
+	pause_all = _pause_control("PauseAll") as Button
 	await click(pause_all)
 	await wait_for(func() -> bool: return not Unified.data.hud.paused, 2.0, "anyone resumes it for everyone")
 	expect((_pause_control("Resume") as Button).text == "Back to the game", "online and running: Back to the game")
@@ -184,6 +193,39 @@ func _walk_online_pause() -> void:
 	await wait_for_scene("Menu", 5.0)
 	await frames(3)
 	step("the pause menu online: an overlay, Pause and Resume for everyone, the banner names who")
+
+
+## At 130 % in a game hosted on the LAN, paused for everyone: toasts clear of the plates, the counts, the session
+## panel and the banner; a pad's join card clear of the counts and the panel, scaled no smaller than 0.8; the pause
+## menu's panel inside the view less FitToView's margin.
+func _walk_hosted_hud_fits(banner: Control) -> void:
+	set_setting(&"ui_scale", 1.3)
+	await frames(4)
+	var hud: Control = find(current_scene, ^"Hud") as Control
+	var crypt: Control = find(hud, ^"%Crypt") as Control
+	var panel: Control = find(hud, ^"%SessionPanel") as Control
+	for i: int in 3:
+		game.call(&"toast", "%s +%d is back (Barbarian)" % [setting(&"player_name"), i + 1])
+	await frames(4)
+	expect_toasts_clear([find(hud, ^"%Heroes") as Control, crypt, panel, banner.get_parent().get_parent() as Control])
+	await pad_button(JOY_BUTTON_START, 1)
+	var cards: Control = find(hud, ^"%JoinCards") as Control
+	await frames(3)
+	var card_rect: Rect2 = cards.get_global_rect()
+	expect(not card_rect.intersects(crypt.get_global_rect()) and not card_rect.intersects(panel.get_global_rect()),
+		"a join card hangs below the counts and the panel: %s" % card_rect)
+	expect(cards.scale.x >= 0.8, "and is scaled no smaller than 0.8: %.2f" % cards.scale.x)
+	await shot("19c_hud_130")
+	await pad_button(JOY_BUTTON_B, 1)
+	await press_key(KEY_ESCAPE)
+	var pause_panel: Control = find(_pause_menu(), ^"Stack/PauseScreen/Center/Panel") as Control
+	var room: Rect2 = hud.get_viewport_rect().grow_individual(-FitToView.MARGIN.x, -FitToView.MARGIN.y,
+		-FitToView.MARGIN.x, -FitToView.MARGIN.y)
+	expect(room.grow(1.0).encloses(pause_panel.get_global_rect()), "the pause menu inside the view: %s in %s"
+		% [pause_panel.get_global_rect(), room])
+	await press_key(KEY_ESCAPE)
+	set_setting(&"ui_scale", ui_scale)
+	await frames(2)
 
 
 ## The pause menu over a replay (the walk's last game, recorded when it ended): Replay paused, Resume and Leave only;

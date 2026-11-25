@@ -82,7 +82,8 @@ func _walk_join_code() -> void:
 	await click(field)
 	await press_key(KEY_ENTER)
 	await _walk_hero_select_start("Join %s" % code)
-	await _expect_failed_start(screen, 30.0)
+	# Without online play the join fails at once; with it, once the lobby service has looked for the code (seconds).
+	await _expect_failed_start(screen, 3.0 if session.online_problem != "" else 30.0)
 	expect(_code_cells(field) == code, "the code kept")
 	await press_key(KEY_ESCAPE)
 	await press_key(KEY_ESCAPE)

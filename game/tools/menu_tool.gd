@@ -7,29 +7,21 @@ extends UnifiedTool
 
 ## Every sound the interface played since record_sounds(), in order (Sfx's `played`).
 var sounds: Array[StringName] = []
-## The interface size the run looks at (look_at_size(): `--ui-scale=`), which a part that changes it goes back to.
+## The interface size the run looks at (look_at_scale(): `--ui-scale=`), which a part that changes it goes back to.
 var ui_scale: float = 1.0
 
 
-## A look pass at another window or interface size, from the script's arguments: `--size=2560x1440` sizes the window
-## (a windowed run with --shots) and puts it left of every screen, so a window bigger than the leftmost screen covers
-## none of the developer's (it still renders, and the shots read it); `--ui-scale=0.8` sets the interface size
-## (ui_scale). Without them, the project's 1280x720 at 100 %.
-func look_at_size() -> void:
-	var size: String = arg("size")
-	if size != "":
-		root.size = Vector2i(size.get_slice("x", 0).to_int(), size.get_slice("x", 1).to_int())
-		var left: int = 0
-		for screen: int in DisplayServer.get_screen_count():
-			left = mini(left, DisplayServer.screen_get_position(screen).x)
-		root.position = Vector2i(left - root.size.x - 64, 0)
+## A look pass at another interface size, from the script's arguments: `--ui-scale=0.8` sets it (ui_scale; 1.0
+## without). The window's size is uni's (`uni tool --window --size WxH`).
+func look_at_scale() -> void:
 	ui_scale = arg("ui-scale", "1.0").to_float()
 	set_setting(&"ui_scale", ui_scale)
 	await frames(3)
 
 
-## A real click on `c` (UnifiedTool.click), scrolled into view first as a player would scroll to it: a big interface
-## size scrolls a settings tab.
+## A real click on `c` (UnifiedTool.click), scrolled into view first as a player would scroll to it (a big interface
+## size scrolls a settings tab). In a window the cursor is then parked outside it: a cursor left where the click was
+## would hover whatever the next screen puts there, and the game gives the hovered button the focus.
 func click(c: Control, button := MOUSE_BUTTON_LEFT) -> void:
 	var scroll: ScrollContainer = null
 	var up: Node = c.get_parent() if c != null else null
@@ -42,6 +34,8 @@ func click(c: Control, button := MOUSE_BUTTON_LEFT) -> void:
 		if scroll.scroll_vertical != was:
 			await frames(2)
 	await super(c, button)
+	if DisplayServer.get_name() != "headless":
+		Input.warp_mouse(Vector2(-16.0, -16.0))
 
 
 ## Starts recording the interface's sounds into `sounds`.

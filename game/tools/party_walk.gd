@@ -324,8 +324,38 @@ func _walk_full_couch() -> void:
 	await pad_button(JOY_BUTTON_START, 4)
 	expect(_card(4) == null, "a fifth pad's Start opens no card")
 	expect(_toast_shows("The couch is full"), "a toast says why")
+	await _walk_full_hud_fits()
 	await _leave_guests()
 	step("two cards at once, a pad gone, names by place, a full couch")
+
+
+## At 130 % with four players: the four plates inside the view (scaled down to fit), each guest's name keeping its
+## "+1", and no toast over a plate or the counts.
+func _walk_full_hud_fits() -> void:
+	set_setting(&"ui_scale", 1.3)
+	await frames(4)
+	var hud: Control = find(current_scene, ^"Hud") as Control
+	var heroes: Control = find(hud, ^"%Heroes") as Control
+	var view: Rect2 = hud.get_viewport_rect()
+	expect(view.encloses(heroes.get_global_rect()), "at 130 %%, four plates fit the view: %s in %s"
+		% [heroes.get_global_rect(), view])
+	for plate: String in ["HeroPlate2", "HeroPlate3", "HeroPlate4"]:
+		var who: Label = find(heroes, NodePath(plate + "/%Who")) as Label
+		expect(who.text.right(3).begins_with(" +"), "a guest's plate keeps its +N: %s" % who.text)
+	expect_toasts_clear([heroes, find(hud, ^"%Crypt") as Control])
+	await shot("03c_full_couch_130")
+	set_setting(&"ui_scale", ui_scale)
+	await frames(2)
+
+
+## No toast covers any of `controls` (the HUD's plates, the counts, the banner).
+func expect_toasts_clear(controls: Array[Control]) -> void:
+	for toast: Node in overlay("Toasts").get_children():
+		var rect: Rect2 = (toast as Control).get_global_rect()
+		for control: Control in controls:
+			if control.is_visible_in_tree():
+				expect(not rect.intersects(control.get_global_rect()), "a toast (%s) clear of %s (%s)"
+					% [rect, control.name, control.get_global_rect()])
 
 
 ## Pad `device`'s Start opens its join card; its A joins with the card's pick, and its player is in the session (it
@@ -441,8 +471,11 @@ func _glyph(action: StringName, family_name: String) -> String:
 	return glyphs
 
 
+## A toast says `text`, or says it with the name cut by NameLabel's rule ("Sexton of the... +1 left (Barbarian)").
 func _toast_shows(text: String) -> bool:
 	for toast: Node in overlay("Toasts").get_children():
-		if (toast.get_node(^"%Text") as Label).text == text:
+		var shown: String = (toast.get_node(^"%Text") as Label).text
+		var cut: int = shown.find("...")
+		if shown == text or cut > 0 and text.begins_with(shown.left(cut)) and text.ends_with(shown.substr(cut + 3)):
 			return true
 	return false
