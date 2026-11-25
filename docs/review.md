@@ -435,11 +435,11 @@ Checks:
 - The walk drives pads with unified's `UnifiedTool.pad_button(button, device)` and `pad_axis` (745e023).
 - The short scenarios' run crosses a surge (`the_suite_runs_cross_a_save`), so unified's save checks cover Game.save
   under rollback, churn and a late join.
-- `replays/lan_pair` (the host's recording, ticks 2 to 3111, about 49 s; recorded again in milestone 4 so its blows
+- `replays/lan_pair` (the host's recording, ticks 2 to 4241, about 66 s; recorded again in milestone 4 so its blows
   land): a Knight host and a Barbarian joiner (both asked for Any), each grabbing, carrying and throwing a prop twice;
   the host grabbing a prop, thirty-two skeletons raised round it (dev) and the prop thrown through their ring (a prop
   hit); both attacking as they close in (blows land); the joiner's co-op pause and the host's resume; the host a Mage
-  and the joiner a Rogue (dev), both attacking; every skeleton killed (dev); the host downed (dev); three surges.
+  and the joiner a Rogue (dev), both attacking; every skeleton killed (dev); the host downed (dev); four surges.
   `the_lan_recording_fights` replays it and finds the heroes' own hits and a prop's.
 - `uni coop --host-profile/--join-profile` (unified b06ba4f) gives each side its Profile; coop.gd checks each class
   against its flag (a joiner asking Any plays a class the host doesn't), names its joiner "Friend", works both pause
@@ -549,34 +549,61 @@ Calls made in step 2 (the sim at 500):
   standing, so a kill needs an earlier wound, chance in a bot's three minutes (attacks_test.odin holds the throw's
   rules).
 
-Calls made in step 3 (the crowd's rules):
+Calls made in step 3 (the crowd's rules), as they stand after its review:
 
 - A surge is a quota (State.rising) set when its clock runs out (SURGE_BASE, SURGE_PER_HERO a hero, SURGE_GROWTH 2 for
-  each surge faced; at most the floor's cap room and the table's free rows, less what is still owed) and raised a few
-  a tick: at most RISE_PER_TICK (4), one per grave per RISE_GAP_TICKS (8, the grave's turn by its index, no state),
-  the graves taken in order instead of a rolled one (Roll.Rise_Grave is gone). A held population's refill rises the
-  same way, so a mass kill on the arena refills over about two seconds, never 360 in a tick. Event_Surge and the save
-  point fire when the quota is set.
-- replays/lan_pair recorded again for the State's layout (ticks 2 to 2856): the ring round the host is 32 now (16 let
-  the thrown prop miss it on one recording).
+  each surge faced since the party entered the floor; at most the floor's cap room and the table's free rows, less
+  what is still owed) and raised one per grave on its turn (RISE_GAP_TICKS 8, by the grave's index, no state), each
+  riser at the first of RISE_TRIES (4) rolled places with no live minion within SEPARATION; a grave with none lets its
+  turn pass and the owed one waits. RISE_PER_TICK is gone: the rate is the graves on their turn. Event_Surge's count
+  is the quota; it and the save point fire when it is set.
+- Growth counts the floor's surges (State.floor_surges, reset with State.rising when the party enters a floor: a
+  wipe's restart, a Continue), not the session's: no death spiral after a wipe. The long ramp of a run or the endless
+  arena is milestone 7's (plan.md).
+- A held crowd's refill: a chasing or fighting crowd's rise at the graves the same way (after a mass kill of the
+  arena's 500 it stands whole again in about twelve seconds: each grave's spread holds a few risers at once, and they
+  climb out for RISE_S); a sleeping crowd's are placed asleep as place_crowd places them, out of sight, one for each
+  grave on its turn (sleepers never leave a grave's side, so its places would fill).
 - Knockback: every knock goes through damage_minion, which clamps the sum at KNOCK_MAX (10 m/s). The one radial knock
   is `knock_area(t, at, radius, damage, knock, player, source, skip)`: the walk of minions_within, walls shielding (a
-  ray to the chest), damage flat, the knock falling off linearly to the rim; the Mage's burst calls it now (its knock
-  at the edge of its 1.5 m now fades to nothing, where it was a flat 4 m/s), fireballs and charges will. The
-  Barbarian's cleave stays an arc blow (its knock away from the hero is already radial; it shares the clamp).
+  ray to the chest), damage flat, the knock falling off from the centre to BLAST_RIM (half) of it at the rim, so the
+  burst keeps its crowd control: its rim gets 2 m/s, over KNOCK_STAGGER, and all of its 1.5 m staggers (asserted).
+  The Barbarian's cleave stays an arc blow (its knock away from the hero is already radial; it shares the clamp).
 - Stagger is the knock itself, no timer: faster than KNOCK_STAGGER (1.5 m/s) a minion walks at nothing and starts or
   lands no swing (a Knight's 5 m/s reels it 13 ticks, a Barbarian's 9 about 19); its separation and the knock still
   move it.
-- Queueing: a chaser gives way to neighbours within QUEUE_REACH (1 m), where the moves began. First it slides: the part
-  of its chase toward each one goes, as much as that one is close (none at 1 m, all at QUEUE_STOP = SEPARATION); then,
-  if the slid chase still heads at a close one, it waits as much as the closest is close. Both designs proposed
-  scaling the chase by the way ahead (Fable's half-plane, a neighbour ahead slowing it to a stop); measured on the
-  arena's chase (four heroes standing, ten seconds): scaling alone held 0.9 m apart but stalled the back rows against
-  the front (5 in reach of the heroes); a 60° cone filled the ring (10) but let it press to 0.27 m; the slide alone let
-  it press to 0.31 m; the slide then the wait holds the closest pair at 0.78 m with 10 in reach (it was 1 cm, 5,584
-  pairs overlapping, without). The arena's shots read as rings of skeletons, not a dome. Its cost: still minions skip
-  it (sleepers only keep apart), and it made the crowd rows cheaper (a thinner crowd has fewer neighbours: chase 1.9 ms
-  from 2.5); Floor 1's 40 chasers pay about 2 % of its re-sim mean (A/B, 300 against 294 us, inside the runs' spread).
-- The front row reaching its heroes: the ring test asks at least two in reach per hero (it has ten round four heroes
-  standing together); the fight's Knight fells fewer in its first seconds (12 against 140 at the same tick: a ring of
-  six or seven to cut through, not a pile pressing on its blade).
+- The queue, redesigned after the review: each chaser has a place in its own hero's queue (World.queues, scratch: the
+  same target, nearer to it, ties by row; asleep, rising, reeling or chasing nobody: in none). Within QUEUE_REACH (1 m)
+  it slides (the part of its chase toward each close neighbour goes, as much as that one is close, all of it at
+  QUEUE_STOP = SEPARATION); held up, it steps sideways to its clearer side (ties by row), the side's closeness counting
+  only those not behind it in its own queue (they wait for it) and only as much as they lie that way; then a last
+  look, QUEUE_PASSES times over its close neighbours, takes out what still heads at one (only along the way to it: the
+  sideways part stays). It never stands behind a sleeper, a riser or another hero's ring: it passes them. A chaser well
+  in reach (MINION_STAND, 0.4 m inside it) stands to swing: pressing on crowded the front row inward until it pressed
+  together.
+- What it holds (crowd_test.odin): the arena's 500 round four standing heroes 8 m apart keep at least SEPARATION - 0.2
+  apart over the last two of twenty seconds, at least two a hero in reach, and again fourteen seconds after the heroes
+  walk a loop through them; a column of eight fans out round its hero (five in reach in four seconds); a chaser passes
+  a sleeper on its line within a second of a clear walk; Floor 1's first surge reaches four standing heroes (most
+  within 4 m five seconds after climbing out, all within ten).
+- Not held, for the developer: (1) four heroes standing within a minion's width of each other (the spawns' 1.6 m)
+  make pockets their one-way capsule push wedges minions into, 0.54 m apart and still; the rings are tested round heroes
+  apart. (2) Forty chasers funnelled through Floor 1's east doorway to a standing hero ring only the doorway's half
+  (five in reach within ten seconds, no more in thirty): the second row can't pass the front one round to the far
+  side. A rule that lets a queue flow round its front (a slot round the hero, or pressure passed back) is the next
+  step if the developer wants full rings from one side.
+- The fight's Knight fells fewer in a ring than in a pile (12 against 140 at the same tick in step 3's shots): the ring
+  is the intent.
+- Performance: the queue's cost on Floor 1's row. Step 3's commit put +2 % on it to the queue's 1 m look; the reviewers
+  measured otherwise: with hero damage off the rows are equal, so the 2 to 4 % comes from the play (the queued crowd
+  downs the heroes less, so more of them stand in the physics step), and over the whole step Floor 1 is flat.
+- Performance: the redesigned queue's cost on the arena's rows, measured (A/B against step 3's commit, load 1 to 2 %,
+  two runs each): crowd_chase's means 77 + 1126 us to 120 + 1687 (+50 %), p99 1.67 to 2.69 ms; crowd_fight's 77 + 1104
+  to 114 + 1590 (+45 %), p99 1.64 to 2.42 ms; crowd_idle and Floor 1 flat. Under the 3 ms bar, with less room. Where it
+  goes: the rule's own sums are a small part (the queued crowd without them, pressing together, is 106 us a step against
+  the queue's 121); the rest is the play: the ring keeps the crowd moving round its heroes (sideways steps, a nav move a
+  minion a tick) where step 3's queue stood its back rows still. Cheaper forms tried: one wait pass instead of three
+  (110 us, but the ring's closest pair comes to 0.52 m, under RING_APART), no sideways step (104 us, the column brings
+  two into reach, not five);
+  kept, as free: the passes end at the first that changes nothing. A pressing crowd costs more, not less (the same
+  look over a crowd pressed to a centimetre: 190 us).
