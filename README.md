@@ -32,14 +32,15 @@ cd godot-unified-demo
 
 **Controls.** Move with WASD, the arrow keys or a pad's left stick; aim with the mouse or the right stick (a hero
 that isn't aimed faces where it walks). Attack (the left mouse button, Space, or a pad's right trigger or X) attacks
-while held, and throws what you carry. Interact (E, the right mouse button, or a pad's A) picks up the barrel or crate
-in front, glowing faintly, and puts it down again. Esc, or Start on a pad that plays, pauses the game for everyone.
-Every control can be rebound (Settings, Controls: two bindings per action, the keyboard and mouse and the gamepad
-apart); the HUD shows each player's controls in the glyphs of the device they use.
+while held, and throws what you carry. Grab (E, the right mouse button, or a pad's A) picks up the barrel or crate in
+front, glowing faintly, and puts it down again. Esc, or Start on a pad that plays, pauses the game for everyone.
+Attack and Grab can be rebound on both the keyboard and mouse and a pad, and the moves on the keyboard (Settings,
+Controls: two bindings each; a pad's sticks and D-pad stay); the HUD shows each player's controls in the glyphs of the
+device they use.
 
 **Couch co-op.** Alone, the first player plays with any device, the keyboard and mouse or a pad, and can switch at
-will; any other pad pressing Start joins as another player, and from then on the first player keeps the device they
-used last. Players joining over the LAN join the same session beside them.
+will; a pad they didn't last play with joins as another player when it presses Start, and from then on the first player
+keeps the device they last played with. Players joining over the LAN join the same session beside them.
 
 ## What it shows of unified
 
@@ -66,8 +67,8 @@ used last. Players joining over the LAN join the same session beside them.
   game time, so a correction or a seek lands on the right frame (`game/views/hero.gd`, `minion.gd`).
 - **Events**: effects play as soon as they are predicted (EMITTED: `game/play/play.gd`, `effects.gd`); the HUD counts
   a kill only once it is CONFIRMED (`game/play/hud.gd`).
-- **Couch co-op**: devices claimed and pads joining (`game/play/couch.gd`), every local hero framed by one camera
-  (`camera_rig.gd`); each local player's prompts in the glyphs of the device the session gives them
+- **Couch co-op**: each local player's device and pads joining (`game/play/couch.gd`), every local hero framed by one
+  camera (`camera_rig.gd`); each local player's prompts in the glyphs of the device the session gives them
   (`game/app/prompts.gd`).
 - **Dev commands** (`dev.odin`): a class swap, spawning, hurting and killing, as dev UI forms and
   `uni drive command`.

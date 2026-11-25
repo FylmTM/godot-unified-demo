@@ -299,18 +299,56 @@ Step 2, settings, bindings and prompts, calls made on the way:
   Anti-aliasing (off, 2x, 4x), Interface size 80 to 130 %, Show FPS. Audio: Master, Interface, Mute in the
   background. Gameplay: Screen shake 0 to 100 % (the hurt shake scales by it) and Control hints on the HUD. Pause on
   focus loss waits for step 4's pause menu, the player's name for step 3's profile.
-- Rows read their control from the property (a bool a toggle, a ranged number a slider shown in percent, an enum a
-  choice stepped with left and right); their labels are in the tab scenes. Each tab scrolls (a bigger interface size
-  still fits); Q and E, or a pad's shoulders, switch tabs (new actions `menu_tab_prev`, `menu_tab_next`).
+- Rows read their control from the property (a ranged number a slider shown in percent; a bool, On or Off, and an
+  enum a choice stepped with left and right, a press, or a click on either half); their labels are in the tab scenes.
+  Each tab scrolls (a bigger interface size still fits); Q and E, or a pad's shoulders, switch tabs (new actions
+  `menu_tab_prev`, `menu_tab_next`).
 - The screen stack (`MenuStack`) keeps a covered screen hidden with the focus it had and frees a popped one; each
   screen names its first focus (also the modals' default) and its prompt bar hints.
 - A settings file that didn't read is told once, as a dialog on the menu (Game), then forgotten.
-- The first player alone plays with every device; a pad's Start joins unless it is the pad the first player used
-  last (that Start pauses); with a guest in, the first player is fixed to the device it used last, and every device
-  again once alone. Milestone 2's "the first input claims a device" is gone.
+- The first player alone plays with every device; a pad's Start joins unless it is the device the first player last
+  played with (moved, aimed, attacked or grabbed with; that Start pauses); with a guest in, the first player is fixed
+  to that device, and every device again once alone. Milestone 2's "the first input claims a device" is gone.
 - The HUD's hints sit on each hero plate (Move, Aim, Attack, Grab) in that player's device's glyphs; the join hint is
-  "[Start] Join the game", always in a pad's glyphs.
+  "[Start] Join the game", in the idle pad's own family.
 - A prompt glyph sits in a box of its row's height and overflows it, since the prompt fonts' lines are twice a glyph.
-- No unified API was needed: the walk's pad is device 0 (`UnifiedTool.pad_button`) and a guest's device comes from
-  `add_local_player`. A second pad's own events stay untested until step 3 (the in-game join card).
+- The walk drives several pads with unified's `UnifiedTool.pad_button(button, device)` and `pad_axis` (745e023).
+
+Step 2's review fixes, calls made on the way:
+
+- A pad's join is decided by the Couch in `_input`, before Prompts sees the press; the Couch keeps the device the
+  first player last played with from game actions only (its seed is the menus' last device). The join hint speaks to
+  the first idle pad, in its family; the Couch says which (`idle_pad_changed`).
+- Alone, the mouse aims only while the keyboard and mouse were used last, and the cursor hides while a pad leads.
+- Bindings' one rule: no action is left without a binding in a scheme. Clearing the last is refused; binding a key
+  that is another action's only one into an empty slot is refused; into a full slot it swaps. A refusal shakes the
+  slot and the Controls tab says why. An empty list in the file is no binding; only a scheme absent from the file is
+  project.godot's. The file's tokens are held to can_bind. The pad's D-pad is reserved too.
+- "Grab" is the player's name for `interact` (the action's id stays, as the sim's Input and the level's props name
+  it).
+- The glyph maps are baked into GlyphMap resources (`game/ui/prompts/`) by `./uni tool bake_glyphs`; the pack's maps
+  stay vendored as their source, and the app checks hold each baked map to its source.
+- A key's glyph is its label on the player's layout when that is a Latin letter or digit (AZERTY's Z), else the
+  physical key's (a Cyrillic layout shows W, as its keys are printed too: the fonts draw only Latin); bindings stay
+  physical keys. Headless runs, which have no layout, show the physical key.
+- A binding the fonts lack shows its name in brackets in the text's size and colour, not a blank key cap with its
+  name over it (one label can't draw a glyph and text over each other; the name reads as well).
+- Numpad digits and + - * / . take the main keys' glyphs; numpad Enter is reserved; the Menu key has no glyph in the
+  pack, so it shows its name.
+- The settings panel hangs from the view's edges (a margin above, the prompt bar's room below); the tab scrolls in
+  what is left, with room inside for the focus frame and a scroll bar's place always kept, so nothing shifts.
+- Toggles are On/Off choices, like every other choice; the brown checkboxes are no longer vendored.
+- A row lights up while the focus is anywhere in it (`FocusRow`): one sign of the focus for a choice, a slider and a
+  binding slot. A slider doesn't take the mouse wheel (the wheel scrolls the tab); Interface size applies when its
+  slider is let go.
+- A listening slot: the prompt bar shows Cancel and Clear (new actions `bind_cancel`: Esc, Start; `bind_clear`:
+  Delete, Backspace, Back); a click outside the slot cancels, and a mouse button binds only when clicked on the slot.
+- The pads' glyphs and the dead zone show only under the gamepad scheme.
+- A covered screen, or one under a modal, takes no input: a screen acts only while the focus is in it.
+- The settings dialog names the folder the bad file is kept in as the player's system names it; `read_problem` holds
+  only the parser's words.
+- `UnifiedProfile` is an Object, so a joining pad's Profile leaked; the Couch frees it after the join. A
+  reference-counted Profile is in plan.md's Needed from unified, for step 3.
+- The walk runs 17 s (was 9): the couch's joins wait for each guest to be in the session, and the stuck-key check
+  waits for the hero to settle.
 

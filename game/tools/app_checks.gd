@@ -11,11 +11,14 @@ extends RefCounted
 ## - Every control of the HUD lets clicks through and never takes the focus, so the mouse aims and a pad's A plays.
 ## - Every button of the menus and overlays can take the focus (the d-pad reaches it only if it can).
 ## - Every sound a button names (its `sfx` metadata) is one Sfx has. (That the buttons sound at all is the walk's.)
-## - Bindings: every default binding's token reads back as itself; binding swaps with the action that held the key,
-##   clearing and resetting work, and the InputMap follows.
-## - Prompts: every glyph the prompts' tables name, and every default binding's, is in its family's map.
-## - Settings round-trip a file: saved values read back; a value missing, of the wrong type or out of range falls back
-##   or is clamped, a whole number is taken for a fraction; a file that doesn't parse is kept as .bad, defaults used.
+## - Bindings: every default binding's token reads back as itself; the one rule (a swap both ways alike, an action's
+##   last binding kept), a mouse button, a trigger and a second slot bind; reserved keys and buttons, the wheel and
+##   junk are refused, by a press or from the file, and an empty list in the file is no binding, not the defaults.
+## - Prompts: each baked glyph map is its source's; real pad names read as their family; every glyph the prompts'
+##   tables name, and every default binding's, is in its family's map.
+## - Settings round-trip a file: saved values read back (the bindings, the pads' glyphs and the dead zone among them);
+##   a value missing, of the wrong type or out of range falls back or is clamped, a whole number is taken for a
+##   fraction; a file that doesn't parse is kept as .bad, defaults used.
 ##
 ## Each problem is reported through the validate run's log capture, named by the file it is in.
 
@@ -122,36 +125,77 @@ func _check_focus() -> void:
 
 func _check_bindings() -> void:
 	const AT: String = "res://game/app/bindings.gd"
+	var keyboard: Bindings.Kind = Bindings.Kind.KEYBOARD
+	var pad: Bindings.Kind = Bindings.Kind.PAD
+	Bindings.apply({})
 	for action: StringName in Bindings.ACTIONS:
-		for kind: Bindings.Kind in [Bindings.Kind.KEYBOARD, Bindings.Kind.PAD]:
+		for kind: Bindings.Kind in [keyboard, pad]:
 			for event: InputEvent in Bindings.events(action, kind):
 				var token: String = Bindings.to_token(event)
 				var back: InputEvent = Bindings.from_token(token)
 				if back == null or Bindings.to_token(back) != token:
 					_problem("%s's binding %s doesn't read back from its token" % [action, token], AT)
-	var f := InputEventKey.new()
-	f.physical_keycode = KEY_F
-	var e := InputEventKey.new()
-	e.physical_keycode = KEY_E
-	var keyboard: Bindings.Kind = Bindings.Kind.KEYBOARD
-	var bindings: Dictionary = Bindings.bind({}, &"attack", keyboard, 0, f)
-	Bindings.apply(bindings)
-	if Bindings.to_token(Bindings.events(&"attack", keyboard)[0]) != "key:F":
-		_problem("binding attack to F: the InputMap doesn't follow (%s)" % bindings, AT)
-	bindings = Bindings.bind(bindings, &"interact", keyboard, 0, f)
-	Bindings.apply(bindings)
-	if (Bindings.to_token(Bindings.events(&"interact", keyboard)[0]) != "key:F"
-			or not Bindings.events(&"attack", keyboard).any(func(b: InputEvent) -> bool: return b.is_match(e))):
-		_problem("binding interact to attack's F doesn't swap E to attack (%s)" % bindings, AT)
-	bindings = Bindings.clear(bindings, &"interact", keyboard, 0)
-	Bindings.apply(bindings)
-	if Bindings.events(&"interact", keyboard).size() != 1:
-		_problem("clearing a slot doesn't leave one binding (%s)" % bindings, AT)
-	if not Bindings.reset(bindings, keyboard).is_empty():
-		_problem("resetting the keyboard doesn't drop its changes (%s)" % Bindings.reset(bindings, keyboard), AT)
-	if Bindings.from_token("axis:x") != null or Bindings.from_token("key:NotAKey") != null:
-		_problem("a token that doesn't parse reads as a binding", AT)
-	Bindings.apply({})
+	# A key from another action that has two: a swap.
+	var change: Bindings.Change = Bindings.bind({}, &"attack", keyboard, 0, _key(KEY_F))
+	change = Bindings.bind(change.bindings, &"interact", keyboard, 0, _key(KEY_F))
+	_expect_tokens(change, &"interact", keyboard, ["key:F", "mouse:2"], "F binds to Grab")
+	_expect_tokens(change, &"attack", keyboard, ["key:E", "key:Space"], "attack takes Grab's E in the swap")
+	# Within one action, slot two to slot one's key and slot one to slot two's come out alike.
+	var down: Bindings.Change = Bindings.bind({}, &"attack", keyboard, 1, Bindings.from_token("mouse:1"))
+	var up: Bindings.Change = Bindings.bind({}, &"attack", keyboard, 0, Bindings.from_token("key:Space"))
+	_expect_tokens(down, &"attack", keyboard, ["key:Space", "mouse:1"], "a swap between slots, downward")
+	_expect_tokens(up, &"attack", keyboard, ["key:Space", "mouse:1"], "a swap between slots, upward")
+	# The one rule: no action is left without a binding.
+	if Bindings.clear({}, &"interact", pad, 0).refused == "":
+		_problem("clearing Grab's only pad binding isn't refused", AT)
+	var one_slot: Dictionary = Bindings.clear({}, &"attack", pad, 1).bindings
+	if Bindings.bind(one_slot, &"attack", pad, 1, Bindings.from_token("button:0")).refused == "":
+		_problem("taking Grab's only pad binding into attack's empty slot isn't refused", AT)
+	_expect_tokens(Bindings.bind({}, &"attack", pad, 0, Bindings.from_token("button:0")), &"interact", pad,
+		["axis:5+"], "into a full slot it swaps: Grab takes attack's trigger")
+	if Bindings.clear({}, &"attack", keyboard, 1).refused != "":
+		_problem("clearing one of attack's two keyboard bindings is refused", AT)
+	# A mouse button, a trigger, a second slot.
+	_expect_tokens(Bindings.bind({}, &"attack", keyboard, 1, Bindings.from_token("mouse:9")), &"attack", keyboard,
+		["mouse:1", "mouse:9"], "a side mouse button binds to the second slot")
+	_expect_tokens(Bindings.bind({}, &"attack", pad, 1, Bindings.from_token("axis:4+")), &"attack", pad,
+		["axis:5+", "axis:4+"], "the left trigger binds to the second slot")
+	# Reserved and junk, by a press or from the file.
+	for token: String in ["key:Escape", "key:Enter", "key:F1", "mouse:4", "button:6", "button:11", "axis:0+"]:
+		var event: InputEvent = Bindings.from_token(token)
+		if Bindings.can_bind(event, Bindings.kind_of(event) as Bindings.Kind):
+			_problem("%s may be bound" % token, AT)
+	Bindings.apply({"attack": {"keyboard": ["key:Escape", "mouse:4", "junk", "key:G"]}})
+	if _tokens(&"attack", keyboard) != ["key:G"]:
+		_problem("the file's reserved and junk tokens aren't dropped: %s" % [_tokens(&"attack", keyboard)], AT)
+	Bindings.apply({"attack": {"keyboard": []}})
+	if not _tokens(&"attack", keyboard).is_empty():
+		_problem("an empty list in the file is taken for the defaults", AT)
+	if not Bindings.reset({"attack": {"keyboard": ["key:G"]}}, keyboard).is_empty():
+		_problem("resetting the keyboard doesn't drop its changes", AT)
+	var live: Dictionary = _tree_root.get_node(^"Settings").get(&"bindings")
+	Bindings.apply(live)  # the run's own bindings again
+
+
+func _key(key: Key) -> InputEventKey:
+	var event := InputEventKey.new()
+	event.physical_keycode = key
+	return event
+
+
+func _tokens(action: StringName, kind: Bindings.Kind) -> Array[String]:
+	var out: Array[String] = []
+	for event: InputEvent in Bindings.events(action, kind):
+		out.append(Bindings.to_token(event))
+	return out
+
+
+func _expect_tokens(change: Bindings.Change, action: StringName, kind: Bindings.Kind, want: Array[String],
+		what: String) -> void:
+	Bindings.apply(change.bindings)
+	var got: Array[String] = _tokens(action, kind)
+	if change.refused != "" or got != want:
+		_problem("%s: %s, want %s (%s)" % [what, got, want, change.refused], "res://game/app/bindings.gd")
 
 
 func _check_prompts() -> void:
@@ -160,16 +204,37 @@ func _check_prompts() -> void:
 	var script: Script = prompts.get_script()
 	var tables: Dictionary = script.get_script_constant_map()
 	var families: Dictionary = tables["Family"]
+	var maps: Dictionary = prompts.get(&"maps")
+	for family: int in families.values():
+		var map: GlyphMap = maps.get(family)
+		if map == null:
+			_problem("no glyph map for %s" % families.find_key(family), AT)
+			return
+		if GlyphMap.parse(FileAccess.get_file_as_string(map.source)) != map.glyphs:
+			_problem("%s differs from its source %s: run ./uni tool bake_glyphs" % [map.resource_path, map.source], AT)
+		if map.font.resource_path.get_basename() + "_map.txt" != map.source:
+			_problem("%s's font isn't its map's" % map.resource_path, AT)
+	var names: Dictionary[String, String] = {
+		"Xbox Series X Controller": "XBOX", "XInput Gamepad (GLFW)": "XBOX", "Xbox Elite Pro Controller": "XBOX",
+		"PS5 Controller": "PLAYSTATION", "DualSense Wireless Controller": "PLAYSTATION",
+		"Sony PLAYSTATION(R)3 Controller": "PLAYSTATION", "Nintendo Switch Pro Controller": "SWITCH",
+		"Joy-Con (L)": "SWITCH", "Generic USB Gamepad": "XBOX", "": "XBOX",
+	}
+	for pad_name: String in names:
+		var family: int = script.call(&"family_of_name", pad_name)
+		if families.find_key(family) != names[pad_name]:
+			_problem("a pad named '%s' reads as %s, want %s" % [pad_name, families.find_key(family),
+				names[pad_name]], AT)
 	var keyboard: int = families["KEYBOARD"]
 	var wanted: Array[PackedStringArray] = []  # by family: the glyph names its map must hold
 	wanted.resize(families.size())
 	for table: String in ["PAD_BUTTONS", "PAD_AXES"]:
 		var by_family: Dictionary = tables[table]
 		for family: int in by_family:
-			var names: Array = by_family[family]
-			for glyph_name: String in names:
+			var glyph_names: Array = by_family[family]
+			for glyph_name: String in glyph_names:
 				wanted[family].append(glyph_name)
-	for table: String in ["STICK_GLYPHS", "AIM_STICK_GLYPHS"]:
+	for table: String in ["MOVE_STICK_GLYPHS", "AIM_STICK_GLYPHS"]:
 		var by_family: Dictionary = tables[table]
 		for family: int in by_family:
 			var glyph_name: String = by_family[family]
@@ -179,18 +244,19 @@ func _check_prompts() -> void:
 		for glyph_name: String in glyphs.values():
 			wanted[keyboard].append(glyph_name)
 	var mouse_aim: String = tables["MOUSE_AIM"]
-	wanted[keyboard].append_array([mouse_aim, "keyboard_arrows_all"])
+	var arrows: String = tables["ARROWS_GLYPH"]
+	wanted[keyboard].append_array([mouse_aim, arrows])
 	for family: int in families.values():
 		for action: StringName in InputMap.get_actions():
-			var shown: bool = not action.begins_with("ui_") or action in [&"ui_accept", &"ui_cancel"]
+			var shown: bool = (not action.begins_with("ui_") or action in [&"ui_accept", &"ui_cancel"])
 			for event: InputEvent in InputMap.action_get_events(action):
 				if shown and (Bindings.kind_of(event) == Bindings.Kind.KEYBOARD) == (family == keyboard):
 					var glyph_name: String = prompts.call(&"glyph_name", event, family)
 					wanted[family].append(glyph_name)
 	for family: int in families.values():
-		var names: PackedStringArray = prompts.call(&"map_names", family)
+		var map: GlyphMap = maps[family]
 		for glyph_name: String in wanted[family]:
-			if glyph_name != "" and glyph_name not in names:
+			if glyph_name != "" and not map.glyphs.has(glyph_name):
 				_problem("glyph %s isn't in family %s's map" % [glyph_name, families.find_key(family)], AT)
 
 
@@ -198,14 +264,25 @@ func _check_settings() -> void:
 	var engine: Dictionary = _engine_values()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_FILE + ".bad"))
 	var settings: Node = _settings_from_file()
+	var bindings: Dictionary = {"attack": {"keyboard": ["key:F", "key:Space"]}}
 	settings.set(&"show_fps", true)
 	settings.set(&"render_scale", 0.75)
+	settings.set(&"bindings", bindings)
+	settings.set(&"prompt_style", 2)
+	settings.set(&"move_deadzone", 0.4)
 	settings.call(&"save")
 	settings.free()
 	settings = _settings_from_file()
 	var shown: bool = settings.get(&"show_fps")
 	var render_scale: float = settings.get(&"render_scale")
+	var read_bindings: Dictionary = settings.get(&"bindings")
+	var style: int = settings.get(&"prompt_style")
+	var deadzone: float = settings.get(&"move_deadzone")
 	_expect(shown and render_scale == 0.75, "saved settings read back (%s, %s)" % [shown, render_scale])
+	_expect(read_bindings == bindings and style == 2 and is_equal_approx(deadzone, 0.4),
+		"the controls read back (%s, %s, %s)" % [read_bindings, style, deadzone])
+	_expect(Bindings.to_token(Bindings.events(&"attack", Bindings.Kind.KEYBOARD)[0]) == "key:F",
+		"the bindings read back apply")
 	settings.free()
 	_write_settings_file(JSON.stringify({"video": {"show_fps": "yes", "render_scale": 5, "frame_limit": 60.0},
 		"audio": {"master_volume": 1}}))
@@ -226,12 +303,17 @@ func _check_settings() -> void:
 	render_scale = settings.get(&"render_scale")
 	var problem: String = settings.get(&"read_problem")
 	_expect(render_scale == 1.0, "a file that doesn't parse leaves the defaults")
-	_expect(problem.contains(".bad"), "a file that doesn't parse says so (%s)" % problem)
+	_expect(problem.contains("line"), "a file that doesn't parse says where (%s)" % problem)
 	_expect(FileAccess.file_exists(SETTINGS_FILE + ".bad") and not FileAccess.file_exists(SETTINGS_FILE),
 		"a file that doesn't parse is kept as .bad")
 	settings.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_FILE + ".bad"))
 	_restore_engine_values(engine)
+	var live: Dictionary = _tree_root.get_node(^"Settings").get(&"bindings")
+	Bindings.apply(live)  # the run's own bindings again
+	var live_deadzone: float = _tree_root.get_node(^"Settings").get(&"move_deadzone")
+	for action: StringName in Bindings.MOVE_ACTIONS:
+		InputMap.action_set_deadzone(action, live_deadzone)
 
 
 ## A Settings that reads and writes SETTINGS_FILE, loaded (it is in the tree).

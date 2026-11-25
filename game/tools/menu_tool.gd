@@ -88,6 +88,40 @@ func press_key(key: Key) -> void:
 	await process_frame
 
 
+## Holds a key down, or lets it go (press_key does both), as the keyboard sends it.
+func key(key_code: Key, pressed: bool) -> void:
+	if failed():
+		return
+	var event := InputEventKey.new()
+	event.keycode = key_code
+	event.physical_keycode = key_code
+	event.pressed = pressed
+	Input.parse_input_event(event)
+	await process_frame
+
+
+## Nudges the mouse by `relative` pixels where it is, as a hand on the desk does.
+func nudge_mouse(relative: Vector2) -> void:
+	if failed():
+		return
+	var motion := InputEventMouseMotion.new()
+	motion.position = root.get_mouse_position()
+	motion.global_position = motion.position
+	motion.relative = relative
+	Input.parse_input_event(motion)
+	await process_frame
+
+
+## What the menu's prompt bar says now, its hints' words in order.
+func prompt_words() -> PackedStringArray:
+	var out: PackedStringArray = []
+	var bar: Node = current_scene.get_node_or_null(^"UI/PromptBar") if scene_is("Menu") else null
+	if bar != null:
+		for prompt: Node in bar.get_children():
+			out.append((prompt.get_node(^"%Text") as Label).text)
+	return out
+
+
 ## Moves the mouse over the control's centre, as a player's hand does, without clicking.
 func hover(c: Control) -> void:
 	if c == null or failed():
