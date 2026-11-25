@@ -51,7 +51,8 @@ About 500 skeletons alive, drawn as one MultiMesh, and the benchmark rows that p
    milestone 7's. A floor's cap comes from its walkable area (built: Floor 1 about 110, the arena 500).
 3. **Sim speed** (built: the director counting free rows, the 1 m grid with `sim.grid_box` for wider queries, far
    minions' steering every 4 ticks, the surge a quota raised a few a tick, one radial knock for blasts, clamped).
-4. **Crowd rules** (built: queueing, a stagger while knocked).
+4. **Crowd rules** (built: queueing, a stagger while knocked). A surge grows with the surges faced on its floor; the
+   long ramp of a run or of the endless arena is milestone 7's.
 5. **Bench rows:** today's kept; crowd_idle, crowd_chase and crowd_fight on the arena through the Setup (built);
    target frame p99 at most 3 ms on the developer's machine, half the library's line (after step 3 every row is
    under it: crowd_chase about 1.9 ms, crowd_fight 1.7, the queue having thinned the crush round the heroes).

@@ -12,7 +12,6 @@ import "unified:sim"
 import g "../crypt_crew"
 
 // Steps a run until the first surge rose (SURGE_FIRST_S), its seated heroes standing at their spawns.
-@(private = "file")
 until_the_first_surge :: proc(run: ^headless.Run(g.Game)) {
 	for headless.run_events(run, g.Event_Surge) == 0 &&
 	    run.simulation.state.clock.time < sim.Game_Time(2 * g.SURGE_FIRST_S * g.TICK_HZ) {
@@ -119,15 +118,15 @@ the_cap_holds_and_minions_stay_on_the_floor :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// A surge is a quota that rises over the next ticks: at most RISE_PER_TICK a tick, each of a tick's risers at another
-// grave, all of it in the end; and the next surge is SURGE_GROWTH larger.
+// A surge is a quota that rises over the next ticks, as the risers watch holds it (each grave's risers RISE_GAP_TICKS
+// apart, each riser clear of every live minion): all of it in the end; and the next surge is SURGE_GROWTH larger.
 @(test)
 a_surge_rises_a_few_a_tick :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
 	defer headless.run_end(&run)
 	clear_minions(&run) // the packs: only the surge's below
 	state := &run.simulation.state
-	floor := floor_of(&run)
+	watch: Rise_Watch
 	counts: [2]int
 	for &count in counts {
 		surges := state.surges
@@ -138,24 +137,136 @@ a_surge_rises_a_few_a_tick :: proc(t: ^testing.T) {
 				surge, _ := headless.run_last_event(&run, g.Event_Surge) // the surge's own tick
 				count = int(surge.count)
 			}
-			graves: [g.MAX_GRAVES]bool
-			this_tick := 0
-			minions := sim.iterate(&state.minions)
-			for minion in sim.next(&minions) {
-				if minion.phase != .Rise || minion.since != state.clock.time do continue
-				this_tick += 1
-				nearest, best := 0, max(f32)
-				for &grave, i in sim.slice(&floor.places.graves) {
-					if apart := dmath.length(grave.point.xz - minion.pos.xz); apart < best do nearest, best = i, apart
-				}
-				testing.expectf(t, !graves[nearest], "two rose at grave %d in one tick", nearest)
-				graves[nearest] = true
-			}
-			testing.expectf(t, this_tick <= g.RISE_PER_TICK, "%d rose in one tick", this_tick)
-			risen += this_tick
+			risen += watch_rises(t, &run, &watch)
 		}
 		testing.expect_value(t, risen, count)
 	}
 	testing.expect_value(t, counts[1], counts[0] + g.SURGE_GROWTH)
 	scenarios.expect_synced(t, &run)
+}
+
+// A wipe while a surge still owes risers: the restarted floor owes nothing, nothing rises before its first surge, and
+// that surge counts no growth (the floor's surges begin again: no death spiral after a wipe).
+@(test)
+a_wipe_forgets_what_a_surge_owed :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	state.floor_surges = 20 // a long floor: a large surge, still rising when the wipe comes
+	headless.run_pin(&run)
+	until_the_first_surge(&run)
+	testing.expect(t, state.rising > 0, "the surge still owes")
+	for slot in 0 ..< g.PLAYERS do hurt(&run, slot, g.HERO_HP)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 1)
+	testing.expect_value(t, state.rising, 0)
+	testing.expect_value(t, state.floor_surges, 0)
+	surges := headless.run_events(&run, g.Event_Surge)
+	for headless.run_events(&run, g.Event_Surge) == surges {
+		headless.run_step(&run)
+		if headless.run_events(&run, g.Event_Surge) > surges do break
+		minions := sim.iterate(&state.minions)
+		for minion in sim.next(&minions) {
+			if minion.phase == .Rise {
+				testing.expectf(
+					t,
+					false,
+					"a minion rose %d ticks into the restarted floor",
+					run.simulation.tick - state.level.since,
+				)
+				return
+			}
+		}
+	}
+	surge, _ := headless.run_last_event(&run, g.Event_Surge)
+	testing.expect_value(t, int(surge.count), g.SURGE_BASE + g.SURGE_PER_HERO * g.PLAYERS)
+	scenarios.expect_synced(t, &run)
+}
+
+// Slot 0 raises minions (dev) until `alive` stand.
+@(private = "file")
+raise_to :: proc(run: ^headless.Run(g.Game), alive: int) {
+	state := &run.simulation.state
+	for g.minions_alive(&state.minions) < alive {
+		count := dmath.min(alive - g.minions_alive(&state.minions), 255)
+		headless.run_command(run, 0, g.Command_Dev_Spawn_Minions{u8(count)})
+	}
+}
+
+// A surge owes no more than the floor's cap has room for, less what the last one still owes: with three owed and five
+// places under the cap, it owes two.
+@(test)
+a_surge_counts_what_is_still_owed :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	cap := floor_of(&run).minion_cap
+	raise_to(&run, cap - 5)
+	testing.expect_value(t, g.minions_alive(&state.minions), cap - 5)
+	state.rising = 3
+	state.surge = {} // the clock runs out at once
+	headless.run_pin(&run)
+	for headless.run_events(&run, g.Event_Surge) == 0 do headless.run_step(&run)
+	surge, _ := headless.run_last_event(&run, g.Event_Surge)
+	testing.expect_value(t, int(surge.count), 2)
+	scenarios.expect_synced(t, &run)
+}
+
+// What a surge owes rises only while the floor's cap has room: two under the cap with twenty owed, two rise and the
+// rest wait, however many turns the graves take.
+@(test)
+the_owed_wait_for_room_under_the_cap :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	cap := floor_of(&run).minion_cap
+	raise_to(&run, cap - 2)
+	state.rising = 20
+	headless.run_pin(&run)
+	for _ in 0 ..< 2 * g.TICK_HZ {
+		headless.run_step(&run)
+		if alive := g.minions_alive(&state.minions); alive > cap {
+			testing.expectf(t, false, "%d alive under a cap of %d", alive, cap)
+			break
+		}
+	}
+	testing.expect_value(t, state.rising, 18)
+	scenarios.expect_synced(t, &run)
+}
+
+// A co-op pause in the middle of a surge's rising moves no outcome: the same risers rise in the same places, the
+// pause only delaying them.
+@(test)
+a_pause_moves_no_riser :: proc(t: ^testing.T) {
+	places: [2][dynamic][3]f32
+	defer for &list in places do delete(list)
+	for paused in 0 ..< 2 {
+		run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
+		defer headless.run_end(&run)
+		clear_minions(&run)
+		state := &run.simulation.state
+		state.floor_surges = 10 // a surge long enough to pause in
+		headless.run_pin(&run)
+		until_the_first_surge(&run)
+		halted := false
+		for state.rising > 0 {
+			if paused == 1 && !halted && state.rising < 15 {
+				halted = true
+				headless.run_command(&run, 0, g.Command_Set_Paused{true})
+				for _ in 0 ..< 13 do headless.run_step(&run)
+				headless.run_command(&run, 0, g.Command_Set_Paused{false})
+			}
+			headless.run_step(&run)
+			minions := sim.iterate(&state.minions)
+			for minion in sim.next(&minions) {
+				if minion.phase == .Rise && minion.since == state.clock.time do append(&places[paused], minion.pos)
+			}
+		}
+	}
+	testing.expect_value(t, len(places[1]), len(places[0]))
+	for place, i in places[0] {
+		if i < len(places[1]) && places[1][i] != place {
+			testing.expectf(t, false, "riser %d rose at %v, paused at %v", i, place, places[1][i])
+			break
+		}
+	}
 }

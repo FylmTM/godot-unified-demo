@@ -100,3 +100,40 @@ clear_minions :: proc(run: ^headless.Run(g.Game)) {
 	sim.despawn_all(&run.simulation.state.minions)
 	headless.run_pin(run)
 }
+
+// The risers of a run as they rise, tick by tick (watch_rises): each grave's last riser's tick.
+Rise_Watch :: struct {
+	last: [g.MAX_GRAVES]sim.Game_Time,
+	seen: [g.MAX_GRAVES]bool,
+}
+
+// The minions that rose this tick (Rise, or a sleeping crowd's Idle, born now): a grave's risers RISE_GAP_TICKS apart
+// or more, and none within SEPARATION of another live minion (less a tick of their neighbours' moves). How many rose.
+watch_rises :: proc(t: ^testing.T, run: ^headless.Run(g.Game), watch: ^Rise_Watch, loc := #caller_location) -> int {
+	state := &run.simulation.state
+	floor := floor_of(run)
+	risen := 0
+	minions := sim.iterate(&state.minions)
+	for minion, handle in sim.next(&minions) {
+		if minion.since != state.clock.time || (minion.phase != .Rise && minion.phase != .Idle) do continue
+		risen += 1
+		grave, best := 0, max(f32)
+		for &place, i in sim.slice(&floor.places.graves) {
+			if apart := dmath.length(place.point.xz - minion.pos.xz); apart < best do grave, best = i, apart
+		}
+		gap := state.clock.time - watch.last[grave]
+		if watch.seen[grave] && gap < sim.Game_Time(g.RISE_GAP_TICKS) {
+			testing.expectf(t, false, "grave %d raised again %d ticks on", grave, gap, loc = loc)
+		}
+		watch.last[grave], watch.seen[grave] = state.clock.time, true
+		others := sim.iterate(&state.minions)
+		for other, other_handle in sim.next(&others) {
+			if other_handle == handle || other.phase == .Dying do continue
+			if apart := dmath.length(other.pos.xz - minion.pos.xz);
+			   apart < g.SEPARATION - 2 * g.MINION_SPEED / g.TICK_HZ {
+				testing.expectf(t, false, "a riser %v m from another minion", apart, loc = loc)
+			}
+		}
+	}
+	return risen
+}

@@ -94,6 +94,7 @@ World :: struct {
 	grid:           Minion_Grid, // scratch: the live minions by cell, rebuilt by move_minions and before the strikes
 	hero_spots:     [PLAYERS]Nav_Point, // scratch: each slot's hero up on the mesh (locate_heroes), by slot
 	starts:         [MAX_MINIONS][2]f32, // scratch: each minion's place on the floor plan when the moves began, by row
+	queues:         [MAX_MINIONS]Queue_Place, // scratch: each minion's place in its hero's queue then, by row
 	// scratch: the grid's cells an obstacle's reach touches this tick (set and cleared by move_minions)
 	in_way:         [MINION_GRID_CELLS]bool,
 	// scratch: the grid holds the minions where the physics step left them (strike_grid; cleared as the strikes begin)
@@ -340,6 +341,7 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 	spawn_props(t)
 	if t.setup.crowd == .None do spawn_packs(t) // a held crowd is the floor's whole population
 	sim.timer_start_ticks(t, &t.state.surge, SURGE_FIRST_TICKS)
+	t.state.rising, t.state.floor_surges = 0, 0 // a surge owed on the old floor, or before the wipe, is gone with it
 	entering := sim.iterate_present(t)
 	for _, player in sim.next(&entering) {
 		spawn_hero(t, player, floor_of(t).places.hero_spawns[sim.player_slot(t, player)], false)

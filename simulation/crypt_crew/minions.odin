@@ -218,7 +218,15 @@ move_minions :: proc(t: ^Tick) {
 	t.world.strike_grid = false // the grid is about to hold the moves' picture
 	build_grid(t)
 	starts := sim.iterate(&t.state.minions)
-	for minion, handle in sim.next(&starts) do t.world.starts[handle.index] = minion.pos.xz
+	for minion, handle in sim.next(&starts) {
+		t.world.starts[handle.index] = minion.pos.xz
+		place := Queue_Place{} // in no queue: asleep, rising, dying, reeling, or chasing nobody
+		if (minion.phase == .Chase || minion.phase == .Attack) && minion.target != {} && !staggered(minion) {
+			place.hero = i32(sim.player_slot(t, minion.target)) + 1
+			place.gap_sq = dmath.length_sq(sim.player_data(t, minion.target).pos.xz - minion.pos.xz)
+		}
+		t.world.queues[handle.index] = place
+	}
 	obstacles := obstacles_of(t)
 	mark_in_way(t, sim.slice(&obstacles), true) // a minion in no marked cell is in no obstacle's way: it skips them
 	decay := dmath.exp_decay(KNOCK_DECAY, t.dt)
@@ -360,7 +368,9 @@ move_minion :: proc(
 	reeling := staggered(minion) // before the decay: the knock that moves it this tick
 	minion.knock *= decay
 	heading: [2]f32 // where its chase walks ({}: it walks at nothing)
-	if minion.phase == .Chase && minion.target != {} && !reeling {
+	// Well in reach already (MINION_STAND inside it), it stands where it is to swing: pressing on to the hero would crowd
+	// the front row inward, and a ring shrinks as it closes.
+	if minion.phase == .Chase && minion.target != {} && !reeling && !in_reach(t, minion, MINION_STAND) {
 		// Steered every tick within STEER_NEAR of its target (the last turns are quick), in its chase's first
 		// STEER_TICKS (it woke, rose, ended a swing or took a new target: its facing says nothing of the way yet), and
 		// while the target is off the floor (no field: it stands); otherwise every STEER_TICKS (sliced by its index),
@@ -402,12 +412,22 @@ move_minion :: proc(
 	minion.vel = (minion.pos - from) * TICK_HZ
 }
 
-// A neighbour within QUEUE_REACH, as neighbours' second look sees it: the way to it and how close (0 at QUEUE_REACH, 1
-// at QUEUE_STOP and nearer).
+// A minion's place in its hero's queue when the moves began (World.queues): which hero's (its slot + 1; 0: in none)
+// and how far from it, squared. One is ahead of another in a queue when it is in the same one and nearer its hero
+// (ties by row): a strict order, so no two ever wait for each other.
+Queue_Place :: struct {
+	gap_sq: f32,
+	hero:   i32,
+}
+
+// A neighbour within QUEUE_REACH, as neighbours' second look sees it: the way to it, how close (0 at QUEUE_REACH, 1
+// at QUEUE_STOP and nearer), and whether it is ahead in the chaser's own queue.
 @(private = "file")
 Queued :: struct {
 	toward:    [2]f32,
 	closeness: f32,
+	ahead:     bool,
+	behind:    bool, // in the chaser's own queue, farther from the hero: it will wait, so it doesn't block a step aside
 }
 
 // The live minions within QUEUE_REACH where the moves began (World.starts: so nothing depends on which neighbours
@@ -432,6 +452,7 @@ neighbours :: proc(
 	reach := QUEUE_REACH if queueing else SEPARATION
 	close: [QUEUE_NEIGHBOURS]Queued // the neighbours within QUEUE_REACH, for the second look
 	closes := 0
+	mine := t.world.queues[handle.index]
 	for row in sim.grid_near(&t.world.grid, minion.pos.xz) {
 		for other_index in row {
 			if other_index == i32(handle.index) do continue
@@ -447,17 +468,46 @@ neighbours :: proc(
 			if !queueing || closes == QUEUE_NEIGHBOURS do continue
 			toward := -away / distance
 			closeness := dmath.clamp((QUEUE_REACH - distance) / (QUEUE_REACH - QUEUE_STOP), 0, 1)
-			if along := dmath.dot(chase, toward); along > 0 do chase -= toward * (along * closeness) // give way: slide by
-			close[closes] = {toward, closeness}
+			if along := dmath.dot(chase, toward); along > QUEUE_ALONG do chase -= toward * (along * closeness) // slide by
+			theirs := t.world.queues[other_index]
+			nearer := theirs.gap_sq < mine.gap_sq || (theirs.gap_sq == mine.gap_sq && other_index < i32(handle.index))
+			same := mine.hero != 0 && theirs.hero == mine.hero
+			close[closes] = {toward, closeness, same && nearer, same && !nearer}
 			closes += 1
 		}
 	}
-	// the slide may head at another: it waits for whichever is closest in the way it now heads
-	room: f32 = 1
-	for queued in close[:closes] {
-		if dmath.dot(chase, queued.toward) > 0 do room = dmath.min(room, 1 - queued.closeness)
+	// Held up, it steps sideways (to its clearer side, ties by row), as much as it was held and that side is clear (those
+	// behind it in its queue don't count: they wait for it): a column fans out round its hero, and a chaser passes a
+	// sleeper in its way instead of standing behind it.
+	if held := 1 - dmath.length(chase) / MINION_SPEED; queueing && closes > 0 && held > QUEUE_HELD {
+		left := [2]f32{-wanted.y, wanted.x} / MINION_SPEED
+		left_close, right_close: f32
+		for queued in close[:closes] {
+			if queued.behind do continue
+			across := dmath.dot(left, queued.toward)
+			// as much as it is close and lies that way (one mostly ahead hardly blocks a step aside)
+			if across > QUEUE_ALONG do left_close = dmath.max(left_close, queued.closeness * across)
+			if across < -QUEUE_ALONG do right_close = dmath.max(right_close, queued.closeness * -across)
+		}
+		side, side_close := left, left_close
+		if right_close < left_close || (right_close == left_close && handle.index % 2 == 1) {
+			side, side_close = -left, right_close
+		}
+		chase += side * (MINION_SPEED * QUEUE_SIDE * held * (1 - side_close))
 	}
-	chase *= room
+	// The slide and the step may head at a close one again: it waits for it, as much as it is close and only along the
+	// way to it (the part past it stays), but for those behind it in its queue, which wait for it instead.
+	for _ in 0 ..< QUEUE_PASSES { 	// each pass may head it at an earlier one again: a few passes settle it
+		waited := false
+		for queued in close[:closes] {
+			along := dmath.dot(chase, queued.toward)
+			if along > QUEUE_ALONG {
+				chase -= queued.toward * (along * queued.closeness)
+				waited = true
+			}
+		}
+		if !waited do break // a pass that changed nothing: the next would change nothing either
+	}
 	return dmath.clamp_length(push * SEPARATION_SPEED, SEPARATION_SPEED), chase
 }
 
@@ -468,8 +518,8 @@ staggered :: proc(minion: ^Minion) -> bool {
 
 // `source`'s blast at `at` (a burst, later a fireball, a charge): every live minion within `radius` on the floor plan
 // that no wall shields (a ray from `at` to its chest) other than `skip` takes `damage` and is knocked away from `at`,
-// at `knock` at the centre falling off to nothing at the rim (dot products and one sqrt a minion, no trig), in the
-// strikes' order (minions_within). Through damage_minion, so a pile of blasts knocks no faster than KNOCK_MAX.
+// at `knock` at the centre falling off to BLAST_RIM of it at the rim (dot products and one sqrt a minion, no trig), in
+// the strikes' order (minions_within). Through damage_minion, so a pile of blasts knocks no faster than KNOCK_MAX.
 knock_area :: proc(
 	t: ^Tick,
 	at: [3]f32,
@@ -488,15 +538,16 @@ knock_area :: proc(
 		offset := minion.pos.xz - at.xz
 		distance := dmath.length(offset)
 		away := offset / distance if distance > 0 else [2]f32{1, 0}
-		damage_minion(t, handle, damage, away, knock * (1 - distance / radius), player, source)
+		damage_minion(t, handle, damage, away, knock * (1 - (1 - BLAST_RIM) * distance / radius), player, source)
 	}
 }
 
-// Whether a minion's target is close enough to swing at: its capsule within MINION_REACH of the minion's circle.
+// Whether a minion's target is close enough to swing at: its capsule within MINION_REACH of the minion's circle (less
+// `inside`).
 @(private = "file")
-in_reach :: proc(t: ^Tick, minion: ^Minion) -> bool {
+in_reach :: proc(t: ^Tick, minion: ^Minion, inside: f32 = 0) -> bool {
 	if minion.target == {} do return false
-	reach := MINION_RADIUS + HERO_RADIUS + MINION_REACH
+	reach := MINION_RADIUS + HERO_RADIUS + MINION_REACH - inside
 	return dmath.length_sq(sim.player_data(t, minion.target).pos.xz - minion.pos.xz) <= reach * reach
 }
 

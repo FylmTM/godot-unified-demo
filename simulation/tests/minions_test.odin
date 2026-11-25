@@ -465,3 +465,36 @@ a_knocked_minion_staggers :: proc(t: ^testing.T) {
 	testing.expect_value(t, in_reach.phase, g.Minion_Phase.Attack)
 	scenarios.expect_synced(t, &run)
 }
+
+// A swing whose windup ends while its minion reels lands nothing: knocked across its hero's line just before (it stays
+// in reach), the hero keeps its HP; the same swing unknocked lands.
+@(test)
+a_reeling_minion_lands_no_swing :: proc(t: ^testing.T) {
+	for knocked in ([]bool{false, true}) {
+		run := headless.run_begin(&g.GAME, 1, seated = 1)
+		defer headless.run_end(&run)
+		clear_minions(&run)
+		state := &run.simulation.state
+		spawn := spawn_of(&run, 0)
+		minion := sim.get(&state.minions, place_minion(&run, spawn + {1.5, 0, 0}, .Chase, {-1, 0}))
+		for minion.phase != .Attack do headless.run_step(&run)
+		for u32(state.clock.time - minion.since) < g.MINION_WINDUP_TICKS - 1 do headless.run_step(&run)
+		if knocked {
+			minion.knock = {0, 3} // across: 5 cm a tick, still in reach as the swing lands
+			headless.run_pin(&run)
+		}
+		hp := sim.slot_data(run.simulation, 0).hp
+		headless.run_step(&run)
+		headless.run_step(&run)
+		want := hp if knocked else hp - g.MINION_DAMAGE
+		testing.expectf(
+			t,
+			sim.slot_data(run.simulation, 0).hp == want,
+			"knocked %v: HP %d, not %d",
+			knocked,
+			sim.slot_data(run.simulation, 0).hp,
+			want,
+		)
+		scenarios.expect_synced(t, &run)
+	}
+}

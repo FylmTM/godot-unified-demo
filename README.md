@@ -154,23 +154,24 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    carried prop or by ATTACK_SPEED.
 5. **Director.** A sleeping pack wakes when a hero one of its minions can see comes within AGGRO_RADIUS (each looks
    every SIGHT_S) or one of them is hit. A surge is owed SURGE_FIRST_S into a floor and every SURGE_EVERY_S after:
-   SURGE_BASE minions plus SURGE_PER_HERO per hero and SURGE_GROWTH per surge faced, rising a few a tick
-   (RISE_PER_TICK, one per grave every RISE_GAP_S) at graves out of sight beyond SURGE_NEAR and within SURGE_FAR of
-   the party, up to the floor's cap alive (CROWD_DENSITY to the square metre of walkable floor, at most MINION_CAP)
-   and never into more rows than the table has free. A Setup may hold a crowd instead (`floor=arena,crowd=fight`): the
-   floor's cap placed on the first tick, asleep, chasing or fighting, the felled rising again at the graves, its heroes
-   taking no damage; the benchmark rows and the scale tests play it.
+   SURGE_BASE minions plus SURGE_PER_HERO per hero and SURGE_GROWTH per surge faced on the floor, rising one per grave
+   every RISE_GAP_S where no minion stands within SEPARATION (RISE_TRIES places tried) at graves out of sight beyond
+   SURGE_NEAR and within SURGE_FAR of the party, up to the floor's cap alive (CROWD_DENSITY to the square metre of
+   walkable floor, at most MINION_CAP) and never into more rows than the table has free. A Setup may hold a crowd
+   instead (`floor=arena,crowd=fight`): the floor's cap placed on the first tick, asleep, chasing or fighting, the
+   felled coming back, its heroes taking no damage; the benchmark rows and the scale tests play it.
 6. **Minions.** Each picks the nearest hero up by path (every RETARGET_S), steers along that hero's field (every
    tick within STEER_NEAR of it or in its chase's first ticks, else every STEER_S, walking its facing between), keeps
-   SEPARATION from its neighbours (where they stood when the moves began), gives way to the ones ahead (it slides round
-   one within QUEUE_REACH, and waits behind one it still heads at, stopping at QUEUE_STOP: the back rows queue behind
-   the front), and carries its knockback (KNOCK_DECAY, at
-   most KNOCK_MAX); knocked faster than KNOCK_STAGGER it staggers, walking at nothing and swinging at nothing.
+   SEPARATION from its neighbours (where they stood when the moves began), gives way to those within QUEUE_REACH (it
+   slides round them, steps aside when held up, and stops at QUEUE_STOP: the back rows of a hero's queue wait behind
+   its front), stands MINION_STAND inside its reach to swing, and carries its knockback (KNOCK_DECAY, at most
+   KNOCK_MAX); knocked faster than KNOCK_STAGGER it staggers, walking at nothing and swinging at nothing.
 7. **Physics.** Box3D steps; the heroes' feet and velocities are read back into the state.
 8. **Strikes.** A blow lands at its windup on the minions in its reach and arc, or touching the hero (`CLASS_SPECS`,
    STRIKE_TOUCH), and shoves the props there. Bolts fly at BOLT_SPEED for BOLT_LIFE_S and burst at the first thing
-   they meet (BURST_RADIUS, BURST_DAMAGE; a blast, its knock falling off to the rim: `knock_area`). The crossbow hits
-   the first thing within CROSSBOW_RANGE on the picture its shooter saw (at most MAX_REWIND_S back). Walls shield what is behind them from blows, bursts and shots; bolts and
+   they meet (BURST_RADIUS, BURST_DAMAGE; a blast, its knock falling off to BLAST_RIM of it at the rim:
+   `knock_area`). The crossbow hits the first thing within CROSSBOW_RANGE on the picture its shooter saw (at most
+   MAX_REWIND_S back). Walls shield what is behind them from blows, bursts and shots; bolts and
    shots fly at FLIGHT_HEIGHT, over low cover and resting light props, and meet walls, heavy crates and props held or
    in flight. A thrown prop faster than PROP_HIT_SPEED hurts each minion it meets once (PROP_HIT_DAMAGE, at most
    PROP_HITS_MAX, keeping PROP_HIT_KEEP of its velocity) for the whole of its throw (THROWN_S).

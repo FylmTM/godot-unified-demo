@@ -4,11 +4,11 @@
 // party.
 // That clock is game time, which a pause (a command) holds, so the tick a surge rises on depends on when commands
 // landed: its rolls name state, never the tick (unified/docs/gameplay.md, Randomness). Each raised minion's rolls are
-// keyed by the session's count of them (State.rises), which no restart rewinds. A surge is a quota (State.rising) that
-// rises a few a tick, one at a time per grave (RISE_GAP_TICKS), so no tick raises hundreds and no two risers climb out
-// on top of each other. The floor's cap bounds the living (Floor.minion_cap), and a raise never asks for more rows
-// than the table has free: the dying keep theirs for DEATH_S, so after a mass death the alive are few while the table
-// is full.
+// keyed by the session's count of them (State.rises), which no restart rewinds. A surge is a quota (State.rising)
+// that rises a few a tick, at most one per grave per RISE_GAP_TICKS, each riser where no live minion stands within
+// SEPARATION (a grave with no such place lets its turn pass), so no tick raises hundreds and no riser climbs out on
+// another. The floor's cap bounds the living (Floor.minion_cap), and a raise never asks for more rows than the table
+// has free: the dying keep theirs for DEATH_S, so after a mass death the alive are few while the table is full.
 // A held crowd (Setup.crowd: the benchmark rows', the scale tests', a look at hundreds) replaces packs and surges: a
 // population placed on the first tick (place_crowd) and held alive, the felled rising again at the graves
 // (refill_held).
@@ -24,7 +24,7 @@ Roll :: enum u8 {
 	Pack_Facing, // a pack member's facing
 	Rise_Angle, // its direction from the grave, and its facing
 	Rise_Distance, // its distance from the grave
-	Crowd_Place, // where a held crowd's minions start (a stream: place_crowd)
+	Crowd_Place, // where a held crowd's minions stand (a stream: place_crowd's at key 0, a sleeping refill's after)
 }
 
 // A held crowd (Setup.crowd, which the rules and the scripted player read): what the population does while it is held.
@@ -39,7 +39,7 @@ Crowd :: enum u8 {
 
 ROLL_STEPS :: 4096 // a roll for a fraction draws one of this many steps
 
-// A surge rose: `count` minions, the session's `surge`-th.
+// A surge began: `count` minions owed (its quota, rising over the next ticks), the session's `surge`-th.
 Event_Surge :: struct {
 	count: i32,
 	surge: u32,
@@ -126,30 +126,31 @@ wake_packs :: proc(t: ^Tick) {
 }
 
 // When the surge clock runs out (and a grave is eligible), a surge is owed (State.rising): SURGE_BASE, SURGE_PER_HERO
-// for each hero present and SURGE_GROWTH for each surge faced, at most up to the floor's cap alive and into the
-// table's free rows, less what earlier surges still owe. Every tick the owed rise (rise_owed) at surge_graves'. A held
-// population is refilled instead (refill_held).
+// for each hero present and SURGE_GROWTH for each surge faced on this floor, at most up to the floor's cap alive and
+// into the table's free rows, less what earlier surges still owe. Every tick the owed rise (rise_owed) at
+// surge_graves', up to the cap alive. A held population is refilled instead (refill_held).
 raise_surges :: proc(t: ^Tick) {
 	if t.state.held > 0 {
 		refill_held(t)
 		return
 	}
-	if !sim.timer_running(t, t.state.surge) {
+	due := !sim.timer_running(t, t.state.surge)
+	if !due && t.state.rising == 0 do return
+	graves := surge_graves(t)
+	if due {
 		sim.timer_start_ticks(t, &t.state.surge, SURGE_EVERY_TICKS)
-		if graves := surge_graves(t); graves.count > 0 {
-			owed := int(t.state.rising)
-			room := dmath.min(floor_of(t).minion_cap - minions_alive(&t.state.minions), free_rows(&t.state.minions))
-			wanted := SURGE_BASE + SURGE_PER_HERO * sim.present_count(t) + SURGE_GROWTH * int(t.state.surges)
-			if count := dmath.min(wanted, room - owed); count > 0 {
-				t.state.surges += 1
-				t.state.rising += u32(count)
-				mark_save_point(t)
-				sim.emit(t, Event_Surge{count = i32(count), surge = t.state.surges})
-			}
+		owed := int(t.state.rising)
+		room := dmath.min(floor_of(t).minion_cap - minions_alive(&t.state.minions), free_rows(&t.state.minions))
+		wanted := SURGE_BASE + SURGE_PER_HERO * sim.present_count(t) + SURGE_GROWTH * int(t.state.floor_surges)
+		if count := dmath.min(wanted, room - owed); count > 0 && graves.count > 0 {
+			t.state.surges += 1
+			t.state.floor_surges += 1
+			t.state.rising += u32(count)
+			mark_save_point(t)
+			sim.emit(t, Event_Surge{count = i32(count), surge = t.state.surges})
 		}
 	}
 	if t.state.rising == 0 do return
-	graves := surge_graves(t)
 	room := floor_of(t).minion_cap - minions_alive(&t.state.minions)
 	t.state.rising -= u32(rise_owed(t, sim.slice(&graves), dmath.min(int(t.state.rising), room), .Rise))
 }
@@ -173,56 +174,66 @@ surge_graves :: proc(t: ^Tick) -> (graves: sim.List(int, MAX_GRAVES)) {
 	return
 }
 
-// Up to `count` minions in `phase` rising this tick, at most RISE_PER_TICK and into the table's free rows: one at
-// each of `graves` (indices into the floor's) whose turn it is (one in RISE_GAP_TICKS, sliced by its index), in their
-// order. How many it raised, or tried to (a place off the floor counts: the owed one is spent).
+// Up to `count` minions in `phase` rising this tick into the table's free rows: one at each of `graves` (indices into
+// the floor's) whose turn it is (one in RISE_GAP_TICKS, sliced by its index), in their order; so a tick raises at most
+// as many as there are graves on their turn. How many rose (a grave with no free place lets its turn pass).
 @(private = "file")
 rise_owed :: proc(t: ^Tick, graves: []int, count: int, phase: Minion_Phase) -> int {
-	// taken first: each raise takes a row
-	budget := dmath.min(dmath.min(count, RISE_PER_TICK), free_rows(&t.state.minions))
+	budget := dmath.min(count, free_rows(&t.state.minions)) // taken first: each raise takes a row
 	raised := 0
 	for grave in graves {
 		if raised >= budget do break
-		if !sim.due(t, grave, RISE_GAP_TICKS) do continue
-		raise_minion(t, grave, phase)
-		raised += 1
+		if sim.due(t, grave, RISE_GAP_TICKS) && raise_minion(t, grave, phase) do raised += 1
 	}
 	return raised
 }
 
 // A minion in `phase` (Rise; a sleeping crowd's Idle) within SURGE_SPREAD of grave `grave` (an index into the
-// floor's), its place and facing rolled by the session's count of raised minions; false when the floor isn't there or
-// the table is full.
+// floor's), at the first of RISE_TRIES places (each rolled by the session's count of raises and the try) on the
+// walkable floor with no live minion within SEPARATION, facing its roll; false when none is free or the table is full.
 @(private = "file")
 raise_minion :: proc(t: ^Tick, grave: int, phase: Minion_Phase) -> bool {
 	key := u64(t.state.rises)
 	t.state.rises += 1
-	facing := dmath.angle_vec(roll_fraction(t.seed, .Rise_Angle, key, 0))
-	reach := SURGE_SPREAD * dmath.sqrt(roll_fraction(t.seed, .Rise_Distance, key, 0))
 	floor := floor_of(t)
-	at := sim.slice(&floor.places.graves)[grave].point + [3]f32{facing.x, 0, facing.y} * reach
-	spot := floor_spot(floor, at, SURGE_SPREAD) or_return
-	_, raised := spawn_minion(t.state, spot.point, spot.poly, facing, phase, t.time)
-	return raised
+	tries: for try in 0 ..< RISE_TRIES {
+		facing := dmath.angle_vec(roll_fraction(t.seed, .Rise_Angle, key, try))
+		reach := SURGE_SPREAD * dmath.sqrt(roll_fraction(t.seed, .Rise_Distance, key, try))
+		at := sim.slice(&floor.places.graves)[grave].point + [3]f32{facing.x, 0, facing.y} * reach
+		spot := floor_spot(floor, at, SURGE_SPREAD) or_continue
+		minions := sim.iterate(&t.state.minions)
+		for minion in sim.next(&minions) {
+			near := dmath.length_sq(minion.pos.xz - spot.point.xz) < SEPARATION * SEPARATION
+			if minion.phase != .Dying && near do continue tries
+		}
+		_, raised := spawn_minion(t.state, spot.point, spot.poly, facing, phase, t.time)
+		return raised
+	}
+	return false
 }
 
-// A held population (State.held): the minions it lost rise again at the graves (rise_owed: a few a tick, into the
-// table's free rows: the dying hold theirs, so raising against the alive alone would try, and fail, a raise per
-// missing minion every tick until the dead are gone). A sleeping crowd's come back asleep, at the graves at least
-// CROWD_IDLE_CLEAR from every hero_spawn (out of sight, as it was placed), so it stays one.
+// A held population (State.held): the minions it lost come back, a few a tick into the table's free rows (the dying
+// hold theirs: raising against the alive alone would try, and fail, a raise per missing minion every tick until the
+// dead are gone). A fighting or chasing crowd's rise at the graves (rise_owed); a sleeping crowd's are placed asleep as
+// place_crowd places them, out of sight (a sleeper never leaves its grave's side, so graves would fill), one for each
+// grave on its turn, so both come back at the same pace.
 @(private = "file")
 refill_held :: proc(t: ^Tick) {
 	floor := floor_of(t)
-	asleep := t.setup.crowd == .Idle
+	missing := dmath.min(int(t.state.held) - minions_alive(&t.state.minions), free_rows(&t.state.minions))
+	if missing <= 0 do return
 	graves: sim.List(int, MAX_GRAVES)
-	places: for &grave, i in sim.slice(&floor.places.graves) {
-		for spawn in floor.places.hero_spawns {
-			too_near := dmath.length_sq(spawn.xz - grave.point.xz) < CROWD_IDLE_CLEAR * CROWD_IDLE_CLEAR
-			if asleep && too_near do continue places
-		}
-		sim.append(&graves, i)
+	for _, i in sim.slice(&floor.places.graves) do sim.append(&graves, i)
+	if t.setup.crowd != .Idle {
+		rise_owed(t, sim.slice(&graves), missing, .Rise)
+		return
 	}
-	rise_owed(t, sim.slice(&graves), int(t.state.held) - minions_alive(&t.state.minions), .Idle if asleep else .Rise)
+	turns := 0
+	for grave in sim.slice(&graves) do turns += int(sim.due(t, grave, RISE_GAP_TICKS))
+	if turns == 0 do return
+	rng := sim.rng_keyed(t.seed, Roll.Crowd_Place, u64(t.state.rises) + 1) // 0 is place_crowd's own stream
+	t.state.rises += 1
+	place_more(t, &rng, dmath.min(missing, turns))
 }
 
 // The table's free rows: what may be raised now, whatever the alive.
@@ -238,14 +249,19 @@ free_rows :: proc(minions: ^sim.Table(Minion, MAX_MINIONS)) -> int {
 // (CROWD_TRIES draws each), and refill_held raises the rest at the graves.
 place_crowd :: proc(t: ^Tick, count: int) {
 	t.state.held = u32(count)
+	rng := sim.rng_keyed(t.seed, Roll.Crowd_Place)
+	place_more(t, &rng, count)
+}
+
+// Up to `count` of the held crowd placed as place_crowd says, drawn from `rng`; how many stood.
+@(private = "file")
+place_more :: proc(t: ^Tick, rng: ^sim.Rng, count: int) -> (placed: int) {
 	floor := floor_of(t)
 	asleep := t.setup.crowd == .Idle
 	clear := CROWD_IDLE_CLEAR if asleep else CROWD_CLEAR
-	rng := sim.rng_keyed(t.seed, Roll.Crowd_Place)
-	placed := 0
 	tries: for try := 0; placed < count && try < count * CROWD_TRIES; try += 1 {
-		spot := floor_point(floor, &rng)
-		facing := dmath.angle_vec(f32(sim.rng_below(&rng, ROLL_STEPS)) / ROLL_STEPS)
+		spot := floor_point(floor, rng)
+		facing := dmath.angle_vec(f32(sim.rng_below(rng, ROLL_STEPS)) / ROLL_STEPS)
 		for spawn in floor.places.hero_spawns {
 			if dmath.length_sq(spawn.xz - spot.point.xz) < clear * clear do continue tries
 		}
@@ -263,6 +279,7 @@ place_crowd :: proc(t: ^Tick, count: int) {
 		if !ok do break
 		placed += 1
 	}
+	return
 }
 
 // The standard benchmarks' population (sim.Game.bench_prepare), `count` minions held alive: the Setup's held crowd at

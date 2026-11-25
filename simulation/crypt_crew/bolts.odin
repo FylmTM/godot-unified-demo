@@ -77,7 +77,8 @@ fly_bolts :: proc(t: ^Tick) {
 
 // `caster`'s bolt bursts at `at`: `victim` (if any) takes the Mage's damage along the bolt's `flight` (unit, on the
 // floor plan), and the burst is a blast (knock_area): every other live minion within BURST_RADIUS that no wall shields
-// takes BURST_DAMAGE, knocked away from the burst at BURST_KNOCK falling off to the rim.
+// takes BURST_DAMAGE, knocked away from the burst at BURST_KNOCK falling off to BLAST_RIM of it at the rim (so all of
+// it staggers).
 @(private = "file")
 burst :: proc(t: ^Tick, at: [3]f32, flight: [2]f32, caster: sim.Player, victim: sim.Handle(Minion)) {
 	spec := &CLASS_SPECS[.Mage]

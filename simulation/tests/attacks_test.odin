@@ -274,7 +274,7 @@ the_crossbow_never_pierces :: proc(t: ^testing.T) {
 }
 
 // A bolt's burst hurts each other minion within BURST_RADIUS for BURST_DAMAGE and knocks it away from the burst, at
-// BURST_KNOCK falling off to the rim (knock_area); one farther is untouched.
+// BURST_KNOCK falling off to BLAST_RIM of it at the rim (knock_area); one farther is untouched.
 @(test)
 a_burst_hurts_and_knocks_its_neighbours :: proc(t: ^testing.T) {
 	run := hero_of(.Mage)
@@ -293,7 +293,7 @@ a_burst_hurts_and_knocks_its_neighbours :: proc(t: ^testing.T) {
 	neighbour := sim.get(minions, beside)
 	testing.expect_value(t, neighbour.hp, g.MINION_HP - g.BURST_DAMAGE)
 	offset := neighbour.pos.xz - burst.position.xz
-	falloff := 1 - dmath.length(offset) / g.BURST_RADIUS
+	falloff := 1 - (1 - g.BLAST_RIM) * dmath.length(offset) / g.BURST_RADIUS
 	away := dmath.normalize(offset)
 	knocked := dmath.length(neighbour.knock - away * g.BURST_KNOCK * falloff) < 0.05
 	testing.expectf(t, knocked, "knocked %v, not away %v", neighbour.knock, away)
@@ -601,4 +601,29 @@ fling_prop :: proc(run: ^headless.Run(g.Game), index: int, at: [3]f32, velocity:
 	}
 	physics.body_set_linear_velocity(run.simulation.world.phys, prop.body, {velocity.x, 0, velocity.y})
 	headless.run_pin(run)
+}
+
+// A blast's walls shield: a bolt bursting on the wall between Floor 1's great hall and its side room hurts a minion
+// beside it in the hall but not one as near behind the wall (knock_area's ray to the chest).
+@(test)
+a_wall_shields_a_burst :: proc(t: ^testing.T) {
+	run := hero_of(.Mage)
+	defer headless.run_end(&run)
+	place_hero(&run, 0, {10, 0, -8}, {0, -1}) // facing the wall at z = -12 (its hall face at -11.5)
+	beside := place_minion(&run, {9, 0, -11}, .Rise)
+	behind := place_minion(&run, {10, 0, -13.5}, .Rise)
+	hidden := sim.get(&run.simulation.state.minions, behind)
+	hidden.pos.z = -12.6 // just past the wall's far face: within BURST_RADIUS of the burst, through the wall
+	headless.run_pin(&run)
+	held := [g.PLAYERS]g.Input {
+		0 = {buttons = {.Attack}},
+	}
+	for headless.run_events(&run, g.Event_Bolt_Burst) == 0 do headless.run_step(&run, held)
+	burst, _ := headless.run_last_event(&run, g.Event_Bolt_Burst)
+	minions := &run.simulation.state.minions
+	apart := dmath.length(sim.get(minions, behind).pos.xz - burst.position.xz)
+	testing.expectf(t, apart < g.BURST_RADIUS, "the hidden one is %v m from the burst", apart)
+	testing.expect_value(t, sim.get(minions, beside).hp, g.MINION_HP - g.BURST_DAMAGE)
+	testing.expect_value(t, sim.get(minions, behind).hp, g.MINION_HP)
+	scenarios.expect_synced(t, &run)
 }

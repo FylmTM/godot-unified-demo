@@ -41,11 +41,11 @@ CROWD_REFERENCE :: scenarios.Reference {
 	ticks         = 1200,
 	snapshot_tick = 600,
 	setup         = "floor=arena,crowd=fight",
-	checkpoints   = {0x6fc9b48b58b58dfa, 0x29d9525a54a6140e, 0xf1b82714f8bf9744, 0xcf466a37376cbc04},
-	trace         = 0x0e6122fce9551781,
-	snapshot      = 0x729d45d46b058cb1,
-	log           = 0xa8377fd1768c1af7,
-	compat        = 0x80946353d7618760,
+	checkpoints   = {0x8a43f17e4725a8c2, 0x8a2d478542c59774, 0x8d2ec975e9808940, 0x8a5bd7ff879765dd},
+	trace         = 0xe68d81be4a925135,
+	snapshot      = 0x8aed0ecf8e5cf7d3,
+	log           = 0xf734975fada5a168,
+	compat        = 0x19369c48f1daa904,
 }
 
 // What a chaser closes on a neighbour or a spawn in the tick a run seats its heroes.
@@ -246,10 +246,11 @@ the_arena_plays_with_surges :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// Every minion of a crowd the arena holds killed at once: the dying keep their rows for DEATH_S. The refill raises at
-// most RISE_PER_TICK a tick and never more than the table has rows free (never once per missing minion: the raises a
-// full table would refuse, a nav query each, every tick until the dead are gone), the alive never pass the held
-// count, and the crowd stands whole again over the next seconds.
+// Every minion of a crowd the arena holds killed at once: the dying keep their rows for DEATH_S. The refill raises a
+// riser at each grave on its turn (the risers watch: each grave's RISE_GAP_TICKS apart, none on another minion's spot),
+// never more than the table has rows free (never once per missing minion: the raises a full table would refuse, a nav
+// query each, every tick until the dead are gone), the alive never pass the held count, and the crowd stands whole
+// again (in about twelve seconds: each grave's spread holds a few risers at once, and they climb out for RISE_S).
 @(test)
 the_director_raises_only_into_free_rows :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Chase}, seated = g.PLAYERS)
@@ -257,13 +258,13 @@ the_director_raises_only_into_free_rows :: proc(t: ^testing.T) {
 	state := &run.simulation.state
 	held := int(state.held)
 	headless.run_command(&run, 0, g.Command_Dev_Kill_Minions{})
-	testing.expect(t, g.minions_alive(&state.minions) <= g.RISE_PER_TICK, "a few rose in the kill's tick")
+	watch: Rise_Watch
 	whole := false
-	for _ in 0 ..< 10 * g.TICK_HZ {
-		free_before, rises_before := g.free_rows(&state.minions), state.rises
+	for _ in 0 ..< 14 * g.TICK_HZ {
+		free_before := g.free_rows(&state.minions)
 		headless.run_step(&run)
-		raised, alive := int(state.rises - rises_before), g.minions_alive(&state.minions)
-		if raised > dmath.min(free_before, g.RISE_PER_TICK) || alive > held {
+		raised, alive := watch_rises(t, &run, &watch), g.minions_alive(&state.minions)
+		if raised > free_before || alive > held {
 			testing.expectf(t, false, "%d raised into %d free rows, %d alive", raised, free_before, alive)
 			break
 		}
@@ -471,31 +472,195 @@ a_crowd_stays_on_the_floor :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// The queue holds a ring: the arena's crowd chasing four heroes who stand still for ten seconds keeps apart where it
-// gathers round them (no two live minions closer than RING_APART, where without the queue they pressed to within a
-// centimetre), and it doesn't stall there: its front row stands within swinging reach, at least RING_FRONT of them.
-@(test)
-a_crowd_rings_its_heroes :: proc(t: ^testing.T) {
-	RING_APART :: g.SEPARATION - 0.2
-	RING_FRONT :: 2 * g.PLAYERS
-	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Chase}, seated = g.PLAYERS)
-	defer headless.run_end(&run)
-	play(&run, {}, 10)
-	state := &run.simulation.state
-	closest := max(f32)
-	front := 0
+// How near two live minions stand at the closest, and how many stand within swinging reach of the hero they chase.
+@(private = "file")
+ring_of :: proc(state: ^g.State) -> (closest: f32, front: int) {
+	closest = max(f32)
 	minions := sim.iterate(&state.minions)
 	for minion, handle in sim.next(&minions) {
+		if minion.phase == .Dying do continue
 		if minion.target != {} {
 			hero := sim.player_data(&state.players, minion.target)
 			front += int(dmath.length(hero.pos.xz - minion.pos.xz) <= g.MINION_RADIUS + g.HERO_RADIUS + g.MINION_REACH)
 		}
 		others := sim.iterate(&state.minions)
 		for other, other_handle in sim.next(&others) {
-			if other_handle.index > handle.index do closest = dmath.min(closest, dmath.length(other.pos.xz - minion.pos.xz))
+			if other_handle.index <= handle.index || other.phase == .Dying do continue
+			closest = dmath.min(closest, dmath.length(other.pos.xz - minion.pos.xz))
 		}
 	}
-	testing.expectf(t, closest >= RING_APART, "two minions %v m apart", closest)
-	testing.expectf(t, front >= RING_FRONT, "only %d in reach of the heroes", front)
+	return
+}
+
+// RING_APART: how near the queue lets two minions stand round their heroes (SEPARATION less a hand's breadth or two).
+RING_APART :: g.SEPARATION - 0.2
+
+// The queue holds rings: the arena's crowd chasing four heroes who stand still, 8 m apart, keeps apart where it gathers
+// round them (no two live minions closer than RING_APART over the last two of twenty seconds, where without the queue
+// they pressed to within a centimetre), and it doesn't stall there: its front rows stand within swinging reach, at
+// least two a hero. The heroes then walk a loop through it (their capsules shove minions aside, one way: they pass
+// closer meanwhile) and stand again: fourteen seconds on, the rings hold again. (Heroes standing within a minion's
+// width of each other make pockets their one-way push wedges minions into: the rings are held round heroes apart.)
+@(test)
+a_crowd_rings_its_heroes :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Chase}, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	centre := floor_of(&run).places.hero_spawns[0]
+	for slot in 0 ..< g.PLAYERS do place_hero(&run, slot, centre + {f32(slot % 2) * 8 - 4, 0, f32(slot / 2) * 8 - 4})
+	play(&run, {}, 18)
+	closest := max(f32)
+	front := 0
+	for _ in 0 ..< 2 * g.TICK_HZ {
+		headless.run_step(&run)
+		c, f := ring_of(state)
+		closest, front = dmath.min(closest, c), f
+	}
+	testing.expectf(t, closest >= RING_APART, "standing: two minions %v m apart", closest)
+	testing.expectf(t, front >= 2 * g.PLAYERS, "standing: only %d in reach of the heroes", front)
+	for leg in 0 ..< 4 {
+		way: [g.PLAYERS]g.Input
+		dir := dmath.DIR8[leg * 2]
+		for &input in way do input.move_x, input.move_z = dmath.axis_i8(dir.x), dmath.axis_i8(dir.y)
+		play(&run, way, 2)
+	}
+	play(&run, {}, 14)
+	closest = max(f32)
+	for _ in 0 ..< 2 * g.TICK_HZ {
+		headless.run_step(&run)
+		c, _ := ring_of(state)
+		closest = dmath.min(closest, c)
+	}
+	testing.expectf(t, closest >= RING_APART, "after a walk: two minions %v m apart", closest)
+	scenarios.expect_synced(t, &run)
+}
+
+// A hero that takes no harm (a test's: it stands among a crowd for seconds).
+@(private = "file")
+sturdy :: proc(run: ^headless.Run(g.Game), slots: int) {
+	for slot in 0 ..< slots do sim.slot_data(run.simulation, slot).hp = max(i16)
+	headless.run_pin(run)
+}
+
+// A column of eight chasers behind one another on the hero's line fans out round it: five of them stand within
+// swinging reach within five seconds (the queue's sideways step: the ones behind don't wait in line).
+@(test)
+a_column_fans_out_round_its_hero :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena}, seated = 1)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	sturdy(&run, 1)
+	state := &run.simulation.state
+	hero := sim.slot_data(run.simulation, 0).pos
+	for k in 0 ..< 8 do place_minion(&run, hero + {0, 0, -4 - f32(k)}, .Chase, {0, 1})
+	front := 0
+	for _ in 0 ..< 5 * g.TICK_HZ {
+		headless.run_step(&run)
+		if _, front = ring_of(state); front >= 5 do break
+	}
+	testing.expectf(t, front >= 5, "only %d of the column in reach", front)
+	scenarios.expect_synced(t, &run)
+}
+
+// A sleeper standing on a chaser's line to its hero, out of the hero's sight, holds it up a moment at most: it steps
+// round it (no waiting for one in no queue) and swings within a second of a clear walk's time.
+@(test)
+a_chaser_passes_a_sleeper :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena}, seated = 1)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	sturdy(&run, 1)
+	hero := sim.slot_data(run.simulation, 0).pos
+	place_minion(&run, hero + {12, 0, 0}, .Idle) // out of sight: AGGRO_RADIUS is 9
+	chaser := sim.get(&run.simulation.state.minions, place_minion(&run, hero + {15, 0, 0}, .Chase, {-1, 0}))
+	clear_walk := (15 - (g.MINION_RADIUS + g.HERO_RADIUS + g.MINION_REACH)) / g.MINION_SPEED
+	ticks := 0
+	for chaser.phase != .Attack && ticks < int((clear_walk + 3) * g.TICK_HZ) {
+		headless.run_step(&run)
+		ticks += 1
+	}
+	testing.expectf(t, f32(ticks) <= (clear_walk + 1) * g.TICK_HZ, "it swung after %d ticks", ticks)
+	scenarios.expect_synced(t, &run)
+}
+
+// Forty chasers funnel from Floor 1's east corridor through the doorway to a hero standing at its spawn: the doorway's
+// half of a ring stands within ten seconds (five in reach), none of the ring (within 4 m of the hero) closer than
+// RING_APART. The far half stays empty: the second row can't pass the front one round to it (review.md). The rest
+// queue in the doorway and the corridor, its walls holding some a little closer.
+@(test)
+a_funnel_rings_its_hero :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 1)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	sturdy(&run, 1)
+	state := &run.simulation.state
+	placed := 0
+	for i := 0; placed < 40 && i < 400; i += 1 {
+		at := [3]f32{-2, 0, -2} + [3]f32{f32(i % 7) - 3, 0, f32(i / 7 % 7) - 3}
+		if spot, on_floor := g.floor_spot(floor_of(&run), at, 0.2); on_floor {
+			g.spawn_minion(state, spot.point, spot.poly, {-1, 0}, .Chase, state.clock.time)
+			placed += 1
+		}
+	}
+	headless.run_pin(&run)
+	testing.expect_value(t, placed, 40)
+	front, seconds := 0, 0
+	for seconds = 0; seconds < 10 && front < 5; seconds += 1 {
+		play(&run, {}, 1)
+		sturdy(&run, 1)
+		_, front = ring_of(state)
+	}
+	testing.expectf(t, front >= 5, "only %d in reach after %d s", front, seconds)
+	play(&run, {}, 4) // settled
+	hero := sim.slot_data(run.simulation, 0).pos
+	closest := max(f32)
+	for _ in 0 ..< g.TICK_HZ {
+		headless.run_step(&run)
+		minions := sim.iterate(&state.minions)
+		for minion, handle in sim.next(&minions) {
+			if dmath.length(minion.pos.xz - hero.xz) >= 4 do continue
+			others := sim.iterate(&state.minions)
+			for other, other_handle in sim.next(&others) {
+				if other_handle.index <= handle.index || dmath.length(other.pos.xz - hero.xz) >= 4 do continue
+				closest = dmath.min(closest, dmath.length(other.pos.xz - minion.pos.xz))
+			}
+		}
+	}
+	testing.expectf(t, closest >= RING_APART, "two of the ring %v m apart", closest)
+	scenarios.expect_synced(t, &run)
+}
+
+// Floor 1's first surge reaches four heroes standing at their spawns: most of its minions (the packs' sleepers on
+// the way or not) stand within 4 m of their hero within five seconds of climbing out, every one within ten.
+@(test)
+a_surge_reaches_its_heroes :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	sturdy(&run, g.PLAYERS)
+	state := &run.simulation.state
+	until_the_first_surge(&run)
+	for state.rising > 0 do headless.run_step(&run)
+	out := state.clock.time + sim.Game_Time(g.RISE_TICKS) // the last of them climbs out
+	near := [2]int{}
+	surge := 0
+	for state.clock.time < out + sim.Game_Time(10 * g.TICK_HZ) {
+		headless.run_step(&run)
+		sturdy(&run, g.PLAYERS)
+		if state.clock.time != out + sim.Game_Time(5 * g.TICK_HZ) &&
+		   state.clock.time != out + sim.Game_Time(10 * g.TICK_HZ) {
+			continue
+		}
+		within, all := 0, 0
+		minions := sim.iterate(&state.minions)
+		for minion in sim.next(&minions) {
+			if minion.pack != 0 || minion.phase == .Dying do continue
+			all += 1
+			if minion.target == {} do continue
+			within += int(dmath.length(sim.player_data(&state.players, minion.target).pos.xz - minion.pos.xz) < 4)
+		}
+		near[0 if state.clock.time == out + sim.Game_Time(5 * g.TICK_HZ) else 1], surge = within, all
+	}
+	testing.expectf(t, near[0] * 2 > surge, "%d of %d within 4 m in 5 s", near[0], surge)
+	testing.expectf(t, near[1] == surge, "%d of %d within 4 m in 10 s", near[1], surge)
 	scenarios.expect_synced(t, &run)
 }

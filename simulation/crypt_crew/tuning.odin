@@ -205,6 +205,7 @@ MINION_SPEED :: f32(3.2) // metres per second chasing
 MINION_HP :: i16(30)
 MINION_REACH :: f32(0.8) // a minion strikes a hero whose capsule is this close to its own circle
 MINION_DAMAGE :: i16(10)
+MINION_STAND :: f32(0.4) // a chaser this far inside its reach stands to swing, no nearer: the front row keeps its ring
 MINION_STRIKE_COS :: f32(0.5) // and in front of it: within 60° of the facing its attack locked (cos 60°)
 MINION_WINDUP_S :: f32(0.5) // an attack's telegraph: the swing lands this long after it starts
 MINION_WINDUP_TICKS :: u32(MINION_WINDUP_S * TICK_HZ)
@@ -224,12 +225,21 @@ SEPARATION_SPEED :: f32(2.5) // ... at up to this speed
 QUEUE_REACH :: f32(1) // a chaser gives way to a neighbour ahead from this far ...
 QUEUE_STOP :: SEPARATION // ... to a stop this close: the back rows wait, never pressing the front onto the hero
 #assert(QUEUE_REACH <= MINION_GRID_CELL) // the grid's 3 by 3 cells hold every neighbour this close
+#assert(QUEUE_REACH > QUEUE_STOP)
+QUEUE_ALONG :: f32(0.001) // a chase heads at a neighbour when its part toward it is more than this (metres a second)
+QUEUE_HELD :: f32(0.01) // a chaser slowed by more than this share of its speed is held up, and steps sideways ...
+QUEUE_SIDE :: f32(1.0) // ... at up to this share of its speed
+QUEUE_PASSES :: 3 // how many times a chaser's last look goes over its close neighbours
 QUEUE_NEIGHBOURS :: 16 // the most neighbours within QUEUE_REACH a chaser weighs (kept apart, it has six or seven)
 KNOCK_DECAY :: f32(6) // a knockback's velocity decays at this rate per second
 KNOCK_MAX :: f32(10) // a minion's knockback adds up to at most this fast (metres per second): a pile-up of blows
 // A minion knocked faster than this staggers: it neither walks at its target nor starts or lands a swing until its
 // knock decays under it (a Knight's blow, 5 m/s, about 0.2 s; a Barbarian's, 9, 0.3 s).
 KNOCK_STAGGER :: f32(1.5)
+// A blast's knock falls off from its centre to this share of it at its rim (knock_area): a burst's 4 m/s is 2 there,
+// over KNOCK_STAGGER, so all of its BURST_RADIUS staggers.
+BLAST_RIM :: f32(0.5)
+#assert(BURST_KNOCK * BLAST_RIM > KNOCK_STAGGER)
 // The minion grid's cells (metres): the separation's reach, which its 3 by 3 cells must cover, and no more, so a dense
 // crowd's neighbour query scans 9 m²; a longer reach (a blow, a burst, a bolt, a thrown prop) walks a box of cells
 // (minions_within). world_create lays it over each floor's mesh.
@@ -255,10 +265,10 @@ SURGE_NEAR :: f32(10) // a surge rises at graves at least this far from every he
 SURGE_FAR :: f32(30) // ... and no farther than this from the nearest along the floor (metres of path)
 SURGE_BASE :: 3 // a surge's minions ...
 SURGE_PER_HERO :: 2 // ... and this many more per hero present ...
-SURGE_GROWTH :: 2 // ... and this many more for each surge the party has faced (a save's included)
-RISE_PER_TICK :: 4 // the most minions rising in one tick, a surge's or a held population's refill
-RISE_GAP_S :: f32(0.125) // a grave raises at most one minion this often (its turn: time-sliced by its index) ...
-RISE_GAP_TICKS :: u32(RISE_GAP_S * TICK_HZ) // ... so risers never climb out on top of each other
+SURGE_GROWTH :: 2 // ... and this many more for each surge faced since the party entered the floor
+RISE_GAP_S :: f32(0.125) // each grave raises at most one minion this often (its turn: time-sliced by its index)
+RISE_GAP_TICKS :: u32(RISE_GAP_S * TICK_HZ)
+RISE_TRIES :: 4 // places tried round a grave for a riser, each clear of every live minion by SEPARATION
 SURGE_SPREAD :: f32(1.5) // a surge's minions rise within this of their grave
 DEV_SPAWN_RING :: f32(5) // dev_spawn_minions raises its minions this far from the sender's hero
 DEV_KILL_KNOCK :: f32(4) // dev_kill_minions knocks its dead this fast (metres per second) away from the sender
