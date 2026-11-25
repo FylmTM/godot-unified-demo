@@ -38,6 +38,12 @@ func last_kind() -> int:
 	return root.get_node(^"Prompts").get(&"last_kind")
 
 
+## The control the title's focus starts on: Continue when there is a save, else New game.
+func title_focus() -> Control:
+	var focus: Control = title().get(&"first_focus")
+	return focus
+
+
 ## The title screen's control `unique_name` (null, failing the run, when it isn't there).
 func title_control(unique_name: String) -> Control:
 	return find(title(), "%" + unique_name) as Control

@@ -1,4 +1,4 @@
-extends PartyWalk
+extends SessionWalk
 ## A walk through Crypt Crew's app with real input events (keys, pad buttons and sticks of several pads, the mouse),
 ## the godot suite's `walk` step (`./uni tool ui_walk`; with `--window --shots` it saves a PNG at each moment worth
 ## looking at, into .out/shots/ui_walk/). In order:
@@ -11,13 +11,16 @@ extends PartyWalk
 ##     second slot, a pad button, a refused clear, the prompt bar's Cancel and Clear, the resets); attack left on F;
 ##     the name field (PartyWalk);
 ##   - pad A on New game: hero select on pads (PartyWalk), the party in the crypt, the guest dropping out, F attacks,
-##     the hints follow the device and the setting, Esc pauses and resumes, the reconnecting plate takes nothing;
-##   - the couch's join cards (PartyWalk), with the toasts and the guests' own glyphs; a key held while a guest leaves
-##     and released while the first player is free walks nobody once the guest is back;
-##   - leave, the title (toasts gone; a settings file that didn't read is told once), a second game through hero
-##     select on the keyboard and mouse, a join that waits (the Connecting overlay; Esc and Cancel cancel it at once),
-##     a join that fails at once (one dialog, one error sound, the reason as a sentence; pad B and pad A close it); the
-##     run ends through Game.quit_app.
+##     the hints follow the device and the setting, the pause menu alone (SessionWalk), the reconnecting plate takes
+##     nothing;
+##   - the couch's join cards (PartyWalk), with the toasts and the guests' own glyphs; the Players list drops a guest;
+##     a key held while a guest leaves and released while the first player is free walks nobody once the guest is
+##     back; the window in the background pauses;
+##   - a surge's save, leaving from the pause menu (it asks), the title's Continue, New game over a save (it asks), the
+##     continued game (SessionWalk); a settings file that didn't read is told once; the pause menu online (a LAN host
+##     alone: Pause and Resume for everyone); a join that waits (the Connecting overlay; Esc and Cancel cancel it at
+##     once), a join that fails at once (one dialog, one error sound, the reason as a sentence; pad B and pad A close
+##     it); the run ends through Game.quit_app.
 ## That the app adopts a session its menus didn't start is coop.gd's: both its processes start from uni's flags.
 
 ## A local port nothing listens on: a join to it waits until cancelled.
@@ -34,8 +37,8 @@ func _run() -> void:
 	await shot("01_title")
 	step("the title")
 	for walk: Callable in [_walk_title_wiring, _walk_pad, _walk_prompt_device, _walk_settings, _walk_new_game,
-			_walk_couch, _walk_stuck_key, _walk_setting, _walk_leave, _walk_new_game_again, _walk_connecting,
-			_walk_failed_join]:
+			_walk_couch, _walk_players_list, _walk_stuck_key, _walk_focus_pause, _walk_setting, _walk_leave,
+			_walk_new_game_again, _walk_online_pause, _walk_connecting, _walk_failed_join]:
 		if failed():
 			return
 		await walk.call()
@@ -255,7 +258,7 @@ func _tokens(action: StringName, kind: Bindings.Kind) -> Array[String]:
 
 
 ## A pad's A on New game: hero select, then the crypt once the session is up, the HUD over it; the guest drops out,
-## F (bound in the settings) attacks, the hints follow the device and the setting, and Esc pauses and resumes.
+## F (bound in the settings) attacks, the hints follow the device and the setting, and the pause menu pauses.
 func _walk_new_game() -> void:
 	await _walk_hero_select()
 	if failed():
@@ -290,13 +293,7 @@ func _walk_new_game() -> void:
 	expect(hints.visible, "Briefly: a change of device shows them again")
 	set_setting(&"hints", setting_value(&"Hints", &"ALWAYS"))  # the couch's glyph checks read them
 	step("in the crypt: F attacks, the hints follow, tick %d" % session.tick)
-	await press_key(KEY_ESCAPE)
-	await wait_for(func() -> bool: return Unified.data.hud.paused, 2.0, "Esc pauses the game")
-	expect((find(hud, ^"%Paused") as Control).visible, "the HUD's banner says so")
-	await shot("02b_paused")
-	await press_key(KEY_ESCAPE)
-	await wait_for(func() -> bool: return not Unified.data.hud.paused, 2.0, "Esc again resumes it")
-	step("Esc paused and resumed")
+	await _walk_single_pause()
 	await _walk_link_status()
 
 
@@ -354,27 +351,21 @@ func _walk_setting() -> void:
 	step("a setting applies at once")
 
 
-## Leaving ends the session; the menu follows once it said goodbye, its focus on New game again, the toasts gone.
+## Leaving from the pause menu, once a surge saved the crypt, ends the session; the menu follows once it said goodbye,
+## Continue focused, the toasts gone.
 func _walk_leave() -> void:
-	game.call(&"leave")
-	await wait_for_scene("Menu", 5.0)
-	await frames(3)
-	expect(flow_name() == "MENU", "the flow is MENU (%s)" % flow_name())
+	await _walk_save_and_leave()
 	expect(session.status == UnifiedSession.STATUS_LEFT, "the session left")
-	expect(root.gui_get_focus_owner() == title_control("NewGame"), "New game has the focus")
 	expect(overlay("Toasts").get_child_count() == 0, "the toasts are gone with the game")
 	step("left to the title")
 
 
-## A second game after a leave starts like the first (through hero select on the keyboard); back on the title, a settings file that didn't read is told
-## once.
+## A second game continues the first (New game asks first; Continue through hero select on the keyboard); back on the
+## title, a settings file that didn't read is told once.
 func _walk_new_game_again() -> void:
-	await _walk_hero_select_keyboard()
-	await wait_for_scene("Play", 5.0)
-	await wait_for(func() -> bool: return local_hero() != null, 8.0, "the local hero, again")
+	await _walk_continue()
 	if failed():
 		return
-	step("New game again")
 	root.get_node(^"Settings").set(&"read_problem", "Expected key, line 1")
 	game.call(&"leave")
 	await wait_for_scene("Menu", 5.0)
@@ -388,7 +379,7 @@ func _walk_new_game_again() -> void:
 	await press_key(KEY_ESCAPE)
 	var problem: String = setting(&"read_problem")
 	expect(not dialog.visible and problem == "", "told once: the problem is cleared")
-	expect(root.gui_get_focus_owner() == title_control("NewGame"), "New game has the focus")
+	expect(root.gui_get_focus_owner() == title_focus(), "the title's first control has the focus")
 	step("left again: a settings file that didn't read, told once")
 
 
@@ -407,7 +398,7 @@ func _walk_connecting() -> void:
 	expect(not connecting.visible, "Esc hides the overlay at once")
 	await wait_for(func() -> bool: return flow_name() == "MENU", 5.0, "back on the title once the join said goodbye")
 	expect(session.status == UnifiedSession.STATUS_LEFT, "the join left")
-	expect(root.gui_get_focus_owner() == title_control("NewGame"), "New game has the focus")
+	expect(root.gui_get_focus_owner() == title_focus(), "the title's first control has the focus")
 	step("a join that waits: the overlay, Esc cancels")
 	session.join_direct("127.0.0.1:%d" % SILENT_PORT)
 	await wait_for(func() -> bool: return connecting.visible, 3.0, "the Connecting overlay, again")
@@ -445,5 +436,5 @@ func _walk_failed_join() -> void:
 			await pad_button(JOY_BUTTON_A)
 			expect(played(&"press", mark) == 1, "OK sounds")
 		expect(not dialog.visible, "the dialog closes")
-		expect(root.gui_get_focus_owner() == title_control("NewGame"), "the focus is back on New game")
+		expect(root.gui_get_focus_owner() == title_focus(), "the focus is back on the title's first control")
 		step("a join that fails at once (%d): %s" % [attempt + 1, text])

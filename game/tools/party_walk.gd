@@ -164,16 +164,19 @@ func _walk_hero_select_fits(screen: Control) -> void:
 	await frames(2)
 
 
-## Hero select on the keyboard and mouse, from the title (a second game): a click on Back goes back to the title; a
-## click on New game seats the keyboard first, its last pick (the Knight) preselected; the mouse's arrows step it, its
-## action line readies it, and a click on Start starts the game.
-func _walk_hero_select_keyboard() -> void:
-	await click(title_control("NewGame"))
+## Hero select on the keyboard and mouse, from the title's `button` (Continue, for a second game): a click on Back goes
+## back to the title; a click on the button seats the keyboard first, its last pick (the Knight) preselected; the
+## mouse's arrows step it, its action line readies it, and a click on Start starts the game.
+func _walk_hero_select_keyboard(button: String) -> void:
+	await click(title_control(button))
 	var screen: Control = _hero_select()
 	await click(find(screen, ^"%Back") as Control)
 	expect(top_screen() == title(), "a click on Back goes back to the title")
-	await click(title_control("NewGame"))
+	await click(title_control(button))
 	screen = _hero_select()
+	if button == "Continue":
+		var heading: String = (find(screen, ^"%Heading") as Label).text
+		expect(heading == "Continue your crypt", "hero select says it continues: %s" % heading)
 	if failed():
 		return
 	expect(_seat_of(screen, UnifiedSession.DEVICE_KEYBOARD) == 0, "the mouse's click: the keyboard's seat first")
@@ -194,8 +197,8 @@ func _walk_hero_select_keyboard() -> void:
 
 
 ## The guest drops out: holding its stick, pad 1's Back opens its drop card, and letting the stick go reaches the
-## session (its hero stops); its Start doesn't drop it (it pauses, as a playing pad's Start does) and its B keeps it
-## in; Back and A drop it out, and it is gone by itself (a toast names it and its hero).
+## session (its hero stops); its Start doesn't drop it (it opens the pause menu, as a playing pad's Start does) and its
+## B keeps it in; Back and A drop it out, and it is gone by itself (a toast names it and its hero).
 func _walk_drop_out() -> void:
 	var guest: int = session.get_local_player_key(_local_of(1))
 	await pad_axis(JOY_AXIS_LEFT_X, 1.0, 1)
@@ -215,9 +218,9 @@ func _walk_drop_out() -> void:
 	await shot("09_drop_out")
 	await pad_button(JOY_BUTTON_START, 1)
 	expect(_card(1) != null and _in_session(1), "Start doesn't drop out")
-	await wait_for(func() -> bool: return Unified.data.hud.paused, 2.0, "a playing pad's Start pauses")
+	await wait_for(func() -> bool: return session.paused, 2.0, "a playing pad's Start opens the pause menu: it pauses")
 	await pad_button(JOY_BUTTON_START, 1)
-	await wait_for(func() -> bool: return not Unified.data.hud.paused, 2.0, "and resumes")
+	await wait_for(func() -> bool: return not session.paused, 2.0, "and its Start again resumes")
 	await pad_button(JOY_BUTTON_B, 1)
 	expect(_card(1) == null and _in_session(1), "B on the drop card: the guest stays")
 	await pad_button(JOY_BUTTON_BACK, 1)
@@ -279,10 +282,9 @@ func _walk_couch() -> void:
 	await wait_for(func() -> bool: return _toast_shows("Guest 2 left (Rogue)"), 5.0, "a toast: Guest 2 left (Rogue)")
 	await pad_button(JOY_BUTTON_A, 0)  # pad 0 played last
 	await pad_button(JOY_BUTTON_START, 0)
-	await wait_for(func() -> bool: return Unified.data.hud.paused, 2.0,
-		"pad 0's Start pauses: it is the first player's")
+	await wait_for(func() -> bool: return session.paused, 2.0, "pad 0's Start pauses: it is the first player's")
 	await pad_button(JOY_BUTTON_START, 0)
-	await wait_for(func() -> bool: return not Unified.data.hud.paused, 2.0, "and resumes")
+	await wait_for(func() -> bool: return not session.paused, 2.0, "and resumes")
 	await _join(1)
 	expect(session.get_local_device(0) == 0, "with a guest in, the first player keeps pad 0")
 	await _leave_guests()
