@@ -1,0 +1,16 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/app/prompts.gd" id="prompts"]
+[ext_resource type="FontFile" path="res://assets/kenney/input_prompts/kenney_input_keyboard_&_mouse.ttf" id="keyboard"]
+[ext_resource type="FontFile" path="res://assets/kenney/input_prompts/kenney_input_xbox_series.ttf" id="xbox"]
+[ext_resource type="FontFile" path="res://assets/kenney/input_prompts/kenney_input_playstation_series.ttf" id="playstation"]
+[ext_resource type="FontFile" path="res://assets/kenney/input_prompts/kenney_input_nintendo_switch.ttf" id="switch"]
+
+[node name="Prompts" type="Node"]
+script = ExtResource("prompts")
+fonts = Dictionary[int, FontFile]({
+0: ExtResource("keyboard"),
+1: ExtResource("xbox"),
+2: ExtResource("playstation"),
+3: ExtResource("switch")
+})

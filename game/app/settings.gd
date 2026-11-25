@@ -18,6 +18,8 @@ extends Node
 signal changed(setting: StringName)
 
 enum WindowMode { WINDOWED, FULLSCREEN }
+## Which pad's glyphs the prompts draw: the pad's own (AUTO, from its name), or one family for every pad.
+enum PromptStyle { AUTO, XBOX, PLAYSTATION, SWITCH }
 
 ## The settings file, unless `--settings-path=` names another.
 const PATH: String = "user://settings.json"
@@ -42,7 +44,7 @@ const SAVE_DELAY_S: float = 0.3
 			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if value else DisplayServer.VSYNC_DISABLED)
 		_changed(&"vsync")
 ## The most frames a second the game draws (0: no limit).
-@export_range(0, 240, 1) var frame_limit: int = 0:
+@export_enum("Off:0", "60:60", "120:120", "144:144", "240:240") var frame_limit: int = 0:
 	set(value):
 		frame_limit = value
 		Engine.max_fps = value
@@ -53,10 +55,11 @@ const SAVE_DELAY_S: float = 0.3
 		render_scale = value
 		get_tree().root.scaling_3d_scale = value
 		_changed(&"render_scale")
-@export var anti_aliasing: Viewport.MSAA = Viewport.MSAA_4X:
+## Multisample anti-aliasing of the 3D world (a Viewport.MSAA value).
+@export_enum("Off:0", "2x:1", "4x:2") var anti_aliasing: int = Viewport.MSAA_4X:
 	set(value):
 		anti_aliasing = value
-		get_tree().root.msaa_3d = value
+		get_tree().root.msaa_3d = value as Viewport.MSAA
 		_changed(&"anti_aliasing")
 ## The interface's size, over the canvas's 1920x1080 base (project.godot).
 @export_range(0.8, 1.3, 0.05) var ui_scale: float = 1.0:
@@ -89,11 +92,44 @@ const SAVE_DELAY_S: float = 0.3
 		_apply_master()
 		_changed(&"mute_in_background")
 
+@export_category("controls")
+## The rebound actions, as Bindings stores them (text tokens by action and device kind); an action or kind missing
+## keeps project.godot's binding. Bindings checks every token as it applies them.
+@export var bindings: Dictionary = {}:
+	set(value):
+		bindings = value
+		Bindings.apply(value)
+		_changed(&"bindings")
+## Which glyphs the prompts draw for a pad.
+@export_enum("Auto:0", "Xbox:1", "PlayStation:2", "Switch:3") var prompt_style: int = PromptStyle.AUTO:
+	set(value):
+		prompt_style = value
+		_changed(&"prompt_style")
+## How far the move stick must lean before it moves the hero (the aim stick keeps project.godot's).
+@export_range(0.1, 0.5, 0.05) var move_deadzone: float = 0.25:
+	set(value):
+		move_deadzone = value
+		for action: StringName in Bindings.MOVE_ACTIONS:
+			InputMap.action_set_deadzone(action, value)
+		_changed(&"move_deadzone")
+
+@export_category("gameplay")
+## How hard the camera shakes when a local hero is hurt, 0 (never) to 1 (full).
+@export_range(0.0, 1.0, 0.05) var screen_shake: float = 1.0:
+	set(value):
+		screen_shake = value
+		_changed(&"screen_shake")
+## The HUD shows each local hero's controls, as glyphs for its player's device.
+@export var show_hints: bool = true:
+	set(value):
+		show_hints = value
+		_changed(&"show_hints")
+
 ## The file read and written: PATH, or `--settings-path=`. Set before the node enters the tree to use another.
 var path: String = PATH
 ## Nothing is read, written or applied at load (`--no-settings`). Set before the node enters the tree to change it.
 var isolated: bool = false
-## Why the file didn't read at load ("" when it did, or there was none): the settings screen tells the player once.
+## Why the file didn't read at load ("" when it did, or there was none): the menu tells the player once (Game).
 var read_problem: String = ""
 
 ## The window is this process's to change: not isolated, not headless.

@@ -63,7 +63,8 @@ func run() -> void:
 
 
 ## Every pack folder (`assets/<vendor>/<pack>/`) has its licence and a CREDITS.md row; every file in it is a pack's
-## glTF, glTF buffer, PNG, font or sound, or Godot's .import beside one, and something in the game uses it.
+## glTF, glTF buffer, PNG, font (with its glyph map, an input prompt font's `<font>_map.txt`) or sound, or Godot's
+## .import beside one, and something in the game uses it.
 func _check_assets() -> void:
 	var credits: String = FileAccess.get_file_as_string("res://CREDITS.md")
 	var used: Dictionary[String, bool] = _used_files()
@@ -85,8 +86,12 @@ func _check_assets() -> void:
 func _check_asset(path: String, used: Dictionary[String, bool]) -> void:
 	match path.get_extension():
 		"txt":
-			if path.get_file() != "LICENSE.txt":
-				_problem("a text file that isn't the pack's LICENSE.txt", path)
+			var font: String = path.trim_suffix("_map.txt") + ".ttf"
+			if path.ends_with("_map.txt") and FileAccess.file_exists(font):
+				if not used.has(font):
+					_problem("the glyph map of a font no scene of the game uses", path)
+			elif path.get_file() != "LICENSE.txt":
+				_problem("a text file that isn't the pack's LICENSE.txt or a font's glyph map", path)
 		"import":
 			if not FileAccess.file_exists(path.get_basename()):
 				_problem("an .import whose asset is gone", path)
