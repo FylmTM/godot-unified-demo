@@ -20,14 +20,14 @@ extends TogetherWalk
 ##     continued game (SessionWalk); a settings file that didn't read is told once; the pause menu online (a LAN host
 ##     alone: Pause and Resume for everyone, input under it moving nobody); the pause menu over a replay;
 ##   - Play together (TogetherWalk): online greyed with the library's sentence (or offered), the code field and a join
-##     by code that fails, a LAN host from the menus (the session panel, Invite friends,
-##     Copy, Stop inviting), a game alone whose opening fails and then opens while paused, a join by address that
-##     fails, Rejoin;
+##     by code that fails, a LAN host from the menus on the saved crypt (the session panel, Invite friends, Copy, Stop
+##     inviting), a game alone whose opening fails and then opens while paused, a join by address that fails, Rejoin;
 ##   - a join that waits (the Connecting overlay; Esc and Cancel cancel it at once), a join that fails at once (one
 ##     dialog, one error sound, the reason as a sentence; pad B and pad A close it); the run ends through
 ##     Game.quit_app.
 ## That the app adopts a session its menus didn't start is coop.gd's (`uni coop`: both processes start from uni's
-## flags); `uni coop --menus` proves the menus' host and join across two processes.
+## flags); `uni coop --menus` proves the menus' host and join across two processes. A look pass runs it at another
+## window or interface size: `./uni tool --window --shots ui_walk -- --size=2560x1440 --ui-scale=0.8`.
 
 ## A local port nothing listens on: a join to it waits until cancelled.
 const SILENT_PORT: int = 9
@@ -35,6 +35,7 @@ const SILENT_PORT: int = 9
 
 func _run() -> void:
 	record_sounds()
+	await look_at_size()
 	change_scene_to_file(str(ProjectSettings.get_setting("application/run/main_scene")))
 	await wait_for_scene("Menu", 5.0)
 	await frames(10)
@@ -170,7 +171,7 @@ func _walk_interface_size(screen: Control) -> void:
 	var back: Rect2 = (find(screen, ^"%Back") as Control).get_global_rect()
 	expect(not back.intersects(bar.get_global_rect()), "at 130 %, Back is clear of the prompt bar")
 	await shot("14_settings_130")
-	set_setting(&"ui_scale", 1.0)
+	set_setting(&"ui_scale", ui_scale)
 	await frames(2)
 	step("the settings at 130 %")
 
@@ -296,8 +297,7 @@ func _walk_new_game() -> void:
 	expect(not hints.visible, "Off hides them")
 	set_setting(&"hints", setting_value(&"Hints", &"BRIEFLY"))
 	await press_key(KEY_F)
-	await frames(2)
-	expect(hints.visible, "Briefly: a change of device shows them again")
+	await wait_for(func() -> bool: return hints.visible, 1.0, "Briefly: a change of device shows them again")
 	set_setting(&"hints", setting_value(&"Hints", &"ALWAYS"))  # the couch's glyph checks read them
 	step("in the crypt: F attacks, the hints follow, tick %d" % session.tick)
 	await _walk_single_pause()

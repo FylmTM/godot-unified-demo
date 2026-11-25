@@ -7,6 +7,41 @@ extends UnifiedTool
 
 ## Every sound the interface played since record_sounds(), in order (Sfx's `played`).
 var sounds: Array[StringName] = []
+## The interface size the run looks at (look_at_size(): `--ui-scale=`), which a part that changes it goes back to.
+var ui_scale: float = 1.0
+
+
+## A look pass at another window or interface size, from the script's arguments: `--size=2560x1440` sizes the window
+## (a windowed run with --shots) and puts it left of every screen, so a window bigger than the leftmost screen covers
+## none of the developer's (it still renders, and the shots read it); `--ui-scale=0.8` sets the interface size
+## (ui_scale). Without them, the project's 1280x720 at 100 %.
+func look_at_size() -> void:
+	var size: String = arg("size")
+	if size != "":
+		root.size = Vector2i(size.get_slice("x", 0).to_int(), size.get_slice("x", 1).to_int())
+		var left: int = 0
+		for screen: int in DisplayServer.get_screen_count():
+			left = mini(left, DisplayServer.screen_get_position(screen).x)
+		root.position = Vector2i(left - root.size.x - 64, 0)
+	ui_scale = arg("ui-scale", "1.0").to_float()
+	set_setting(&"ui_scale", ui_scale)
+	await frames(3)
+
+
+## A real click on `c` (UnifiedTool.click), scrolled into view first as a player would scroll to it: a big interface
+## size scrolls a settings tab.
+func click(c: Control, button := MOUSE_BUTTON_LEFT) -> void:
+	var scroll: ScrollContainer = null
+	var up: Node = c.get_parent() if c != null else null
+	while up != null and scroll == null:
+		scroll = up as ScrollContainer
+		up = up.get_parent()
+	if scroll != null:
+		var was: int = scroll.scroll_vertical
+		scroll.ensure_control_visible(c)
+		if scroll.scroll_vertical != was:
+			await frames(2)
+	await super(c, button)
 
 
 ## Starts recording the interface's sounds into `sounds`.

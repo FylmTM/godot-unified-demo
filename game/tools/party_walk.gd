@@ -160,7 +160,7 @@ func _walk_hero_select_fits(screen: Control) -> void:
 	expect(view.encloses(seats) and seats.end.y <= start.position.y,
 		"at 130 %% the seats fit: %s in %s, above Start at %s" % [seats, view, start.position.y])
 	await shot("14b_hero_select_130")
-	set_setting(&"ui_scale", 1.0)
+	set_setting(&"ui_scale", ui_scale)
 	await frames(2)
 
 
