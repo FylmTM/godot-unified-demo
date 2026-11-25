@@ -161,6 +161,11 @@ func _changed() -> void:
 			_cards[seat].show_name(Party.name_of(_place_of(seat)))
 	picks_changed.emit(picks())
 	_start.disabled = not _all_ready()
+	# Start keeps the screen's focus (the seats answer to their devices), but a greyed Start wears no focus frame.
+	if _start.disabled:
+		_start.add_theme_stylebox_override(&"focus", StyleBoxEmpty.new())
+	else:
+		_start.remove_theme_stylebox_override(&"focus")
 	set_prompts({&"ui_left ui_right": "Hero", &"ui_accept": "Start" if _all_ready() else "Ready",
 		&"ui_cancel": "Back"})
 

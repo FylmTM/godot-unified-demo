@@ -57,10 +57,39 @@ func refresh() -> void:
 		_glyphs.theme_type_variation = &"InkGlyph" if ink else &"PromptGlyph"
 		_glyphs.add_theme_font_override(&"font", Prompts.font(family))
 		_glyphs.text = glyphs
+		_centre_ink()
 	else:
 		_glyphs.theme_type_variation = _text.theme_type_variation
 		_glyphs.remove_theme_font_override(&"font")
 		_glyphs.text = "[%s]" % words
+		_glyphs.offset_top = 0.0
+		_glyphs.offset_bottom = 0.0
 	_glyph_box.custom_minimum_size.x = _glyphs.get_minimum_size().x
 	_text.text = text
 	_text.visible = text != ""
+
+
+## A prompt font sets some glyphs (a pad's shoulders) low in their line and others in its middle: the glyphs move so
+## the middle of their ink sits on the row's middle, as the words' does.
+func _centre_ink() -> void:
+	var font: Font = _glyphs.get_theme_font(&"font")
+	var font_size: int = _glyphs.get_theme_font_size(&"font_size")
+	var server: TextServer = TextServerManager.get_primary_interface()
+	var face: RID = font.get_rids()[0]
+	var at := Vector2i(font_size, 0)
+	var top: float = INF
+	var bottom: float = -INF
+	for character: String in _glyphs.text:
+		var glyph: int = server.font_get_glyph_index(face, font_size, character.unicode_at(0), 0)
+		if glyph == 0 or character == " ":
+			continue
+		server.font_render_glyph(face, at, glyph)
+		var offset: Vector2 = server.font_get_glyph_offset(face, at, glyph)
+		top = minf(top, offset.y)
+		bottom = maxf(bottom, offset.y + server.font_get_glyph_size(face, at, glyph).y)
+	var shift: float = 0.0
+	if top < bottom:
+		var ascent: float = font.get_ascent(font_size)
+		shift = (ascent + font.get_descent(font_size)) / 2.0 - (ascent + (top + bottom) / 2.0)
+	_glyphs.offset_top = shift
+	_glyphs.offset_bottom = shift
