@@ -37,8 +37,10 @@ signal pause_wanted
 ## The slot's save is to be continued (a joiner chose to continue its host's alone): the menu opens hero select on it.
 signal continue_wanted
 ## A start the menus asked for (a host, a join) failed before it played: the menu goes back to where it was asked, the
-## dialog over it saying why.
+## dialog over it saying why (it is sent before the dialog opens).
 signal start_failed
+## Inviting friends changed: opened, its code came, it was stopped, or an opening failed (invite_problem).
+signal invite_changed
 
 enum Flow { MENU, STARTING, PLAYING, QUITTING }
 
@@ -48,6 +50,8 @@ const PLAY_SCENE: String = "res://game/play/play.tscn"
 const GAME_SCENES: String = "res://game/"
 ## The UDP port a LAN game is hosted on, and joined on when an address names none (lan_port can change it).
 const LAN_PORT: int = 7777
+## How long a start may wait before the Connecting overlay shows (seconds): one that is up by then never flashes it.
+const CONNECTING_AFTER_S: float = 0.3
 ## A button's sound when it means more than a press (one of Sfx's names): its `sfx` metadata.
 const META_SOUND: StringName = &"sfx"
 ## The focus frame's pulse: a full breath, in seconds, and its faintest, as a share of the frame's full strength.
@@ -84,11 +88,30 @@ var saves: Saves
 ## The port this machine hosts a LAN game on: LAN_PORT, unless a check sets another (uni coop --menus hands each run a
 ## free one; the walk picks one).
 var lan_port: int = LAN_PORT
+## What this machine joined, as the player typed it ("": it hosts, plays alone, or a session it didn't start, which
+## the flags or a tool joined): the session panel and the Connecting overlay name it.
+var join_target: String = ""
+## New players can join this game (hosted, or opened from Invite friends), until Stop inviting or a lobby that fails;
+## its code or address may still be coming (UnifiedSession.join_code is "" until it does).
+var inviting: bool = false
+## Whether that opening is online (a lobby code) rather than on this network.
+var inviting_online: bool = false
+## Why the last opening to friends failed (the library's words as a sentence; "": it didn't, or none since).
+var invite_problem: String = ""
 
 ## The party a game started with, until the Couch takes it.
 var _party: Party = null
 ## The host's newest save, while this machine plays in someone else's game (null: none yet, or not joined).
 var _host_save: UnifiedSetup = null
+## Hosting online opens the game once it plays alone (start_host): the lobby comes after, the crypt is up at once.
+var _open_online_once_up: bool = false
+## An invite the player asked for online copies its code once it comes (clipboard_set: a run's own when isolated).
+var _copy_code_once: bool = false
+## The player left a start that was still connecting: its goodbye (LEFT) is no news, the flow being on the menu
+## already (and a start queued over it must not be taken back to the menu).
+var _abandoned: bool = false
+## The clipboard of a run that may not touch the player's (`--no-settings`: tool, drive and coop runs).
+var _clipboard: String = ""
 ## The window has had the focus, so losing it means the player turned away (a tool run's, never in front, never has:
 ## its focus changes mean nothing until a check sends the focus in).
 var _had_focus: bool = false
@@ -191,40 +214,81 @@ func _notification(what: int) -> void:
 ## party, the first player plays Any (the sim resolves it on arrival). Ignored while a game is starting or playing, or
 ## the app quits; a start that fails says why through the session's status.
 func start_single(party: Party = null, setup: UnifiedSetup = null) -> void:
-	if _take_party(party):
+	if _take_party(party, true):
 		session.start_single(setup)
 
 
-## Hosts a game for friends with `party` on `setup` (a save to continue; null: a new crypt): online (a lobby code, when
-## UnifiedSession.online_problem is "") or on the LAN (this machine's address and lan_port). As start_single otherwise.
+## Hosts a game for friends with `party` on `setup` (a save to continue; null: a new crypt). On the LAN it hosts on
+## lan_port; online it is the same as Invite friends: a single-player game, up and playable at once, opened online as
+## soon as it is (the code comes later, and a lobby that fails leaves it playing alone, a toast saying why). As
+## start_single otherwise.
 func start_host(party: Party, setup: UnifiedSetup, online: bool) -> void:
-	if not _take_party(party):
+	if not _take_party(party, true):
 		return
+	inviting = not online  # online, the invite comes once the game is up
+	invite_problem = ""
 	if online:
-		session.host_online(setup)
+		_open_online_once_up = true
+		session.start_single(setup)
 	else:
 		session.host_direct(lan_port, setup)
 
 
-## Joins the game at `target` with `party`: a lobby code, or an address (`host:port`; LAN_PORT when it names none).
-## It is remembered for Rejoin last game (Settings.last_join). As start_single otherwise.
-func start_join(party: Party, target: String) -> void:
-	if not _take_party(party):
+## Joins the game at `target` with `party`: a lobby code (`online`), or an address (`host:port`, as Join an address
+## gives it). The party's Any stays Any: the sim resolves it on arrival against who is there (and a returning player
+## plays what it played). Remembered for Rejoin last game once it is in (Settings.last_join). As start_single otherwise.
+func start_join(party: Party, target: String, online: bool) -> void:
+	if not _take_party(party, false):
 		return
-	Settings.last_join = target
-	if is_address(target):
-		session.join_direct(target if target.contains(":") else "%s:%d" % [target, LAN_PORT])
-	else:
+	join_target = target
+	if online:
 		session.join_online(target)
+	else:
+		session.join_direct(target)
 
 
-## Whether `target` is an address (`host:port`, or a host alone) rather than a lobby code (letters and digits only).
-func is_address(target: String) -> bool:
-	return target.contains(".") or target.contains(":")
+## Opens the game played alone (or a host closed to new players) to friends: online (a lobby code) or on this network
+## (lan_port). The code comes later (join_code_changed); one the player asked for is copied once it comes. A failure
+## leaves the game as it was, invite_problem saying why.
+func invite(online: bool) -> void:
+	invite_problem = ""
+	inviting = true
+	inviting_online = online
+	_copy_code_once = online
+	if online:
+		session.open_online()
+	else:
+		session.open_direct(lan_port)
+	invite_changed.emit()
 
-## Whether this machine has a clipboard to copy a code to or paste one from (a headless run has none).
-func has_clipboard() -> bool:
-	return DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD)
+
+## Lets nobody new in (the players in stay): Stop inviting.
+func stop_inviting() -> void:
+	session.close_online()
+	inviting = false
+	_copy_code_once = false
+	invite_changed.emit()
+
+
+## Whether this game is hosted for friends (online or on the LAN, open or closed to new players), not played alone.
+func hosting() -> bool:
+	return session.mode in [UnifiedSession.MODE_HOST_ONLINE, UnifiedSession.MODE_HOST_DIRECT]
+
+
+## This machine's clipboard, or a run's own when it may not touch the player's (Settings.isolated: tool, drive and
+## coop runs), so a check never reads or writes what the player copied.
+func clipboard_get() -> String:
+	if Settings.isolated or not DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+		return _clipboard
+	return DisplayServer.clipboard_get()
+
+
+## Puts `text` on the clipboard (a run's own when isolated).
+func clipboard_set(text: String) -> void:
+	if Settings.isolated or not DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+		_clipboard = text
+		return
+	DisplayServer.clipboard_set(text)
 
 
 ## `detail` (the library's words) as a sentence: a capital first, a full stop last; `otherwise` when it is empty.
@@ -236,12 +300,17 @@ func sentence(detail: String, otherwise: String) -> String:
 	return text if text.ends_with(".") or text.ends_with("!") or text.ends_with("?") else text + "."
 
 
-## The party a start takes (each Any becomes a class nobody picked; the first seat's pick is the session's Profile);
-## false when a game is starting or playing, or the app quits, so nothing starts.
-func _take_party(party: Party) -> bool:
+## The party a start takes (`resolve`: each Any becomes a class nobody picked, for a game whose party is all here; the
+## first seat's pick is the session's Profile); false when a game is starting or playing, or the app quits, so nothing
+## starts.
+func _take_party(party: Party, resolve: bool) -> bool:
 	if flow != Flow.MENU:
 		return false
-	if party != null:
+	_abandoned = false
+	join_target = ""
+	inviting = false
+	invite_problem = ""
+	if party != null and resolve:
 		party.resolve_any()
 	_party = party
 	Unified.profile.class = party.seats[0].hero_class if party != null else EnumClass.ANY
@@ -266,6 +335,9 @@ func leave() -> void:
 	if flow == Flow.QUITTING:
 		return
 	_hide_connecting()
+	if flow == Flow.STARTING:
+		_abandoned = true  # back on the menu at once; the start's goodbye says nothing new
+		flow = Flow.MENU
 	if session.running:
 		session.leave()
 	elif flow != Flow.MENU:
@@ -330,6 +402,10 @@ func _on_status_changed(status: UnifiedSession.Status, detail: String) -> void:
 		flow = Flow.QUITTING  # the session quits the app now: no menu, and no sound to outlive the quit
 		Sfx.close()
 		return
+	if _abandoned:
+		_abandoned = false  # what follows a left start: its goodbye, or a start queued over it
+		if status == UnifiedSession.STATUS_LEFT:
+			return  # the goodbye: the menu is there already, and a start queued over it goes on
 	match status:
 		UnifiedSession.STATUS_CONNECTING:
 			if flow == Flow.MENU:
@@ -338,6 +414,12 @@ func _on_status_changed(status: UnifiedSession.Status, detail: String) -> void:
 			if flow == Flow.MENU:
 				_start()
 			_keep_host_setup()
+			if join_target != "" and not keeps_saves():
+				Settings.last_join = join_target
+				Settings.last_join_online = session.mode == UnifiedSession.MODE_JOIN_ONLINE
+			if _open_online_once_up:
+				_open_online_once_up = false
+				invite(true)
 			if flow == Flow.STARTING:
 				_hide_connecting()
 				_enter_play()
@@ -350,14 +432,15 @@ func _on_status_changed(status: UnifiedSession.Status, detail: String) -> void:
 				_link_status.show_recovering()
 		UnifiedSession.STATUS_FAILED:
 			if flow != Flow.PLAYING:  # a start that failed (at once, the flow never left the menu)
-				_end(Ending.new(_failed_heading(), sentence(detail, "The game could not start."), ""))
 				start_failed.emit()
+				_end(_failed_start(detail))
 			else:
 				_end(Ending.new("The game ended", sentence(detail, "It stopped on an error."), ""))
 		UnifiedSession.STATUS_DISCONNECTED:
-			# The library's words say which of the two it was (until its end reason comes as a value).
-			var ending := Ending.new("The game ended", "The host left, or the link to it was lost.",
-				sentence(detail, ""))
+			# The library's words say why when it says more than the link (until its end reason comes as a value).
+			var ending := Ending.new("The game ended", "The host left, or the link to it was lost.", "")
+			if detail != "" and detail != "session ended":
+				ending.reason = sentence(detail, ending.reason)
 			ending.save = _host_save
 			_end(ending)
 		UnifiedSession.STATUS_LEFT:
@@ -368,15 +451,26 @@ func _on_status_changed(status: UnifiedSession.Status, detail: String) -> void:
 ## is up within a frame).
 func _start() -> void:
 	flow = Flow.STARTING
+	await get_tree().create_timer(CONNECTING_AFTER_S).timeout
+	if flow != Flow.STARTING:
+		return  # up already (or left): no overlay to flash
+	var target: String = join_target if join_target != "" else "the game"
 	match session.mode:
-		UnifiedSession.MODE_HOST_ONLINE:
-			_show_connecting("Opening the crypt", "Setting up a lobby for friends to join.")
-		UnifiedSession.MODE_HOST_DIRECT:
-			_show_connecting("Opening the crypt", "Opening the game to this network, on port %d." % lan_port)
+		UnifiedSession.MODE_HOST_ONLINE, UnifiedSession.MODE_HOST_DIRECT:
+			_show_connecting("Opening the crypt", "Opening the game to friends.")
 		UnifiedSession.MODE_JOIN_ONLINE:
-			_show_connecting("Joining %s" % Settings.last_join, "Finding the game and its host.")
+			_show_connecting("Joining %s" % target, "Finding the game and its host.")
 		UnifiedSession.MODE_JOIN_DIRECT:
-			_show_connecting("Joining", "Connecting to %s." % Settings.last_join)
+			_show_connecting("Joining", "Connecting to %s." % target)
+
+
+## Why a start failed: the app's words where it has some (a join by address the network can't find), else the
+## library's as the reason.
+func _failed_start(detail: String) -> Ending:
+	if session.mode == UnifiedSession.MODE_JOIN_DIRECT and join_target != "":
+		var host: String = join_target.get_slice(":", 0)
+		return Ending.new(_failed_heading(), "Couldn't find %s on the network." % host, sentence(detail, ""))
+	return Ending.new(_failed_heading(), sentence(detail, "The game could not start."), "")
 
 
 ## The heading of a start that failed, by what it tried.
@@ -415,6 +509,9 @@ func _go_to_menu() -> void:
 	_toasts.clear()
 	_party = null
 	_host_save = null
+	inviting = false
+	_open_online_once_up = false
+	_copy_code_once = false
 	_classes.clear()
 	_party_locals.clear()
 	if get_tree().current_scene == null or get_tree().current_scene.scene_file_path != MENU_SCENE:
@@ -520,7 +617,7 @@ func _collect_play_scene() -> PackedScene:
 	return ResourceLoader.load_threaded_get(PLAY_SCENE) as PackedScene
 
 
-## Joins and leaves as toasts naming the player and the hero ("Guest 2 joined (Mage)"), once they are certain
+## Joins and leaves as toasts naming the player and the hero ("Sexton +1 joined (Mage)"), once they are certain
 ## (CONFIRMED). The first local player's own arrival is no news, nor the party's seats' at the start.
 func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
 	if state != UnifiedSession.EVENT_CONFIRMED:
@@ -543,18 +640,29 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 			_classes.erase(left.player)
 
 
-## A game opened to friends that falls back to single player (its lobby died, or an opening failed): a toast says why.
+## An opening to friends that failed, or a lobby that died: the game plays on alone, invite_problem says why (Invite
+## friends shows it; a toast too while no menu is open over the game), and a co-op pause it was under is lifted: alone,
+## the pause menu pauses the clock instead.
 func _on_mode_changed(mode: UnifiedSession.Mode, detail: String) -> void:
-	if mode == UnifiedSession.MODE_SINGLE and detail != "" and flow == Flow.PLAYING:
-		toast("Friends can't join: %s" % sentence(detail, ""))
+	if detail != "":
+		invite_problem = sentence(detail, "")
+		inviting = hosting()
+		_copy_code_once = false
+		if flow == Flow.PLAYING and session.game_input:
+			toast("Friends can't join: %s" % invite_problem)
+	if mode == UnifiedSession.MODE_SINGLE and Unified.data.hud.paused:
+		var resume := CommandSetPaused.new()
+		resume.paused = false
+		session.send_command(resume)
+	invite_changed.emit()
 
 
-## A lobby's code, once it comes, goes to the clipboard (a toast says so), ready to send to friends (where there is a
-## clipboard).
+## A code the player asked for (an online host, Invite online) goes to the clipboard once, as it comes.
 func _on_join_code_changed(code: String) -> void:
-	if code != "" and session.mode == UnifiedSession.MODE_HOST_ONLINE and has_clipboard():
-		DisplayServer.clipboard_set(code)
-		toast("Code %s copied" % code)
+	if code != "" and _copy_code_once:
+		_copy_code_once = false
+		clipboard_set(code)
+	invite_changed.emit()
 
 
 ## A save from a verified tick: this machine's slot when it plays alone or hosts, else the host's, kept in memory.

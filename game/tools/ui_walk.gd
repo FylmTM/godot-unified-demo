@@ -19,9 +19,10 @@ extends TogetherWalk
 ##   - a surge's save, leaving from the pause menu (it asks), the title's Continue, New game over a save (it asks), the
 ##     continued game (SessionWalk); a settings file that didn't read is told once; the pause menu online (a LAN host
 ##     alone: Pause and Resume for everyone, input under it moving nobody); the pause menu over a replay;
-##   - Play together (TogetherWalk): online greyed with the library's sentence, the code field and a join by code that
-##     can't start, a LAN host from the menus (the session panel, Invite friends, Stop inviting), a game alone opened
-##     to friends and closed, a join by address that fails and is offered as Rejoin;
+##   - Play together (TogetherWalk): online greyed with the library's sentence (or offered), the code field and a join
+##     by code that fails, a LAN host from the menus (the session panel, Invite friends,
+##     Copy, Stop inviting), a game alone whose opening fails and then opens while paused, a join by address that
+##     fails, Rejoin;
 ##   - a join that waits (the Connecting overlay; Esc and Cancel cancel it at once), a join that fails at once (one
 ##     dialog, one error sound, the reason as a sentence; pad B and pad A close it); the run ends through
 ##     Game.quit_app.
@@ -388,8 +389,9 @@ func _walk_new_game_again() -> void:
 	step("left again: a settings file and a save that didn't read, each told once")
 
 
-## A join that waits shows the Connecting overlay over the title, Cancel focused; Esc cancels it, and the overlay goes
-## at once (the session says goodbye under the title). Its Cancel button does the same, with its sound.
+## A join that waits shows the Connecting overlay over the title, Cancel focused; Esc cancels it: the overlay goes
+## and the flow is back on the menu at once (the session says goodbye under the title, which says nothing of it). Its
+## Cancel button does the same, with its sound.
 func _walk_connecting() -> void:
 	var connecting: Control = overlay("Connecting")
 	var cancel: Control = find(connecting, ^"%Cancel") as Control
@@ -400,9 +402,10 @@ func _walk_connecting() -> void:
 	expect(flow_name() == "STARTING", "the flow is STARTING (%s)" % flow_name())
 	await shot("04_connecting")
 	await press_key(KEY_ESCAPE)
-	expect(not connecting.visible, "Esc hides the overlay at once")
-	await wait_for(func() -> bool: return flow_name() == "MENU", 5.0, "back on the title once the join said goodbye")
-	expect(session.status == UnifiedSession.STATUS_LEFT, "the join left")
+	expect(not connecting.visible and flow_name() == "MENU", "Esc hides the overlay and leaves the start at once")
+	await wait_for(func() -> bool: return session.status == UnifiedSession.STATUS_LEFT, 5.0,
+		"the join says goodbye under the title")
+	expect(not overlay("Dialog").visible, "its goodbye is no news: no dialog")
 	expect(root.gui_get_focus_owner() == title_focus(), "the title's first control has the focus")
 	step("a join that waits: the overlay, Esc cancels")
 	session.join_direct("127.0.0.1:%d" % SILENT_PORT)

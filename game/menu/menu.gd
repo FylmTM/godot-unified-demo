@@ -47,14 +47,15 @@ func _open_play_together() -> void:
 	screen.host_requested.connect(_host)
 	screen.join_code_requested.connect(func() -> void:
 		var join := _stack.push(join_code_scene) as JoinCodeScreen
-		join.join_requested.connect(_join))
+		join.join_requested.connect(_join.bind(true)))
 	screen.join_address_requested.connect(func() -> void:
 		var join := _stack.push(join_address_scene) as JoinAddressScreen
-		join.join_requested.connect(_join))
+		join.join_requested.connect(_join.bind(false)))
 	screen.rejoin_requested.connect(_join)
 
 
-## Hosts a game (`online`: by a lobby code): on the saved crypt or a new one (asked while the slot holds one).
+## Hosts a game (`online`: by a lobby code): on the saved crypt or a new one (asked while the slot holds one; a new
+## one over a save asks first, as the title's New game does).
 func _host(online: bool) -> void:
 	var host: Callable = func(save: UnifiedSetup) -> void:
 		_open_hero_select("Host a crypt", func(party: Party) -> void: Game.start_host(party, save, online))
@@ -62,12 +63,19 @@ func _host(online: bool) -> void:
 		host.call(null)
 		return
 	var crypt := _stack.push(host_crypt_scene) as HostCryptScreen
-	crypt.chosen.connect(host)
+	crypt.chosen.connect(func(save: UnifiedSetup) -> void:
+		if save != null:
+			host.call(save)
+			return
+		Game.ask("Start a new crypt?", "Your saved crypt (%s) is replaced at the new game's first surge."
+			% Game.saves.summary(), "New crypt", "Back", func(confirmed: bool) -> void:
+				if confirmed:
+					host.call(null)))
 
 
-## Joins `target` (a code or an address) once the couch here has picked its heroes.
-func _join(target: String) -> void:
-	_open_hero_select("Join %s" % target, func(party: Party) -> void: Game.start_join(party, target))
+## Joins `target` (a lobby code when `online`, else an address) once the couch here has picked its heroes.
+func _join(target: String, online: bool) -> void:
+	_open_hero_select("Join %s" % target, func(party: Party) -> void: Game.start_join(party, target, online))
 
 
 ## Hero select over the title, under `heading`: its picks step the backdrop's heroes forward, and its start calls

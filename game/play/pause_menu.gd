@@ -51,8 +51,11 @@ func _ready() -> void:
 	_screen.settings_requested.connect(func() -> void: _stack.push(settings_scene))
 	_screen.leave_requested.connect(_leave.bind(false))
 	_screen.quit_requested.connect(_leave.bind(true))
-	_session.mode_changed.connect(func(_mode: UnifiedSession.Mode, _detail: String) -> void: _on_mode_changed())
+	_session.mode_changed.connect(_on_mode_changed)
 	_stack.top_changed.connect(_prompt_bar.follow)
+	_stack.top_changed.connect(func(screen: MenuScreen) -> void:
+		if screen == _screen:
+			_screen.focus_resume_all())  # back from inviting a game paused alone: Resume for everyone
 	_prompt_bar.follow(_stack.top())
 	_settle_pause()
 
@@ -64,8 +67,10 @@ func _exit_tree() -> void:
 	Game.unblock_input(BLOCK)
 
 
-## Closes the menu.
+## Closes the menu: alone, a co-op pause it was opened under (a game opened to friends and closed again) is lifted too.
 func close() -> void:
+	if _session.mode == UnifiedSession.MODE_SINGLE and Unified.data.hud.paused:
+		_pause_all(false)
 	closed.emit()
 	queue_free()
 
@@ -75,13 +80,13 @@ func top() -> MenuScreen:
 	return _stack.top()
 
 
-## The game was opened to friends (or closed again) under the menu: a game paused alone stays paused, now for everyone
-## (the co-op pause), so the host reads the code out with the clock still standing.
-func _on_mode_changed() -> void:
-	var was_alone: bool = _alone
-	await _settle_pause()
-	if was_alone and not _alone and is_inside_tree():
+## The game was opened to friends (or fell back to alone) under the menu: a game paused alone stays paused, now for
+## everyone (the co-op pause, sent at once, on the mode change), so the host reads the code out with the clock still
+## standing; back alone, the menu pauses the clock again (Game lifts the co-op pause).
+func _on_mode_changed(mode: UnifiedSession.Mode, _detail: String) -> void:
+	if _alone and mode != UnifiedSession.MODE_SINGLE:
 		_pause_all(true)
+	_settle_pause()
 
 
 ## Asks for the single-player pause and shows the menu for whether it took: alone (it did, within a few frames) or with
@@ -109,7 +114,7 @@ func _show_mode(replay: bool, online: bool) -> void:
 		leave = "Leave the game"
 	elif _others() > 0:
 		leave = "End the game"
-	_screen.show_mode(replay, online, leave, not _joined())
+	_screen.show_mode(replay, online, leave, not _joined(), _others() > 0)
 
 
 ## Pauses or resumes the game for everyone: the co-op pause, as this machine's first player.
