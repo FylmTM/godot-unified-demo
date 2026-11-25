@@ -40,6 +40,9 @@ const TOOL_NAME: String = "Adventurer"
 const SEATS: int = 4
 ## How long after the last change the file is written, in seconds.
 const SAVE_DELAY_S: float = 0.3
+## The smallest the interface is ever drawn, as a share of its 1920x1080 canvas: a small window at a small interface
+## size draws it no smaller (720p at 80 % would be 53 %, its smallest HUD text 13 px), so the HUD stays readable.
+const UI_SCALE_FLOOR: float = 0.6
 
 @export_category("video")
 ## Windowed, or fullscreen (borderless: switching needs no confirmation). An exported game starts fullscreen.
@@ -76,11 +79,12 @@ const SAVE_DELAY_S: float = 0.3
 		anti_aliasing = value
 		get_tree().root.msaa_3d = value as Viewport.MSAA
 		_changed(&"anti_aliasing")
-## The interface's size, over the canvas's 1920x1080 base (project.godot).
+## The interface's size, over the canvas's 1920x1080 base (project.godot), as the window stretches it; never drawn
+## below UI_SCALE_FLOOR of the canvas (a small window raises a small size).
 @export_range(0.8, 1.3, 0.05) var ui_scale: float = 1.0:
 	set(value):
 		ui_scale = value
-		get_tree().root.content_scale_factor = value
+		_apply_ui_scale()
 		_changed(&"ui_scale")
 @export var show_fps: bool = false:
 	set(value):
@@ -210,6 +214,7 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	get_tree().root.size_changed.connect(_apply_ui_scale)
 	_applies_window = not isolated and DisplayServer.get_name() != "headless"
 	_save_timer = Timer.new()
 	_save_timer.one_shot = true
@@ -232,6 +237,15 @@ func _ready() -> void:
 	_loading = false
 	if not isolated and not named:
 		save()  # the first run: the name picked for this player is theirs from now on
+
+
+## The interface's scale on the root: ui_scale, raised so the window's stretch of the canvas times it is never below
+## UI_SCALE_FLOOR.
+func _apply_ui_scale() -> void:
+	var root: Window = get_tree().root
+	var base := Vector2(root.content_scale_size)
+	var stretch: float = minf(root.size.x / base.x, root.size.y / base.y) if base.x > 0.0 and base.y > 0.0 else 1.0
+	root.content_scale_factor = maxf(ui_scale, UI_SCALE_FLOOR / stretch) if stretch > 0.0 else ui_scale
 
 
 func _notification(what: int) -> void:
