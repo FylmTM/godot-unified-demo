@@ -43,10 +43,17 @@ func resolve_any() -> void:
 				break
 
 
-## The name of the player at party place `local` (a local index): the player's own for the first, "Guest 2" and on
-## for the others.
+## The name of the player at party place `local` (a local index): this machine's player's own for the first, then
+## theirs and "+1", "+2"... for their couch guests ("Sexton +1"), so two machines' guests never share a name. Cut, as
+## the player's own is, to what the session sends (UnifiedSession.NAME_MAX bytes), the "+1" kept.
 static func name_of(local: int) -> String:
-	return Settings.player_name if local == 0 else "Guest %d" % (local + 1)
+	if local == 0:
+		return Settings.player_name
+	var suffix: String = " +%d" % local
+	var base: String = Settings.player_name
+	while (base + suffix).to_utf8_buffer().size() > UnifiedSession.NAME_MAX:
+		base = base.left(-1)
+	return base.strip_edges() + suffix
 
 
 ## The lowest local index none of `taken` holds: where the next guest goes.

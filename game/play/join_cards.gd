@@ -72,11 +72,11 @@ func _input(event: InputEvent) -> void:
 		join_given_up.emit(device)
 
 
-## Opens a join card for pad `device`, preselecting `hero_class`.
-func open_join(device: int, hero_class: int) -> void:
+## Opens a join card for pad `device`, named `player_name` (the name it would join with), preselecting `hero_class`.
+func open_join(device: int, player_name: String, hero_class: int) -> void:
 	var card: SeatCard = _open(device)
 	card.accept_text = "Join"
-	card.show_seat(device, "Guest", hero_class)
+	card.show_seat(device, player_name, hero_class)
 
 
 ## Opens a drop-out card for guest `local` (its player's key `player`) on pad `device`.

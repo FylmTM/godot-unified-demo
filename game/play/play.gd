@@ -53,7 +53,8 @@ func _ready() -> void:
 	_couch.idle_pad_changed.connect(_hud.show_join_hint)
 	_hud.show_join_hint(_couch.idle_pad())
 	var cards: JoinCards = _hud.join_cards()
-	_couch.join_requested.connect(func(device: int) -> void: cards.open_join(device, _remembered_pick()))
+	_couch.join_requested.connect(func(device: int) -> void:
+		cards.open_join(device, Party.name_of(_couch.next_place()), _remembered_pick()))
 	_couch.drop_requested.connect(func(local: int) -> void:
 		var player: int = _session.get_local_player_key(local)
 		cards.open_drop(local, player, _session.get_local_device(local), _session.get_player_name(player),

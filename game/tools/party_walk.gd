@@ -85,7 +85,7 @@ func _walk_hero_select() -> void:
 	mark = sounds.size()
 	await pad_button(JOY_BUTTON_START, 0)
 	expect(_seat_of(screen, 0) == 1 and played(&"joined", mark) == 1, "pad 0's Start seats it second, with a sound")
-	expect(_who(screen, 1) == "Guest 2", "the second seat is Guest 2: %s" % _who(screen, 1))
+	expect(_who(screen, 1) == _guest(1), "the second seat is the player's +1: %s" % _who(screen, 1))
 	Input.joy_connection_changed.emit(3, false)
 	await frames(2)
 	expect(_seat_of(screen, 0) == 0 and _seat_of(screen, 3) < 0,
@@ -228,8 +228,8 @@ func _walk_drop_out() -> void:
 	expect(session.get_local_indices().size() == 1, "A drops the guest out")
 	await wait_for(func() -> bool: return session.get_local_device(0) == UnifiedSession.DEVICE_ANY, 2.0,
 		"alone again, the first player plays with every device")
-	await wait_for(func() -> bool: return _toast_shows("Guest 2 left (Barbarian)"), 5.0,
-		"a toast: Guest 2 left (Barbarian)")
+	await wait_for(func() -> bool: return _toast_shows("%s left (Barbarian)" % _guest(1)), 5.0,
+		"a toast: %s left (Barbarian)" % _guest(1))
 	step("the guest dropped out")
 
 
@@ -269,7 +269,8 @@ func _walk_couch() -> void:
 			await pad_button(JOY_BUTTON_DPAD_RIGHT, 1)
 	await pad_button(JOY_BUTTON_A, 1)
 	await wait_for(func() -> bool: return _in_session(1), 3.0, "pad 1's A joins it")
-	await wait_for(func() -> bool: return _toast_shows("Guest 2 joined (Rogue)"), 5.0, "a toast: Guest 2 joined (Rogue)")
+	await wait_for(func() -> bool: return _toast_shows("%s joined (Rogue)" % _guest(1)), 5.0,
+		"a toast: %s joined (Rogue)" % _guest(1))
 	expect(session.get_local_device(0) == UnifiedSession.DEVICE_KEYBOARD,
 		"with a guest in, the first player keeps the keyboard")
 	await seconds(0.4)  # the toast faded in
@@ -279,7 +280,8 @@ func _walk_couch() -> void:
 		"the guest's plate: its pad's glyphs")
 	await shot("03_guest_joined")
 	await _leave_guests()
-	await wait_for(func() -> bool: return _toast_shows("Guest 2 left (Rogue)"), 5.0, "a toast: Guest 2 left (Rogue)")
+	await wait_for(func() -> bool: return _toast_shows("%s left (Rogue)" % _guest(1)), 5.0,
+		"a toast: %s left (Rogue)" % _guest(1))
 	await pad_button(JOY_BUTTON_A, 0)  # pad 0 played last
 	await pad_button(JOY_BUTTON_START, 0)
 	await wait_for(func() -> bool: return session.paused, 2.0, "pad 0's Start pauses: it is the first player's")
@@ -301,7 +303,7 @@ func _walk_full_couch() -> void:
 	await pad_button(JOY_BUTTON_A, 1)
 	await pad_button(JOY_BUTTON_A, 2)
 	await wait_for(func() -> bool: return _in_session(1) and _in_session(2), 3.0, "both join")
-	expect(_name_on(1) == "Guest 2" and _name_on(2) == "Guest 3", "named by place: %s, %s" % [_name_on(1),
+	expect(_name_on(1) == _guest(1) and _name_on(2) == _guest(2), "named by place: %s, %s" % [_name_on(1),
 		_name_on(2)])
 	await shot("03b_three_players")
 	await pad_button(JOY_BUTTON_START, 3)
@@ -311,9 +313,9 @@ func _walk_full_couch() -> void:
 	expect(_card(3) == null and not _in_session(3), "pad 3 gone while picking: its card closes, it gave up")
 	await pad_button(JOY_BUTTON_BACK, 1)
 	await pad_button(JOY_BUTTON_A, 1)
-	await wait_for(func() -> bool: return not _in_session(1), 3.0, "Guest 2 drops out")
+	await wait_for(func() -> bool: return not _in_session(1), 3.0, "%s drops out" % _guest(1))
 	await _join(3)
-	expect(_name_on(3) == "Guest 2" and _name_on(2) == "Guest 3",
+	expect(_name_on(3) == _guest(1) and _name_on(2) == _guest(2),
 		"the next guest takes the free place's name: %s, %s" % [_name_on(3), _name_on(2)])
 	await _join(1)
 	expect(session.get_local_indices().size() == UnifiedSession.LOCAL_MAX, "the couch is full")
@@ -361,6 +363,11 @@ func _leave_guests() -> void:
 	await wait_for(func() -> bool: return session.get_local_indices().size() == 1, 3.0, "the guests gone")
 	await wait_for(func() -> bool: return session.get_local_device(0) == UnifiedSession.DEVICE_ANY, 2.0,
 		"alone again, the first player plays with every device")
+
+
+## The name of this couch's guest at local index `local`: the player's and "+1", "+2"...
+func _guest(local: int) -> String:
+	return "%s +%d" % [WALK_NAME, local]
 
 
 ## Hero select, on top of the menu (null, failing the run, when it isn't).
