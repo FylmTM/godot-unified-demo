@@ -557,9 +557,8 @@ Step 5 review fixes, calls made on the way:
 - A host whose start fails can't be forced in a check: Odin's UDP bind reuses the port on Windows, so a taken port
   still binds. The failed-start path is checked through joins (a refused code, an unknown host) and a failed open.
 - The pending-code state ("Getting a code...") is checked only by online_check: offline, open_online fails at once.
-- The session panel's count follows roster_changed (a joiner's own arrival, a couch guest) and the confirmed
-  player joined/left events: roster_changed misses a new game's first player when the last game ended with the same
-  slots taken (unified compares the shown tick's slots across sessions; reported).
+- The session panel's count follows roster_changed (a joiner's own arrival, a couch guest, each new game's first
+  player: unified tracks the roster per session since 947b982).
 - coop.gd checks each side's class against its `--profile` flag (hero select sets Unified.profile); a joiner that
   asked for Any plays a class the host doesn't. `--menus --rejoin` rejoins through the title's Rejoin. The joiner's
   panel says what it joined and the count, and a couch guest on pad 1 joins the joiner as "Friend +1" and drops out,

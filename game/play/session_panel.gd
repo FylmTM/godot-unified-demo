@@ -17,7 +17,6 @@ func _ready() -> void:
 	_session.mode_changed.connect(func(_mode: UnifiedSession.Mode, _detail: String) -> void: _show())
 	_session.link_slow_changed.connect(func(_slow_now: bool) -> void: _show())
 	_session.roster_changed.connect(_show)  # someone came or went: the count
-	_session.sim_event.connect(_on_sim_event)
 	Game.invite_changed.connect(_show)
 	_show()
 
@@ -47,9 +46,3 @@ func _show() -> void:
 	_slow.text = "Slow link: %d ms (smooth up to %d)" % [roundi(_session.round_trip_ms),
 		roundi(_session.round_trip_ceiling_ms)]
 
-
-## A player arrived or left on a confirmed tick: the count. (roster_changed alone misses a new game's first player
-## when the last game ended with the same slots taken.)
-func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
-	if state == UnifiedSession.EVENT_CONFIRMED and (event is EventPlayerJoined or event is EventPlayerLeft):
-		_show()
