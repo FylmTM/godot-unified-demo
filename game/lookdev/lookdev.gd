@@ -80,7 +80,7 @@ var _idle: Pose = Pose.new(Clips.IDLE, 0.0)
 @onready var _parity_key: DirectionalLight3D = $ParityStage/Key
 @onready var _parity_rigs: Node3D = $ParityStage/Rigs
 @onready var _parity_crowd: MultiMeshInstance3D = $ParityStage/Crowd
-@onready var _crowd_clips: CrowdClips = load(MinionCrowd.TABLE)
+@onready var _crowd_clips: UnifiedCrowdClips = load(MinionCrowd.TABLE)
 
 
 func _ready() -> void:

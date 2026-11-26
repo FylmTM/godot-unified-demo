@@ -726,3 +726,23 @@ Calls made in step 5 (the minions a MultiMesh):
 - Shots: the arena's chase and fight at 500 and Floor 1's first surge (`.out/drive/m4_s5_*.png`) look as the pooled
   views did; a single minion's flash or fall isn't picked out in a crowd of 500 at the game camera: the look-dev's
   parity stage (step 4) and the tests carry those.
+
+Calls made in step 6 (the bake lifted into unified's `tools_godot`; milestone 4 complete):
+
+- unified's API, by class name: `UnifiedCrowdRecipe` (a Resource: the scene, clips, loops, rates, the masked
+  materials kept whole and marked in UV2, the LOD error, a triangle cap, the pose method, the three output paths; the
+  step 4 call's "crowd declaration"), `UnifiedCrowdBake` (`bake(recipe, root)` and `Baked.save()`; `validate` names
+  what a character lacks instead of asserting), `UnifiedCrowdClips` (the table), `crowd_skin.gdshaderinc`
+  (`unified_crowd_skinning(clip, seconds, CUSTOM0, CUSTOM1)`, a mat4) and `UnifiedCrowdCheck` (whole, stale, fresh,
+  the mesh's rules, the masks, parity; problems each naming its file). The demo keeps its recipe, its shader's look,
+  `bake_crowd.gd` and the game's own checks (clip numbers, the shader's `CLIPS`, timing, sink, palette).
+- The clip table moved into the bone texture's first row (per clip: first row, frames, rate, loops; texel 0 the counts),
+  so the material needs one texture and no uniform arrays: no MAX_CLIPS to hold equal; the demo's shader keeps its
+  own `CLIPS` for its clip offsets. The texture is one row taller (69 by 826).
+- A bug found by unified's new test: the bounds took each bone's bind twice (its reach was already in bone space), so
+  they sat about a metre low (-1.83 to 2.15 m against the poses' -0.83 to 2.45). Fixed in the bake; the culling box is
+  now every pose's.
+- The hash covers unified's `crowd_bake.gd`: a unified bump that touches it makes the demo's bake stale until
+  re-baked, as an edit to the game's own bake did.
+- Checked: the art checks pass; a stale bake and the attack at 60 fps (4.07 cm at 0.592 s, the blade) fail them; the
+  look-dev parity shots and the arena's 500 chasing (`./uni drive`) look as before.

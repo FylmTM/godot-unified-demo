@@ -1,17 +1,12 @@
-[gd_resource type="Resource" script_class="CrowdClips" format=3]
+[gd_resource type="Resource" script_class="UnifiedCrowdClips" format=3]
 
 [ext_resource type="Image" path="res://game/crowd/minion_bones.res" id="1_pa2r1"]
-[ext_resource type="Script" path="res://game/crowd/crowd_clips.gd" id="2_3fmkc"]
+[ext_resource type="Script" path="res://unified/tools_godot/crowd_clips.gd" id="2_3fmkc"]
 
 [resource]
 script = ExtResource("2_3fmkc")
 bones = ExtResource("1_pa2r1")
 clips = Array[StringName]([&"Special/Skeletons_Idle", &"Special/Skeletons_Walking", &"CombatMelee/Melee_1H_Attack_Chop", &"Special/Skeletons_Awaken_Floor", &"Special/Skeletons_Death"])
-first_rows = PackedInt32Array(0, 129, 178, 307, 584)
-frame_counts = PackedInt32Array(129, 49, 129, 277, 241)
-rates = PackedFloat32Array(30, 30, 120, 120, 120)
-loops = Array[bool]([true, true, false, false, false])
 tops = PackedFloat32Array(1.9646964, 2.014967, 2.1524878, 1.9646969, 0.8819343)
-bone_count = 23
-bounds = AABB(-1.8447618, -1.8312491, -3.304078, 3.4882822, 3.9806042, 4.8439345)
-sources = "b6ddc4e3d87dca9901bb4a8aeb77892c42e14a5f6f5ef099f32fa76997671834"
+bounds = AABB(-2.603845, -0.8267498, -3.530036, 4.0814805, 3.2739007, 5.1610503)
+sources = "6d00ee761b0f549413e403da47f7f4ddd002f21512454cab03a6f6d15cc52e92"

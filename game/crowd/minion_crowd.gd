@@ -1,8 +1,8 @@
 class_name MinionCrowd
 extends RefCounted
-## The skeleton minions drawn as a crowd: what CrowdBake bakes for them (`./uni tool bake_crowd`), where the bake is
-## kept, and the material that draws it (material(): crowd_minion.gdshader, its look taken from where each part of it
-## lives).
+## The skeleton minions drawn as a crowd: what unified's crowd bake makes of them (recipe(); `./uni tool bake_crowd`),
+## where the bake is kept, and the material that draws it (material(): crowd_minion.gdshader, its look taken from where
+## each part of it lives).
 ##
 ## An instance of the crowd is a minion: its transform the minion's feet and facing, its custom data the pose (a clip of
 ## CLIPS by index, and the seconds since it began) and the seconds since it was last struck (its flash), as the
@@ -30,9 +30,10 @@ const RATES: PackedFloat32Array = [30.0, 30.0, 120.0, 120.0, 120.0]
 ## minion's LOD chains jump (an arm or a leg to 0.15 and on, the body, head, cloak and blade to about 0.4: they lose
 ## their shape); within it the scene's 5,745 triangles become 2,425, the head, jaw and eyes whole.
 const LOD_ERROR: float = 0.11
-## The most triangles the crowd minion may have (the art checks): 500 of them a pass.
+## The most triangles the crowd minion may have (the crowd check): 500 of them a pass.
 const TRIANGLES: int = 2450
-## The scene's material that glows: the eyes (the crowd marks them in UV2, and draws them with its colours).
+## The scene's material that glows: the eyes (the bake keeps them whole and marks them in UV2; the crowd draws them
+## with its colours).
 const GLOW: String = "res://game/materials/skeleton_glow.tres"
 ## The scene's material for the rest: the palette atlas and its roughness.
 const SKIN: String = "res://game/materials/skeleton.tres"
@@ -52,27 +53,22 @@ const SINK_S: float = 0.6
 const SINK_MARGIN: float = 0.05
 
 
-## What the bake makes of the minion.
-static func recipe() -> CrowdBake.Recipe:
-	var out := CrowdBake.Recipe.new()
+## What the bake makes of the minion, and where it is kept (unified's UnifiedCrowdBake bakes it, UnifiedCrowdCheck holds
+## it fresh and true).
+static func recipe() -> UnifiedCrowdRecipe:
+	var out := UnifiedCrowdRecipe.new()
+	out.scene = SCENE
 	out.clips = CLIPS
 	out.loops = Clips.LOOPING
 	out.rates = RATES
-	out.glow = load(GLOW)
+	out.masked = [load(GLOW) as Material]
 	out.max_error = LOD_ERROR
+	out.max_triangles = TRIANGLES
+	out.pose_method = &"pose"
+	out.mesh_path = MESH
+	out.bones_path = BONES
+	out.clips_path = TABLE
 	return out
-
-
-## Bakes the minion: `rig` is a SCENE instance in the tree. The result's clips carry the hash of the bake's inputs.
-static func bake(rig: CharacterRig) -> CrowdBake.Baked:
-	var baked: CrowdBake.Baked = CrowdBake.bake(rig, rig.pose, recipe())
-	baked.clips.sources = inputs_hash()
-	return baked
-
-
-## The hash of what the bake is made from now: the recipe, the scene and everything it loads, and the bake's code.
-static func inputs_hash() -> String:
-	return CrowdBake.inputs_hash(recipe(), CrowdBake.input_files(SCENE))
 
 
 ## The crowd's material: the shader, its clip table and bone texture from the committed bake, and its look from where
@@ -82,7 +78,7 @@ static func inputs_hash() -> String:
 static func material() -> ShaderMaterial:
 	var crowd := ShaderMaterial.new()
 	crowd.shader = load(SHADER)
-	var clips: CrowdClips = load(TABLE)
+	var clips: UnifiedCrowdClips = load(TABLE)
 	clips.apply(crowd)
 	var skin: StandardMaterial3D = load(SKIN)
 	var glow: StandardMaterial3D = load(GLOW)

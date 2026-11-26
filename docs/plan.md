@@ -33,36 +33,13 @@ The look is decided and lives in `docs/ART.md`. Still to come: a cutaway of wall
 ## What it shows of unified
 
 Still to show, each where it belongs in the game, with a line in the README pointing at the file that does it: Box3D
-sensors, kinematic paths and ragdolls under rollback; rewards shown when confirmed; MultiMesh crowds; debug draws,
+sensors, kinematic paths and ragdolls under rollback; rewards shown when confirmed; debug draws,
 recording and replay with seek, F3 notes; and every way of testing (below). What it shows already is the README's.
 
 ## How it's built
 
 - **Sim:** elites are Box3D bodies; the rule numbers get presets per difficulty and a quick preset for tests.
 - **Ragdolls** drawn on the KayKit skeleton from the bones' rotations.
-
-## Milestone 4: the crowd at scale
-
-About 500 skeletons alive, drawn as one MultiMesh, and the benchmark rows that prove the sim holds them. Decided:
-
-1. **The bake:** each minion clip's bone matrices baked into a texture, the vertex shader skinning a merged, lighter
-   mesh (a KayKit minion is 9 meshes and about 5,000 triangles), rather than per-vertex positions. Step 4.
-2. **Where 500 fit:** the arena (built, reached by the Setup: `floor=arena`); the endless mode around it stays
-   milestone 7's. A floor's cap comes from its walkable area (built: Floor 1 about 110, the arena 500).
-3. **Sim speed** (built: the director counting free rows, the 1 m grid with `sim.grid_box` for wider queries, far
-   minions' steering every 4 ticks, the surge a quota raised a few a tick, one radial knock for blasts, clamped).
-4. **Crowd rules** (built: queueing, a stagger while knocked). A surge grows with the surges faced on its floor; the
-   long ramp of a run or of the endless arena is milestone 7's.
-5. **Bench rows:** today's kept; crowd_idle, crowd_chase and crowd_fight on the arena through the Setup (built);
-   target frame p99 at most 3 ms on the developer's machine, half the library's line (after step 3 every row is
-   under it: crowd_chase about 2.7 ms, crowd_fight 2.4, the queue's rings keeping the crowd moving round its heroes).
-6. **The bake tool** lives here first and moves into unified's `tools_godot` by the milestone's end. Crowd shadows
-   (built: kept, from the arena's frame times in step 5).
-7. **From unified:** `View_Policy.ages` for the crowd's clip times (step 5), scenarios and reference runs on a Setup
-   (the crowd's scale tests: built).
-
-Steps: 1 the arena, held crowds and honest rows, 2 the sim at 500, 3 the crowd's rules, 4 the bake and its look-dev
-shots and 5 the minions a MultiMesh (done); 6 the tool lifted into unified, the README, the reviews.
 
 ## How it's tested
 
@@ -73,7 +50,6 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 
 | # | What lands |
 |---|---|
-| 4 | The crowd at scale (about 500, baked animation), its benchmark rows |
 | 5 | Combat depth: abilities, elites, downed and revive, loot shown only when confirmed |
 | 6 | Physics set pieces: joints, plates, the lift, boons picked at it, traps, ragdolls, the hoard haul |
 | 7 | The run: the hub, three floors with their layouts, the boss, the run's save at each lift, difficulty, progress across runs, endless arena |

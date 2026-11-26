@@ -7,8 +7,8 @@ extends RefCounted
 ##
 ## Each problem is reported through the validate run's log capture, named by the file it is in. The characters and the
 ## look-dev scene are run, not only loaded: every clip is posed on every character, and every shot is shown. The
-## crowd's bake (MinionCrowd) is held fresh and true: made from today's inputs, posing as the minion scene does, and
-## timed as the sim is.
+## crowd's bake (MinionCrowd) is held fresh and true by unified's crowd check (made from today's inputs, posing as the
+## minion scene does), and timed as the sim is.
 
 ## The collision categories a kit part's `unified_category` may hold (the level exporter writes them into the sim's
 ## filters): the floor, walls (block walking, sight and shots), and low cover (blocks walking; shots fly over it).
@@ -39,18 +39,13 @@ const LOOKDEV: String = "res://game/lookdev/lookdev.tscn"
 const STAGES: Array[String] = ["res://game/lookdev/crypt_stage.tscn", "res://game/lookdev/hub_stage.tscn"]
 ## The stage that places every kit part, so the level exporter sees each one.
 const KIT_STAGE: String = "res://game/lookdev/kit_stage.tscn"
-## How far a baked crowd vertex may stand from where the minion scene puts it, in metres, at any time in a clip: at a
-## baked frame it stands where the scene puts it; between two, the bake blends their matrices linearly where the scene
-## turns each bone along an arc (MinionCrowd.RATES keeps the cut within about a centimetre at the fastest turns). The
-## check samples each clip where the baked frames turn a bone's farthest vertex most (the worst cut), so it holds at
-## any time.
+## How far a baked crowd vertex may stand from where the minion scene puts it, in metres, at any time in a clip
+## (unified's crowd check, its parity): at a baked frame it stands where the scene puts it; between two, the bake blends
+## their matrices linearly where the scene turns each bone along an arc (MinionCrowd.RATES keeps the cut within about a
+## centimetre at the fastest turns).
 const CROWD_PARITY: float = 0.015
-## How near a fresh bake's matrices and bounds must come to the committed ones (float noise across machines).
-const CROWD_FRESH: float = 0.00001
-## How near a fresh bake's normals must come to the committed mesh's (Godot stores a mesh's normals compressed).
-const CROWD_NORMALS: float = 0.01
-## The crowd's shader: its MAX_CLIPS must be CrowdClips'.
-const CROWD_SHADER_CLIPS: String = "const int MAX_CLIPS = %d;"
+## The crowd's shader: its CLIPS must be MinionCrowd.Clip's count.
+const CROWD_SHADER_CLIPS: String = "const int CLIPS = %d;"
 ## The crowd's clip numbers (MinionCrowd.Clip), the shader's index into the clip table: simulation/extension/frame.odin's
 ## Minion_Clip writes them, and its test (view_test.odin's the_clips_are_the_crowds_numbers) pins these same numbers.
 const CROWD_CLIPS: Dictionary[String, int] = {"IDLE": 0, "WALK": 1, "ATTACK": 2, "RISE": 3, "DEATH": 4}
@@ -444,44 +439,32 @@ func _check_lookdev() -> void:
 	lookdev.free()
 
 
-## The crowd's bake (MinionCrowd) holds its sizes (_crowd_sizes: else nothing more is read), is fresh, holds its
-## mesh's rules and poses as the minion scene does (_check_crowd_parity); its material's timing is the sim's
-## (_check_crowd_timing). Fresh: its inputs' hash is today's, its mesh is the scene merged and lightened as the bake
-## does it now (bit for bit, but the normals within CROWD_NORMALS: a mesh stores them compressed), and a bake now gives
-## its matrices, bounds and tops (within CROWD_FRESH), the mesh's custom_aabb its bounds.
+## The crowd's bake (MinionCrowd's recipe) is fresh and true, as unified's UnifiedCrowdCheck holds it (whole, made
+## from today's inputs, its mesh's rules, posing as the minion scene does within CROWD_PARITY); the game's own numbers
+## agree (_crowd_numbers); and its material's timing is the sim's (_check_crowd_timing).
 func _check_crowd() -> void:
-	var clips: CrowdClips = load(MinionCrowd.TABLE)
-	var mesh: ArrayMesh = load(MinionCrowd.MESH)
-	if not _crowd_sizes(clips, mesh):
-		return
-	if clips.sources != MinionCrowd.inputs_hash():
-		_problem("the crowd's bake is stale: its inputs changed (./uni tool bake_crowd)", MinionCrowd.TABLE)
-	var rig: CharacterRig = (load(MinionCrowd.SCENE) as PackedScene).instantiate()
-	_tree_root.add_child(rig)
-	var merged: CrowdBake.Merged = CrowdBake.merge(rig, load(MinionCrowd.GLOW) as Material)
-	var lightened: CrowdBake.Lightened = CrowdBake.lighten(merged, MinionCrowd.LOD_ERROR)
-	var arrays: Array = mesh.surface_get_arrays(0)
-	if _check_crowd_mesh(arrays, lightened.arrays, clips):
-		var fresh: CrowdClips = CrowdBake.bake_clips(rig, rig.pose, MinionCrowd.recipe(), lightened.arrays)
-		var drift: float = 0.0
-		for y: int in clips.bones.get_height():
-			for x: int in clips.bones.get_width():
-				var a: Color = clips.bones.get_pixel(x, y)
-				var b: Color = fresh.bones.get_pixel(x, y)
-				drift = maxf(drift, maxf(maxf(absf(a.r - b.r), absf(a.g - b.g)), maxf(absf(a.b - b.b), absf(a.a - b.a))))
-		if drift > CROWD_FRESH:
-			_problem("a bake now differs from the committed one by %f (./uni tool bake_crowd)" % drift, MinionCrowd.BONES)
-		if not _near(fresh.bounds, clips.bounds) or not _near(clips.bounds, mesh.custom_aabb):
-			_problem("the bounds differ: a bake now %s, the table %s, the mesh %s" % [fresh.bounds, clips.bounds,
-				mesh.custom_aabb], MinionCrowd.TABLE)
-		for clip: int in clips.clips.size():
-			if absf(fresh.tops[clip] - clips.tops[clip]) > CROWD_FRESH:
-				_problem("%s: its last pose's top is %f, a bake now %f" % [clips.clips[clip], clips.tops[clip],
-					fresh.tops[clip]], MinionCrowd.TABLE)
-		_check_crowd_parity(rig, merged, lightened.source, arrays, clips)
-	_tree_root.remove_child(rig)
-	rig.free()
-	_check_crowd_timing(clips)
+	var check := UnifiedCrowdCheck.new(MinionCrowd.recipe())
+	check.parity_tolerance = CROWD_PARITY
+	check.check(_tree_root)
+	for problem: UnifiedCrowdCheck.Problem in check.problems:
+		_problem(problem.message, problem.path)
+	var clips: UnifiedCrowdClips = load(MinionCrowd.TABLE)
+	if _crowd_numbers() and clips != null and clips.clips == MinionCrowd.CLIPS:
+		_check_crowd_timing(clips)
+
+
+## Whether the crowd's clip numbers agree: MinionCrowd.Clip names CLIPS one each, and the shader's CLIPS is their count.
+func _crowd_numbers() -> bool:
+	var count: int = MinionCrowd.CLIPS.size()
+	if MinionCrowd.Clip.size() != count:
+		_problem("MinionCrowd.Clip has %d clips, CLIPS %d" % [MinionCrowd.Clip.size(), count],
+			(MinionCrowd as Script).resource_path)
+		return false
+	var shader: Shader = load(MinionCrowd.SHADER)
+	if not shader.code.contains(CROWD_SHADER_CLIPS % count):
+		_problem("the shader's CLIPS is not MinionCrowd.Clip's count (%d)" % count, MinionCrowd.SHADER)
+		return false
+	return true
 
 
 ## The crowd's material as the play scene draws it (CROWD_VIEW's) lands the sim's moments on the art's: its clip
@@ -489,7 +472,7 @@ func _check_crowd() -> void:
 ## it stands at the clip's end when it starts to chase; the swing's blow (BLOW_AT into the clip) lands at the sim's
 ## windup; a hit flashes FLASH_TICKS ticks; and the shader's sink, evaluated (CROWD_SINK), leaves the fall whole until
 ## SINK_S before the dying's row is freed, and has them under the floor, deeper than their last pose's top, by then.
-func _check_crowd_timing(clips: CrowdClips) -> void:
+func _check_crowd_timing(clips: UnifiedCrowdClips) -> void:
 	var numbers: Dictionary[String, int] = {}
 	for clip: Variant in MinionCrowd.Clip:
 		numbers[str(clip)] = MinionCrowd.Clip[clip]
@@ -526,7 +509,7 @@ func _check_crowd_timing(clips: CrowdClips) -> void:
 
 ## The shader's sink (CROWD_SINK's expression, evaluated with the material's uniforms) at the fall's start, at SINK_S
 ## before the row is freed (nothing yet), and as it is freed (deeper than the last pose's top: out of sight).
-func _check_crowd_sink(crowd: ShaderMaterial, offsets: PackedFloat32Array, clips: CrowdClips) -> void:
+func _check_crowd_sink(crowd: ShaderMaterial, offsets: PackedFloat32Array, clips: UnifiedCrowdClips) -> void:
 	var death: int = MinionCrowd.Clip.DEATH
 	var code: String = (load(MinionCrowd.SHADER) as Shader).code
 	var found: RegExMatch = RegEx.create_from_string(CROWD_SINK).search(code)
@@ -549,190 +532,6 @@ func _check_crowd_sink(crowd: ShaderMaterial, offsets: PackedFloat32Array, clips
 	if not (absf(depths[0]) <= CROWD_TIME and absf(depths[1]) <= CROWD_TIME and depths[2] >= clips.tops[death]):
 		_problem("the dying sink %s m at %s s into their fall, not 0, 0 and past their last pose's %.2f m top" % [depths,
 			moments, clips.tops[death]], MinionCrowd.SHADER)
-
-
-## Whether the bake's parts have the sizes the rest of the check reads by: MinionCrowd's clips in MinionCrowd.Clip's
-## order, within the shader's MAX_CLIPS (CrowdClips'); every per-clip list one per clip, the rows in order, the bone
-## texture the table's size; one surface.
-func _crowd_sizes(clips: CrowdClips, mesh: ArrayMesh) -> bool:
-	var shader: Shader = load(MinionCrowd.SHADER)
-	if not shader.code.contains(CROWD_SHADER_CLIPS % CrowdClips.MAX_CLIPS):
-		_problem("the shader's MAX_CLIPS is not CrowdClips.MAX_CLIPS (%d)" % CrowdClips.MAX_CLIPS, MinionCrowd.SHADER)
-		return false
-	var count: int = clips.clips.size()
-	if clips.clips != MinionCrowd.CLIPS or MinionCrowd.Clip.size() != count or count > CrowdClips.MAX_CLIPS:
-		_problem("the baked clips are not MinionCrowd.CLIPS, in MinionCrowd.Clip's order (./uni tool bake_crowd)",
-			MinionCrowd.TABLE)
-		return false
-	var lists: Array[int] = [clips.first_rows.size(), clips.frame_counts.size(), clips.rates.size(), clips.loops.size(),
-		clips.tops.size()]
-	if lists.any(func(size: int) -> bool: return size != count):
-		_problem("the table's lists are not one per clip (./uni tool bake_crowd)", MinionCrowd.TABLE)
-		return false
-	var rows: int = 0
-	for clip: int in count:
-		if clips.first_rows[clip] != rows or clips.loops[clip] != (clips.clips[clip] in Clips.LOOPING):
-			_problem("%s: its rows or its looping are not the table's" % clips.clips[clip], MinionCrowd.TABLE)
-			return false
-		rows += clips.frame_counts[clip]
-	if clips.bones.get_height() != rows or clips.bones.get_width() != clips.bone_count * CrowdClips.TEXELS_PER_BONE:
-		_problem("the bone texture is not the table's size (./uni tool bake_crowd)", MinionCrowd.BONES)
-		return false
-	if mesh.get_surface_count() != 1:
-		_problem("the crowd mesh has %d surfaces, not one" % mesh.get_surface_count(), MinionCrowd.MESH)
-		return false
-	return true
-
-
-## The committed crowd mesh's `arrays` are `fresh` (the bake's now), but its normals within CROWD_NORMALS; it is within
-## MinionCrowd.TRIANGLES, its bone indices whole and the skeleton's, its weights summing to 1, its eyes kept. Whether
-## the mesh is the fresh one (else parity, which reads it by the fresh one's vertex map, is not run).
-func _check_crowd_mesh(arrays: Array, fresh: Array, clips: CrowdClips) -> bool:
-	var same: bool = true
-	var named: Dictionary[int, String] = {
-		Mesh.ARRAY_VERTEX: "positions", Mesh.ARRAY_TEX_UV: "UVs", Mesh.ARRAY_TEX_UV2: "glow mask",
-		Mesh.ARRAY_CUSTOM0: "bones", Mesh.ARRAY_CUSTOM1: "weights", Mesh.ARRAY_INDEX: "triangles",
-	}
-	for array: int in named:
-		if arrays[array] != fresh[array]:
-			_problem("the crowd mesh's %s are not a bake's now (./uni tool bake_crowd)" % named[array], MinionCrowd.MESH)
-			same = false
-	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
-	var fresh_normals: PackedVector3Array = fresh[Mesh.ARRAY_NORMAL]
-	if same and normals.size() == fresh_normals.size():
-		for vertex: int in normals.size():
-			if normals[vertex].distance_to(fresh_normals[vertex]) > CROWD_NORMALS:
-				_problem("the crowd mesh's normal %d is not a bake's now" % vertex, MinionCrowd.MESH)
-				same = false
-				break
-	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
-	var masks: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV2]
-	var bones: PackedFloat32Array = arrays[Mesh.ARRAY_CUSTOM0]
-	var weights: PackedFloat32Array = arrays[Mesh.ARRAY_CUSTOM1]
-	if indices.size() > MinionCrowd.TRIANGLES * 3:
-		_problem("the crowd mesh has %d triangles, over %d" % [indices.size() / 3.0, MinionCrowd.TRIANGLES], MinionCrowd.MESH)
-	var eyes: int = 0
-	for vertex: int in masks.size():
-		eyes += int(masks[vertex].x > 0.5)
-		var total: float = 0.0
-		for k: int in CrowdBake.WEIGHTS:
-			var bone: float = bones[vertex * CrowdBake.WEIGHTS + k]
-			total += weights[vertex * CrowdBake.WEIGHTS + k]
-			if bone != roundf(bone) or bone < 0 or bone >= clips.bone_count:
-				_problem("vertex %d is bound to bone %f" % [vertex, bone], MinionCrowd.MESH)
-				return false
-		if absf(total - 1.0) > 0.0001:
-			_problem("vertex %d's weights sum to %f" % [vertex, total], MinionCrowd.MESH)
-			return false
-	if eyes == 0:
-		_problem("the crowd mesh lost its eyes (no glowing vertex)", MinionCrowd.MESH)
-	return same
-
-
-## Every committed crowd vertex glows as the scene mesh it comes from does; and the committed crowd vertices (every
-## 7th, and each bone's farthest) skinned from the baked matrices as the shader does, against where the scene puts the
-## vertex each one is (`source`: the merged vertex of each committed one; the
-## scene's own skins with every weight, the weapon where the engine's BoneAttachment3D holds it): at each clip's ends
-## and past them, at and between its first frames, and through the pair of baked frames between which a bone's
-## farthest vertex turns most (_worst_pair: where the blend cuts the arc most).
-func _check_crowd_parity(
-	rig: CharacterRig, merged: CrowdBake.Merged, source: PackedInt32Array, arrays: Array, clips: CrowdClips
-) -> void:
-	var skeleton: Skeleton3D = CrowdBake.skeleton_of(rig)
-	var attachments: Array[Node] = rig.find_children("*", "BoneAttachment3D", true, false)
-	var bind_poses: Array[Transform3D] = CrowdBake.binds(rig)
-	var reach: Dictionary[int, AABB] = CrowdBake.bone_reach(arrays, bind_poses)
-	var samples: PackedInt32Array = _crowd_samples(arrays, bind_poses)
-	var scenes: Array[Scene_Mesh] = []
-	for mesh_node: MeshInstance3D in merged.meshes:
-		scenes.append(Scene_Mesh.new(mesh_node, skeleton))
-	var masks: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV2]
-	for vertex: int in masks.size():
-		var glowing: bool = merged.glowing[merged.mesh_of(source[vertex])]
-		if (masks[vertex].x > 0.5) != glowing:
-			_problem("crowd vertex %d %s, its scene mesh %s" % [vertex, "glows" if masks[vertex].x > 0.5 else "doesn't glow",
-				"does" if glowing else "doesn't"], MinionCrowd.MESH)
-			break
-	var worst: float = 0.0
-	var worst_at: String = ""
-	for clip: int in clips.clips.size():
-		var clip_length: float = clips.length(clip)
-		var frame: float = 1.0 / clips.rates[clip]
-		var pair: int = _worst_pair(clips, clip, reach)
-		var times: Array[float] = [-0.3, 0.0, frame, 1.5 * frame, clip_length, clip_length + 0.3]
-		for quarter: int in [1, 2, 3]:
-			times.append((pair + quarter / 4.0) * frame)
-		for seconds: float in times:
-			rig.pose(clips.clips[clip], seconds)
-			for attachment: Node in attachments:
-				(attachment as BoneAttachment3D).on_skeleton_update()
-			var to_rig: Transform3D = CrowdBake.relative(rig, skeleton)
-			var poses: Array[Transform3D] = []
-			for bone: int in skeleton.get_bone_count():
-				poses.append(to_rig * skeleton.get_bone_global_pose(bone))
-			for scene: Scene_Mesh in scenes:
-				scene.pose(rig, poses)
-			var matrices: Array[Transform3D] = clips.matrices(clip, seconds)
-			for vertex: int in samples:
-				var from: int = source[vertex]
-				var mesh: int = merged.mesh_of(from)
-				var at: Vector3 = scenes[mesh].position(from - merged.bases[mesh])
-				var apart: float = CrowdBake.skin_vertex(arrays, vertex, matrices).distance_to(at)
-				if apart > worst:
-					worst = apart
-					worst_at = "%s at %.3f s, %s" % [clips.clips[clip], seconds, merged.meshes[mesh].name]
-	if worst > CROWD_PARITY:
-		_problem("the crowd minion stands %.4f m from the scene's (%s)" % [worst, worst_at], MinionCrowd.TABLE)
-
-
-## The committed vertices parity samples: every 7th, and each bone's farthest from it (a blade's tip, a hand, a foot:
-## where a turn moves a vertex most).
-func _crowd_samples(arrays: Array, bind_poses: Array[Transform3D]) -> PackedInt32Array:
-	var positions: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	var bones: PackedFloat32Array = arrays[Mesh.ARRAY_CUSTOM0]
-	var farthest: Dictionary[int, Vector2] = {}  # bone: (distance, vertex)
-	var out := PackedInt32Array()
-	for vertex: int in positions.size():
-		if vertex % 7 == 0:
-			out.append(vertex)
-		var bone: int = int(bones[vertex * CrowdBake.WEIGHTS])
-		var distance: float = (bind_poses[bone] * positions[vertex]).length()
-		if not farthest.has(bone) or distance > farthest[bone].x:
-			farthest[bone] = Vector2(distance, vertex)
-	for bone: int in farthest:
-		if int(farthest[bone].y) % 7 != 0:
-			out.append(int(farthest[bone].y))
-	return out
-
-
-## The baked frame (its index in clip `clip`) after which the blend to the next one cuts a bone's arc most: per bone,
-## how far its farthest vertex lies from it times how much a turn of the angle between the two frames shortens the
-## chord (1 - cos(angle / 2)).
-func _worst_pair(clips: CrowdClips, clip: int, reach: Dictionary[int, AABB]) -> int:
-	var radius: Dictionary[int, float] = {}
-	for bone: int in reach:
-		var box: AABB = reach[bone]
-		var far: float = 0.0
-		for corner: int in 8:
-			far = maxf(far, box.get_endpoint(corner).length())
-		radius[bone] = far
-	var worst: float = -1.0
-	var worst_frame: int = 0
-	var first: int = clips.first_rows[clip]
-	for frame: int in clips.frame_counts[clip] - 1:
-		for bone: int in radius:
-			var a: Quaternion = clips.frame_matrix(first + frame, bone).basis.get_rotation_quaternion()
-			var b: Quaternion = clips.frame_matrix(first + frame + 1, bone).basis.get_rotation_quaternion()
-			var cut: float = radius[bone] * (1.0 - cos(a.angle_to(b) / 2.0))
-			if cut > worst:
-				worst = cut
-				worst_frame = frame
-	return worst_frame
-
-
-## Whether two boxes are the same within CROWD_FRESH.
-func _near(a: AABB, b: AABB) -> bool:
-	return a.position.distance_to(b.position) <= CROWD_FRESH and a.end.distance_to(b.end) <= CROWD_FRESH
 
 
 ## How many times a scene instances each scene, by path.
@@ -904,46 +703,3 @@ func _files(dir: String, extension: String) -> Array[String]:
 func _problem(message: String, at: String) -> void:
 	problems += 1
 	_log.add(message, at)
-
-
-## A mesh of the scene minion as parity reads it: its arrays once, and its vertices where the scene puts them as posed
-## now (its skin's own binds with every weight it has; a weapon where the engine has placed its node).
-class Scene_Mesh:
-	var node: MeshInstance3D
-	var positions: PackedVector3Array
-	var bones: PackedInt32Array
-	var weights: PackedFloat32Array
-	var per_vertex: int = 0
-	var bind_bones: PackedInt32Array = []
-	var matrices: Array[Transform3D] = []
-	var placed: Transform3D
-
-	func _init(mesh_node: MeshInstance3D, skeleton: Skeleton3D) -> void:
-		node = mesh_node
-		var arrays: Array = mesh_node.mesh.surface_get_arrays(0)
-		positions = arrays[Mesh.ARRAY_VERTEX]
-		if mesh_node.skin == null:
-			return
-		bones = arrays[Mesh.ARRAY_BONES]
-		weights = arrays[Mesh.ARRAY_WEIGHTS]
-		per_vertex = roundi(float(bones.size()) / positions.size())
-		for bind: int in mesh_node.skin.get_bind_count():
-			bind_bones.append(CrowdBake.bind_bone(skeleton, mesh_node.skin, bind))
-
-	## Takes the pose: `poses` are the skeleton's bones in the rig's space.
-	func pose(rig: Node3D, poses: Array[Transform3D]) -> void:
-		if node.skin == null:
-			placed = CrowdBake.relative(rig, node)
-			return
-		matrices.clear()
-		for bind: int in bind_bones.size():
-			matrices.append(poses[bind_bones[bind]] * node.skin.get_bind_pose(bind))
-
-	## Where vertex `vertex` stands as posed.
-	func position(vertex: int) -> Vector3:
-		if node.skin == null:
-			return placed * positions[vertex]
-		var point := Vector3.ZERO
-		for k: int in per_vertex:
-			point += weights[vertex * per_vertex + k] * (matrices[bones[vertex * per_vertex + k]] * positions[vertex])
-		return point

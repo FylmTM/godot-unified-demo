@@ -120,10 +120,10 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
   `uni drive`) or a tool. A start that fails, or a game that ends without the player leaving, comes back to the title
   with the reason; a join or a leave is a toast; a reconnect is a plate over the held game (`game/app/game.gd`).
 - **Views**: scene views (`game/views/`), props pooled; the Mage's bolts and the minions MultiMeshes (`MultiView`),
-  the minions a crowd of one baked minion its shader poses from each instance's custom data (`minion_instance`,
-  `frame.odin`; `game/crowd/`), shown once their spawn is verified (`Appear.Verified`), its clip and hit stamps aged by
-  the host (`View_Policy.ages`); clips posed on the session's shown game time, so a correction or a seek lands on the
-  right frame (`game/views/hero.gd`, `game/crowd/crowd_minion.gdshader`).
+  shown once their spawn is verified (`Appear.Verified`); clips posed on the session's shown game time, so a
+  correction or a seek lands on the right frame (`game/views/hero.gd`, `game/crowd/crowd_minion.gdshader`).
+- **A crowd of hundreds** (The crowd, below): unified's crowd bake (`UnifiedCrowdBake`, `UnifiedCrowdCheck`,
+  `crowd_skin.gdshaderinc`) and the host's ages (`View_Policy.ages`).
 - **Events**: effects play as soon as they are predicted (EMITTED: `game/play/play.gd`, `effects.gd`); a join or a
   leave is told once it is CONFIRMED (`game/app/game.gd`).
 - **Couch co-op**: hero select's seats become local players, each with its device and Profile, and pads join and drop
@@ -182,6 +182,22 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 10. **Health.** A chasing minion within MINION_REACH winds up a swing (MINION_WINDUP_S), which lands (MINION_DAMAGE)
     if its hero is still in reach, in front (MINION_STRIKE_COS) and in sight; the dead fall for DEATH_S. A hero at
     0 HP goes down; every hero down at once restarts the floor.
+
+## The crowd
+
+The skeleton minions are one MultiMesh (the play scene's `Minions`), however many are up: hundreds cost one draw call
+a pass and no node each. The minion scene is baked offline by unified's crowd bake, as `MinionCrowd.recipe()` says
+(`game/crowd/minion_crowd.gd`): its meshes and blade merged into one lighter mesh that keeps its skin, and every frame
+of each of its clips as bone matrices in a texture. Each tick the extension writes an instance per minion
+(`minion_instance`, `frame.odin`): its feet and facing, the clip it plays (`Minion_Clip`, `MinionCrowd.Clip`'s
+numbers), when that clip started and when it was last struck, as game-time stamps the host turns into seconds at the
+shown time (the minion kind's `ages`). The crowd's shader skins each vertex from the texture at that clip and time, and
+draws the look: the eyes, a hit's flash, the dying sinking out of sight. Where in a clip an action starts, so that the
+sim's moments land on the art's (a riser standing as it starts to chase, a swing's blow at the windup's end), is the
+crowd view's (`minion_crowd_view.gd`). A minion's pose is a function of its state and the shown time, so a rollback, a
+pause or a replay seek shows the pose the state says; a loop's stamp is a far-past phase of the minion's own, so the
+crowd never walks in lockstep. The art checks hold the bake fresh and posing as the minion scene does, and the timing
+to the sim's (`docs/ART.md`, Crowds).
 
 ## How it's built
 

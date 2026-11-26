@@ -17,7 +17,7 @@ const BLOW_AT: float = 0.6
 func _ready() -> void:
 	var crowd: ShaderMaterial = MinionCrowd.material()
 	var offsets: PackedFloat32Array = []
-	offsets.resize(CrowdClips.MAX_CLIPS)
+	offsets.resize(MinionCrowd.Clip.size())
 	offsets[MinionCrowd.Clip.RISE] = RISE_FROM
 	offsets[MinionCrowd.Clip.ATTACK] = BLOW_AT - Unified.constants.minion_windup
 	crowd.set_shader_parameter("clip_offset", offsets)
