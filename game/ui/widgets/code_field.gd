@@ -62,6 +62,8 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if has_focus():
+		_lights[_cursor].queue_redraw()  # the cursor's cell wears the focus frame, which pulses as it is drawn
 	if _held == 0:
 		return
 	var action: StringName = &"ui_up" if _held > 0 else &"ui_down"

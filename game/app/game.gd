@@ -19,8 +19,9 @@ extends Node
 ##
 ## The rules every control shares live here, in one place: each of the game's buttons sounds when pressed and takes
 ## the focus when the mouse moves over it, so the mouse and a pad never show two highlights; the focus moving between
-## controls sounds; the focus frame pulses slowly. Buttons are wired as they enter the tree, hooked from _enter_tree,
-## so a scene that is in the tree before any _ready runs (the main scene, on a real launch) is wired too.
+## controls sounds; the focus frame pulses slowly (FocusRing draws the pulse; Game redraws the focused control every
+## frame, so the theme itself never changes). Buttons are wired as they enter the tree, hooked from _enter_tree, so a
+## scene that is in the tree before any _ready runs (the main scene, on a real launch) is wired too.
 ##
 ## Saves: the session hands over a save at each surge (save_changed). When this machine plays alone or hosts it is kept
 ## in the one slot (Saves), which the title's Continue starts from; a joiner keeps the host's newest in memory only (a
@@ -54,9 +55,6 @@ const LAN_PORT: int = 7777
 const CONNECTING_AFTER_S: float = 0.3
 ## A button's sound when it means more than a press (one of Sfx's names): its `sfx` metadata.
 const META_SOUND: StringName = &"sfx"
-## The focus frame's pulse: a full breath, in seconds, and its faintest, as a share of the frame's full strength.
-const FOCUS_PULSE_S: float = 1.6
-const FOCUS_PULSE_LOW: float = 0.55
 ## The input blocks Game itself holds.
 const BLOCK_DIALOG: StringName = &"dialog"
 const BLOCK_CONNECTING: StringName = &"connecting"
@@ -134,11 +132,6 @@ var _input_blocks: Array[StringName] = []
 var _focused: Control = null
 ## While a modal opens and takes the focus: that move is silent (the modal plays its own sound, if any).
 var _quiet_focus: bool = false
-## The theme's focus frame, which pulses, and its full colours.
-var _focus_frame: StyleBoxFlat
-var _focus_border: Color
-var _focus_glow: Color
-var _time: float = 0.0
 
 @onready var _connecting: Connecting = %Connecting
 @onready var _link_status: LinkStatus = %LinkStatus
@@ -158,9 +151,6 @@ func _ready() -> void:
 	get_tree().auto_accept_quit = false  # the window's close button quits through quit_app too
 	_quits_at_end = "--quit-at-end" in OS.get_cmdline_user_args()
 	get_viewport().gui_focus_changed.connect(_on_focus_changed)
-	_focus_frame = ThemeDB.get_project_theme().get_stylebox(&"focus", &"Button") as StyleBoxFlat
-	_focus_border = _focus_frame.border_color
-	_focus_glow = _focus_frame.shadow_color
 	_connecting.cancelled.connect(leave)
 	_link_status.leave_pressed.connect(leave)
 	_dialog.closed.connect(unblock_input.bind(BLOCK_DIALOG))
@@ -185,13 +175,12 @@ func _ready() -> void:
 	_tell_read_problems()
 
 
-func _process(delta: float) -> void:
-	_time += delta
+func _process(_delta: float) -> void:
 	if not _had_focus and not Settings.isolated and get_window().has_focus():
 		_had_focus = true  # a real launch's window takes the focus a moment after _ready
-	var strength: float = lerpf(FOCUS_PULSE_LOW, 1.0, 0.5 + 0.5 * cos(TAU * _time / FOCUS_PULSE_S))
-	_focus_frame.border_color = Color(_focus_border, _focus_border.a * strength)
-	_focus_frame.shadow_color = Color(_focus_glow, _focus_glow.a * strength)
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	if focused != null:
+		focused.queue_redraw()  # its focus frame pulses as it is drawn (FocusRing)
 	if _fps.visible:
 		_fps.text = "%d FPS" % Engine.get_frames_per_second()
 

@@ -2,7 +2,8 @@ extends TogetherWalk
 ## A walk through Crypt Crew's app with real input events (keys, pad buttons and sticks of several pads, the mouse),
 ## the godot suite's `walk` step (`./uni tool ui_walk`; with `--window --shots` it saves a PNG at each moment worth
 ## looking at, into .out/shots/ui_walk/). In order:
-##   - the title: New game focused; the mouse over a button takes the focus and sounds; a screen that enters the tree
+##   - the title: New game focused, its frame pulsing without a change to the theme; the mouse over a button takes the
+##     focus and sounds; a screen that enters the tree
 ##     again is wired once; the d-pad moves the focus; the prompts' device flips (a stick's noise and a mouse's nudge
 ##     don't flip it, a trigger and a real move do);
 ##   - the settings: every tab on the keyboard's prompts (E and Q) and on a pad's (the shoulders, the d-pad through
@@ -31,6 +32,8 @@ extends TogetherWalk
 
 ## A local port nothing listens on: a join to it waits until cancelled.
 const SILENT_PORT: int = 9
+## How long the focus frame is watched pulsing, in frames.
+const PULSE_FRAMES: int = 30
 
 
 func _run() -> void:
@@ -43,13 +46,33 @@ func _run() -> void:
 	expect(root.gui_get_focus_owner() == title_control("NewGame"), "New game has the focus")
 	await shot("01_title")
 	step("the title")
-	for walk: Callable in [_walk_title_wiring, _walk_pad, _walk_prompt_device, _walk_settings, _walk_new_game,
+	for walk: Callable in [_walk_focus_pulse, _walk_title_wiring, _walk_pad, _walk_prompt_device, _walk_settings, _walk_new_game,
 			_walk_couch, _walk_players_list, _walk_stuck_key, _walk_focus_pause, _walk_setting, _walk_leave,
 			_walk_new_game_again, _walk_online_pause, _walk_replay_pause, _walk_play_together, _walk_join_code,
 			_walk_lan_host, _walk_open_to_friends, _walk_join_address, _walk_connecting, _walk_failed_join]:
 		if failed():
 			return
 		await walk.call()
+
+
+## The focus frame pulses in its drawing (FocusRing), never by changing the theme: a theme's item that changes
+## re-themes every control in the tree, milliseconds a frame on every screen. While New game has the focus the theme
+## stays as it is, and the button is redrawn every frame, so the pulse moves.
+func _walk_focus_pulse() -> void:
+	var focused: Control = root.gui_get_focus_owner()
+	var counts: Dictionary[String, int] = {"changes": 0, "draws": 0}
+	var on_change: Callable = func() -> void: counts["changes"] += 1
+	var on_draw: Callable = func() -> void: counts["draws"] += 1
+	ThemeDB.get_project_theme().changed.connect(on_change)
+	focused.draw.connect(on_draw)
+	await frames(PULSE_FRAMES)
+	ThemeDB.get_project_theme().changed.disconnect(on_change)
+	focused.draw.disconnect(on_draw)
+	expect(counts["changes"] == 0, "the theme never changes while the focus frame pulses (%d changes in %d frames)"
+		% [counts["changes"], PULSE_FRAMES])
+	expect(counts["draws"] >= PULSE_FRAMES - 1, "the focused button is redrawn every frame (%d draws in %d frames)"
+		% [counts["draws"], PULSE_FRAMES])
+	step("the focus frame pulses, the theme unchanged")
 
 
 ## The title's buttons are the game's: the mouse over one takes the focus (with the select sound), and a screen that

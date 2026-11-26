@@ -9,6 +9,7 @@
 [ext_resource type="Texture2D" path="res://assets/kenney/ui/progress_transparent_small.png" id="7_iqa2u"]
 [ext_resource type="Texture2D" path="res://assets/kenney/ui/panel_brown_dark.png" id="7_rajry"]
 [ext_resource type="Texture2D" path="res://assets/kenney/ui/progress_red_small.png" id="8_h0vmm"]
+[ext_resource type="Script" path="res://game/ui/focus_ring.gd" id="9_focus"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_o035o"]
 content_margin_left = 80.0
@@ -50,6 +51,10 @@ expand_margin_right = 7.0
 expand_margin_bottom = 7.0
 shadow_color = Color(1, 0.78431374, 0.38039216, 0.45)
 shadow_size = 10
+
+[sub_resource type="StyleBox" id="StyleBox_focus"]
+script = ExtResource("9_focus")
+ring = SubResource("StyleBoxFlat_c0k8g")
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_fd5p1"]
 content_margin_left = 44.0
@@ -324,7 +329,7 @@ Button/colors/font_hover_pressed_color = Color(0.23921569, 0.14901961, 0.0862745
 Button/colors/font_pressed_color = Color(0.23921569, 0.14901961, 0.08627451, 1)
 Button/font_sizes/font_size = 36
 Button/styles/disabled = SubResource("StyleBoxTexture_5mt7h")
-Button/styles/focus = SubResource("StyleBoxFlat_c0k8g")
+Button/styles/focus = SubResource("StyleBox_focus")
 Button/styles/hover = SubResource("StyleBoxTexture_fd5p1")
 Button/styles/normal = SubResource("StyleBoxTexture_iqa2u")
 Button/styles/pressed = SubResource("StyleBoxTexture_h0vmm")
@@ -380,7 +385,7 @@ LineEdit/colors/caret_color = Color(0.23921569, 0.14901961, 0.08627451, 1)
 LineEdit/colors/font_color = Color(0.23921569, 0.14901961, 0.08627451, 1)
 LineEdit/colors/font_placeholder_color = Color(0.23921569, 0.14901961, 0.08627451, 0.5)
 LineEdit/colors/selection_color = Color(0.23921569, 0.14901961, 0.08627451, 0.25)
-LineEdit/styles/focus = SubResource("StyleBoxFlat_c0k8g")
+LineEdit/styles/focus = SubResource("StyleBox_focus")
 LineEdit/styles/normal = SubResource("StyleBoxFlat_rajry")
 LineEdit/styles/read_only = SubResource("StyleBoxFlat_rajry")
 PanelContainer/styles/panel = SubResource("StyleBoxTexture_mippt")
@@ -404,7 +409,7 @@ TabContainer/constants/side_margin = 0
 TabContainer/font_sizes/font_size = 32
 TabContainer/styles/panel = SubResource("StyleBoxEmpty_rajry")
 TabContainer/styles/tab_disabled = SubResource("StyleBoxTexture_dtkh1")
-TabContainer/styles/tab_focus = SubResource("StyleBoxFlat_c0k8g")
+TabContainer/styles/tab_focus = SubResource("StyleBox_focus")
 TabContainer/styles/tab_hovered = SubResource("StyleBoxTexture_xhuo5")
 TabContainer/styles/tab_selected = SubResource("StyleBoxTexture_vxb6s")
 TabContainer/styles/tab_unselected = SubResource("StyleBoxTexture_y565l")
