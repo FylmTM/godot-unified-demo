@@ -21,6 +21,9 @@ Data_Hud :: struct {
 	paused_by: sim.Player, // who paused it (its key; 0: nobody)
 	surges:    u32, // the surges the party has faced, a save's included
 	kills:     u32, // the skeletons it has felled, a save's included (a prediction: the HUD never counts it back)
+	// The party's purse (a prediction, a save's included): the HUD's purse takes it once, when it shows, and from then on
+	// counts from CONFIRMED pickups alone (game/play/purse.gd), never from this.
+	gold:      u32,
 	heroes:    [g.PLAYERS]Hud_Hero, // by slot
 }
 
@@ -48,6 +51,7 @@ fill_hud :: proc(f: ^Frame) {
 		paused_by = f.state.paused_by,
 		surges    = f.state.surges,
 		kills     = f.state.kills,
+		gold      = f.state.gold,
 	}
 	heroes := sim.iterate_present(&f.state.players)
 	for hero, player in sim.next(&heroes) {

@@ -1,6 +1,7 @@
 // The save (unified/src/sim/README.md, Saves): the Setup that continues a crypt in a new session. The party's progress
-// today is its tally: the floor it is on, the surges it has faced and the skeletons it has felled, taken when each
-// surge rises (the floor's one beat), so a Continue starts that floor from its start with the tally carried on. The
+// today is its tally: the floor it is on, the surges it has faced, the skeletons it has felled and the gold in its
+// purse, taken when each surge rises (the floor's one beat), so a Continue starts that floor from its start with the
+// tally carried on (the coins left lying go with the floor). The
 // app keeps it as JSON (UnifiedSetup.to_json) in one slot, written by the host or the single player.
 //
 // Seam for the run (milestone 7): the Setup grows the run's floor, layout picks, boons and difficulty; a save reads over
@@ -21,6 +22,7 @@ Setup :: struct {
 	_pad:    [1]u8,
 	surges:  u32, // the surges it had faced by the save
 	kills:   u32, // the skeletons it had felled when the last surge rose
+	gold:    u32, // the gold in its purse when the last surge rose (loot.odin; added by name: an older save reads 0)
 }
 
 // The save from a tick's state (sim.Game.save): the floor and the tally as they stood at the last surge's rise.
@@ -34,6 +36,7 @@ save :: proc(state: ^State, setup: ^Setup) -> bool {
 		floor   = state.saved_floor,
 		surges  = state.surges,
 		kills   = state.saved_kills,
+		gold    = state.saved_gold,
 	}
 	return true
 }
@@ -45,6 +48,8 @@ start_from_setup :: proc(t: ^Tick) -> Level_Id {
 	t.state.surges = t.setup.surges
 	t.state.kills = t.setup.kills
 	t.state.saved_kills = t.setup.kills
+	t.state.gold = t.setup.gold
+	t.state.saved_gold = t.setup.gold
 	return t.setup.floor
 }
 
@@ -52,4 +57,5 @@ start_from_setup :: proc(t: ^Tick) -> Level_Id {
 mark_save_point :: proc(t: ^Tick) {
 	t.state.saved_kills = t.state.kills
 	t.state.saved_floor = t.state.level.id
+	t.state.saved_gold = t.state.gold
 }

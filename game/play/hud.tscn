@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://game/ui/widgets/seat_card.tscn" id="seat_card"]
 [ext_resource type="Script" path="res://game/ui/widgets/name_label.gd" id="name_label"]
 [ext_resource type="Script" path="res://game/ui/widgets/fit_to_view.gd" id="fit_to_view"]
+[ext_resource type="Script" path="res://game/play/purse.gd" id="purse"]
 
 [node name="Hud" type="Control"]
 layout_mode = 3
@@ -62,7 +63,7 @@ theme_type_variation = &"Plate"
 [node name="Stats" type="HBoxContainer" parent="Crypt"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 40
+theme_override_constants/separation = 28
 
 [node name="Surge" type="VBoxContainer" parent="Crypt/Stats"]
 layout_mode = 2
@@ -116,6 +117,26 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_type_variation = &"Dim"
 text = "Felled"
+horizontal_alignment = 1
+
+[node name="Purse" type="VBoxContainer" parent="Crypt/Stats"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+script = ExtResource("purse")
+
+[node name="Gold" type="Label" parent="Crypt/Stats/Purse"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+text = "0"
+horizontal_alignment = 1
+
+[node name="Caption" type="Label" parent="Crypt/Stats/Purse"]
+layout_mode = 2
+theme_type_variation = &"Dim"
+text = "Gold"
 horizontal_alignment = 1
 
 [node name="SessionPanel" parent="." instance=ExtResource("session_panel")]

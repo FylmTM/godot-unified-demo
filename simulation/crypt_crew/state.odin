@@ -32,6 +32,12 @@ State :: struct {
 	_pad:         [7]u8,
 	// Elites (elites.odin): the skeleton Warriors, Rogues and Mages, each a Box3D character.
 	elites:       sim.Table(Elite, MAX_ELITES),
+	// ---- loot (loot.odin)
+	loot:         sim.Table(Loot, MAX_LOOT), // the coins on the floor
+	gold:         u32, // the party's purse: the gold of every coin it picked up, a save's included
+	saved_gold:   u32, // `gold` when the last surge rose: what the save holds (saves.odin)
+	drops:        u32, // the drop rolls made this session (felled minions): what each one's rolls are named by
+	_pad_loot:    u32,
 }
 
 // What a hero is doing, for the view to pose (a one-shot clip at its age).

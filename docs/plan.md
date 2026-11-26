@@ -33,8 +33,8 @@ The look is decided and lives in `docs/ART.md`. Still to come: a cutaway of wall
 ## What it shows of unified
 
 Still to show, each where it belongs in the game, with a line in the README pointing at the file that does it: Box3D
-sensors, kinematic paths and ragdolls under rollback; rewards shown when confirmed; debug draws,
-recording and replay with seek, F3 notes; and every way of testing (below). What it shows already is the README's.
+sensors, kinematic paths and ragdolls under rollback; debug draws, recording and replay with seek, F3 notes; and every
+way of testing (below). What it shows already is the README's.
 
 ## How it's built
 
@@ -79,5 +79,8 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 - A typed end reason (`UnifiedSession.end_reason`: no online play, lobby not found, full, closed, another build, the
   host left, the link lost), so the game writes its own sentence for each end instead of showing the library's
   detail. Later.
+- Verified session data: a `Data_*` value from the newest verified tick, beside the prediction's, so a HUD can start
+  what must be final from it. The purse starts from the predicted HUD data once and counts confirmed pickups after
+  (`game/play/purse.gd`). Later.
 - Later, filed when it hurts: a shared app layer for games; composing a level from room scenes; the real-UDP net
   suite for game repos; a doc-comment lint a game's tests can run.

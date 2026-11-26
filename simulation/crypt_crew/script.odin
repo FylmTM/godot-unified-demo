@@ -40,6 +40,9 @@ SCRIPT_PAUSE_TICKS :: 40 // how long one lasts
 SCRIPT_ELITE_EVERY :: 192 // ticks between slot 3's dev elite spawns (the kinds in turn) ...
 SCRIPT_ELITE_AT :: 48 // ... the tick in each one is sent ...
 SCRIPT_BREAK_AT :: 160 // ... and the tick in each it breaks every Warrior's guard
+SCRIPT_DROP_EVERY :: 320 // ticks between slot 1's dev coin drops round its hero ...
+SCRIPT_DROP_AT :: 40 // ... the tick in each a drop is sent ...
+SCRIPT_DROP_COUNT :: 6 // ... and how many coins it lays: on DEV_DROP_RING, so any walk out of it picks one up
 
 // The player in `slot` walks one of 8 directions or stands (a draw every SCRIPT_PERIOD ticks), aims one of 8
 // directions at a reach, or none (other draws), holds Attack in bursts and Ability in holds of their own (a block, a
@@ -73,9 +76,10 @@ scripted_input :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup)
 
 // Every slot changes its hero's class once every SCRIPT_CLASS_EVERY ticks (`Any` among the classes, which leaves it),
 // slot 1 raises minions around its hero and slot 2 kills every minion now and then (so the scenarios cross spawns and
-// mass deaths whatever the attacks reach), one slot downs its own hero every SCRIPT_HURT_EVERY (every slot every third
-// time: a wipe and the floor's restart) and slot 3 revives the downed SCRIPT_REVIVE_AFTER later, slot 3 also raises an
-// elite of each kind in turn ahead of its hero and later breaks every Warrior's guard, and slot 0 pauses the game for
+// mass deaths whatever the attacks reach), slot 1 also drops coins round its hero now and then (so the scenarios cross
+// pickups whatever the kills drop), one slot downs its own hero every SCRIPT_HURT_EVERY (every slot every third time: a
+// wipe and the floor's restart) and slot 3 revives the downed SCRIPT_REVIVE_AFTER later, slot 3 also raises an elite of
+// each kind in turn ahead of its hero and later breaks every Warrior's guard, and slot 0 pauses the game for
 // SCRIPT_PAUSE_TICKS of every SCRIPT_PAUSE_EVERY, so the standard scenarios roll back over all of it. Under a held
 // crowd, nothing: the population stays what was asked.
 scripted_commands :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup, out: ^sim.Command_Out(Command)) {
@@ -100,6 +104,9 @@ scripted_commands :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Set
 		case SCRIPT_BREAK_AT:
 			sim.send_command(out, Command_Dev_Break_Guards{})
 		}
+	}
+	if slot == 1 && tick % SCRIPT_DROP_EVERY == SCRIPT_DROP_AT {
+		sim.send_command(out, Command_Dev_Drop_Loot{SCRIPT_DROP_COUNT})
 	}
 	if slot != 0 do return
 	switch tick % SCRIPT_PAUSE_EVERY {

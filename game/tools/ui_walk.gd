@@ -12,8 +12,8 @@ extends TogetherWalk
 ##     second slot, a pad button, a refused clear, the prompt bar's Cancel and Clear, the resets); attack left on F;
 ##     the name field (PartyWalk);
 ##   - pad A on New game: hero select on pads (PartyWalk), the party in the crypt, the guest dropping out, F attacks,
-##     the hints follow the device and the setting, the pause menu alone (SessionWalk), the reconnecting plate takes
-##     nothing;
+##     the hints follow the device and the setting, coins dropped and one picked up (the purse counting it once
+##     confirmed), the pause menu alone (SessionWalk), the reconnecting plate takes nothing;
 ##   - the couch's join cards (PartyWalk), with the toasts and the guests' own glyphs; the Players list drops a guest;
 ##     a key held while a guest leaves and released while the first player is free walks nobody once the guest is
 ##     back; the window in the background pauses;
@@ -34,6 +34,8 @@ extends TogetherWalk
 const SILENT_PORT: int = 9
 ## How long the focus frame is watched pulsing, in frames.
 const PULSE_FRAMES: int = 30
+## How many coins the walk drops round the hero (on DEV_DROP_RING: walking out of it picks one up).
+const LOOT_DROPPED: int = 6
 
 
 func _run() -> void:
@@ -48,8 +50,8 @@ func _run() -> void:
 	step("the title")
 	for walk: Callable in [_walk_focus_pulse, _walk_title_wiring, _walk_pad, _walk_prompt_device, _walk_settings, _walk_new_game,
 			_walk_couch, _walk_players_list, _walk_stuck_key, _walk_focus_pause, _walk_setting, _walk_leave,
-			_walk_new_game_again, _walk_online_pause, _walk_replay_pause, _walk_play_together, _walk_join_code,
-			_walk_lan_host, _walk_open_to_friends, _walk_join_address, _walk_connecting, _walk_failed_join]:
+			_walk_replay_purse, _walk_new_game_again, _walk_online_pause, _walk_replay_pause, _walk_play_together,
+			_walk_join_code, _walk_lan_host, _walk_open_to_friends, _walk_join_address, _walk_connecting, _walk_failed_join]:
 		if failed():
 			return
 		await walk.call()
@@ -341,8 +343,136 @@ func _walk_new_game() -> void:
 	expect(hints.visible, "Briefly: a change of device shows them again")
 	set_setting(&"hints", setting_value(&"Hints", &"ALWAYS"))  # the couch's glyph checks read them
 	step("in the crypt: F attacks, the hints follow, tick %d" % session.tick)
+	await _walk_loot()
+	await _walk_purse_states()
 	await _walk_single_pause()
 	await _walk_link_status()
+
+
+## Coins and the purse (game/views/coins.gd, game/play/purse.gd): dev_drop_loot lays six round the hero, and the coins'
+## MultiMesh shows one instance each (a gold each, aged since they fell: alone, every tick is verified at once). The
+## hero walks out through the ring and picks one up: it glints, the purse counts it once its event is CONFIRMED (each
+## change of the purse in a frame that delivered one; PurseWatch), never down, with one chime and a "+1" rising over
+## the coin, and ends at the State's gold.
+func _walk_loot() -> void:
+	var coins: MultiMeshInstance3D = current_scene.find_child("Coins", true, false) as MultiMeshInstance3D
+	var purse: Control = find(current_scene, ^"Hud/%Purse") as Control
+	if coins == null or purse == null:
+		fail("the play scene has its Coins and the HUD its Purse")
+		return
+	var watch := PurseWatch.new(purse, session)
+	var before: int = PurseWatch.gold_of(purse)
+	var drop := CommandDevDropLoot.new()
+	drop.count = LOOT_DROPPED
+	session.send_command(drop)
+	await wait_for(func() -> bool: return coins.multimesh.visible_instance_count == LOOT_DROPPED, 2.0,
+		"the coins' MultiMesh shows the %d coins dropped" % LOOT_DROPPED)
+	var buffer: PackedFloat32Array = coins.multimesh.buffer
+	for index: int in coins.multimesh.visible_instance_count:
+		var custom: PackedFloat32Array = buffer.slice(index * 16 + 12, index * 16 + 16)
+		expect(custom[0] == 1.0 and custom[1] > -0.1 and custom[1] < 2.0,  # the shown time trails the newest tick
+			"coin %d is worth a gold and fell a moment ago (%s)" % [index, custom])
+	await seconds(0.7)  # armed (LOOT_ARM_S) and done hopping
+	await shot("02d_coins")
+	var mark: int = sounds.size()
+	await key(KEY_D, true)
+	await wait_for(func() -> bool: return PurseWatch.gold_of(purse) > before, 3.0,
+		"walking out of the ring picks a coin up")
+	await key(KEY_D, false)
+	expect(Unified.data.hud.surges == 0, "the coin picked up before the first surge: the save holds it")
+	var gains: Array[Node] = purse.get_children().filter(_is_gain)
+	expect(gains.size() >= 1, "a \"+1\" rises over the coin")
+	expect(played(&"coin", mark) >= 1, "the coin's chime plays")
+	await frames(6)
+	await shot("02e_pickup")
+	await seconds(0.3)
+	watch.stop()
+	for problem: String in watch.problems:
+		expect(false, problem)
+	var gold: int = PurseWatch.gold_of(purse)
+	expect(watch.confirmed >= 1 and gold == Unified.data.hud.gold,
+		"the purse shows the State's gold: %d (data %d)" % [gold, Unified.data.hud.gold])
+	step("coins: %d dropped, the purse at %d (%s)" % [LOOT_DROPPED, gold, watch.summary()])
+
+
+## The purse's rule, driven with made-up pickups (Purse.on_pickup; alone, a real pickup is confirmed in the frame it is
+## emitted, so only this tells the states apart): an EMITTED pickup and a CANCELLED one move nothing and play nothing;
+## a CONFIRMED one shows its total, with one chime and its "+N". The prediction never moves the purse after its start:
+## with a confirmed total the HUD data runs ahead of (a pickup predicted, not yet confirmed), the purse keeps it while
+## the data changes (a scratch of a dev hurt). Then it is put back at the State's gold.
+func _walk_purse_states() -> void:
+	var purse: Control = find(current_scene, ^"Hud/%Purse") as Control
+	var at: Vector3 = local_hero().global_position
+	var start: int = PurseWatch.gold_of(purse)
+	var mark: int = sounds.size()
+	var unconfirmed: Dictionary[String, int] = {
+		"EMITTED": UnifiedSession.EVENT_EMITTED,
+		"CANCELLED": UnifiedSession.EVENT_CANCELLED,
+	}
+	for state: String in unconfirmed:
+		purse.call(&"on_pickup", unconfirmed[state], start + 3, 3, at)
+		await frames(2)
+		expect(PurseWatch.gold_of(purse) == start and played(&"coin", mark) == 0,
+			"a pickup %s moves nothing and plays nothing (%d)" % [state, PurseWatch.gold_of(purse)])
+	purse.call(&"on_pickup", UnifiedSession.EVENT_CONFIRMED, start + 2, 2, at)
+	await frames(1)
+	var gains: Array[Node] = purse.get_children().filter(func(node: Node) -> bool:
+		return node is Label and (node as Label).text == "+2")
+	expect(PurseWatch.gold_of(purse) == start + 2 and played(&"coin", mark) == 1 and gains.size() == 1,
+		"a CONFIRMED pickup shows its total %d, chimes once, floats its \"+2\"" % PurseWatch.gold_of(purse))
+	purse.call(&"on_pickup", UnifiedSession.EVENT_CONFIRMED, start - 1, 1, at)
+	var changes: Array[int] = [0]
+	var count_change: Callable = func() -> void: changes[0] += 1
+	Unified.data.hud.changed.connect(count_change)
+	var scratch := CommandDevHurt.new()  # a scratch: the HUD data changes (the hero's health), as it does in play
+	scratch.damage = 1
+	session.send_command(scratch)
+	await wait_for(func() -> bool: return changes[0] > 0, 2.0, "the HUD data changes")
+	await frames(2)
+	Unified.data.hud.changed.disconnect(count_change)
+	expect(PurseWatch.gold_of(purse) == start - 1, "the HUD data ahead of the confirmed total moves nothing (%d, data %d)"
+		% [PurseWatch.gold_of(purse), Unified.data.hud.gold])
+	purse.call(&"on_pickup", UnifiedSession.EVENT_CONFIRMED, Unified.data.hud.gold, 1, at)
+	step("the purse's rule: EMITTED and CANCELLED nothing, CONFIRMED its total, the data no driver")
+
+
+## A replay of the first game (recorded as it ended; every tick of a replay is final): its purse is the State's gold
+## wherever a seek takes it, forward to the end (the coin picked up), back to the start (none yet), and forward again.
+func _walk_replay_purse() -> void:
+	var recordings: PackedStringArray = DirAccess.get_directories_at("user://recordings")
+	recordings.sort()
+	expect(recordings.size() > 0, "the first game was recorded")
+	if failed():
+		return
+	session.replay("user://recordings/" + recordings[recordings.size() - 1])
+	await wait_for(func() -> bool: return scene_is("Play") and session.mode == UnifiedSession.MODE_REPLAY, 8.0,
+		"a replay plays")
+	if failed():
+		return
+	var purse: Control = find(current_scene, ^"Hud/%Purse") as Control
+	var seeks: Dictionary[String, int] = {
+		"the end": session.replay_last_tick,
+		"the start": session.replay_first_tick,
+		"the end again": session.replay_last_tick,
+	}
+	for to: String in seeks:
+		session.replay_seek(seeks[to])
+		await frames(10)
+		expect(PurseWatch.gold_of(purse) == Unified.data.hud.gold, "a seek to %s: the purse shows the State's %d (%d)"
+			% [to, Unified.data.hud.gold, PurseWatch.gold_of(purse)])
+		if to == "the start":
+			expect(Unified.data.hud.gold == 0, "the first game starts with no gold")
+		else:
+			expect(Unified.data.hud.gold > 0, "and ends with its coin")
+	game.call(&"leave")
+	await wait_for_scene("Menu", 5.0)
+	await frames(3)
+	step("a replay's purse follows its seeks")
+
+
+## Whether `node` is a purse's rising "+1".
+func _is_gain(node: Node) -> bool:
+	return node is Label and (node as Label).text == "+1"
 
 
 ## The plate a lost link shows over play takes nothing from the player: no focus, the game's input on; Leave game

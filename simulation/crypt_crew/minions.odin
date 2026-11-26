@@ -178,6 +178,7 @@ damage_minion :: proc(
 		source   = source,
 	}
 	sim.emit(t, died)
+	drop_minion_loot(t, minion.pos) // loot.odin
 }
 
 // A sleeping minion wakes and chases: every sleeper of its pack with it (a lone one, alone).

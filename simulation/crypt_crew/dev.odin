@@ -11,7 +11,8 @@ import "unified:sim"
 // `Command_Dev_Hurt` hurts a hero, `Command_Dev_Kill_Minions` kills every minion (through damage_minion, as the
 // attacks do), `Command_Dev_Revive` revives a hero down (through revive_hero, as an ally's revive does), or every one.
 // The elites' (elites.odin): `Command_Dev_Spawn_Elite` raises one ahead of the hero, `Command_Dev_Hurt_Elites` hurts
-// every one (damage_elite), `Command_Dev_Break_Guards` breaks every Warrior's guard (break_guard).
+// every one (damage_elite), `Command_Dev_Break_Guards` breaks every Warrior's guard (break_guard). The loot's
+// (loot.odin): `Command_Dev_Drop_Loot` drops coins around the hero (drop_loot, as a death does).
 apply_dev_commands :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
@@ -51,6 +52,8 @@ apply_dev_commands :: proc(t: ^Tick) {
 			case Command_Dev_Break_Guards:
 				elites := sim.iterate(&t.state.elites)
 				for _, handle in sim.next(&elites) do break_guard(t, handle, player)
+			case Command_Dev_Drop_Loot:
+				drop_loot(t, hero.pos, int(command.count), int(command.count), DEV_DROP_RING)
 			}
 		}
 	}

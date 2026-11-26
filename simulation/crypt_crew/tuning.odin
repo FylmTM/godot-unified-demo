@@ -450,3 +450,17 @@ SUMMON_RETRY_S :: SUMMON_EVERY_S / 2 // a summoning a stagger cut off is tried a
 SUMMON_RETRY_TICKS :: u32(SUMMON_RETRY_S * TICK_HZ)
 SUMMON_COUNT :: 3 // at most up to the floor's cap alive, and into the minion table's free rows
 SUMMON_RING :: f32(1.5) // its minions rise on this ring round it
+
+// ---- loot: coins felled skeletons drop, picked up into the party's purse (loot.odin)
+
+MAX_LOOT :: 128 // coins on the ground at once: a drop past it is lost (a coin lasts LOOT_LIFE_S, a drop is 1 in 5)
+LOOT_ONE_IN :: 5 // a felled minion drops a coin on a roll of 1 in this ...
+LOOT_VALUE_MIN :: 1 // ... worth this much gold ...
+LOOT_VALUE_MAX :: 3 // ... to this, rolled
+LOOT_SPREAD :: f32(0.8) // the coins of a drop of more than one lie evenly on a ring this far round where it fell
+LOOT_RADIUS :: f32(1.2) // a hero up whose feet come this close to a coin (on the floor plan) picks it up ...
+LOOT_ARM_S :: f32(0.5) // ... once it has lain this long, so a drop is seen landing before it goes
+LOOT_ARM_TICKS :: u32(LOOT_ARM_S * TICK_HZ)
+LOOT_LIFE_S :: f32(30) // a coin nobody picks up goes this long after it dropped
+LOOT_LIFE_TICKS :: u32(LOOT_LIFE_S * TICK_HZ)
+DEV_DROP_RING :: f32(2) // dev_drop_loot lays its coins on a ring this far round the sender's hero: beyond LOOT_RADIUS

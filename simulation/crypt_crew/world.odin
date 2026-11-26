@@ -342,8 +342,8 @@ init :: proc(t: ^Tick) {
 // goes, the props, the minions, the bolts and fireballs in flight and the elites (their bodies with them) go, a wipe
 // ends, the static geometry is swapped (physics.level_change), then the new level's props are made in marker order, its
 // packs and its elite markers' elites put to sleep (neither under a held crowd), its surge clock started, and every
-// present hero gets a body at its slot's spawn. What the block keeps across it (the heroes' classes, the clock, the
-// session's counts) stays.
+// present hero gets a body at its slot's spawn. The coins on the floor go too. What the block keeps across it (the
+// heroes' classes, the clock, the session's counts, the purse) stays.
 enter_level :: proc(t: ^Tick, to: Level_Id) {
 	leaving := sim.iterate_present(t)
 	for hero, player in sim.next(&leaving) {
@@ -357,6 +357,7 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 	sim.timer_stop(&t.state.wipe) // every hero gets up at its spawn
 	forget_leavers(t) // and whoever comes back later, whole
 	physics.despawn_all(t.world.phys, &t.state.elites)
+	sim.despawn_all(&t.state.loot) // the purse is kept: its gold, like the tally, outlives the floor
 	physics.level_change(t, t.world.phys, to)
 	spawn_props(t)
 	if t.setup.crowd == .None do spawn_packs(t) // a held crowd is the floor's whole population

@@ -10,7 +10,7 @@
 // and the benchmarks' populations), elites (Box3D skeletons: the shared rules) and a file per kind (elite_warrior,
 // elite_rogue, elite_mage), health (damage, down, the wipe), revive (allies tending the downed), pause (the co-op
 // pause), saves (the Setup a save is, and the tally it carries), dev (the dev commands) and script (the scripted
-// player).
+// player); loot (coins dropped and the party's purse).
 package crypt_crew
 
 import "unified:physics"
@@ -21,7 +21,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "18"
+VERSION :: "19"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -93,6 +93,7 @@ Zone :: enum u8 {
 	Props,
 	Health,
 	Elites,
+	Loot,
 }
 
 // One tick: the systems in their order, each group a timing zone.
@@ -159,5 +160,9 @@ tick :: proc(t: ^Tick) {
 		age_minions(t) // after the step: a swing lands on where the hero is now
 		age_elites(t)
 		check_wipe(t)
+	}
+	{
+		sim.zone(t, Zone.Loot)
+		collect_loot(t) // last: a hero picks up where it stands now, after a wipe's restart took the floor's coins
 	}
 }

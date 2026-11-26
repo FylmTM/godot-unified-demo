@@ -34,4 +34,7 @@ Event :: union {
 	Event_Elite_Died,
 	Event_Guard_Broken,
 	Event_Elite_Cast,
+	// loot (loot.odin)
+	Event_Loot_Dropped,
+	Event_Loot_Collected,
 }

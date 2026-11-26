@@ -11,11 +11,13 @@
 [ext_resource type="AudioStream" path="res://assets/kenney/impact_sounds/impactPunch_heavy_000.ogg" id="fireball"]
 [ext_resource type="AudioStream" path="res://assets/kenney/impact_sounds/impactSoft_heavy_000.ogg" id="downed"]
 [ext_resource type="AudioStream" path="res://assets/kenney/impact_sounds/impactBell_heavy_000.ogg" id="revived"]
+[ext_resource type="AudioStream" path="res://assets/kenney/rpg_audio/handleCoins2.ogg" id="coin"]
 
 [node name="Sfx" type="Node"]
 script = ExtResource("sfx")
 sounds = Dictionary[StringName, AudioStream]({
 &"block": ExtResource("block"),
+&"coin": ExtResource("coin"),
 &"confirm": ExtResource("confirm"),
 &"downed": ExtResource("downed"),
 &"error": ExtResource("error"),

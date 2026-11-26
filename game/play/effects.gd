@@ -1,9 +1,9 @@
 class_name Effects
 extends Node3D
 ## The play scene's one-shot effects: sparks where a skeleton is hit or a shield meets a blow, a burst where a bolt
-## bursts, a fireball's blast, dust where a prop lands hard, and the crossbow's tracer. The play scene calls them for the sim's events as soon as they are predicted
-## (EMITTED): an effect a rollback takes back has already played, which an effect can afford, and one shown late would
-## look worse.
+## bursts, a fireball's blast, dust where a prop lands hard, the crossbow's tracer, and a glint where a coin is picked
+## up. The play scene calls them for the sim's events as soon as they are predicted (EMITTED): an effect a rollback takes
+## back has already played, which an effect can afford, and one shown late would look worse.
 ##
 ## Each kind is a small pool of its scene, made once and reused in turn (the oldest goes first), so a fight's hundreds
 ## of hits make no node.
@@ -22,12 +22,14 @@ const TRACER_FADE_S: float = 0.15
 @export var dust_scene: PackedScene
 @export var tracer_scene: PackedScene
 @export var fireball_scene: PackedScene
+@export var glint_scene: PackedScene
 
 var _sparks: Pool
 var _bursts: Pool
 var _dust: Pool
 var _tracers: Pool
 var _fireballs: Pool
+var _glints: Pool
 var _fades: Array[Tween] = []
 
 
@@ -37,6 +39,7 @@ func _ready() -> void:
 	_dust = _pool(dust_scene)
 	_tracers = _pool(tracer_scene)
 	_fireballs = _pool(fireball_scene, FIREBALL_POOL_SIZE)
+	_glints = _pool(glint_scene)
 	_fades.resize(POOL_SIZE)
 
 
@@ -58,6 +61,11 @@ func fireball(at: Vector3) -> void:
 ## A puff of dust at `at` (a prop landing hard).
 func dust(at: Vector3) -> void:
 	_play(_dust, at)
+
+
+## A glint at `at` (a coin picked up: shown as predicted, while only a confirmed pickup counts in the purse).
+func glint(at: Vector3) -> void:
+	_play(_glints, at)
 
 
 ## A crossbow's tracer from `from` to `to`, fading over TRACER_FADE_S.

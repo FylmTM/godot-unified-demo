@@ -25,22 +25,27 @@ View :: union {
 	View_Elite, // keyed by its handle (its events' `elite`)
 }
 
-// The MultiMesh views (a MultiMeshInstance3D with a UnifiedMultiView each), keyed by their handles: the Mage's bolts,
-// and the minions, the crowd (game/crowd/: the baked minion, its shader posing each instance from minion_instance).
+// The MultiMesh views (a MultiMeshInstance3D with a UnifiedMultiView each), keyed by their handles: the Mage's bolts
+// and the skeleton Mages' bone bolts, the minions, the crowd (game/crowd/: the baked minion, its shader posing each instance from minion_instance), and
+// the coins on the floor (game/views/coins.gd: its shader pops and spins each from loot_instance).
 MultiView :: enum u8 {
 	Bolt,
 	Minion,
 	Bone_Bolt, // a skeleton Mage's bolt: a kind of its own, so it draws in its own colour (one MultiMesh, one material)
+	Loot,
 }
 
 // How each MultiMesh kind is shown. A bolt's and a minion's corrections glide like a scene view's (each keyed instance
 // a track): a bolt is few and fast and a pop would show, and a crowd round a remote hero mispredicts, its corrections a
 // shove the eye follows. A minion appears once its spawn is verified, since a minion a misprediction raised would
-// flash and vanish. Its custom channels 1 and 2 are game-time stamps the host ages (minion_instance).
+// flash and vanish. Its custom channels 1 and 2 are game-time stamps the host ages (minion_instance). A coin appears
+// once its drop is verified too (a kill a rollback takes back drops nothing), and lies still, so it keeps no track;
+// its channel 1, when it fell, is aged for its pop, spin and last seconds' blink (loot_instance).
 MULTI_POLICY := [MultiView]godot.View_Policy {
 	.Bolt = {smoothing = godot.SMOOTHING_DEFAULT},
 	.Minion = {appear = .Verified, smoothing = godot.SMOOTHING_DEFAULT, ages = {1, 2}},
 	.Bone_Bolt = {smoothing = godot.SMOOTHING_DEFAULT},
+	.Loot = {appear = .Verified, ages = {1}},
 }
 
 // A hero, posed at its feet and turned to its facing. Its animation is a function of this data (game/views/hero.gd):
@@ -156,8 +161,20 @@ minion_instance :: proc(minion: ^g.Minion, handle: sim.Handle(g.Minion)) -> godo
 	}
 }
 
+// A coin's instance: where it lies, keyed by its handle (its events' `loot`); its custom data the contract of
+// game/views/coin.gdshader's header. 0: its value (the shader sizes it); 1: when it fell, a stamp in ticks the host
+// ages into seconds at the shown time; 2 and 3: spare.
+loot_instance :: proc(coin: ^g.Loot, handle: sim.Handle(g.Loot)) -> godot.Multi_View_Item(MultiView) {
+	return {
+		key    = sim.handle_key(handle),
+		kind   = .Loot,
+		pos    = sim.Position(coin.pos),
+		custom = {f32(coin.value), f32(coin.dropped), 0, 0},
+	}
+}
+
 // Every present hero, every prop, every bolt, every fireball and where a local Mage's would land, every minion, every
-// elite, then the HUD's data.
+// elite, every coin, then the HUD's data.
 fill_frame :: proc(f: ^Frame) {
 	heroes := sim.iterate_present(&f.state.players)
 	for hero, player in sim.next(&heroes) {
@@ -188,6 +205,8 @@ fill_frame :: proc(f: ^Frame) {
 		godot.push_multi_view(f, minion_instance(minion, handle))
 	}
 	fill_elites(f)
+	coins := sim.iterate(&f.state.loot)
+	for coin, handle in sim.next(&coins) do godot.push_multi_view(f, loot_instance(coin, handle))
 	fill_hud(f)
 }
 

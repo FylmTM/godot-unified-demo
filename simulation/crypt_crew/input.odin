@@ -104,6 +104,12 @@ Command_Dev_Hurt_Elites :: struct {
 // `dev_break_guards` (dev builds): every live Warrior's guard breaks (break_guard), as a thrown prop's hit breaks it.
 Command_Dev_Break_Guards :: struct {}
 
+// `dev_drop_loot` (dev builds): `count` coins worth 1 each fall on a ring DEV_DROP_RING round the sender's hero
+// (drop_loot), for a look at loot and the walks' pickups.
+Command_Dev_Drop_Loot :: struct {
+	count: u8,
+}
+
 // Every command a player can send.
 Command :: union {
 	Command_Set_Paused,
@@ -116,4 +122,5 @@ Command :: union {
 	Command_Dev_Spawn_Elite,
 	Command_Dev_Hurt_Elites,
 	Command_Dev_Break_Guards,
+	Command_Dev_Drop_Loot,
 }

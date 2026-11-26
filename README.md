@@ -62,7 +62,7 @@ opens a card to drop out (A drops out, B stays). A toast names who joined or lef
 most. Players joining over the LAN join the same session beside them.
 
 **Saves and pauses.** The crypt saves itself each time a surge rises (the floor, the surges faced, the skeletons
-felled), in one slot; Continue on the title starts it again from there. Only the host, or a player alone, keeps it: a
+felled, the gold in the purse), in one slot; Continue on the title starts it again from there. Only the host, or a player alone, keeps it: a
 player in someone else's game keeps the host's last save in memory (from the start, when the host continued a crypt),
 and is offered "Continue on your own" if the host leaves: it takes that save as its own (asking first if it replaces
 one) and continues it through hero select. Alone (couch included) the pause menu pauses the game; online (hosted or
@@ -99,8 +99,8 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
   (`rogue.odin`).
 - **Navigation**: minions walk the floor's navigation mesh along memoized distance fields, kept apart over a
   `sim.Grid` (`minions.odin`, `world.odin`).
-- **Keyed rolls**: surges and packs roll on the state they place (`director.odin`), so when a pause or a command lands
-  moves no outcome.
+- **Keyed rolls**: surges and packs roll on the state they place (`director.odin`), and a felled skeleton's drop on the
+  session's count of drop rolls (`loot.odin`), so when a pause or a command lands moves no outcome.
 - **Late join and rejoin beside the party** (`presence.odin`), a player's hero kept for their return.
 - **Online and LAN, from the menus**: hosting and joining by a lobby code or an address (`game/menu/play_together.gd`,
   `join_code.gd`, `join_address.gd`); the code's cells and alphabet, and a paste read as the library reads a code
@@ -132,13 +132,18 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
 - **Events**: effects play as soon as they are predicted (EMITTED: `game/play/play.gd`, `effects.gd`); a join or a
   leave is told once it is CONFIRMED (`game/app/game.gd`), and so are a revive's toast and chime and the wipe's banner
   (`game/play/play.gd`).
+- **Rewards shown when confirmed**: a coin picked up vanishes and glints as predicted, but the party's purse counts it,
+  chimes and floats its "+N" only once the pickup is CONFIRMED, taking the total the confirmed event carries, so a
+  pickup a rollback takes back (CANCELLED) never moves it (`game/play/purse.gd`); coins appear once their drop is
+  verified (`Appear.Verified`, `game/views/coins.gd`), and `uni coop --lan -- --lag 150` shows the purse holding
+  through dozens of mispredicted pickups (`game/tools/coop.gd`, `purse_watch.gd`).
 - **Couch co-op**: hero select's seats become local players, each with its device and Profile, and pads join and drop
   out mid-game (`add_local_player`, `set_local_device`, `remove_local_player`: `game/play/couch.gd`,
   `game/menu/hero_select.gd`); every local hero framed by one camera (`camera_rig.gd`).
 - **Prompts and rebinding**: each local player's prompts in the glyphs of the device the session gives them
   (`get_local_device`: `game/app/prompts.gd`); attack, grab and the keyboard's moves rebound in the InputMap that
   unified's input helpers read (`game/app/bindings.gd`).
-- **Dev commands** (`dev.odin`): a class swap, spawning, hurting and killing, as dev UI forms and
+- **Dev commands** (`dev.odin`): a class swap, spawning, hurting and killing, dropping coins, as dev UI forms and
   `uni drive command`.
 - **Benchmark rows**: four heroes against a held surge among Floor 1's props, and a crowd of MINION_CAP on the arena
   asleep, chasing and fighting, each row's population chosen by its Setup (`benches` in `game.odin`; `Crowd`,
@@ -198,6 +203,10 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 10. **Health.** A chasing minion within MINION_REACH winds up a swing (MINION_WINDUP_S), which lands (MINION_DAMAGE)
     if its hero is still in reach, in front (MINION_STRIKE_COS) and in sight; the dead fall for DEATH_S. A hero at
     0 HP goes down and stays down until revived; every hero down for WIPE_S restarts the floor.
+11. **Loot.** A felled skeleton drops a coin on a roll of 1 in LOOT_ONE_IN, worth LOOT_VALUE_MIN to LOOT_VALUE_MAX
+    gold (none under a held crowd). A hero up within LOOT_RADIUS of a coin that has lain LOOT_ARM_S picks it up into
+    the party's one purse (two at once: the lower slot); a coin nobody takes goes after LOOT_LIFE_S. The save carries
+    the purse as it stood at the last surge; a wipe takes the coins lying on the floor and keeps the purse.
 
 ## The crowd
 

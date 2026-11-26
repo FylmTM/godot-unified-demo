@@ -800,6 +800,7 @@ Calls made in step 6's review (two reviewers' findings, the developer's decision
   - Saved bindings (decided in review): a new action's default yields to a player's saved binding of another action
     (Left Shift saved to Attack, B to Grab), so nothing fires twice; Ability then keeps its other default on that
     device, or none.
+
 ## Milestone 5, step 2: the elites
 
 Calls made building the elites (docs/plan.md's design, section B), one line each:
@@ -857,3 +858,42 @@ Calls made building the elites (docs/plan.md's design, section B), one line each
   death and the 1H chop (Warrior), Melee_Blocking while a Warrior stands guarding, the dual-wield stab (Rogue; its
   blow guessed at 0.5 s in), the magic shoot and spellcasting (Mage), Hit_A while staggered. Bone bolts are a second
   MultiView kind, a bone-white orb; their bursts and an elite's hits throw sparks, a broken guard sparks and dust.
+## Milestone 5, step 3: loot and the confirmed purse
+
+- Drops: a felled minion rolls 1 in LOOT_ONE_IN (5) for one coin worth 1..3; both rolls keyed by `State.drops`, which
+  counts every death that rolls (dropping or not), so a kill a tick later rolls the same. `drop_loot(t, at, count,
+  total, spread)` is the one way coins appear (one coin at the point, more on a ring LOOT_SPREAD 0.8 m round it, each
+  snapped onto the floor, values split by `coin_value`): step 4's elite calls it with ELITE_COINS and its total.
+- "No drops under a held crowd" is `Setup.crowd != .None` (as damage_hero reads it): the crowd rows and scale tests
+  drop nothing; Floor 1's benchmark row (a held surge, no crowd) drops as play does.
+- Pickup (Zone.Loot, last in the tick: after the step and the strikes, after a wipe's restart): a hero up within
+  LOOT_RADIUS on the floor plan, once the coin is LOOT_ARM_S old; two at once, the lower slot (not the nearer). A coin
+  is collectable through its last tick (LOOT_LIFE_TICKS - 1 old) and gone the next. A downed hero takes nothing.
+  MAX_LOOT 128; a drop with no free row is lost.
+- A wipe or a floor change takes the coins lying there (`enter_level`) and keeps the purse, as the tally. The save
+  holds `saved_gold`, the purse at the last surge's rise; `Setup.gold` is added by name (no SAVE_VERSION bump: an
+  older save reads 0). VERSION 16; the reference runs re-pinned; `replays/lan_pair` (and `the_lan_recording_fights`)
+  fail until it is recorded again: the Setup and the commands changed layout.
+- `Command_Dev_Drop_Loot{count}`: coins worth 1 on DEV_DROP_RING (2 m, beyond LOOT_RADIUS) round the sender's hero.
+  The script's slot 1 sends 6 every 320 ticks (at 40), so the standard scenarios roll back over pickups
+  (`the_suite_runs_cross_a_pickup`).
+- The coins are `MultiView.Loot`: `Appear.Verified`, `ages = {1}` (when it fell), no smoothing (a coin never moves).
+  KayKit's coin, stood on its edge and spun, hovering 0.45 m, 1.6 times the model (bigger by value), hopping out of
+  the fallen over 0.4 s and blinking through its last 4 s; matte on the dungeon palette (no glow: ART.md). Its mesh is
+  taken from the glTF once (`game/views/coins.gd`), its bounds grown by the lift.
+- EMITTED pickup: the coin is gone (state) and a small gold glint (`game/fx/glint.tscn`) plays. CONFIRMED only: the
+  purse, the chime (Kenney RPG Audio's `handleCoins2.ogg`, 0.34 s, once per frame however many confirm in it, through
+  Sfx on the Interface bus until milestone 8's mix) and a "+N" in the HUD (theme variation `Gain`, the focus frame's
+  gold) rising 80 px from above the coin over 1 s.
+- The purse shows the `gold` the last confirmed pickup carries, never a sum of events. Its start is `Data_Hud.gold`
+  read as it shows and once more at the data's first change; every update takes the larger, so a prediction in that
+  start holds the purse rather than counting it back (docs/plan.md, verified session data).
+- The purse is a fourth column, Gold, in the crypt's counts; their gaps went from 40 to 28 px to keep the toasts' lane.
+  At 130 % the lane is narrower than before and a long toast wraps to more lines; the walk's fit check passes.
+- Tests: `loot_test.odin` (a drop the same a tick later, armed pickup, the lower slot of two, the last tick and the
+  expiry, a downed hero, the split, the save, a held crowd, a wipe, the scenarios crossing a pickup), `view_test.odin`
+  (a coin's instance, the kind's policy: alone every tick is verified as computed, so no walk tells Verified from
+  Predicted). The walk drops six coins, checks the MultiMesh's instances, walks out through one and holds the purse to
+  PurseWatch (moves only in a frame that delivered a CONFIRMED pickup, never down). `uni coop --lan -- --lag 150
+  --verified-players`: the host dances among its coins; the joiner, predicting it 13 ticks deep, saw 34 pickups
+  emitted, 32 cancelled and 2 confirmed, its purse moving once; the coop beat requires a cancelled pickup under --lag.
