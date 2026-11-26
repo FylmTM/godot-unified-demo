@@ -12,6 +12,12 @@ SCRIPT_ATTACK_EVERY :: 96 // ticks from the start of one attack burst to the nex
 SCRIPT_ATTACK_TICKS :: 24 // how long a burst holds Attack
 SCRIPT_INTERACT_EVERY :: 160 // ticks between Interact presses
 SCRIPT_INTERACT_TICKS :: 4 // how long one is held
+// Ticks from the start of one Ability hold to the next, how long one lasts, and how far into each SCRIPT_ABILITY_EVERY
+// it starts: its period is not the attack bursts', so now and then an attack burst begins inside a Knight's block (a
+// charge).
+SCRIPT_ABILITY_EVERY :: 112
+SCRIPT_ABILITY_TICKS :: 40
+SCRIPT_ABILITY_AT :: 56
 SCRIPT_SLOT_OFFSET :: 16 // ticks each slot's bursts and presses come after the slot before's
 SCRIPT_REACH_MIN :: 4 // the nearest a scripted aim points, in REACH_STEPs
 SCRIPT_REACH_RANGE :: 40 // and how many steps further it may
@@ -24,12 +30,17 @@ SCRIPT_KILL_EVERY :: 576 // ticks between slot 2's dev kills of every minion ...
 SCRIPT_KILL_AT :: 450 // ... the tick in each one is sent
 SCRIPT_HURT_EVERY :: 704 // ticks between rounds of the dev downing: one slot's hero, every third round all four ...
 SCRIPT_HURT_AT :: 360 // ... the tick in each round it is sent
+// ... and this long after, slot 3 revives every hero down: past the wipe (a round that downed all four has restarted the
+// floor by then), so a hero downed alone, or by the minions, isn't left down for the rest of a run.
+SCRIPT_REVIVE_AFTER :: 256
+#assert(SCRIPT_REVIVE_AFTER > WIPE_TICKS && SCRIPT_HURT_AT + SCRIPT_REVIVE_AFTER < SCRIPT_HURT_EVERY)
 SCRIPT_PAUSE_EVERY :: 512 // ticks between the scripted co-op pauses (slot 0's)
 SCRIPT_PAUSE_AT :: 300 // the tick in each SCRIPT_PAUSE_EVERY a pause starts
 SCRIPT_PAUSE_TICKS :: 40 // how long one lasts
 
 // The player in `slot` walks one of 8 directions or stands (a draw every SCRIPT_PERIOD ticks), aims one of 8
-// directions at a reach, or none (other draws), holds Attack in bursts and presses Interact now and then.
+// directions at a reach, or none (other draws), holds Attack in bursts and Ability in holds of their own (a block, a
+// roll, a fireball; a charge where they overlap), and presses Interact now and then.
 // Under a held crowd: standing still (Idle), walking and aiming only (Chase), or holding Attack, let go one tick in
 // each SCRIPT_PERIOD so the next is a press (a throw), with Interact's presses (grabs) as in play (Fight).
 scripted_input :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup) -> Input {
@@ -47,6 +58,7 @@ scripted_input :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup)
 	switch setup.crowd {
 	case .None:
 		if phase % SCRIPT_ATTACK_EVERY < SCRIPT_ATTACK_TICKS do input.buttons += {.Attack}
+		if (phase + SCRIPT_ABILITY_AT) % SCRIPT_ABILITY_EVERY < SCRIPT_ABILITY_TICKS do input.buttons += {.Ability}
 	case .Idle, .Chase:
 		return input
 	case .Fight:
@@ -58,9 +70,10 @@ scripted_input :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup)
 
 // Every slot changes its hero's class once every SCRIPT_CLASS_EVERY ticks (`Any` among the classes, which leaves it),
 // slot 1 raises minions around its hero and slot 2 kills every minion now and then (so the scenarios cross spawns and
-// mass deaths whatever the attacks reach), one slot downs its own hero every SCRIPT_HURT_EVERY (every slot every third time: a wipe and the floor's
-// restart), and slot 0 pauses the game for SCRIPT_PAUSE_TICKS of every SCRIPT_PAUSE_EVERY, so the standard scenarios
-// roll back over all of it. Under a held crowd, nothing: the population stays what was asked.
+// mass deaths whatever the attacks reach), one slot downs its own hero every SCRIPT_HURT_EVERY (every slot every third
+// time: a wipe and the floor's restart) and slot 3 revives the downed SCRIPT_REVIVE_AFTER later, and slot 0 pauses the
+// game for SCRIPT_PAUSE_TICKS of every SCRIPT_PAUSE_EVERY, so the standard scenarios roll back over all of it. Under a
+// held crowd, nothing: the population stays what was asked.
 scripted_commands :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup, out: ^sim.Command_Out(Command)) {
 	if setup.crowd != .None do return
 	if (tick + u32(slot) * SCRIPT_SLOT_OFFSET) % SCRIPT_CLASS_EVERY == SCRIPT_CLASS_AT {
@@ -72,6 +85,9 @@ scripted_commands :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Set
 	if slot == 2 && tick % SCRIPT_KILL_EVERY == SCRIPT_KILL_AT do sim.send_command(out, Command_Dev_Kill_Minions{})
 	if round := tick / SCRIPT_HURT_EVERY; tick % SCRIPT_HURT_EVERY == SCRIPT_HURT_AT {
 		if round % 3 == 2 || int(round) % PLAYERS == slot do sim.send_command(out, Command_Dev_Hurt{damage = HERO_HP})
+	}
+	if slot == 3 && tick % SCRIPT_HURT_EVERY == SCRIPT_HURT_AT + SCRIPT_REVIVE_AFTER {
+		sim.send_command(out, Command_Dev_Revive{})
 	}
 	if slot != 0 do return
 	switch tick % SCRIPT_PAUSE_EVERY {

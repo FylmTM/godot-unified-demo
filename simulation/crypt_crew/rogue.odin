@@ -5,8 +5,13 @@
 // its velocity, which is its real displacement per second), the bodies by world_cast_ray_closest_rewound. The nearest
 // hit wins: a minion takes the bolt; a prop it meets is shoved; a wall stops it; it flies over low cover and resting
 // light props (FLIGHT_HEIGHT). It never pierces. The view draws a tracer.
+//
+// The Rogue's ability: a dodge roll. Ability's press rolls (Action.Roll) along the stick, else the facing, which the
+// roll takes for its own and keeps: a dash at ROLL_SPEED for ROLL_S, nothing hurting the Rogue for its first
+// ROLL_SAFE_S (rolled_clear, judged by the roll's age: no state of its own).
 package crypt_crew
 
+import "unified:dmath"
 import "unified:physics"
 import "unified:sim"
 
@@ -58,4 +63,16 @@ rogue_strike :: proc(t: ^Tick, hero: ^Hero, player: sim.Player) {
 		hit    = victim != {},
 	}
 	sim.emit(t, shot_event)
+}
+
+// The Rogue's ability: Ability pressed while free (can_start_ability) and its cooldown ran out rolls along the stick
+// (pushed past TURN_STICK), else along the facing; the hero turns to the roll and keeps that facing through it.
+rogue_ability :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, buttons: sim.Button_State(Buttons)) {
+	if .Ability not_in buttons.pressed || !can_start_ability(hero) || sim.timer_running(t, hero.ability_ready) do return
+	input := sim.input(t, player)
+	if move := dmath.stick(input.move_x, input.move_z); dmath.length_sq(move) > TURN_STICK * TURN_STICK {
+		hero.facing = dmath.normalize(move)
+	}
+	start_ability(t, hero, player, .Roll, ROLL_COOLDOWN_TICKS)
+	dash(t, hero, ROLL_SPEED)
 }

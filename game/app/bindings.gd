@@ -26,11 +26,12 @@ extends RefCounted
 enum Kind { KEYBOARD, PAD }
 
 ## Every rebindable action, in the order the controls screen lists them. (`interact` is the player's Grab.)
-const ACTIONS: Array[StringName] = [&"move_up", &"move_down", &"move_left", &"move_right", &"attack", &"interact"]
+const ACTIONS: Array[StringName] = [&"move_up", &"move_down", &"move_left", &"move_right", &"attack", &"interact",
+	&"ability"]
 ## Each rebindable action as the player reads it (the controls screen, a refusal's reason).
 const NAMES: Dictionary[StringName, String] = {
 	&"move_up": "Move up", &"move_down": "Move down", &"move_left": "Move left", &"move_right": "Move right",
-	&"attack": "Attack", &"interact": "Grab",
+	&"attack": "Attack", &"interact": "Grab", &"ability": "Ability",
 }
 ## The move actions (the pad's are its stick and D-pad, never rebound).
 const MOVE_ACTIONS: Array[StringName] = [&"move_up", &"move_down", &"move_left", &"move_right"]

@@ -35,13 +35,13 @@ static func name_of(hero_class: int) -> String:
 static func line_of(hero_class: int) -> String:
 	match hero_class:
 		EnumClass.KNIGHT:
-			return "A quick sword arc, a shield on the arm."
+			return "A quick sword arc; a shield that blocks and charges."
 		EnumClass.BARBARIAN:
 			return "A wide, slow cleave that knocks skeletons back."
 		EnumClass.MAGE:
-			return "Bolts that burst among the skeletons."
+			return "Bursting bolts, and a fireball's blast."
 		EnumClass.ROGUE:
-			return "A crossbow that hits where you saw it."
+			return "A crossbow that hits where you saw it; a dodge roll."
 	return "Whoever the party is missing."
 
 

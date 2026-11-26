@@ -2,6 +2,7 @@
 // change. It is the newest prediction, so it can roll back: what must be final comes from a CONFIRMED event.
 package crypt_crew_extension
 
+import "unified:dmath"
 import "unified:godot"
 import "unified:sim"
 
@@ -25,12 +26,18 @@ Data_Hud :: struct {
 
 // One slot's hero (DataHudHero).
 Hud_Hero :: struct {
-	player: sim.Player, // its key (0: the slot is empty)
-	hp:     i16,
-	hp_max: i16, // the health it rises with: the HUD's bar is hp of hp_max
-	class:  g.Class, // EnumClass
-	local:  bool, // one of this machine's players
-	_pad:   [2]u8,
+	player:  sim.Player, // its key (0: the slot is empty)
+	hp:      i16,
+	hp_max:  i16, // its full health: the HUD's bar is hp of hp_max
+	class:   g.Class, // EnumClass
+	local:   bool, // one of this machine's players
+	// Its state as the plate shows it: down (until an ally revives it), and how ready its ability is, 0 (its cooldown
+	// just began) to 255 (ready: the pip full).
+	down:    bool,
+	ability: u8,
+	// A local hero's: the ally its Interact would revive now (the rules' revive_target: the "[E] Revive" prompt; 0:
+	// nobody, or not a local hero).
+	revive:  sim.Player,
 }
 
 // The HUD's data from the frame's state.
@@ -45,12 +52,16 @@ fill_hud :: proc(f: ^Frame) {
 	heroes := sim.iterate_present(&f.state.players)
 	for hero, player in sim.next(&heroes) {
 		slot, _ := sim.player_slot(&f.state.players, player)
+		local := godot.is_local(f, player)
 		hud.heroes[slot] = {
-			player = player,
-			hp     = hero.hp,
-			hp_max = g.HERO_HP,
-			class  = hero.class,
-			local  = godot.is_local(f, player),
+			player  = player,
+			hp      = hero.hp,
+			hp_max  = g.HERO_HP,
+			class   = hero.class,
+			local   = local,
+			down    = hero.action == .Down,
+			ability = u8(dmath.round(g.ability_charge(f.time, hero) * 255)),
+			revive  = g.revive_target(&f.state.players, player) if local else {},
 		}
 	}
 	godot.push_data(f, hud)

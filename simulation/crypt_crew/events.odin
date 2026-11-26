@@ -23,4 +23,10 @@ Event :: union {
 	Event_Hero_Attacked,
 	Event_Bolt_Burst,
 	Event_Crossbow_Shot,
+	// The abilities (abilities.odin, fireballs.odin), going down and being revived (health.odin, revive.odin).
+	Event_Ability,
+	Event_Blocked,
+	Event_Fireball_Burst,
+	Event_Hero_Revived,
+	Event_Party_Wiped,
 }

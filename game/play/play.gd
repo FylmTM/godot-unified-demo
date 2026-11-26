@@ -5,7 +5,9 @@ extends Node3D
 ## crypt's environment and the HUD. The session is the app's (Game's), already running when this scene loads: this
 ## hands it the two roots, which leave with the scene. It turns the sim's events into effects as soon as they are
 ## predicted (EMITTED): sparks on a hit, a bolt's burst, a crossbow's tracer (from the crossbow as drawn to where the
-## sim's shot ended), dust where a prop lands hard, and a shake when a local hero is hurt.
+## sim's shot ended), dust where a prop lands hard, and a shake when a local hero is hurt; a shield's clang and sparks,
+## a fireball's blast (with a shake), a hero going down. What must be certain shows once CONFIRMED: a revive's chime and
+## its toast ("X revived Y"), and the wipe's banner (the HUD).
 ##
 ## The mouse's aim reaches the sim through it, as only a script knows it: just before the session samples (its
 ## input_wanted, so this frame's sample takes it), the cursor's ray meets a plane at chest height, and the direction
@@ -25,6 +27,8 @@ const HIT_HEIGHT: float = 1.1
 const DUST_SPEED: float = 5.0
 ## How hard a local hero's hurt shakes the camera (0 to 1), at the player's full screen shake (Settings).
 const HURT_SHAKE: float = 0.5
+## How hard a fireball's blast shakes the camera (0 to 1), at the player's full screen shake.
+const FIREBALL_SHAKE: float = 0.35
 
 ## The pause menu (game/play/pause_menu.tscn), made when it opens.
 @export var pause_menu_scene: PackedScene
@@ -147,8 +151,11 @@ func _on_level_changed(_level_id: int) -> void:
 		_camera_rig.fallback = sum / count
 
 
-## The effects of the sim's events, on their first showing (EMITTED).
+## The effects of the sim's events, on their first showing (EMITTED), and what waits until it is certain (CONFIRMED:
+## _on_sim_event_confirmed).
 func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
+	if state == UnifiedSession.EVENT_CONFIRMED:
+		_on_sim_event_confirmed(event)
 	if state != UnifiedSession.EVENT_EMITTED:
 		return
 	if event is EventMinionHit:
@@ -166,3 +173,24 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 	elif event is EventHeroHurt:
 		if _session.get_local_index((event as EventHeroHurt).player) >= 0:
 			_camera_rig.shake(HURT_SHAKE * Settings.screen_shake)
+	# the abilities, and going down
+	elif event is EventBlocked:
+		_effects.sparks((event as EventBlocked).position)
+		Sfx.play(&"block")
+	elif event is EventFireballBurst:
+		_effects.fireball((event as EventFireballBurst).position)
+		Sfx.play(&"fireball")
+		_camera_rig.shake(FIREBALL_SHAKE * Settings.screen_shake)
+	elif event is EventHeroDowned:
+		Sfx.play(&"downed")
+
+
+## What must not be taken back once shown, on its CONFIRMED showing: a revive's chime and its toast, and the wipe's
+## banner (a revive or a wipe a rollback undid would have rung or hung for nothing).
+func _on_sim_event_confirmed(event: UnifiedEvent) -> void:
+	if event is EventHeroRevived:
+		var revived := event as EventHeroRevived
+		Sfx.play(&"revived")
+		Game.toast("%s revived %s" % [_session.get_player_name(revived.by), _session.get_player_name(revived.player)])
+	elif event is EventPartyWiped:
+		_hud.show_wipe()

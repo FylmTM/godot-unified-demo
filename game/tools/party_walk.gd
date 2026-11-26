@@ -1,11 +1,15 @@
 class_name PartyWalk
 extends MenuTool
 ## The walk's parts about who plays (game/tools/ui_walk.gd extends this and runs them in its order): the player's name
-## field, hero select on pads and on the keyboard and mouse, the party in the crypt, a guest dropping out, and the
-## couch's join cards. Each part starts and ends where the walk's order puts it, and uses each pad's own events.
+## field, hero select on pads and on the keyboard and mouse, the party in the crypt, a guest dropping out, the couch's
+## join cards, and a guest downed and revived. Each part starts and ends where the walk's order puts it, and uses each
+## pad's own events.
 
 ## How far a hero may drift standing still (metres): its capsule settling.
 const STILL: float = 0.1
+## How close the first player walks up to a downed guest to revive it (metres between their feet: inside the sim's
+## REVIVE_RANGE of 1.5 m, with room for a step's overshoot).
+const REVIVE_CLOSE: float = 1.0
 ## The name the walk gives the player: long enough to wrap on a seat card.
 const WALK_NAME: String = "Sexton of the Old Crypt"
 
@@ -280,6 +284,7 @@ func _walk_couch() -> void:
 	expect(guest_attack != null and guest_attack.text == _glyph(&"attack", "XBOX"),
 		"the guest's plate: its pad's glyphs")
 	await shot("03_guest_joined")
+	await _walk_revive()
 	await _leave_guests()
 	await wait_for(func() -> bool: return _toast_shows("%s left (Rogue)" % _guest(1)), 5.0,
 		"a toast: %s left (Rogue)" % _guest(1))
@@ -501,3 +506,71 @@ func _walk_crowd() -> void:
 		expect(custom[1] > 0.0, "minion %d's gait has an age (%f s)" % [index, custom[1]])
 		expect(custom[2] > 1000.0, "minion %d was never struck: its hit is far in the past (%f s)" % [index, custom[2]])
 	step("the crowd: %d sleeping minions, one MultiMesh" % shown)
+
+
+## The guest (pad 1's Rogue) rolls with its pad's B, its ability pip draining; a dev hurt downs it, and its view lies in
+## its revive ring; the first player walks up to it on the keyboard, and "[E] Revive" hangs over the guest; holding E
+## fills the ring and revives it, once confirmed with the toast "<first player> revived <guest>".
+func _walk_revive() -> void:
+	var guest: int = session.get_local_player_key(_local_of(1))
+	var pip: ProgressBar = find(current_scene, ^"Hud/Heroes/HeroPlate2/%AbilityPip") as ProgressBar
+	await pad_button(JOY_BUTTON_B, 1)
+	await wait_for(func() -> bool: return pip.value < pip.max_value, 2.0, "the guest's roll drains its ability pip")
+	await seconds(0.5)  # past the roll: its safe start lets a blow by
+	var hurt := CommandDevHurt.new()
+	hurt.player = guest
+	hurt.damage = 100
+	session.send_command(hurt)
+	var downed: Node3D = session.get_player_view(EnumView.HERO, guest) as Node3D
+	await wait_for(func() -> bool: return _view_action(downed) == EnumAction.DOWN, 3.0, "the guest goes down")
+	var ring: Node3D = find(downed, ^"ReviveRing") as Node3D
+	expect(ring.visible, "a ring lies round the downed guest")
+	await _walk_up_to(downed, REVIVE_CLOSE)
+	var prompts: Node = find(current_scene, ^"Hud/%RevivePrompts")
+	var prompt: Control = prompts.get_child(0) as Control
+	await wait_for(func() -> bool: return prompt.visible, 2.0, "beside the downed guest, \"[E] Revive\" shows")
+	await shot("03d_revive_prompt")
+	await key(KEY_E, true)
+	await seconds(1.0)
+	var data: ViewHero = downed.get(&"data")
+	var fill: float = (ring as GeometryInstance3D).get_instance_shader_parameter(&"fill")
+	expect(data.action == EnumAction.DOWN and data.revive > 0 and absf(fill - data.revive / 255.0) < 0.01,
+		"holding E fills the ring (%d of 255, the ring at %.2f)" % [data.revive, fill])
+	await shot("03e_reviving")
+	await wait_for(func() -> bool: return _view_action(downed) != EnumAction.DOWN, 4.0, "holding E revives the guest")
+	await key(KEY_E, false)
+	expect(not ring.visible, "the ring goes with the revive")
+	var toast: String = "%s revived %s" % [session.get_player_name(session.local_player), _guest(1)]
+	await wait_for(func() -> bool: return _toast_shows(toast), 3.0, "a toast once confirmed: %s" % toast)
+	step("the guest rolled, went down and was revived")
+
+
+## Walks the first player's hero (on the keyboard's moves) until its feet are within `close` of `target`'s.
+func _walk_up_to(target: Node3D, close: float) -> void:
+	var held: Dictionary[Key, bool] = {KEY_W: false, KEY_A: false, KEY_S: false, KEY_D: false}
+	var until: int = Time.get_ticks_msec() + 5000
+	while _floor_distance(local_hero(), target) > close and Time.get_ticks_msec() < until and not failed():
+		var offset: Vector3 = target.global_position - local_hero().global_position
+		var want: Dictionary[Key, bool] = {KEY_W: offset.z < -0.2, KEY_A: offset.x < -0.2, KEY_S: offset.z > 0.2,
+			KEY_D: offset.x > 0.2}
+		for key_code: Key in held:
+			if held[key_code] != want[key_code]:
+				held[key_code] = want[key_code]
+				await key(key_code, want[key_code])
+		await process_frame
+	for key_code: Key in held:
+		if held[key_code]:
+			await key(key_code, false)
+	expect(_floor_distance(local_hero(), target) <= close, "the first player walks up to the downed guest")
+
+
+## How far apart two views' feet are on the floor plan.
+static func _floor_distance(from: Node3D, to: Node3D) -> float:
+	return Vector2(from.global_position.x, from.global_position.z).distance_to(
+		Vector2(to.global_position.x, to.global_position.z))
+
+
+## The action a hero view shows (EnumAction; NONE without a view).
+static func _view_action(view: Node3D) -> int:
+	var data: ViewHero = view.get(&"data") if view != null else null
+	return data.action if data != null else EnumAction.NONE

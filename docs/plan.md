@@ -13,8 +13,8 @@ braziers, and haul its treasure up to the lift.
   the crypt wakes behind them. The lift is the save point; each hero picks a boon and the party descends.
 - **A run.** A hub between runs (the lobby), three floors, and a boss vault: 20–30 minutes. A run saves at every lift
   and continues from the menu. A player can join or rejoin at any time.
-- **Failure.** A downed hero ragdolls and can be revived by holding interact beside them (today's rising on its own
-  is interim). When the whole party is down, the floor restarts from the last save.
+- **Failure.** A downed hero ragdolls (today it lies in its death pose until revived). When the whole party is down,
+  the floor restarts from the last save.
 - **Heroes.** Four classes (the Profile): Knight (sword arc, shield charge, block), Barbarian (cleave; grabs and
   throws props, elites and allies), Mage (bolt, fireball with a physics blast), Rogue (crossbow that lands where the
   shooter saw the target, dodge roll). Heroes shove and throw each other; they never damage each other.

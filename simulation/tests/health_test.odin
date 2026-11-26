@@ -1,6 +1,7 @@
-// The health and arrival rule tests (health.odin, presence.odin's arrival_spot): going down, rising beside the party
-// in grace, the wipe's floor restart, and where a joiner appears. Each on a sync-tested run (headless.Run) that ends
-// synced, so a restart's bodies leave the physics world's refs clean.
+// The health and arrival rule tests (health.odin, presence.odin's arrival_spot): going down and staying down, the
+// wipe's floor restart after WIPE_S (and a joiner stopping it), and where a joiner appears. Each on a sync-tested run
+// (headless.Run) that ends synced, so a restart's bodies leave the physics world's refs clean. Reviving is
+// revive_test.odin's.
 package test_crypt_crew
 
 import "core:testing"
@@ -12,9 +13,9 @@ import "unified:sim"
 import g "../crypt_crew"
 
 // A hero at 0 HP goes down (Action.Down): what it held is dropped, and it stays where it fell, neither sliding on
-// nor sinking; RESPAWN_S later it rises beside the party at full health, and in its grace nothing hurts it.
+// nor sinking, and nothing hurts it further. It stays down: no rising on its own, however long (an ally revives it).
 @(test)
-a_downed_hero_rises_beside_the_party :: proc(t: ^testing.T) {
+a_downed_hero_stays_down :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 2)
 	defer headless.run_end(&run)
 	hero := sim.slot_data(run.simulation, 1)
@@ -40,32 +41,60 @@ a_downed_hero_rises_beside_the_party :: proc(t: ^testing.T) {
 	testing.expectf(t, dmath.length(hero.pos - fell_at) < 0.1, "a downed hero moved: %v from %v", hero.pos, fell_at)
 	hurt(&run, 1, 10) // down: nothing more
 	testing.expect_value(t, headless.run_events(&run, g.Event_Hero_Hurt), 2) // so far: the two before
-	for hero.action == .Down && run.simulation.state.clock.time < sim.Game_Time(2 * g.RESPAWN_TICKS) {
-		headless.run_step(&run)
-	}
-	testing.expect_value(t, hero.action, g.Action.None)
-	testing.expect_value(t, hero.hp, g.HERO_HP)
-	spawned, _ := headless.run_last_event(&run, g.Event_Hero_Spawned)
-	testing.expect(t, spawned.beside, "it rose beside the party")
-	anchor := sim.slot_data(run.simulation, 0).pos
-	testing.expectf(
-		t,
-		dmath.length(hero.pos.xz - anchor.xz) < g.ARRIVAL_RING + g.ARRIVAL_SNAP,
-		"rose %v from %v",
-		hero.pos,
-		anchor,
-	)
-	hurt(&run, 1, 50) // in its grace
-	testing.expect_value(t, hero.hp, g.HERO_HP)
-	for _ in 0 ..< g.SPAWN_GRACE_TICKS do headless.run_step(&run)
-	hurt(&run, 1, 50)
-	testing.expect_value(t, hero.hp, g.HERO_HP - 50)
+	spawns := headless.run_events(&run, g.Event_Hero_Spawned) // the session's arrivals
+	play(&run, {}, 8)
+	testing.expect_value(t, hero.action, g.Action.Down)
+	testing.expect_value(t, hero.hp, 0)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Hero_Spawned), spawns)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Party_Wiped), 0) // slot 0 is up
 	scenarios.expect_synced(t, &run)
 }
 
-// When every hero present is down at once, the floor starts over: every hero up at its spawn, the props back at their
-// markers, only the packs asleep, no bolt left in flight. The refs stay clean through it, with a surge risen, one hero
-// carrying, a throw's ignore live and a bolt flying at the wipe.
+// A hero alone that goes down is the whole party down: the wipe starts at once (Event_Party_Wiped), and WIPE_S later,
+// not a tick sooner, the floor starts over with the hero up at its spawn.
+@(test)
+a_hero_alone_down_wipes_after_the_wait :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 1)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	hurt(&run, 0, g.HERO_HP)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Party_Wiped), 1)
+	for _ in 0 ..< g.WIPE_TICKS - 1 do headless.run_step(&run)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 0)
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).action, g.Action.Down)
+	headless.run_step(&run)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 1)
+	hero := sim.slot_data(run.simulation, 0)
+	testing.expect_value(t, hero.action, g.Action.None)
+	testing.expect_value(t, hero.hp, g.HERO_HP)
+	testing.expect_value(t, run.simulation.state.wipe, sim.Timer{})
+	scenarios.expect_synced(t, &run)
+}
+
+// A joiner arriving while the whole party is down is a hero up: the wipe stops, the floor doesn't start over, and the
+// downed stay down for the joiner to revive. The joiner, with nobody up to arrive beside, appears at its slot's spawn.
+@(test)
+a_joiner_stops_the_wipe :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 1)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	hurt(&run, 0, g.HERO_HP)
+	play(&run, {}, g.WIPE_S / 2)
+	headless.run_seat(&run, 1, 2)
+	headless.run_step(&run)
+	spawned, _ := headless.run_last_event(&run, g.Event_Hero_Spawned)
+	testing.expect(t, !spawned.beside, "nobody up to arrive beside: its spawn")
+	play(&run, {}, g.WIPE_S)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 0)
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).action, g.Action.Down)
+	testing.expect_value(t, run.simulation.state.wipe, sim.Timer{})
+	scenarios.expect_synced(t, &run)
+}
+
+// When every hero present is down at once, the floor starts over WIPE_S later: every hero up at its spawn, the props
+// back at their markers, only the packs asleep, no bolt or fireball left in flight. The refs stay clean through it, with
+// a surge risen, one hero carrying and a throw's ignore live as they go down, and a bolt and a fireball flying at the
+// restart.
 @(test)
 a_wipe_restarts_the_floor :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 2)
@@ -87,21 +116,32 @@ a_wipe_restarts_the_floor :: proc(t: ^testing.T) {
 	barrel, _ := prop_at(&run, BARREL)
 	testing.expect(t, sim.slot_data(run.simulation, 0).held != {}, "slot 0 carries at the wipe")
 	testing.expect(t, barrel.thrower_ignore != {}, "slot 1's throw ignores it at the wipe")
-	bolt, _, flying := sim.spawn(&run.simulation.state.bolts) // a bolt in flight at the wipe
-	bolt^ = {
-		pos     = spawn_of(&run, 0) + {0, g.FLIGHT_HEIGHT, 0},
-		vel     = {g.BOLT_SPEED, 0, 0},
-		cast_at = run.simulation.state.clock.time,
-		caster  = sim.player_in_slot(run.simulation, 0),
-	}
-	headless.run_pin(&run)
-	testing.expect(t, flying, "a bolt flies at the wipe")
 	wipe := headless.run_inputs(&run)
 	sim.add_command(&wipe, 0, g.Command_Dev_Hurt{sim.player_in_slot(run.simulation, 0), g.HERO_HP})
 	sim.add_command(&wipe, 0, g.Command_Dev_Hurt{sim.player_in_slot(run.simulation, 1), g.HERO_HP})
 	headless.run_step(&run, &wipe)
-	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 1)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Party_Wiped), 1)
+	for _ in 0 ..< g.WIPE_TICKS - 1 do headless.run_step(&run)
 	state := &run.simulation.state
+	bolt, _, flying := sim.spawn(&state.bolts) // a bolt in flight at the restart ...
+	bolt^ = {
+		pos     = spawn_of(&run, 0) + {0, g.FLIGHT_HEIGHT, 0},
+		vel     = {g.BOLT_SPEED, 0, 0},
+		cast_at = state.clock.time,
+		caster  = sim.player_in_slot(run.simulation, 0),
+	}
+	fireball, _, lobbed := sim.spawn(&state.fireballs) // ... and a fireball
+	fireball^ = {
+		from    = spawn_of(&run, 0),
+		to      = spawn_of(&run, 0) + {3, 0, 0},
+		cast_at = state.clock.time,
+		caster  = sim.player_in_slot(run.simulation, 0),
+	}
+	headless.run_pin(&run)
+	testing.expect(t, flying && lobbed, "a bolt and a fireball fly at the restart")
+	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 0)
+	headless.run_step(&run)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 1)
 	floor := floor_of(&run)
 	for slot in 0 ..< 2 {
 		hero := sim.slot_data(run.simulation, slot)
@@ -117,6 +157,8 @@ a_wipe_restarts_the_floor :: proc(t: ^testing.T) {
 	}
 	testing.expect_value(t, int(state.props.count), int(floor.places.props.count))
 	testing.expect_value(t, int(state.bolts.count), 0)
+	testing.expect_value(t, int(state.fireballs.count), 0)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Fireball_Burst), 0)
 	minions := sim.iterate(&state.minions)
 	for minion in sim.next(&minions) do testing.expect_value(t, minion.phase, g.Minion_Phase.Idle)
 	for _ in 0 ..< g.TICK_HZ do headless.run_step(&run)

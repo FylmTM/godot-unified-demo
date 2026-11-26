@@ -9,10 +9,10 @@ dungeon crawler for 1–4 players, and the answer to "what does a real game buil
 > [!NOTE]
 > **Floor 1, with the game around it.** Up to four heroes, on one couch, over the LAN or online (from the menus: a host
 > and its joiners, by address or by a lobby's code), fight down Floor 1 of the crypt: skeleton packs asleep in its rooms
-> and surges rising from its graves, against the Knight's quick sword, the Barbarian's wide cleave, the Mage's bursting
-> bolts and the Rogue's crossbow, and the barrels and crates any hero picks up and throws. A hero at 0 HP goes down and,
-> for now, rises beside the party on its own; the whole party down restarts the floor. What the game becomes, and in
-> what order, is [`docs/plan.md`](docs/plan.md).
+> and surges rising from its graves, against the Knight's quick sword, shield and shield charge, the Barbarian's wide
+> cleave, the Mage's bursting bolts and fireball, and the Rogue's crossbow and dodge roll, and the barrels and crates any
+> hero picks up and throws. A hero at 0 HP goes down until an ally revives it; the whole party down restarts the floor.
+> What the game becomes, and in what order, is [`docs/plan.md`](docs/plan.md).
 
 ## Play it
 
@@ -38,8 +38,11 @@ address (`127.0.0.1`) in the other.
 **Controls.** Move with WASD, the arrow keys or a pad's left stick; aim with the mouse or the right stick (a hero
 that isn't aimed faces where it walks). Attack (the left mouse button, Space, or a pad's right trigger or X) attacks
 while held, and throws what you carry. Grab (E, the right mouse button, or a pad's A) picks up the barrel or crate in
-front, glowing faintly, and puts it down again. Esc, or Start on a pad that plays, opens the pause menu.
-Attack and Grab can be rebound on both the keyboard and mouse and a pad, and the moves on the keyboard (Settings,
+front, glowing faintly, and puts it down again; held beside a downed ally ("[E] Revive" over them), it revives them.
+Ability (Left Shift, or a pad's left trigger or B) is the class's own: the Knight blocks while it is held, and charges
+behind the shield on Attack; the Rogue rolls; the Mage casts a fireball where the ring on the floor shows (the mouse's
+reach); the HUD's pip says when it is ready again. Esc, or Start on a pad that plays, opens the pause menu.
+Attack, Grab and Ability can be rebound on both the keyboard and mouse and a pad, and the moves on the keyboard (Settings,
 Controls: two bindings each; a pad's sticks and D-pad stay); the HUD shows each player's controls in the glyphs of the
 device they use: for a few seconds after a player joins or picks up another device, or always, or never (Settings,
 Gameplay).
@@ -85,11 +88,12 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
 ## What it shows of unified
 
 - **Rollback and prediction**: the whole game is one plain state block (`simulation/crypt_crew/state.odin`) that
-  unified copies, restores and checksums; the views draw the prediction, a local hero turned by its newest input
+  unified copies, restores and checksums; the views draw the prediction, a local hero turned by its newest input, and
+  the ring where a local Mage's fireball will land, from the rules' own fireball_target on that input
   (`simulation/extension/frame.odin`).
 - **Physics under rollback**: heroes are `physics.Character` capsules (`heroes.odin`) and props dynamic bodies
   (`props.odin`); a carried prop hangs on a motor joint, and a thrown one ignores its thrower's contacts
-  (`hands.odin`).
+  (`hands.odin`); a fireball's blast throws props through Box3D's explosion (`physics.world_explode`: `fireballs.odin`).
 - **Shots resolved where the shooter saw them**: the Rogue's crossbow looks back by its input's `sim.Seen`
   (`rogue.odin`).
 - **Navigation**: minions walk the floor's navigation mesh along memoized distance fields, kept apart over a
@@ -125,7 +129,8 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
   the host (`View_Policy.ages`); clips posed on the session's shown game time, so a correction or a seek lands on the
   right frame (`game/views/hero.gd`, `game/crowd/crowd_minion.gdshader`).
 - **Events**: effects play as soon as they are predicted (EMITTED: `game/play/play.gd`, `effects.gd`); a join or a
-  leave is told once it is CONFIRMED (`game/app/game.gd`).
+  leave is told once it is CONFIRMED (`game/app/game.gd`), and so are a revive's toast and chime and the wipe's banner
+  (`game/play/play.gd`).
 - **Couch co-op**: hero select's seats become local players, each with its device and Profile, and pads join and drop
   out mid-game (`add_local_player`, `set_local_device`, `remove_local_player`: `game/play/couch.gd`,
   `game/menu/hero_select.gd`); every local hero framed by one camera (`camera_rig.gd`).
@@ -148,12 +153,19 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    and ARRIVAL_ROOM clear of heroes and props; with none, at its slot's hero spawn.
 2. **Pause.** `Set_Paused` stops or starts the game clock; while paused, nothing after this runs.
 3. **Dev commands.**
-4. **Heroes.** A downed hero rises beside the party after RESPAWN_S, safe for SPAWN_GRACE_S. Each hero turns to its
+4. **Heroes.** Interact pressed within REVIVE_RANGE of a downed ally starts a revive, held it goes on (at
+   REVIVE_SPEED; a blow or Attack breaks it off): each ally tending adds a tick, untended it decays by REVIVE_DECAY,
+   and at REVIVE_TICKS the ally rises where it lies with REVIVE_HP, safe for SPAWN_GRACE_S. Each hero turns to its
    aim (else its move, past TURN_STICK). Interact grabs the nearest prop in reach (GRAB_RANGE, GRAB_CONE_COS) or drops
-   the one held; Attack while holding throws it (THROW_WINDUP_S, THROW_SPEED). Otherwise Attack held starts the
+   the one held; Attack while holding throws it (THROW_WINDUP_S, THROW_SPEED). Ability starts the class's ability
+   (cutting an attack short), on its own cooldown: the Knight's block while held (blows from within BLOCK_ARC_COS of
+   its facing take BLOCK_TAKE; BLOCK_SPEED) and, on Attack's press behind it, a charge (CHARGE_SPEED for CHARGE_S, a
+   blast of CHARGE_RADIUS from the shield every CHARGE_HIT_TICKS, every blow from the front taken); the Rogue's roll
+   (ROLL_SPEED for ROLL_S along the stick, unhurt for ROLL_SAFE_S); the Mage's cast (FIREBALL_WINDUP_S, then a
+   fireball lobbed to where its aim reaches, up to FIREBALL_RANGE, short of a wall). Otherwise Attack held starts the
    class's attack (`CLASS_SPECS`: windup, duration, cooldown; held, it repeats every cooldown). The hold's joint
    follows the facing (`HOLD_*`), and the hero walks toward the stick's velocity at its class's speed, slowed by a
-   carried prop or by ATTACK_SPEED.
+   carried prop or by what it does (ATTACK_SPEED, BLOCK_SPEED, REVIVE_SPEED).
 5. **Director.** A sleeping pack wakes when a hero one of its minions can see comes within AGGRO_RADIUS (each looks
    every SIGHT_S) or one of them is hit. A surge is owed SURGE_FIRST_S into a floor and every SURGE_EVERY_S after:
    SURGE_BASE minions plus SURGE_PER_HERO per hero and SURGE_GROWTH per surge faced on the floor, rising one per grave
@@ -175,13 +187,14 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    `knock_area`). The crossbow hits the first thing within CROSSBOW_RANGE on the picture its shooter saw (at most
    MAX_REWIND_S back). Walls shield what is behind them from blows, bursts and shots; bolts and
    shots fly at FLIGHT_HEIGHT, over low cover and resting light props, and meet walls, heavy crates and props held or
-   in flight. A thrown prop faster than PROP_HIT_SPEED hurts each minion it meets once (PROP_HIT_DAMAGE, at most
+   in flight. A fireball bursts FIREBALL_FLIGHT_S after its cast: a blast (FIREBALL_RADIUS, FIREBALL_DAMAGE,
+   FIREBALL_KNOCK) on the minions no wall shields, and an impulse on the props (FIREBALL_IMPULSE, through Box3D). A thrown prop faster than PROP_HIT_SPEED hurts each minion it meets once (PROP_HIT_DAMAGE, at most
    PROP_HITS_MAX, keeping PROP_HIT_KEEP of its velocity) for the whole of its throw (THROWN_S).
 9. **Props.** A prop landing faster than IMPACT_SPEED is an impact. A thrown prop passes through its thrower until it
    is THROW_CLEAR_DIST away or its throw ends.
 10. **Health.** A chasing minion within MINION_REACH winds up a swing (MINION_WINDUP_S), which lands (MINION_DAMAGE)
     if its hero is still in reach, in front (MINION_STRIKE_COS) and in sight; the dead fall for DEATH_S. A hero at
-    0 HP goes down; every hero down at once restarts the floor.
+    0 HP goes down and stays down until revived; every hero down for WIPE_S restarts the floor.
 
 ## How it's built
 

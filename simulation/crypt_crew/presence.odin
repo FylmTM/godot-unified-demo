@@ -1,8 +1,8 @@
 // Arrivals and leaves, handled before every other system (people come and go while paused too). A hero is owned by
 // its sim.Player, never a slot: whoever leaves and comes back gets their hero's data back in whatever slot is free
 // (unified/src/sim/README.md, Players). A leaver's body is destroyed at the leave, since the table may forget an absent
-// member before any tick runs, and made again on the return. A joiner, a rejoiner and a respawn all arrive beside the
-// party (arrival_spot), so a shared camera keeps everyone on screen.
+// member before any tick runs, and made again on the return. A joiner and a rejoiner arrive beside the party
+// (arrival_spot), so a shared camera keeps everyone on screen.
 package crypt_crew
 
 import "unified:dmath"
@@ -10,7 +10,7 @@ import "unified:nav"
 import "unified:physics"
 import "unified:sim"
 
-// `player`'s hero appeared at `position`: beside the party (`beside`: a join, a rejoin or a respawn mid-floor), or at
+// `player`'s hero appeared at `position`: beside the party (`beside`: a join or a rejoin mid-floor), or at
 // its slot's hero_spawn (a floor's start, nobody up).
 Event_Hero_Spawned :: struct {
 	player:   sim.Player,

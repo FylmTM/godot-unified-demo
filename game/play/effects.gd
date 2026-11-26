@@ -1,7 +1,7 @@
 class_name Effects
 extends Node3D
-## The play scene's one-shot effects: sparks where a skeleton is hit, a burst where a bolt bursts, dust where a prop
-## lands hard, and the crossbow's tracer. The play scene calls them for the sim's events as soon as they are predicted
+## The play scene's one-shot effects: sparks where a skeleton is hit or a shield meets a blow, a burst where a bolt
+## bursts, a fireball's blast, dust where a prop lands hard, and the crossbow's tracer. The play scene calls them for the sim's events as soon as they are predicted
 ## (EMITTED): an effect a rollback takes back has already played, which an effect can afford, and one shown late would
 ## look worse.
 ##
@@ -11,6 +11,8 @@ extends Node3D
 ## How many of each effect play at once, the next one reusing the oldest: a cleave or a burst into a full crowd
 ## sparks on every skeleton it hits.
 const POOL_SIZE: int = 48
+## How many fireball blasts play at once: a blast is big and short, and few fly at once (the sim's MAX_FIREBALLS).
+const FIREBALL_POOL_SIZE: int = 8
 ## How long a tracer takes to fade, in seconds.
 const TRACER_FADE_S: float = 0.15
 
@@ -19,11 +21,13 @@ const TRACER_FADE_S: float = 0.15
 @export var burst_scene: PackedScene
 @export var dust_scene: PackedScene
 @export var tracer_scene: PackedScene
+@export var fireball_scene: PackedScene
 
 var _sparks: Pool
 var _bursts: Pool
 var _dust: Pool
 var _tracers: Pool
+var _fireballs: Pool
 var _fades: Array[Tween] = []
 
 
@@ -32,6 +36,7 @@ func _ready() -> void:
 	_bursts = _pool(burst_scene)
 	_dust = _pool(dust_scene)
 	_tracers = _pool(tracer_scene)
+	_fireballs = _pool(fireball_scene, FIREBALL_POOL_SIZE)
 	_fades.resize(POOL_SIZE)
 
 
@@ -43,6 +48,11 @@ func sparks(at: Vector3) -> void:
 ## A bolt's burst at `at`.
 func burst(at: Vector3) -> void:
 	_play(_bursts, at)
+
+
+## A fireball's blast at `at` (on the floor where it landed).
+func fireball(at: Vector3) -> void:
+	_play(_fireballs, at)
 
 
 ## A puff of dust at `at` (a prop landing hard).
@@ -69,9 +79,9 @@ func tracer(from: Vector3, to: Vector3) -> void:
 	_fades[index] = fade
 
 
-func _pool(scene: PackedScene) -> Pool:
+func _pool(scene: PackedScene, size: int = POOL_SIZE) -> Pool:
 	var pool := Pool.new()
-	for _i: int in POOL_SIZE:
+	for _i: int in size:
 		var node: Node3D = scene.instantiate() as Node3D
 		add_child(node)
 		pool.nodes.append(node)

@@ -76,6 +76,8 @@ Hit_Source :: enum u8 {
 	Crossbow, // a Rogue's shot
 	Prop, // a thrown prop
 	Dev, // dev_kill_minions
+	Charge, // a Knight's shield charge
+	Fireball, // a Mage's fireball's burst
 }
 
 // `player` hit `minion` for `damage` with `source` (sim.Position: where).
@@ -516,10 +518,11 @@ staggered :: proc(minion: ^Minion) -> bool {
 	return dmath.length_sq(minion.knock) > KNOCK_STAGGER * KNOCK_STAGGER
 }
 
-// `source`'s blast at `at` (a burst, later a fireball, a charge): every live minion within `radius` on the floor plan
-// that no wall shields (a ray from `at` to its chest) other than `skip` takes `damage` and is knocked away from `at`,
-// at `knock` at the centre falling off to BLAST_RIM of it at the rim (dot products and one sqrt a minion, no trig), in
-// the strikes' order (minions_within). Through damage_minion, so a pile of blasts knocks no faster than KNOCK_MAX.
+// `source`'s blast at `at` (a bolt's burst, a fireball's, a charging shield): every live minion within `radius` on
+// the floor plan that no wall shields (a ray from `at` to its chest) other than `skip` takes `damage` and is knocked
+// away from `at`, at `knock` at the centre falling off to BLAST_RIM of it at the rim (dot products and one sqrt a
+// minion, no trig), in the strikes' order (minions_within). Through damage_minion, so a pile of blasts knocks no faster
+// than KNOCK_MAX.
 knock_area :: proc(
 	t: ^Tick,
 	at: [3]f32,

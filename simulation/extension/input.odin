@@ -25,7 +25,7 @@ Input_Values :: struct {
 sample_input :: proc(local: int, input: ^g.Input) {
 	move := godot.action_vector("move_left", "move_right", "move_up", "move_down") // y "back": +Z, down the screen
 	input.move_x, input.move_z = dmath.axis_i8(move.x), dmath.axis_i8(move.y)
-	input.buttons = godot.buttons(g.Buttons, {.Attack = "attack", .Interact = "interact"})
+	input.buttons = godot.buttons(g.Buttons, {.Attack = "attack", .Interact = "interact", .Ability = "ability"})
 	stick := godot.action_vector("aim_left", "aim_right", "aim_up", "aim_down")
 	aim := stick * PAD_REACH
 	device := godot.local_device(local)
