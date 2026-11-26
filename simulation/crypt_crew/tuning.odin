@@ -174,9 +174,11 @@ FIREBALL_FLIGHT_TICKS :: u32(FIREBALL_FLIGHT_S * TICK_HZ)
 FIREBALL_RADIUS :: f32(3.5) // its burst hurts every minion this close that no wall shields ...
 FIREBALL_DAMAGE :: i16(25) // ... this much
 FIREBALL_KNOCK :: f32(9) // ... knocked away at this, falling off to BLAST_RIM of it at the rim
-// Its blast through Box3D (physics.world_explode): props within FIREBALL_RADIUS take this impulse per square metre of
-// them facing it (N·s/m²), fading to none over FIREBALL_FALLOFF beyond.
-FIREBALL_IMPULSE :: f32(400)
+// Its blast on the props (fireballs.odin, blast_props): each within FIREBALL_RADIUS that no wall shields takes this
+// impulse (N·s: a barrel leaves at 8 m/s) along the floor away from it, FIREBALL_LIFT of that upward, fading to none
+// over FIREBALL_FALLOFF beyond. A crate, the lightest, rises at most about 0.9 m: no prop is blown over a wall.
+FIREBALL_IMPULSE :: f32(240)
+FIREBALL_LIFT :: f32(0.35)
 FIREBALL_FALLOFF :: f32(1.5)
 FIREBALL_COOLDOWN_S :: f32(8) // from one cast's start to the next
 FIREBALL_COOLDOWN_TICKS :: u32(FIREBALL_COOLDOWN_S * TICK_HZ)

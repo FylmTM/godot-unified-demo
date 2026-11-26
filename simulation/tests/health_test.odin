@@ -204,3 +204,77 @@ a_joiner_arrives_beside_the_party :: proc(t: ^testing.T) {
 	testing.expect_value(t, sim.slot_data(alone.simulation, 2).pos, floor_of(&alone).places.hero_spawns[2])
 	scenarios.expect_synced(t, &alone)
 }
+
+// Within a floor a leaver comes back as it left: hurt, its hit points and its ability's cooldown; down, down (beside
+// the party, its revive's progress kept), so leaving is no way up.
+@(test)
+a_leaver_comes_back_as_it_left :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 2)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	leaver := sim.player_in_slot(run.simulation, 1)
+	hero := sim.player_data(&run.simulation.state.players, leaver)
+	headless.run_command(&run, 1, g.Command_Dev_Set_Class{.Rogue})
+	press(&run, 1, .Ability) // a roll: its cooldown runs
+	play(&run, {}, 0.5)
+	hurt(&run, 1, 40)
+	cooldown := hero.ability_ready
+	testing.expect(t, sim.timer_running(run.simulation.state.clock.time, cooldown), "the roll's cooldown runs")
+	headless.run_seat(&run, 1, 0)
+	headless.run_step(&run)
+	headless.run_seat(&run, 1, 2)
+	headless.run_step(&run)
+	testing.expect_value(t, hero.hp, g.HERO_HP - 40)
+	testing.expect_value(t, hero.ability_ready, cooldown)
+	testing.expect_value(t, hero.action, g.Action.None)
+
+	place_hero(&run, 0, spawn_of(&run, 0))
+	place_hero(&run, 1, spawn_of(&run, 0) + {1.1, 0, 0}, {-1, 0})
+	hurt(&run, 1, g.HERO_HP)
+	place_hero(&run, 0, spawn_of(&run, 0), {1, 0})
+	inputs := [g.PLAYERS]g.Input {
+		0 = {buttons = {.Interact}},
+	}
+	for _ in 0 ..< 30 do headless.run_step(&run, inputs)
+	testing.expect_value(t, hero.revive, 30)
+	headless.run_seat(&run, 1, 0)
+	headless.run_step(&run)
+	headless.run_seat(&run, 1, 2)
+	headless.run_step(&run)
+	testing.expect_value(t, hero.action, g.Action.Down)
+	testing.expect_value(t, hero.hp, 0)
+	testing.expect_value(t, hero.revive, 30 - g.REVIVE_DECAY) // its arrival tick, untended
+	spawned, _ := headless.run_last_event(&run, g.Event_Hero_Spawned)
+	testing.expect(t, spawned.beside, "it arrives beside the party, down")
+	scenarios.expect_synced(t, &run)
+}
+
+// The whole party down, one of them leaving and coming back doesn't stop the wipe: it comes back down, and the floor
+// restarts WIPE_S after the last went down. Whoever was away then comes back whole: the floor it left is gone.
+@(test)
+a_downed_rejoiner_keeps_the_wipe :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 3)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	away := sim.player_data(&run.simulation.state.players, sim.player_in_slot(run.simulation, 2))
+	hurt(&run, 2, g.HERO_HP)
+	headless.run_seat(&run, 2, 0) // down, it leaves for the rest of the floor
+	headless.run_step(&run)
+	hurt(&run, 0, g.HERO_HP)
+	hurt(&run, 1, g.HERO_HP) // the wipe begins
+	testing.expect_value(t, headless.run_events(&run, g.Event_Party_Wiped), 1)
+	headless.run_seat(&run, 1, 0)
+	headless.run_step(&run)
+	headless.run_seat(&run, 1, 2)
+	headless.run_step(&run)
+	testing.expect_value(t, sim.slot_data(run.simulation, 1).action, g.Action.Down)
+	for _ in 0 ..< g.WIPE_TICKS - 3 do headless.run_step(&run)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 0)
+	headless.run_step(&run) // WIPE_TICKS after the last went down
+	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 1)
+	headless.run_seat(&run, 2, 3)
+	headless.run_step(&run)
+	testing.expect_value(t, away.action, g.Action.None)
+	testing.expect_value(t, away.hp, g.HERO_HP)
+	scenarios.expect_synced(t, &run)
+}

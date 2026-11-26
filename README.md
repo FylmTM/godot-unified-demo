@@ -93,7 +93,8 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
   (`simulation/extension/frame.odin`).
 - **Physics under rollback**: heroes are `physics.Character` capsules (`heroes.odin`) and props dynamic bodies
   (`props.odin`); a carried prop hangs on a motor joint, and a thrown one ignores its thrower's contacts
-  (`hands.odin`); a fireball's blast throws props through Box3D's explosion (`physics.world_explode`: `fireballs.odin`).
+  (`hands.odin`); a fireball's blast is an impulse on the props' Box3D bodies, walls shielding them
+  (`fireballs.odin`).
 - **Shots resolved where the shooter saw them**: the Rogue's crossbow looks back by its input's `sim.Seen`
   (`rogue.odin`).
 - **Navigation**: minions walk the floor's navigation mesh along memoized distance fields, kept apart over a
@@ -153,9 +154,10 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    and ARRIVAL_ROOM clear of heroes and props; with none, at its slot's hero spawn.
 2. **Pause.** `Set_Paused` stops or starts the game clock; while paused, nothing after this runs.
 3. **Dev commands.**
-4. **Heroes.** Interact pressed within REVIVE_RANGE of a downed ally starts a revive, held it goes on (at
-   REVIVE_SPEED; a blow or Attack breaks it off): each ally tending adds a tick, untended it decays by REVIVE_DECAY,
-   and at REVIVE_TICKS the ally rises where it lies with REVIVE_HP, safe for SPAWN_GRACE_S. Each hero turns to its
+4. **Heroes.** Interact pressed within REVIVE_RANGE of a downed ally starts a revive (through a held Attack, too),
+   held it goes on (at REVIVE_SPEED, no attack meanwhile; a blow breaks it off): each ally tending adds a tick,
+   untended it decays by REVIVE_DECAY, and at REVIVE_TICKS the ally rises where it lies with REVIVE_HP, safe for
+   SPAWN_GRACE_S; the reviver carries on to another downed ally in range. Each hero turns to its
    aim (else its move, past TURN_STICK). Interact grabs the nearest prop in reach (GRAB_RANGE, GRAB_CONE_COS) or drops
    the one held; Attack while holding throws it (THROW_WINDUP_S, THROW_SPEED). Ability starts the class's ability
    (cutting an attack short), on its own cooldown: the Knight's block while held (blows from within BLOCK_ARC_COS of
@@ -188,7 +190,8 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    MAX_REWIND_S back). Walls shield what is behind them from blows, bursts and shots; bolts and
    shots fly at FLIGHT_HEIGHT, over low cover and resting light props, and meet walls, heavy crates and props held or
    in flight. A fireball bursts FIREBALL_FLIGHT_S after its cast: a blast (FIREBALL_RADIUS, FIREBALL_DAMAGE,
-   FIREBALL_KNOCK) on the minions no wall shields, and an impulse on the props (FIREBALL_IMPULSE, through Box3D). A thrown prop faster than PROP_HIT_SPEED hurts each minion it meets once (PROP_HIT_DAMAGE, at most
+   FIREBALL_KNOCK) on the minions and an impulse on the props (FIREBALL_IMPULSE, FIREBALL_LIFT of it up), both on
+   what no wall shields. A thrown prop faster than PROP_HIT_SPEED hurts each minion it meets once (PROP_HIT_DAMAGE, at most
    PROP_HITS_MAX, keeping PROP_HIT_KEEP of its velocity) for the whole of its throw (THROWN_S).
 9. **Props.** A prop landing faster than IMPACT_SPEED is an impact. A thrown prop passes through its thrower until it
    is THROW_CLEAR_DIST away or its throw ends.

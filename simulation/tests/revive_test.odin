@@ -96,9 +96,9 @@ a_revive_let_go_decays :: proc(t: ^testing.T) {
 }
 
 // A blow breaks a revive off: the reviver stops tending though it still holds Interact, the revive decays, and only a
-// new press starts it again. Attack held stops it too.
+// new press starts it again.
 @(test)
-a_hit_or_an_attack_breaks_a_revive_off :: proc(t: ^testing.T) {
+a_hit_breaks_a_revive_off :: proc(t: ^testing.T) {
 	run := one_down(2)
 	defer headless.run_end(&run)
 	downed, reviver := sim.slot_data(run.simulation, 0), sim.slot_data(run.simulation, 1)
@@ -114,11 +114,94 @@ a_hit_or_an_attack_breaks_a_revive_off :: proc(t: ^testing.T) {
 	play(&run, {}, 1.0 / g.TICK_HZ)
 	tend(&run, {1}, 5)
 	testing.expect_value(t, reviver.action, g.Action.Revive)
-	attacking := [g.PLAYERS]g.Input {
-		1 = {buttons = {.Interact, .Attack}},
+	scenarios.expect_synced(t, &run)
+}
+
+// Interact pressed with Attack held (the hero mid-swing) still starts the revive, and grabs nothing though a crate is in
+// reach: the revive cuts the swing short, no attack starts while it tends, and it completes.
+@(test)
+a_revive_press_goes_through_a_held_attack :: proc(t: ^testing.T) {
+	run := one_down(2)
+	defer headless.run_end(&run)
+	downed, reviver := sim.slot_data(run.simulation, 0), sim.slot_data(run.simulation, 1)
+	lying := downed.pos
+	place_hero(&run, 1, lying + {0, 0, 1.1}, {0, -1})
+	place_prop(&run, CRATE, reviver.pos + {1.1, 0, -1.1}) // in the grab's cone, clear of the downed hero
+	swinging := [g.PLAYERS]g.Input {
+		1 = {buttons = {.Attack}},
 	}
-	headless.run_step(&run, attacking)
-	testing.expect(t, reviver.action != .Revive, "Attack held stops the revive")
+	for _ in 0 ..< 3 do headless.run_step(&run, swinging)
+	testing.expect_value(t, reviver.action, g.Action.Attack)
+	attacks := headless.run_events(&run, g.Event_Hero_Attacked)
+	tending := [g.PLAYERS]g.Input {
+		1 = {buttons = {.Attack, .Interact}},
+	}
+	for _ in 0 ..< g.REVIVE_TICKS - 1 {
+		headless.run_step(&run, tending)
+		if reviver.action != .Revive do break
+	}
+	testing.expect_value(t, reviver.action, g.Action.Revive)
+	testing.expect_value(t, reviver.held, sim.Handle(g.Prop){})
+	testing.expect_value(t, headless.run_events(&run, g.Event_Hero_Attacked), attacks)
+	headless.run_step(&run, tending)
+	testing.expect_value(t, downed.action, g.Action.None)
+	scenarios.expect_synced(t, &run)
+}
+
+// A hero carrying a prop revives nobody: its press beside a downed ally drops the prop, as Interact does.
+@(test)
+no_revive_while_carrying :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 2)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	downed, reviver := sim.slot_data(run.simulation, 0), sim.slot_data(run.simulation, 1)
+	place_hero(&run, 0, spawn_of(&run, 0))
+	place_hero(&run, 1, downed.pos + {0, 0, 1.1}, {0, 1}) // its back to slot 0, facing a crate
+	place_prop(&run, CRATE, reviver.pos + {0, 0, 1.4})
+	press(&run, 1, .Interact) // slot 0 is up: nobody to revive, so it grabs
+	testing.expect(t, reviver.held != {}, "it picked the crate up")
+	hurt(&run, 0, g.HERO_HP)
+	play(&run, {}, 1)
+	tend(&run, {1}, 4)
+	testing.expect_value(t, reviver.held, sim.Handle(g.Prop){})
+	testing.expect(t, reviver.action != .Revive, "the press dropped the crate: no revive")
+	testing.expect_value(t, downed.revive, 0)
+	scenarios.expect_synced(t, &run)
+}
+
+// A downed ally just out of REVIVE_RANGE isn't tended; a step closer, it is.
+@(test)
+no_revive_out_of_range :: proc(t: ^testing.T) {
+	run := one_down(2)
+	defer headless.run_end(&run)
+	downed, reviver := sim.slot_data(run.simulation, 0), sim.slot_data(run.simulation, 1)
+	lying := downed.pos
+	place_hero(&run, 1, lying + {0, 0, g.REVIVE_RANGE + 0.2}, {0, -1})
+	tend(&run, {1}, 10)
+	testing.expect_value(t, reviver.action, g.Action.None)
+	testing.expect_value(t, downed.revive, 0)
+	play(&run, {}, 0.25)
+	place_hero(&run, 1, lying + {0, 0, g.REVIVE_RANGE - 0.2}, {0, -1})
+	tend(&run, {1}, 10)
+	testing.expect_value(t, reviver.action, g.Action.Revive)
+	testing.expect_value(t, downed.revive, 10)
+	scenarios.expect_synced(t, &run)
+}
+
+// A reviver whose ally rises carries on, Interact still held, to another hero down in its range: no new press.
+@(test)
+a_reviver_carries_on_to_the_next :: proc(t: ^testing.T) {
+	run := one_down(3)
+	defer headless.run_end(&run)
+	reviver, second := sim.slot_data(run.simulation, 1), sim.slot_data(run.simulation, 2)
+	place_hero(&run, 2, sim.slot_data(run.simulation, 0).pos + {0, 0, -1.1})
+	place_hero(&run, 1, sim.slot_data(run.simulation, 0).pos + {1, 0, 0}, {-1, 0})
+	hurt(&run, 2, g.HERO_HP)
+	tend(&run, {1}, int(g.REVIVE_TICKS))
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).action, g.Action.None) // the nearer first
+	tend(&run, {1}, 5)
+	testing.expect_value(t, reviver.action, g.Action.Revive)
+	testing.expect(t, second.action == .Down && second.revive > 0, "it carries on to the second")
 	scenarios.expect_synced(t, &run)
 }
 

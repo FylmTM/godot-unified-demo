@@ -93,8 +93,8 @@ a_shield_charge_dashes_and_knocks_aside :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// The Rogue's roll goes along the stick (not the aim) at ROLL_SPEED; nothing hurts the Rogue in its first ROLL_SAFE_S,
-// and a blow lands from then, though it still rolls.
+// The Rogue's roll goes along the stick (not the aim) at ROLL_SPEED, and keeps that line whatever the aim and stick do
+// through it; nothing hurts the Rogue in its first ROLL_SAFE_S, and a blow lands from then, though it still rolls.
 @(test)
 a_roll_is_safe_only_early :: proc(t: ^testing.T) {
 	run := ability_hero(.Rogue)
@@ -103,7 +103,8 @@ a_roll_is_safe_only_early :: proc(t: ^testing.T) {
 	hold(&run, {buttons = {.Ability}, move_z = 127, aim = dmath.dir2({1, 0})}, 1)
 	testing.expect_value(t, rogue.action, g.Action.Roll)
 	expect_facing(t, rogue, {0, 1})
-	hold(&run, {}, int(g.ROLL_SAFE_TICKS) - 2)
+	hold(&run, {aim = dmath.dir2({1, 0}), move_x = 127}, int(g.ROLL_SAFE_TICKS) - 2) // mid-roll: they turn it not
+	expect_facing(t, rogue, {0, 1})
 	testing.expectf(t, abs(rogue.vel.z - g.ROLL_SPEED) < 0.5, "rolls at %v m/s, not %v", rogue.vel.z, g.ROLL_SPEED)
 	hurt(&run, 0, 30) // its age now ROLL_SAFE_TICKS - 1
 	testing.expect_value(t, rogue.hp, g.HERO_HP)
@@ -156,26 +157,59 @@ a_fireball_lands_at_the_reach :: proc(t: ^testing.T) {
 
 // A fireball aimed through a wall lands FIREBALL_WALL_GAP short of it, and the wall shields what is behind it: a
 // skeleton beside the burst in the hall takes FIREBALL_DAMAGE, one as near behind the wall nothing; a barrel by the
-// burst is blown away (physics.world_explode).
+// burst is blown away, a crate as near behind the wall stays put (blast_props). A hero beside the burst isn't moved.
 @(test)
 a_fireball_stops_at_walls_and_moves_props :: proc(t: ^testing.T) {
-	run := ability_hero(.Mage)
+	run := ability_hero(.Mage, seated = 2)
 	defer headless.run_end(&run)
 	place_hero(&run, 0, {10, 0, -8}, {0, -1}) // facing the wall at z = -12 (its hall face at -11.5)
+	place_hero(&run, 1, {8.6, 0, -9.8})
+	bystander := sim.slot_data(run.simulation, 1)
 	beside := place_minion(&run, {8.5, 0, -11}, .Rise)
 	behind := place_minion(&run, {10, 0, -13.5}, .Rise)
 	hidden := sim.get(&run.simulation.state.minions, behind)
 	hidden.pos.z = -12.6 // just past the wall's far face: within FIREBALL_RADIUS of the burst, through the wall
 	place_prop(&run, BARREL, {11.5, 0, -10.5})
+	place_prop(&run, CRATE, {10.8, 0, -13.3}) // behind the wall, as near the burst as the barrel
 	fireball, _ := cast_on(&run, {aim = dmath.dir2({0, -1}), reach = g.reach_steps(8)})
 	testing.expectf(t, abs(fireball.to.z - (-11.5 + g.FIREBALL_WALL_GAP)) < 0.05, "lands at %v", fireball.to)
-	hold(&run, {}, int(g.FIREBALL_FLIGHT_TICKS) + 1)
+	hold(&run, {}, int(g.FIREBALL_FLIGHT_TICKS) - 1)
+	standing := bystander.pos
+	hold(&run, {}, 6) // the burst, and a few ticks after it
+	testing.expect_value(t, headless.run_events(&run, g.Event_Fireball_Burst), 1)
 	minions := &run.simulation.state.minions
 	testing.expect_value(t, sim.get(minions, beside).hp, g.MINION_HP - g.FIREBALL_DAMAGE)
 	testing.expect_value(t, sim.get(minions, behind).hp, g.MINION_HP)
 	barrel, _ := prop_at(&run, BARREL)
 	moving := dmath.length(physics.body_linear_velocity(run.simulation.world.phys, barrel.body))
 	testing.expectf(t, moving > 1, "the barrel by the burst moves at %v m/s", moving)
+	crate, _ := prop_at(&run, CRATE)
+	shielded := dmath.length(physics.body_linear_velocity(run.simulation.world.phys, crate.body))
+	testing.expectf(t, shielded < 0.01, "the crate behind the wall moves at %v m/s", shielded)
+	shoved := dmath.length(bystander.pos - standing)
+	testing.expectf(t, shoved < 0.02, "the hero beside the burst moved %v m", shoved)
+	scenarios.expect_synced(t, &run)
+}
+
+// No prop is blown over a wall: a crate (the lightest) right by a fireball's landing rises nowhere near a wall's
+// 2.4 m, though the blast sends it off.
+@(test)
+a_blast_throws_no_prop_over_a_wall :: proc(t: ^testing.T) {
+	run := ability_hero(.Mage)
+	defer headless.run_end(&run)
+	place_hero(&run, 0, {10, 0, -4}, {0, -1})
+	place_prop(&run, CRATE, {10, 0, -8.3}) // by the landing, 4 m up the hall
+	cast_on(&run, {aim = dmath.dir2({0, -1}), reach = g.reach_steps(4)})
+	crate, _ := prop_at(&run, CRATE)
+	highest, fastest: f32
+	for _ in 0 ..< g.FIREBALL_FLIGHT_TICKS + g.TICK_HZ {
+		headless.run_step(&run)
+		bottom := physics.body_position(run.simulation.world.phys, crate.body).y - g.PROP_SPECS[.Crate].half.y
+		speed := dmath.length(physics.body_linear_velocity(run.simulation.world.phys, crate.body))
+		highest, fastest = dmath.max(highest, bottom), dmath.max(fastest, speed)
+	}
+	testing.expectf(t, fastest > 5, "the blast sent the crate off at %v m/s", fastest)
+	testing.expectf(t, highest < 1.2, "the crate's bottom rose to %v m", highest)
 	scenarios.expect_synced(t, &run)
 }
 
@@ -231,4 +265,102 @@ the_script_uses_every_ability :: proc(t: ^testing.T) {
 		revives,
 	)
 	scenarios.expect_synced(t, &run)
+}
+
+// A charging Knight's shield takes a blow from the front whole: a skeleton's swing landing on it, off to the side of the
+// charge (out of its blast's reach, in the shield's arc), hurts nothing and clangs.
+@(test)
+a_charge_takes_blows_from_the_front :: proc(t: ^testing.T) {
+	run := ability_hero(.Knight)
+	defer headless.run_end(&run)
+	knight := sim.slot_data(run.simulation, 0)
+	hold(&run, {buttons = {.Ability}}, 2)
+	side := [2]f32{0.6427876, 0.7660444} // 50 degrees off the facing (+X): in the shield's arc, clear of the blast
+	handle := place_minion(&run, knight.pos + [3]f32{side.x, 0, side.y} * 1.6, .Attack, -side)
+	state := &run.simulation.state
+	swinger := sim.get(&state.minions, handle)
+	swinger.target = sim.player_in_slot(run.simulation, 0)
+	swinger.since = state.clock.time + 1 - sim.Game_Time(g.MINION_WINDUP_TICKS) // it lands on the next tick
+	headless.run_pin(&run)
+	hold(&run, {buttons = {.Ability, .Attack}}, 1) // the charge starts as the swing lands
+	testing.expect_value(t, knight.action, g.Action.Charge)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Blocked), 1)
+	testing.expect_value(t, knight.hp, g.HERO_HP)
+	scenarios.expect_synced(t, &run)
+}
+
+// No ability while the hands are full or busy: a Knight carrying a crate doesn't block, a Mage carrying it doesn't
+// cast, and a Rogue whose throw is still under way doesn't roll; none of them spends its cooldown.
+@(test)
+no_ability_while_carrying_or_throwing :: proc(t: ^testing.T) {
+	run := ability_hero(.Knight)
+	defer headless.run_end(&run)
+	hero := sim.slot_data(run.simulation, 0)
+	place_prop(&run, CRATE, hero.pos + {1.4, 0, 0})
+	press(&run, 0, .Interact)
+	play(&run, {}, g.PICK_UP_S)
+	testing.expect(t, hero.held != {}, "it carries the crate")
+	hold(&run, {buttons = {.Ability}}, 4)
+	testing.expect(t, hero.action != .Block, "a Knight carrying blocks")
+	hold(&run, {}, 1)
+	headless.run_command(&run, 0, g.Command_Dev_Set_Class{.Mage})
+	press(&run, 0, .Ability)
+	testing.expect(t, hero.action != .Cast, "a Mage carrying casts")
+	headless.run_command(&run, 0, g.Command_Dev_Set_Class{.Rogue})
+	press(&run, 0, .Attack) // the throw
+	play(&run, {}, g.THROW_WINDUP_S)
+	testing.expect(t, hero.held == {} && hero.action == .Throw, "the crate left, the throw still under way")
+	press(&run, 0, .Ability)
+	testing.expect(t, hero.action != .Roll, "a Rogue mid-throw rolls")
+	testing.expect_value(t, hero.ability_ready, sim.Timer{})
+	scenarios.expect_synced(t, &run)
+}
+
+// A hero down starts no ability, whatever its class (a teammate up, so the floor doesn't restart).
+@(test)
+no_ability_while_down :: proc(t: ^testing.T) {
+	for class in ([]g.Class{.Knight, .Mage, .Rogue}) {
+		run := ability_hero(class, seated = 2)
+		defer headless.run_end(&run)
+		hero := sim.slot_data(run.simulation, 0)
+		hurt(&run, 0, g.HERO_HP)
+		hold(&run, {}, 1)
+		hold(&run, {buttons = {.Ability, .Attack}}, 4)
+		testing.expectf(t, hero.action == .Down, "a downed %v: %v", class, hero.action)
+		testing.expect_value(t, hero.ability_ready, sim.Timer{})
+		scenarios.expect_synced(t, &run)
+	}
+}
+
+// The Rogue's roll and the Mage's fireball wait their cooldowns: pressed again once the first is over, nothing, and a
+// tick before the cooldown runs out, nothing; once it has, again.
+@(test)
+the_roll_and_the_fireball_wait_their_cooldowns :: proc(t: ^testing.T) {
+	Case :: struct {
+		class:    g.Class,
+		action:   g.Action,
+		lasts:    u32,
+		cooldown: u32,
+	}
+	cases := []Case {
+		{.Rogue, .Roll, g.ROLL_TICKS, g.ROLL_COOLDOWN_TICKS},
+		{.Mage, .Cast, g.FIREBALL_WINDUP_TICKS, g.FIREBALL_COOLDOWN_TICKS},
+	}
+	for c in cases {
+		run := ability_hero(c.class)
+		defer headless.run_end(&run)
+		hero := sim.slot_data(run.simulation, 0)
+		hold(&run, {buttons = {.Ability}}, 1) // the first: tick 0 of its cooldown
+		testing.expect_value(t, hero.action, c.action)
+		hold(&run, {}, int(c.lasts))
+		hold(&run, {buttons = {.Ability}}, 1)
+		testing.expectf(t, hero.action == .None, "%v again once over: %v", c.class, hero.action)
+		hold(&run, {}, int(c.cooldown - c.lasts - 3))
+		hold(&run, {buttons = {.Ability}}, 1) // tick cooldown - 1
+		testing.expectf(t, hero.action == .None, "%v a tick early: %v", c.class, hero.action)
+		hold(&run, {}, 1)
+		hold(&run, {buttons = {.Ability}}, 1) // tick cooldown + 1
+		testing.expectf(t, hero.action == c.action, "%v once the cooldown ran out: %v", c.class, hero.action)
+		scenarios.expect_synced(t, &run)
+	}
 }

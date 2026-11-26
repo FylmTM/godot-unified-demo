@@ -85,6 +85,9 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 
 Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 
+- An occlusion option for `physics.world_explode` (a blast's impulse only on shapes a ray from its centre reaches
+  past a mask's shapes), so a blast is Box3D's own and walls shield what is behind them: the fireball applies its
+  impulse per prop meanwhile (`simulation/crypt_crew/fireballs.odin`, blast_props). Later.
 - A Linux x64 zip from `uni release` on Linux. (`uni release` itself works in a game repo since unified 830b012:
   macOS arm64 and Windows x64 zips from the game's export_presets.cfg, the unified-release skill; the demo has no
   export preset yet, milestone 10's.) Milestone 10.

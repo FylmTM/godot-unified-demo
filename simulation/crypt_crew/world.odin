@@ -339,6 +339,7 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 	sim.despawn_all(&t.state.bolts)
 	sim.despawn_all(&t.state.fireballs) // in flight: they burst on no floor
 	sim.timer_stop(&t.state.wipe) // every hero gets up at its spawn
+	forget_leavers(t) // and whoever comes back later, whole
 	physics.level_change(t, t.world.phys, to)
 	spawn_props(t)
 	if t.setup.crowd == .None do spawn_packs(t) // a held crowd is the floor's whole population
