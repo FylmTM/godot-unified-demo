@@ -12,19 +12,29 @@
 [ext_resource type="AudioStream" path="res://assets/kenney/impact_sounds/impactSoft_heavy_000.ogg" id="downed"]
 [ext_resource type="AudioStream" path="res://assets/kenney/impact_sounds/impactBell_heavy_000.ogg" id="revived"]
 [ext_resource type="AudioStream" path="res://assets/kenney/rpg_audio/handleCoins2.ogg" id="coin"]
+[ext_resource type="AudioStream" path="res://assets/kenney/rpg_audio/metalClick.ogg" id="plate"]
+[ext_resource type="AudioStream" path="res://assets/kenney/rpg_audio/creak1.ogg" id="gate_open"]
+[ext_resource type="AudioStream" path="res://assets/kenney/rpg_audio/metalLatch.ogg" id="gate_shut"]
+[ext_resource type="AudioStream" path="res://assets/kenney/impact_sounds/impactWood_heavy_000.ogg" id="barricade"]
+[ext_resource type="AudioStream" path="res://assets/kenney/rpg_audio/knifeSlice.ogg" id="trap"]
 
 [node name="Sfx" type="Node"]
 script = ExtResource("sfx")
 sounds = Dictionary[StringName, AudioStream]({
+&"barricade": ExtResource("barricade"),
 &"block": ExtResource("block"),
 &"coin": ExtResource("coin"),
 &"confirm": ExtResource("confirm"),
 &"downed": ExtResource("downed"),
 &"error": ExtResource("error"),
 &"fireball": ExtResource("fireball"),
+&"gate_open": ExtResource("gate_open"),
+&"gate_shut": ExtResource("gate_shut"),
 &"joined": ExtResource("joined"),
 &"left": ExtResource("left"),
+&"plate": ExtResource("plate"),
 &"press": ExtResource("press"),
 &"revived": ExtResource("revived"),
-&"select": ExtResource("select")
+&"select": ExtResource("select"),
+&"trap": ExtResource("trap")
 })

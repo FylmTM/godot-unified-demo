@@ -1,8 +1,9 @@
 extends Node
 ## The interface's sounds (the `Sfx` autoload): Kenney's Interface Sounds on the Interface bus, from a small pool of
 ## voices, so two sounds at once never cut each other off; and the first of the game's own, Kenney's Impact Sounds: a
-## shield's clang, a fireball's blast, a hero going down and one revived (the play scene plays them on the sim's events),
-## and from Kenney's RPG Audio a pickup's chime once it is confirmed (Purse).
+## shield's clang, a fireball's blast, a hero going down and one revived, a barricade breaking (the play scene plays them
+## on the sim's events), and from Kenney's RPG Audio a pickup's chime once it is confirmed (Purse), and the mechanisms'
+## click of a plate pressed, creak of a gate opening and latch of one shutting, and slice of a trap striking.
 ##
 ## It only plays: which control makes which sound is Game's rule (every button of the game sounds when pressed, the
 ## focus moving between controls sounds), so no menu script plays a click by hand. The sounds are `sounds`, set in
@@ -16,7 +17,7 @@ signal played(sound: StringName)
 const VOICES: int = 4
 
 ## Every sound by name: `press`, `select`, `confirm`, `error`, `joined`, `left`; `block`, `fireball`, `downed`,
-## `revived`, `coin`.
+## `revived`, `coin`; `plate`, `gate_open`, `gate_shut`, `barricade`, `trap`.
 @export var sounds: Dictionary[StringName, AudioStream] = {}
 
 var _voices: Array[AudioStreamPlayer] = []

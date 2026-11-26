@@ -49,10 +49,11 @@ Event_Heave_Landed :: struct {
 	position: sim.Position,
 }
 
-// What a thrown body lands on: the floor, walls, low cover and props (never another body: it rolls off a hero's head).
+// What a thrown body lands on: the floor, walls, low cover, props and mechanisms (never another body: it rolls off a
+// hero's head).
 LAND_FILTER :: physics.Filter {
 	category = CAT_HERO,
-	mask     = CAT_FLOOR | CAT_WALL | CAT_LOW | CAT_PROP,
+	mask     = CAT_FLOOR | CAT_WALL | CAT_LOW | CAT_PROP | CAT_PIECE,
 }
 
 // The Barbarian's blow lands: its axe's cleave.

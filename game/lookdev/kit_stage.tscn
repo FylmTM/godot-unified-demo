@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_dirt_large.tscn" id="10_k3c16"]
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_dirt_large_rocky.tscn" id="11_fdtro"]
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_big_grate.tscn" id="12_1u85d"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_big_spikes.tscn" id="66_spikes"]
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_large.tscn" id="13_fkptf"]
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_large_rocks.tscn" id="14_bnprw"]
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_small.tscn" id="15_svjc1"]
@@ -261,3 +262,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 190, 0, 14)
 
 [node name="TreeDeadSmall" parent="." unique_id=2138490488 instance=ExtResource("65_0ldae")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 200, 0, 14)
+
+[node name="FloorTileBigSpikes" parent="." instance=ExtResource("66_spikes")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 440, 0, 0)

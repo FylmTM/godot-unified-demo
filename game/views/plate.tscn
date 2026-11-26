@@ -1,0 +1,14 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/views/plate.gd" id="plate"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/floor_tile_small.gltf" id="model"]
+
+[node name="Plate" type="Node3D"]
+script = ExtResource("plate")
+
+[node name="UnifiedView" type="UnifiedView" parent="."]
+kind = "plate"
+
+[node name="Model" parent="." instance=ExtResource("model")]
+transform = Transform3D(0.95, 0, 0, 0, 1, 0, 0, 0, 0.95, 0, -0.01, 0)
+

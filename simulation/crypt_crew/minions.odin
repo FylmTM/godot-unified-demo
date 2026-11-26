@@ -79,6 +79,7 @@ Hit_Source :: enum u8 {
 	Charge, // a Knight's shield charge
 	Fireball, // a Mage's fireball's burst
 	Heave, // a body a Barbarian threw, landing (barbarian.odin)
+	Trap, // spikes or the roller (traps.odin)
 }
 
 // `player` hit `minion` for `damage` with `source` (sim.Position: where).
@@ -286,8 +287,9 @@ build_grid :: proc(t: ^Tick) {
 	fill_grid(&t.world.grid, floor_of(t), &t.state.minions)
 }
 
-// The grid of the minions where the physics step left them, built by the tick's first strike query (a tick whose
-// strikes ask nothing builds none) and kept for the rest of the strikes: World.strike_grid, cleared as they begin.
+// The grid of the minions where the physics step left them, built by the tick's first query after the step (the traps'
+// or the strikes'; a tick that asks nothing builds none) and kept for the rest of the tick: World.strike_grid, cleared
+// once the step is done.
 strike_grid :: proc(t: ^Tick) -> ^Minion_Grid {
 	if !t.world.strike_grid do build_grid(t)
 	t.world.strike_grid = true
@@ -341,10 +343,13 @@ next_within :: proc(walk: ^Minions_Within) -> (minion: ^Minion, handle: sim.Hand
 	}
 }
 
-// What minions are pushed out of this tick: every present hero's capsule, every prop held or at rest, and every live
-// elite's capsule.
+// The most obstacles a tick holds: every hero, prop and elite, three circles for each gate and barricade, a roller each.
+MAX_OBSTACLES :: PLAYERS + MAX_PROPS + MAX_ELITES + 3 * (MAX_GATES + MAX_BARRICADES) + MAX_TRAPS
+
+// What minions are pushed out of this tick: every present hero's capsule, every prop held or at rest, every live
+// elite's capsule, and the mechanisms in the way: a gate not lifted past GATE_PASS, a barricade standing, a roller.
 @(private = "file")
-obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, PLAYERS + MAX_PROPS + MAX_ELITES)) {
+obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, MAX_OBSTACLES)) {
 	heroes := sim.iterate_present(t)
 	for hero in sim.next(&heroes) do sim.append(&obstacles, Obstacle{hero.pos.xz, HERO_RADIUS})
 	props := sim.iterate(&t.state.props)
@@ -357,6 +362,9 @@ obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, PLAYERS + MAX_P
 	for elite in sim.next(&elites) {
 		if elite.phase != .Dying do sim.append(&obstacles, Obstacle{elite.pos.xz, ELITE_RADIUS})
 	}
+	gate_obstacles(t, &obstacles) // gates.odin
+	barricade_obstacles(t, &obstacles) // barricades.odin
+	roller_obstacles(t, &obstacles) // traps.odin
 	return
 }
 

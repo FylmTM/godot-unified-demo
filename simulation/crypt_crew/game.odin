@@ -10,7 +10,8 @@
 // held crowds and the benchmarks' populations), elites (Box3D skeletons: the shared rules) and a file per kind
 // (elite_warrior, elite_rogue, elite_mage), health (damage, down, the wipe), revive (allies tending the downed), pause
 // (the co-op pause), saves (the Setup a save is, and the tally it carries), dev (the dev commands) and script (the
-// scripted player); loot (coins dropped and the party's purse).
+// scripted player); loot (coins dropped and the party's purse); the mechanisms: plates, gates, barricades and traps
+// (spikes and the roller).
 package crypt_crew
 
 import "unified:physics"
@@ -21,7 +22,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "22"
+VERSION :: "24"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -38,6 +39,7 @@ GAME := Game {
 	levels            = {
 		{"floor_1", #load("../../game/levels/floor_1.level")},
 		{"arena", #load("../../game/levels/arena.level")},
+		{"workshop", #load("../../game/levels/workshop.level")},
 	},
 	world_create      = world_create,
 	world_destroy     = world_destroy,
@@ -94,6 +96,7 @@ Zone :: enum u8 {
 	Health,
 	Elites,
 	Loot,
+	Pieces, // the mechanisms: plates, gates, barricades, traps
 }
 
 // One tick: the systems in their order, each group a timing zone.
@@ -135,14 +138,25 @@ tick :: proc(t: ^Tick) {
 		move_elites(t) // after the minions: their pass read the elites where the last step left them
 	}
 	{
+		sim.zone(t, Zone.Pieces)
+		drive_gates(t) // before the step: from the plates as the last step left them
+		drive_rollers(t)
+	}
+	{
 		sim.zone(t, Zone.Physics)
 		physics.step(t.world.phys)
 		read_back_heroes(t)
 		read_back_elites(t)
 	}
+	t.world.strike_grid = false // the first query after the step builds it (strike_grid): a tick without one builds none
+	{
+		sim.zone(t, Zone.Pieces)
+		read_plates(t) // after the step: what it pressed, broke and carried onto the spikes
+		break_barricades(t) // before anything destroys a body: the step's joint events name the joints it reported
+		spring_traps(t)
+	}
 	{
 		sim.zone(t, Zone.Strikes)
-		t.world.strike_grid = false // the first query below builds it (strike_grid): a tick without one builds none
 		resolve_strikes(t) // after the step: a blow lands on where things are now
 		charge_strikes(t)
 		fly_bolts(t)

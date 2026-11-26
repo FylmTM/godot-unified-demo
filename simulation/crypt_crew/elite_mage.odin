@@ -12,11 +12,11 @@ import "unified:dmath"
 import "unified:physics"
 import "unified:sim"
 
-// What a bone bolt stops at: walls, low cover and props met where they stand above FLIGHT_HEIGHT, as a hero's bolt;
-// never a skeleton (heroes are swept on the floor plan: fly_bone_bolt).
+// What a bone bolt stops at: walls, low cover, props and mechanisms met where they stand above FLIGHT_HEIGHT, as a
+// hero's bolt; never a skeleton (heroes are swept on the floor plan: fly_bone_bolt).
 BONE_BOLT_FILTER :: physics.Filter {
 	category = CAT_ELITE,
-	mask     = CAT_WALL | CAT_LOW | CAT_PROP,
+	mask     = CAT_WALL | CAT_LOW | CAT_PROP | CAT_PIECE,
 }
 
 // The Mage's way (`heading`) and where it looks (`look`; zero: along its heading): the path while its target is out of

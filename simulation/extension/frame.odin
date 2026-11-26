@@ -23,6 +23,11 @@ View :: union {
 	View_Fireball,
 	View_Fireball_Target,
 	View_Elite, // keyed by its handle (its events' `elite`)
+	// The mechanisms, each keyed by its handle (its events' `plate`, `gate`, `barricade`, `trap`), posed at its body.
+	View_Plate,
+	View_Gate,
+	View_Barricade,
+	View_Trap,
 }
 
 // The MultiMesh views (a MultiMeshInstance3D with a UnifiedMultiView each), keyed by their handles: the Mage's bolts
@@ -176,7 +181,7 @@ loot_instance :: proc(coin: ^g.Loot, handle: sim.Handle(g.Loot)) -> godot.Multi_
 }
 
 // Every present hero, every prop, every bolt, every fireball and where a local Mage's would land, every minion, every
-// elite, every coin, then the HUD's data.
+// elite, every mechanism, every coin, then the HUD's data.
 fill_frame :: proc(f: ^Frame) {
 	fill_heroes(f)
 	fill_props(f)
@@ -191,6 +196,7 @@ fill_frame :: proc(f: ^Frame) {
 		godot.push_multi_view(f, minion_instance(minion, handle))
 	}
 	fill_elites(f)
+	fill_pieces(f)
 	coins := sim.iterate(&f.state.loot)
 	for coin, handle in sim.next(&coins) do godot.push_multi_view(f, loot_instance(coin, handle))
 	fill_hud(f)
@@ -293,4 +299,66 @@ shown_facing :: proc(f: ^Frame, hero: ^g.Hero, player: sim.Player) -> [2]f32 {
 		if local_player == player do return g.hero_facing(f.local_inputs[local], hero.facing)
 	}
 	return hero.facing
+}
+
+// ---- mechanisms (plates.odin, gates.odin, barricades.odin, traps.odin)
+
+// A plate, posed at its slab's centre: the slab sinks under a load as the body does, so the view only shows it.
+View_Plate :: struct {
+	pressed: bool, // sunk past PLATE_ON (the sim's rule, with its hysteresis)
+}
+
+// A gate, posed at its grille's centre as it rises and falls.
+View_Gate :: struct {
+	open: bool, // told to open: its grille rises (or is still on its way up)
+}
+
+// A barricade, posed at its fence's centre: standing, or tumbling as debris once broken.
+View_Barricade :: struct {
+	broken: bool,
+}
+
+// A trap, posed at its body's centre: spikes' sensor box (a hand above the floor), a roller's pillar as it goes. Spikes'
+// height is the view's, a function of `up`, `since` and the shown time (game/views/trap.gd), so a rollback or a seek
+// shows them where they are.
+View_Trap :: struct {
+	since: sim.Game_Time, // spikes: when they last rose or fell
+	kind:  g.Trap_Kind, // EnumTrapKind: which model the view shows
+	up:    bool, // spikes: up
+	_pad:  [2]u8,
+}
+
+// Every mechanism, at its body.
+fill_pieces :: proc(f: ^Frame) {
+	phys := f.world.phys
+	plates := sim.iterate(&f.state.plates)
+	for plate, handle in sim.next(&plates) {
+		godot.push_view(f, handle, piece_pose(phys, plate.body), View_Plate{pressed = plate.pressed})
+	}
+	gates := sim.iterate(&f.state.gates)
+	for gate, handle in sim.next(&gates) {
+		godot.push_view(f, handle, piece_pose(phys, gate.body), View_Gate{open = gate.open})
+	}
+	barricades := sim.iterate(&f.state.barricades)
+	for barricade, handle in sim.next(&barricades) {
+		godot.push_view(f, handle, piece_pose(phys, barricade.body), View_Barricade{broken = barricade.broken})
+	}
+	traps := sim.iterate(&f.state.traps)
+	for trap, handle in sim.next(&traps) {
+		godot.push_view(
+			f,
+			handle,
+			piece_pose(phys, trap.body),
+			View_Trap{since = trap.since, kind = trap.kind, up = trap.up},
+		)
+	}
+}
+
+// A mechanism's pose: its body's centre and turn, and its body's warp epoch (a body made again snaps there).
+piece_pose :: proc(phys: ^physics.World, body: physics.Body_Ref) -> godot.View_Item {
+	return {
+		pos  = sim.Position(physics.body_position(phys, body)),
+		rot  = physics.body_rotation(phys, body),
+		warp = physics.body_warp(phys, body),
+	}
 }

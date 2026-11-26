@@ -1,0 +1,21 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/floor_tile_big_spikes.gltf" id="model"]
+
+[sub_resource type="BoxShape3D" id="shape_0"]
+size = Vector3(4, 0.5, 4)
+
+[node name="FloorTileBigSpikes" type="StaticBody3D"]
+metadata/unified_category = 1
+
+[node name="Model" parent="." instance=ExtResource("model")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
+
+[node name="spikes" parent="Model/floor_tile_big_spikes" index="0"]
+visible = false
+
+[node name="Shape" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+shape = SubResource("shape_0")
+
+[editable path="Model"]

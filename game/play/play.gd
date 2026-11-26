@@ -7,7 +7,8 @@ extends Node3D
 ## the sim's events into effects as soon as they are predicted (EMITTED): sparks on a hit (a skeleton's, an elite's, a
 ## bone bolt's; and dust where a guard breaks), a bolt's burst, a crossbow's tracer (from the crossbow as drawn to where
 ## the sim's shot ended), dust where a prop lands hard, and a shake when a local hero is hurt; a shield's clang and
-## sparks, a fireball's blast (with a shake), dust and a smaller shake where a heaved body lands, a hero going down.
+## sparks, a fireball's blast (with a shake), dust and a smaller shake where a heaved body lands, a hero going down; a
+## plate's click, a gate's creak as it opens and latch as it shuts, a barricade's crack and dust, a trap's slice.
 ## What must be certain shows once CONFIRMED: a revive's chime and its toast ("X revived Y"), and the wipe's banner (the
 ## HUD). A coin picked up glints as predicted too (its coin gone with it, as the state has it); the purse counts it once
 ## confirmed (the HUD's Purse).
@@ -209,6 +210,17 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 	# Loot
 	elif event is EventLootCollected:
 		_effects.glint((event as EventLootCollected).position + Vector3(0, GLINT_HEIGHT, 0))
+	# Mechanisms
+	elif event is EventPlate:
+		if (event as EventPlate).pressed:
+			Sfx.play(&"plate")
+	elif event is EventGate:
+		Sfx.play(&"gate_open" if (event as EventGate).open else &"gate_shut")
+	elif event is EventBarricadeBroken:
+		_effects.dust((event as EventBarricadeBroken).position)
+		Sfx.play(&"barricade")
+	elif event is EventTrapHit:
+		Sfx.play(&"trap")
 
 
 ## What must not be taken back once shown, on its CONFIRMED showing: a revive's chime and its toast, and the wipe's

@@ -16,12 +16,12 @@ Event_Hero_Attacked :: struct {
 	class:  Class,
 }
 
-// What a bolt and a shot stop at: walls, low cover and props, met where they stand above FLIGHT_HEIGHT (low cover
-// and a resting light prop never do, so they are flown over), and elites' capsules (a minion has no body: it is swept
-// on the floor plan).
+// What a bolt and a shot stop at: walls, low cover, props and mechanisms, met where they stand above FLIGHT_HEIGHT
+// (low cover, a resting light prop, a plate and a barricade never do, so they are flown over; a gate and a roller do),
+// and elites' capsules (a minion has no body: it is swept on the floor plan).
 SHOT_FILTER :: physics.Filter {
 	category = CAT_HERO,
-	mask     = CAT_WALL | CAT_LOW | CAT_PROP | CAT_ELITE,
+	mask     = CAT_WALL | CAT_LOW | CAT_PROP | CAT_ELITE | CAT_PIECE,
 }
 
 // Each present hero's attack that ran its class's duration ends; then each that holds Attack starts its class's attack
