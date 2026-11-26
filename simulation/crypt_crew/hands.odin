@@ -191,6 +191,7 @@ throw_prop :: proc(t: ^Tick, player: sim.Player) {
 	velocity := [3]f32{hero.facing.x * THROW_SPEED, THROW_LIFT, hero.facing.y * THROW_SPEED}
 	prop.thrown_by = player
 	sim.clear(&prop.hits) // a new throw: every minion may be hurt again
+	sim.clear(&prop.elites_hit) // and every elite
 	sim.timer_start_ticks(t, &prop.thrown, THROWN_TICKS)
 	physics.stop_ignoring(t.world.phys, &prop.thrower_ignore) // a throw of a prop still clearing its last thrower
 	prop.thrower_ignore = physics.ignore_contacts(t.world.phys, physics.link(hero.body.body), physics.link(prop.body))

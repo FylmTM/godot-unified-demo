@@ -46,6 +46,9 @@ Elite :: struct {
 	guard_down:  sim.Timer, // a Warrior's guard is broken while it runs (break_guard)
 	next_bolt:   sim.Timer, // a Mage's next bone bolt waits for it
 	next_summon: sim.Timer, // a Mage's next summoning waits for it
+	// A Rogue circling its target is patient while it runs (FLANK_GIVE_UP_TICKS from when it began to circle); zero
+	// while it isn't circling.
+	patience:    sim.Timer,
 	hp:          i16,
 	kind:        Elite_Kind,
 	phase:       Elite_Phase,
@@ -98,18 +101,19 @@ Elite_Def :: struct {
 	kind:   Elite_Kind,
 }
 
-// Each kind's controller, as a hero's (its own max_speed), in CAT_ELITE, reporting hits (a thrown prop's:
-// elite_impacts).
+// Each kind's controller: a hero's, but heavier and with a stronger drive (ELITE_DENSITY, ELITE_GROUND_FORCE: a hero
+// walking into one barely moves it), its own max_speed, in CAT_ELITE.
+// It reports no hits of its own: a prop's shape does (props.odin), which is all elite_impacts reads, and an elite's
+// would add a hit for every wall or hero it is knocked into.
 elite_def :: proc(kind: Elite_Kind) -> physics.Character_Def {
 	def := physics.CHARACTER_DEFAULT
 	def.radius = ELITE_RADIUS
 	def.half_height = ELITE_HALF_HEIGHT
 	def.pogo_rest = HERO_POGO_REST
-	def.density = HERO_DENSITY
-	def.max_ground_force = HERO_GROUND_FORCE
+	def.density = ELITE_DENSITY
+	def.max_ground_force = ELITE_GROUND_FORCE
 	def.accelerate = HERO_ACCELERATE
 	def.category = CAT_ELITE
-	def.hit_events = true
 	def.max_speed = ELITE_SPECS[kind].max_speed
 	return def
 }
@@ -138,6 +142,7 @@ spawn_elite :: proc(
 		kind   = kind,
 		phase  = phase,
 	}
+	if phase != .Idle && phase != .Rise do start_mage_clocks(elite, now) // it chases at once: as if it just woke
 	physics.character_create(
 		world.phys,
 		&elite.body,
@@ -218,13 +223,18 @@ raise_surge_elite :: proc(t: ^Tick, graves: []int) {
 	raise_elite(t, Elite_Kind(turn % len(Elite_Kind)), grave.point, {0, 1})
 }
 
-// An elite's first chase (it woke, or rose): a Mage's clocks start, its first bolt BONE_BOLT_FIRST_S off and its first
-// summoning SUMMON_EVERY_S.
+// An elite's first chase (it woke, or rose): a Mage's clocks start (start_mage_clocks).
 rouse_elite :: proc(t: ^Tick, elite: ^Elite) {
 	elite.phase, elite.since = .Chase, t.time
+	start_mage_clocks(elite, t.time)
+}
+
+// A Mage's clocks at its first chase, from `now`: its first bolt BONE_BOLT_FIRST_S off and its first summoning
+// SUMMON_EVERY_S (any other kind keeps none).
+start_mage_clocks :: proc(elite: ^Elite, now: sim.Game_Time) {
 	if elite.kind != .Mage do return
-	sim.timer_start_ticks(t, &elite.next_bolt, BONE_BOLT_FIRST_TICKS)
-	sim.timer_start_ticks(t, &elite.next_summon, SUMMON_EVERY_TICKS)
+	elite.next_bolt = {now, now + sim.Game_Time(BONE_BOLT_FIRST_TICKS)}
+	elite.next_summon = {now, now + sim.Game_Time(SUMMON_EVERY_TICKS)}
 }
 
 // Whether an elite reels from a knock (ELITE_STAGGER_KNOCK): it walks at nothing and starts no attack.
@@ -447,9 +457,9 @@ elite_swing_lands :: proc(t: ^Tick, elite: ^Elite) {
 
 // `elite` takes `damage` (> 0) from `player` ({}: nobody) by `source`, the blow coming from `from` (on the floor
 // plan: what a Warrior's shield judges), knocked along `knock_dir` (unit) by `knock` metres per second; asleep, it
-// wakes. A Warrior's guard (warrior_guards) takes all but ELITE_GUARD_TAKE of a blow from its front, which then
-// neither knocks nor staggers it; otherwise the knock moves it (knock_elite). At 0 it dies: Dying, its body gone. A
-// dying elite takes nothing. The only way an elite takes damage or dies.
+// wakes (a sleeper doesn't guard: that blow lands whole). A Warrior's guard (warrior_guards) takes all but
+// ELITE_GUARD_TAKE of a blow from its front, which then neither knocks nor staggers it; otherwise the knock moves it
+// (knock_elite). At 0 it dies: Dying, its body gone. A dying elite takes nothing. The only way an elite takes damage or dies.
 damage_elite :: proc(
 	t: ^Tick,
 	handle: sim.Handle(Elite),
@@ -462,8 +472,8 @@ damage_elite :: proc(
 ) {
 	elite := sim.get(&t.state.elites, handle)
 	if elite == nil || elite.phase == .Dying || damage <= 0 do return
+	guarded := warrior_guards(t, elite, from) // before it wakes: a sleeper's shield is down
 	if elite.phase == .Idle do rouse_elite(t, elite)
-	guarded := warrior_guards(t, elite, from)
 	taken := guard_take(damage) if guarded else damage
 	elite.hp -= taken
 	elite.struck = t.time
@@ -493,7 +503,7 @@ damage_elite :: proc(
 
 // A knock: `knock` times ELITE_KNOCK_TAKE added to the body's velocity along `dir`, its speed on the floor at most
 // ELITE_KNOCK_MAX after it (its drive's friction then slows it); a knock of ELITE_STAGGER_KNOCK or more staggers it for
-// ELITE_STAGGER_TICKS, which cuts off an attack or a summoning.
+// ELITE_STAGGER_TICKS, which cuts off an attack or a summoning (tried again SUMMON_RETRY_S on).
 @(private = "file")
 knock_elite :: proc(t: ^Tick, elite: ^Elite, dir: [2]f32, knock: f32) {
 	if knock <= 0 || elite.body == {} do return
@@ -502,6 +512,7 @@ knock_elite :: proc(t: ^Tick, elite: ^Elite, dir: [2]f32, knock: f32) {
 	physics.body_set_linear_velocity(t.world.phys, elite.body.body, {floor_velocity.x, velocity.y, floor_velocity.y})
 	if knock < ELITE_STAGGER_KNOCK do return
 	sim.timer_start_ticks(t, &elite.stagger, ELITE_STAGGER_TICKS)
+	if elite.phase == .Summon do sim.timer_start_ticks(t, &elite.next_summon, SUMMON_RETRY_TICKS)
 	if elite.phase == .Attack || elite.phase == .Summon do elite.phase, elite.since = .Chase, t.time
 }
 
@@ -545,8 +556,8 @@ knock_elites :: proc(
 
 // After the props' impacts (prop_impacts filled the World's contacts): a thrown prop (its throw running) that hit an
 // elite at PROP_HIT_SPEED or faster breaks its guard and hurts it as it hurts a minion (PROP_HIT_DAMAGE, knocked
-// away from the prop at PROP_HIT_KNOCK), its thrower's blow. Box3D's own hit, since the elite is a body the prop
-// bounces off: each time the two meet hard (a hit event is a contact's start).
+// away from the prop at PROP_HIT_KNOCK), its thrower's blow, once per throw (Prop.elites_hit: a bounce back is no
+// new hit). Box3D's own hit (a contact's start), since the elite is a body the prop bounces off.
 elite_impacts :: proc(t: ^Tick) {
 	if t.state.elites.count == 0 do return // no elite: the step's contacts are left unread (a crowd's throws make many)
 	for &hit in t.world.contacts {
@@ -558,9 +569,19 @@ elite_impacts :: proc(t: ^Tick) {
 		handle := sim.handle_of_key(Elite, elite_shape.tag)
 		elite := sim.get(&t.state.elites, handle)
 		if prop == nil || elite == nil || !sim.timer_running(t, prop.thrown) do continue
+		if prop_hit_elite(prop, handle) || !sim.append(&prop.elites_hit, handle) do continue
 		centre := physics.body_position(t.world.phys, prop.body).xz
 		break_guard(t, handle, prop.thrown_by)
 		away := dmath.normalize(elite.pos.xz - centre)
 		damage_elite(t, handle, PROP_HIT_DAMAGE, away, PROP_HIT_KNOCK, prop.thrown_by, .Prop, centre)
 	}
+}
+
+// Whether a prop's throw already hurt `elite`.
+@(private = "file")
+prop_hit_elite :: proc(prop: ^Prop, elite: sim.Handle(Elite)) -> bool {
+	for hit in sim.slice(&prop.elites_hit) {
+		if hit == elite do return true
+	}
+	return false
 }

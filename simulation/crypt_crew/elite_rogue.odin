@@ -18,8 +18,10 @@ rogue_heading :: proc(t: ^Tick, floor: ^Floor, elite: ^Elite, spot: Nav_Point) -
 	from_hero := elite.pos.xz - hero.pos.xz
 	distance := dmath.length(from_hero)
 	if distance > FLANK_NEAR || distance == 0 || !elite_sees(t, elite, elite.target, FLANK_NEAR) {
+		sim.timer_stop(&elite.patience) // not circling: its patience starts again when it circles again
 		return path_heading(t, floor, elite, spot)
 	}
+	if elite.patience == {} do sim.timer_start_ticks(t, &elite.patience, FLANK_GIVE_UP_TICKS)
 	behind := -hero.facing
 	out := from_hero / distance
 	if dmath.dot(out, behind) > 0.7071068 do return dmath.normalize(flank_spot(hero) - elite.pos.xz) // within 45°
@@ -34,14 +36,17 @@ flank_spot :: proc(hero: ^Hero) -> [2]f32 {
 	return hero.pos.xz - hero.facing * FLANK_BEHIND
 }
 
-// A chasing Rogue lunges once it is within FLANK_ARRIVE of its spot behind its target, or, after FLANK_GIVE_UP_S of
-// chasing, from within FLANK_LUNGE of the target: facing it at once (a lunge has a direction).
+// A chasing Rogue that sees its target within FLANK_NEAR (no lunge through a wall) lunges once it is within
+// FLANK_ARRIVE of its spot behind the target, or, once its patience ran out (FLANK_GIVE_UP_S of circling: walking in
+// from afar spends none), from within FLANK_LUNGE of it: facing it at once (a lunge has a direction).
 rogue_ready :: proc(t: ^Tick, elite: ^Elite) {
+	if !elite_sees(t, elite, elite.target, FLANK_NEAR) do return
 	hero := sim.player_data(t, elite.target)
 	arrived := dmath.length_sq(flank_spot(hero) - elite.pos.xz) <= FLANK_ARRIVE * FLANK_ARRIVE
-	impatient := u32(t.time - elite.since) >= FLANK_GIVE_UP_TICKS
+	impatient := elite.patience != {} && !sim.timer_running(t, elite.patience)
 	close := dmath.length_sq(hero.pos.xz - elite.pos.xz) <= FLANK_LUNGE * FLANK_LUNGE
 	if !arrived && !(impatient && close) do return
 	if to_hero := dmath.normalize(hero.pos.xz - elite.pos.xz); to_hero != {} do elite.facing = to_hero
+	sim.timer_stop(&elite.patience)
 	start_elite_attack(t, elite)
 }

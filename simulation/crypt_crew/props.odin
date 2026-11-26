@@ -17,6 +17,7 @@ Prop :: struct {
 	held_by:        sim.Player, // the hero carrying it ({}: nobody)
 	thrown_by:      sim.Player, // who threw it last (while `thrown` runs), whether still here or not
 	hits:           sim.List(sim.Handle(Minion), PROP_HITS_MAX), // the minions its throw hurt: each once (prop_hits)
+	elites_hit:     sim.List(sim.Handle(Elite), PROP_HITS_MAX), // the elites its throw hurt: each once (elite_impacts)
 	kind:           Prop_Kind,
 	_pad:           [3]u8,
 }

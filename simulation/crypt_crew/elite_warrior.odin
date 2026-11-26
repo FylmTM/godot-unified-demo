@@ -19,10 +19,10 @@ warrior_ready :: proc(t: ^Tick, elite: ^Elite) {
 	if elite_in_reach(t, elite) && elite_faces_target(t, elite) do start_elite_attack(t, elite)
 }
 
-// Whether an elite holds a shield up at game time `now`: a Warrior, neither rising nor dying, not staggered, its guard
-// not broken. What warrior_guards asks, and what the view's glint shows.
+// Whether an elite holds a shield up at game time `now`: a Warrior awake (neither asleep, rising nor dying), not
+// staggered, its guard not broken. What warrior_guards asks, and what the view's glint and guard pose show.
 shield_up :: proc(now: sim.Game_Time, elite: ^Elite) -> bool {
-	if elite.kind != .Warrior || elite.phase == .Rise || elite.phase == .Dying do return false
+	if elite.kind != .Warrior || elite.phase == .Idle || elite.phase == .Rise || elite.phase == .Dying do return false
 	return !sim.timer_running(now, elite.stagger) && !sim.timer_running(now, elite.guard_down)
 }
 

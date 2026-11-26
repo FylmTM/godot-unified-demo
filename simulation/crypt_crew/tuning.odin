@@ -301,6 +301,10 @@ ELITE_RADIUS :: f32(0.45)
 ELITE_HEIGHT :: f32(2.1) // the capsule, end to end: a KayKit skeleton is about 2 m to the top of its helmet or hood
 ELITE_HALF_HEIGHT :: ELITE_HEIGHT / 2 - ELITE_RADIUS
 ELITE_CENTRE_ABOVE_FEET :: ELITE_HALF_HEIGHT + HERO_POGO_REST // it floats on the heroes' pogo
+// An elite is four times a hero's weight (about 320 kg) and its drive six times as strong (about 75 m/s²), so a hero
+// walking into one barely shoves it (its drive holds it where it stands), and a knock's velocity is soon spent.
+ELITE_DENSITY :: 4 * HERO_DENSITY
+ELITE_GROUND_FORCE :: f32(24000)
 // What a skeleton's reach and its swing's arc are, past its circle and the hero's capsule (as a minion's).
 ELITE_REACH :: f32(0.9)
 ELITE_STAND :: f32(0.4) // a chaser this far inside its reach stands to swing, as a minion does
@@ -380,5 +384,7 @@ SUMMON_EVERY_S :: f32(12)
 SUMMON_EVERY_TICKS :: u32(SUMMON_EVERY_S * TICK_HZ)
 SUMMON_CAST_S :: f32(1)
 SUMMON_CAST_TICKS :: u32(SUMMON_CAST_S * TICK_HZ)
+SUMMON_RETRY_S :: SUMMON_EVERY_S / 2 // a summoning a stagger cut off is tried again this long after
+SUMMON_RETRY_TICKS :: u32(SUMMON_RETRY_S * TICK_HZ)
 SUMMON_COUNT :: 3 // at most up to the floor's cap alive, and into the minion table's free rows
 SUMMON_RING :: f32(1.5) // its minions rise on this ring round it

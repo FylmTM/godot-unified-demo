@@ -32,15 +32,17 @@ mage_heading :: proc(t: ^Tick, floor: ^Floor, elite: ^Elite, spot: Nav_Point) ->
 	return
 }
 
-// A chasing Mage summons once its summoning's clock ran out; else it casts a bone bolt once its bolt's clock ran out
-// and its target is in sight within BONE_BOLT_RANGE, facing it at once. Each cast is announced (Event_Elite_Cast).
+// A chasing Mage with its target in sight within BONE_BOLT_RANGE summons once its summoning's clock ran out, else
+// casts a bone bolt once its bolt's clock ran out, facing the target at once. Each cast is announced
+// (Event_Elite_Cast).
 mage_ready :: proc(t: ^Tick, elite: ^Elite, handle: sim.Handle(Elite)) {
+	if !elite_sees(t, elite, elite.target, BONE_BOLT_RANGE) do return
 	spell: Elite_Spell
 	switch {
 	case !sim.timer_running(t, elite.next_summon):
 		elite.phase, elite.since = .Summon, t.time
 		spell = .Summon
-	case !sim.timer_running(t, elite.next_bolt) && elite_sees(t, elite, elite.target, BONE_BOLT_RANGE):
+	case !sim.timer_running(t, elite.next_bolt):
 		if to_hero := dmath.normalize(sim.player_data(t, elite.target).pos.xz - elite.pos.xz); to_hero != {} {
 			elite.facing = to_hero
 		}
