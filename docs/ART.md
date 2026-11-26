@@ -108,24 +108,29 @@ hundreds cost one draw call a pass and no node each. `game/crowd/minion_crowd.gd
 scene (`skeletons/minion.tscn`, its blade included), the clips a minion plays, in the order an instance names them, the
 rate each is baked at, and how far its meshes are lightened.
 
-- **The mesh:** the scene's meshes and its blade merged into one surface in the skeleton's bind space, its bones and
-  four weights a vertex in `CUSTOM0` and `CUSTOM1`, the eyes marked in the vertex colour (one material: the palette,
-  the eyes' glow). Each mesh is lightened to the coarsest of Godot's own LODs for it within the minion's LOD error,
-  the importer's simplifier (it moves no vertex and keeps the seams, so the palette atlas stays exact).
+- **The mesh:** the scene's visible meshes and its blade merged into one surface in the skeleton's bind space, its
+  bones and four weights a vertex in `CUSTOM0` and `CUSTOM1`, the eyes marked in `UV2` (one material: the palette, the
+  eyes' glow; not the vertex colour, which an instance's colour would multiply). Each mesh but the eyes is lightened to
+  the coarsest of Godot's own LODs for it within the minion's LOD error, the importer's simplifier (it moves no vertex
+  and keeps the seams, so the palette atlas stays exact).
 - **The bones:** every frame of each clip as the bones' skinning matrices (the bone's pose times its bind, what Godot
   skins by), three RGBA float texels a bone, a row a frame, posed through `CharacterRig.pose()`: the crowd poses as the
   scene does. A clip whose bones turn fast between keys is baked at four times its keys' rate, since the shader blends
   two frames' matrices linearly where the scene turns along an arc.
-- **The shader** (`crowd_minion.gdshader`): an instance's custom data is its clip, the seconds since it began and the
-  seconds since it was struck; it skins with four bones blended between two frames, loops or holds as `pose()` does,
-  flashes after a hit (`hit_flash.tres`' colour) and sinks the dying into the floor over their last moments.
+- **The shader** (`crowd_minion.gdshader`, its header the custom data a crowd's view writes): an instance's custom
+  data is its clip, the seconds into it and the seconds since it was struck; it skins with four bones blended between
+  two frames, loops or holds as `pose()` does, flashes after a hit and sinks the dying out of sight (deeper than the
+  death clip's last pose's top, which the bake measures) before their row is freed. Its material is made by
+  `MinionCrowd.material()`, every value from where it lives: the palette and roughness from `skeleton.tres`, the eyes
+  from `skeleton_glow.tres`, the flash from `hit_flash.tres`, the sink's end from the sim's DEATH_S.
 
-`./uni tool bake_crowd` re-bakes: after the minion's model, weapon, clips or import settings change, the clips a crowd
-plays, or the bake's code. The checks hash what the bake is made from (Godot's version included) and fail while the
-committed bake is stale; they also re-bake its matrices and pose every clip on the minion scene against the crowd's
-CPU skinning, vertex for vertex. The look-dev scene's parity stage (`crowd_parity`, `crowd_parity_game`) stands each
-clip as the scene minion and as the crowd side by side at the same time, and a flashing and a sinking crowd minion
-behind them.
+`./uni tool bake_crowd` re-bakes: after the minion's model, weapon, clips or import settings change, the bake's
+parameters (`minion_crowd.gd`'s recipe), or the bake's code (`crowd_bake.gd`). The checks hash what the bake is made
+from (Godot's version included) and fail while the committed bake is stale; they also make the mesh and the matrices
+again and compare, and pose every clip on the minion scene against the crowd's CPU skinning of a sample of its vertices
+(every seventh and each bone's farthest), at the frames and where the blend between two strays most. The look-dev
+scene's parity stage (`crowd_parity`, `crowd_parity_game`) stands each clip as the scene minion and as the crowd side by
+side at the same time, with a flashing and a sinking crowd minion at the row's ends.
 
 ## Kit parts
 

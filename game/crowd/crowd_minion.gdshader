@@ -1,37 +1,49 @@
 // The skeleton minions' crowd (MinionCrowd): one MultiMesh of the baked minion, each instance posed by its custom
 // data and skinned here from the baked bone matrices (CrowdClips), so the whole crowd is one draw call a pass and its
 // animation costs no node. Matte on the skeletons' palette atlas, as game/materials/skeleton.tres draws the scene
-// minion; the eyes glow as skeleton_glow.tres does (the bake marks them in the vertex colour's red).
+// minion; the eyes (the bake's glow mask, UV2's x) glow as skeleton_glow.tres does. MinionCrowd.material() sets every
+// uniform from where it lives.
 //
-// INSTANCE_CUSTOM: x the clip (CrowdClips' index), y the seconds since it began, z the seconds since the minion was
-// last struck (its hit flash), w spare. The ages are seconds at the shown time (the host's View_Policy.ages writes
-// them so from game-time stamps), so a pause holds a pose and a replay seek shows the pose the state says.
+// INSTANCE_CUSTOM, the contract a crowd's view keeps (step 5 writes it through View_Policy.ages, which turns a
+// game-time stamp into seconds since it at the shown time):
+// - x: the clip, MinionCrowd.Clip (clamped to the table).
+// - y: the seconds into the clip. A one-shot's stamp is the tick its action began. A loop's is minus the minion's phase
+//   (a far-past, per-minion stamp), so the crowd's gaits don't walk in lockstep and a walk doesn't restart when a
+//   minion stops and starts again.
+// - z: the seconds since the minion was last struck (its flash). A minion never struck carries a far-past stamp: a 0
+//   stamp would age as the shown time itself and flash every minion in a session's first ticks.
+// - w: spare, 0.
+// The ages are seconds at the shown time, so a pause holds a pose and a replay seek shows the pose the state says.
 shader_type spatial;
+
+// The clips the uniform arrays hold (CrowdClips.MAX_CLIPS, held equal by the art checks).
+const int MAX_CLIPS = 8;
 
 // The clips' bone matrices, three texels a bone (the rows of its 3x4 matrix), a row a frame (CrowdClips.apply).
 uniform sampler2D bones : filter_nearest, repeat_disable;
 // Per clip: its first row, its frames, whether it loops, its frames a second (CrowdClips.apply).
-uniform int clip_first[8];
-uniform int clip_frames[8];
-uniform int clip_loops[8];
-uniform float clip_fps[8];
+uniform int clip_first[MAX_CLIPS];
+uniform int clip_frames[MAX_CLIPS];
+uniform int clip_loops[MAX_CLIPS];
+uniform float clip_fps[MAX_CLIPS];
 // Per clip, seconds added to its age: where in the clip an action starts (the art's timing, as the view sets it).
-uniform float clip_offset[8];
+uniform float clip_offset[MAX_CLIPS];
 
-uniform sampler2D palette : source_color, filter_nearest;
+uniform sampler2D palette : source_color, filter_linear;
 uniform float roughness = 0.7;
-// The eyes: skeleton_glow.tres's colour and energy (above the glow threshold: they bloom).
+// The eyes: skeleton_glow.tres's albedo, its emission and its emission's energy (above the glow threshold: they bloom).
 uniform vec3 eye_color : source_color = vec3(1.0, 1.0, 0.19);
+uniform vec3 eye_emission : source_color = vec3(1.0, 1.0, 0.19);
 uniform float eye_energy = 4.0;
-// A hit's flash: game/fx/hit_flash.tres's colour, added for flash_s after the blow (the scene minion's 8 ticks).
+// A hit's flash: hit_flash.tres's colour, added for flash_s after the blow (the scene minion's FLASH_TICKS).
 uniform vec3 flash_color : source_color = vec3(0.9, 0.75, 0.55);
 uniform float flash_s = 0.125;
-// The dying sink into the floor over their last moments, so their row's freeing never pops: the death clip's index,
-// from and until when (seconds into it), and how deep.
+// The dying sink into the floor over their last moments, out of sight before their row is freed: the death clip, from
+// and until when (seconds into it), and how deep (deeper than its last pose's top).
 uniform int death_clip = 4;
 uniform float sink_from = 1.4;
 uniform float sink_until = 2.0;
-uniform float sink_depth = 0.5;
+uniform float sink_depth = 1.0;
 
 varying float flash;
 
@@ -44,7 +56,7 @@ void add_bone(int bone, float weight, int row, float blend, inout vec4 r0, inout
 }
 
 void vertex() {
-	int clip = int(INSTANCE_CUSTOM.x + 0.5);
+	int clip = clamp(int(INSTANCE_CUSTOM.x + 0.5), 0, MAX_CLIPS - 1);
 	float age = INSTANCE_CUSTOM.y + clip_offset[clip];
 	int frames = clip_frames[clip];
 	float fps = clip_fps[clip];
@@ -66,14 +78,14 @@ void vertex() {
 	VERTEX = vec3(dot(r0, point), dot(r1, point), dot(r2, point));
 	NORMAL = normalize(vec3(dot(r0.xyz, NORMAL), dot(r1.xyz, NORMAL), dot(r2.xyz, NORMAL)));
 	if (clip == death_clip) {
-		VERTEX.y -= sink_depth * clamp((INSTANCE_CUSTOM.y - sink_from) / (sink_until - sink_from), 0.0, 1.0);
+		VERTEX.y -= sink_depth * clamp((age - sink_from) / (sink_until - sink_from), 0.0, 1.0);
 	}
 	flash = INSTANCE_CUSTOM.z < flash_s ? 1.0 : 0.0;
 }
 
 void fragment() {
-	float eye = COLOR.r;
+	float eye = UV2.x;
 	ALBEDO = mix(texture(palette, UV).rgb, eye_color, eye);
 	ROUGHNESS = roughness;
-	EMISSION = eye_color * eye_energy * eye + flash_color * flash;
+	EMISSION = eye_emission * eye_energy * eye + flash_color * flash;
 }

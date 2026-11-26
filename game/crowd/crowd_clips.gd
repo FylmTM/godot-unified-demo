@@ -13,7 +13,8 @@ extends Resource
 
 ## The texels a bone takes in a row.
 const TEXELS_PER_BONE: int = 3
-## The most clips a crowd's shader takes (its uniform arrays' size).
+## The most clips a crowd's shader takes: its uniform arrays' size (the shader's own MAX_CLIPS, which the art checks
+## hold equal).
 const MAX_CLIPS: int = 8
 
 ## The matrices: (bone_count * TEXELS_PER_BONE) by the frames of every clip, RGBA float.
@@ -26,13 +27,15 @@ const MAX_CLIPS: int = 8
 @export var frame_counts: PackedInt32Array = []
 ## Per clip: the frames a second it is baked at.
 @export var rates: PackedFloat32Array = []
-## Per clip: whether it loops (Clips.LOOPING).
+## Per clip: whether it loops.
 @export var loops: Array[bool] = []
+## Per clip: the height of its last pose's highest point (how deep a sink must go to hide the end of a one-shot).
+@export var tops: PackedFloat32Array = []
 ## The skeleton's bones.
 @export var bone_count: int = 0
 ## Every pose's bounds in the crowd's mesh space, for its MultiMesh's culling (a riser starts below the floor).
 @export var bounds: AABB
-## What the bake was made from: a hash of its inputs' bytes (CrowdBake.sources), so a check can tell it is stale.
+## What the bake was made from (CrowdBake.inputs_hash), so a check can tell it is stale.
 @export var sources: String = ""
 
 
@@ -53,6 +56,7 @@ func texture() -> ImageTexture:
 
 ## Sets a crowd material's clip table and bone texture: what its shader needs to pose an instance.
 func apply(material: ShaderMaterial) -> void:
+	assert(clips.size() <= MAX_CLIPS, "%d clips: the shader takes %d" % [clips.size(), MAX_CLIPS])
 	var first: PackedInt32Array = []
 	var frames: PackedInt32Array = []
 	var looping: PackedInt32Array = []
@@ -73,9 +77,9 @@ func apply(material: ShaderMaterial) -> void:
 	material.set_shader_parameter("clip_fps", fps)
 
 
-## Bone `bone`'s skinning matrix in clip `clip_index` at `seconds` into it, blended between its two frames: what the
+## Every bone's skinning matrix in clip `clip_index` at `seconds` into it, blended between its two frames: what the
 ## shader computes, on the CPU (the art checks compare it with the character scene's pose).
-func matrix(clip_index: int, seconds: float, bone: int) -> Transform3D:
+func matrices(clip_index: int, seconds: float) -> Array[Transform3D]:
 	var frames: int = frame_counts[clip_index]
 	var clip_length: float = length(clip_index)
 	var held: float = fposmod(seconds, clip_length) if loops[clip_index] else clampf(seconds, 0.0, clip_length)
@@ -83,13 +87,24 @@ func matrix(clip_index: int, seconds: float, bone: int) -> Transform3D:
 	var frame: int = mini(floori(at), frames - 2)
 	var blend: float = at - frame
 	var row: int = first_rows[clip_index] + frame
-	var rows: Array[Vector4] = []
-	for texel: int in TEXELS_PER_BONE:
-		var x: int = bone * TEXELS_PER_BONE + texel
-		var a: Color = bones.get_pixel(x, row)
-		var b: Color = bones.get_pixel(x, row + 1)
-		rows.append(Vector4(a.r, a.g, a.b, a.a).lerp(Vector4(b.r, b.g, b.b, b.a), blend))
+	var out: Array[Transform3D] = []
+	for bone: int in bone_count:
+		out.append(_blend(frame_matrix(row, bone), frame_matrix(row + 1, bone), blend))
+	return out
+
+
+## Bone `bone`'s matrix in row `row` of `bones`, as baked.
+func frame_matrix(row: int, bone: int) -> Transform3D:
+	var x: int = bone * TEXELS_PER_BONE
+	var r0: Color = bones.get_pixel(x, row)
+	var r1: Color = bones.get_pixel(x + 1, row)
+	var r2: Color = bones.get_pixel(x + 2, row)
+	return Transform3D(Basis(Vector3(r0.r, r1.r, r2.r), Vector3(r0.g, r1.g, r2.g), Vector3(r0.b, r1.b, r2.b)),
+		Vector3(r0.a, r1.a, r2.a))
+
+
+## Two matrices blended entry by entry, as the shader blends two frames (not along an arc).
+func _blend(a: Transform3D, b: Transform3D, weight: float) -> Transform3D:
 	return Transform3D(
-		Basis(Vector3(rows[0].x, rows[1].x, rows[2].x), Vector3(rows[0].y, rows[1].y, rows[2].y),
-			Vector3(rows[0].z, rows[1].z, rows[2].z)),
-		Vector3(rows[0].w, rows[1].w, rows[2].w))
+		Basis(a.basis.x.lerp(b.basis.x, weight), a.basis.y.lerp(b.basis.y, weight), a.basis.z.lerp(b.basis.z, weight)),
+		a.origin.lerp(b.origin, weight))

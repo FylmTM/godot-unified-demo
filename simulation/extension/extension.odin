@@ -25,6 +25,7 @@ Data_Constants :: struct {
 	class_windups:   [len(g.Class)]f32, // each class's attack windup in seconds, by EnumClass (Any's 0)
 	class_cooldowns: [len(g.Class)]f32, // each class's attack cooldown in seconds: from one attack's start to the next
 	minion_windup:   f32, // a minion's swing's windup in seconds
+	minion_death:    f32, // how long a dead minion's row lingers in seconds (DEATH_S: the crowd sinks it by then)
 	arrival_ring:    f32, // how far from the party an arrival's first ring of spots is (metres; the second, twice)
 	save_version:    u8, // the save this build writes and continues (Setup.version): the app reads a save by it
 	_pad:            [3]u8,
@@ -37,6 +38,7 @@ constants :: proc() -> (constants: Data_Constants) {
 		constants.class_cooldowns[class] = f32(g.CLASS_SPECS[class].cooldown) / g.TICK_HZ
 	}
 	constants.minion_windup = g.MINION_WINDUP_S
+	constants.minion_death = g.DEATH_S
 	constants.arrival_ring = g.ARRIVAL_RING
 	constants.save_version = g.SAVE_VERSION
 	return
