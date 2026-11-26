@@ -30,6 +30,7 @@ Data_Constants :: struct {
 	arrival_ring:    f32, // how far from the party an arrival's first ring of spots is (metres; the second, twice)
 	save_version:    u8, // the save this build writes and continues (Setup.version): the app reads a save by it
 	_pad:            [3]u8,
+	loot_life:       f32, // how long a coin lies before it goes, in seconds (LOOT_LIFE_S: the coins blink before)
 }
 
 // godot.init calls it once: the numbers from the sim's tuning.
@@ -43,6 +44,7 @@ constants :: proc() -> (constants: Data_Constants) {
 	constants.minion_death = g.DEATH_S
 	constants.arrival_ring = g.ARRIVAL_RING
 	constants.save_version = g.SAVE_VERSION
+	constants.loot_life = g.LOOT_LIFE_S
 	return
 }
 

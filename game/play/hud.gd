@@ -10,6 +10,8 @@ extends Control
 ## What it shows is session data (Unified.data.hud), the newest prediction, which a rollback may change and the next
 ## frame puts right. The felled are a count, which must never take one back: it shows the most the data has said this
 ## game (a kill a rollback took back is counted again by the next real one, never shown falling).
+##
+## The party's gold is the Purse's (purse.gd), counted from confirmed pickups rather than from this data.
 
 var _kills: int = 0
 ## The pause menu shows (it says the pause itself: the banner hides).

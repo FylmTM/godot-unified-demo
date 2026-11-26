@@ -7,10 +7,12 @@
 [ext_resource type="AudioStream" path="res://assets/kenney/interface_sounds/error_004.ogg" id="error"]
 [ext_resource type="AudioStream" path="res://assets/kenney/interface_sounds/maximize_003.ogg" id="joined"]
 [ext_resource type="AudioStream" path="res://assets/kenney/interface_sounds/minimize_003.ogg" id="left"]
+[ext_resource type="AudioStream" path="res://assets/kenney/rpg_audio/handleCoins2.ogg" id="coin"]
 
 [node name="Sfx" type="Node"]
 script = ExtResource("sfx")
 sounds = Dictionary[StringName, AudioStream]({
+&"coin": ExtResource("coin"),
 &"confirm": ExtResource("confirm"),
 &"error": ExtResource("error"),
 &"joined": ExtResource("joined"),

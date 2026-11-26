@@ -1,10 +1,12 @@
 // The extension's views as functions of the state: a minion's crowd instance (minion_instance), the contract the
-// crowd's shader reads (game/crowd/crowd_minion.gdshader's header). An instance is a function of its minion and handle
-// alone, so what a view shows after a rollback is the re-simulated state's: the sim's own rollback tests hold that.
+// crowd's shader reads (game/crowd/crowd_minion.gdshader's header), and a coin's (loot_instance, game/views/
+// coin.gdshader's). An instance is a function of its row and handle alone, so what a view shows after a rollback is the
+// re-simulated state's: the sim's own rollback tests hold that.
 package test_crypt_crew
 
 import "core:testing"
 import "unified:dmath"
+import "unified:godot"
 import "unified:headless"
 import "unified:sim"
 
@@ -70,4 +72,28 @@ the_clips_are_the_crowds_numbers :: proc(t: ^testing.T) {
 	for number, clip in numbers {
 		testing.expectf(t, int(clip) == number, "%v is %d, not the crowd's %d", clip, int(clip), number)
 	}
+}
+
+// A coin's instance is its state: keyed by its handle (its events' subject), where it lies, its value and when it fell
+// (the stamp the host ages); and its kind appears only once its drop is verified, aging that stamp. A solo session's
+// every tick is verified as it is computed, so no walk tells Verified from Predicted there: this holds the policy.
+@(test)
+a_coin_instance_is_its_state :: proc(t: ^testing.T) {
+	coin := g.Loot {
+		pos     = {4, 0, -2},
+		dropped = 700,
+		value   = 3,
+	}
+	handle := sim.Handle(g.Loot) {
+		index      = 5,
+		generation = 2,
+	}
+	item := ext.loot_instance(&coin, handle)
+	testing.expect_value(t, item.key, sim.handle_key(handle))
+	testing.expect_value(t, item.kind, ext.MultiView.Loot)
+	testing.expect_value(t, item.pos, sim.Position(coin.pos))
+	testing.expect_value(t, item.custom, [4]f32{3, 700, 0, 0})
+	policy := ext.MULTI_POLICY[.Loot]
+	testing.expect_value(t, policy.appear, godot.Appear.Verified)
+	testing.expect_value(t, policy.ages, bit_set[0 ..< 4;u8]{1})
 }

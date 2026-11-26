@@ -23,4 +23,7 @@ Event :: union {
 	Event_Hero_Attacked,
 	Event_Bolt_Burst,
 	Event_Crossbow_Shot,
+	// loot (loot.odin)
+	Event_Loot_Dropped,
+	Event_Loot_Collected,
 }

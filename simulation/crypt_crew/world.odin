@@ -324,10 +324,10 @@ init :: proc(t: ^Tick) {
 }
 
 // Takes the party to level `to` (init, the wipe's floor restart; the next floor later): every hero lets go and its body
-// goes, the props, the minions and the bolts in flight go, the static geometry is swapped (physics.level_change), then
-// the new level's props are made in marker order, its packs put to sleep (none under a held crowd), its surge clock
-// started, and every present hero gets a body at its slot's spawn. What the block keeps across it (the heroes'
-// classes, the clock, the session's counts) stays.
+// goes, the props, the minions, the bolts in flight and the coins on the floor go, the static geometry is swapped
+// (physics.level_change), then the new level's props are made in marker order, its packs put to sleep (none under a
+// held crowd), its surge clock started, and every present hero gets a body at its slot's spawn. What the block keeps
+// across it (the heroes' classes, the clock, the session's counts, the purse) stays.
 enter_level :: proc(t: ^Tick, to: Level_Id) {
 	leaving := sim.iterate_present(t)
 	for hero, player in sim.next(&leaving) {
@@ -337,6 +337,7 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 	despawn_props(t)
 	sim.despawn_all(&t.state.minions)
 	sim.despawn_all(&t.state.bolts)
+	sim.despawn_all(&t.state.loot) // the purse is kept: its gold, like the tally, outlives the floor
 	physics.level_change(t, t.world.phys, to)
 	spawn_props(t)
 	if t.setup.crowd == .None do spawn_packs(t) // a held crowd is the floor's whole population

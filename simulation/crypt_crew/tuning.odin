@@ -287,3 +287,17 @@ ARRIVAL_SNAP :: f32(1) // a spot counts when the navigation mesh is this close t
 ARRIVAL_CLEAR :: f32(2) // and no live minion is this close
 ARRIVAL_ROOM :: f32(0.1) // and it clears every hero's capsule and every prop's footprint by this
 ARRIVAL_RAY_HEIGHT :: f32(0.5) // the way from the anchor is tested this high above the floor (under low cover's top)
+
+// ---- loot: coins felled skeletons drop, picked up into the party's purse (loot.odin)
+
+MAX_LOOT :: 128 // coins on the ground at once: a drop past it is lost (a coin lasts LOOT_LIFE_S, a drop is 1 in 5)
+LOOT_ONE_IN :: 5 // a felled minion drops a coin on a roll of 1 in this ...
+LOOT_VALUE_MIN :: 1 // ... worth this much gold ...
+LOOT_VALUE_MAX :: 3 // ... to this, rolled
+LOOT_SPREAD :: f32(0.8) // the coins of a drop of more than one lie evenly on a ring this far round where it fell
+LOOT_RADIUS :: f32(1.2) // a hero up whose feet come this close to a coin (on the floor plan) picks it up ...
+LOOT_ARM_S :: f32(0.5) // ... once it has lain this long, so a drop is seen landing before it goes
+LOOT_ARM_TICKS :: u32(LOOT_ARM_S * TICK_HZ)
+LOOT_LIFE_S :: f32(30) // a coin nobody picks up goes this long after it dropped
+LOOT_LIFE_TICKS :: u32(LOOT_LIFE_S * TICK_HZ)
+DEV_DROP_RING :: f32(2) // dev_drop_loot lays its coins on a ring this far round the sender's hero: beyond LOOT_RADIUS

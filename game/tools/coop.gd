@@ -25,6 +25,13 @@ extends UnifiedCoop
 ## The joiner's HUD says what it joined (the code or address its menus joined, "A friend's game" for a session uni's
 ## flags started) and how many play; then a couch guest joins it on pad 1, named after the joiner ("Friend +1"), and
 ## drops out again, across the two processes.
+##
+## The coins on the link: after its square the host lays coins round its hero and dances among them, short strokes
+## left and right that never reach one, while the joiner, a link behind, predicts each stroke running on into the ring
+## and picks up coins a rollback then gives back; then the host walks out and picks one up for real. On both sides the
+## purse moves only on a CONFIRMED pickup and never down (PurseWatch), and at the co-op pause shows the State's gold.
+## On a bad link (`uni coop --lan -- --lag 150 --verified-players`: the joiner predicts the host many ticks deep) the
+## joiner must see a pickup taken back (a CANCELLED one), so the purse is shown holding through a misprediction.
 
 ## How far past an arrival's farther ring (twice Unified.constants.arrival_ring: the nearer one may be taken) the
 ## friend's hero may stand from the host's, in metres: the capsule settling on the floor.
@@ -43,6 +50,11 @@ const FRIEND_NAME: String = "Friend"
 const SURGE_WITHIN_S: float = 15.0
 const RESUME_WITHIN_S: float = 15.0
 const PAUSE_WITHIN_S: float = 40.0
+## The coins the host lays round its hero (on DEV_DROP_RING, 2 m out), its dance among them (strokes this long, each
+## way, a few tens of centimetres: never in reach of one) and how long it dances.
+const COINS: int = 12
+const STROKE_S: float = 0.12
+const DANCE_S: float = 5.0
 
 ## The host's hits on skeletons, counted once each is confirmed.
 var _hits: int = 0
@@ -52,6 +64,8 @@ var _surges_seen: int = 0
 var _menu_joins: int = 0
 ## What this side's menus joined ("" while it joined from uni's flags).
 var _joined: String = ""
+## The purse through this side's play (PurseWatch), from the friend's arrival.
+var _purse_watch: PurseWatch = null
 
 
 func _init() -> void:
@@ -120,6 +134,7 @@ func _host_play() -> void:
 	expect(gap < _beside(), "the friend's hero arrived %.2f m from the host's (at most %.1f)" % [gap, _beside()])
 	step("friend's hero arrived %.2f m from the host's" % gap)
 	await _check_friend(friend)
+	_watch_purse()
 	await shot("c03_arrived_beside")
 	session.sim_event.connect(_count_hits)
 	var raise := CommandDevSpawnMinions.new()
@@ -138,6 +153,7 @@ func _host_play() -> void:
 		Input.action_release(&"attack")
 	await shot("c04_coop_play")
 	step("played together: %d hits, %d skeletons" % [_hits, Unified.data.hud.minions])
+	await _coin_dance()
 	await wait_for(func() -> bool: return Unified.data.hud.surges > 0, SURGE_WITHIN_S, "a surge (a save) before leaving")
 	if failed():
 		return
@@ -147,6 +163,8 @@ func _host_play() -> void:
 	await click(_menu_control("PauseAll"))
 	await wait_for(func() -> bool: return Unified.data.hud.paused, 3.0, "the host pauses the game for everyone")
 	step("paused for everyone, from the pause menu")
+	await seconds(1.0)  # paused, nothing moves: the verified timeline catches up with the prediction
+	_check_purse()
 	await click(_menu_control("Leave"))
 	var dialog: Control = find(game, ^"Overlays/Dialog") as Control
 	var question: String = (find(dialog, ^"%Heading") as Label).text
@@ -172,6 +190,7 @@ func _join_play() -> void:
 	var host_class: int = Heroes.class_of(_friend_player())
 	if _asked() == EnumClass.ANY:
 		expect(Heroes.class_of(session.local_player) != host_class, "asking for Any, it plays a class the host doesn't")
+	_watch_purse()
 	await seconds(STILL_S)
 	await _couch_guest()
 	Input.action_press(&"move_down")  # keeps moving while the host plays on
@@ -183,6 +202,10 @@ func _join_play() -> void:
 	expect(Unified.data.hud.paused_by == _friend_player(), "the State names the host as who paused")
 	expect(banner == "Paused by %s" % host, "the banner names who: %s" % banner)
 	step(banner)
+	await seconds(1.0)  # paused, nothing moves: the verified timeline catches up with the prediction
+	_check_purse()
+	if arg("lag") != "":
+		expect(_purse_watch.cancelled > 0, "on a bad link, a pickup the joiner predicted was taken back")
 	await press_action(&"pause")
 	var heading: String = (_menu_control("Heading") as Label).text
 	var resume_all: Button = _menu_control("PauseAll") as Button
@@ -195,6 +218,42 @@ func _join_play() -> void:
 	await press_action(&"ui_cancel")
 	expect(_pause_menu() == null, "the joiner closes its menu")
 	step("resumed it for everyone, from its pause menu")
+
+
+## The host lays COINS round its hero and dances among them for DANCE_S, strokes of STROKE_S left and right that
+## never reach one (the joiner, predicting each stroke on, picks some up that a rollback gives back), then walks out
+## right through the ring and picks one up for real.
+func _coin_dance() -> void:
+	var drop := CommandDevDropLoot.new()
+	drop.count = COINS
+	session.send_command(drop)
+	await seconds(0.6)  # the coins armed
+	await hold(&"move_left", STROKE_S / 2.0)
+	for i: int in int(DANCE_S / STROKE_S):
+		await hold(&"move_right" if i % 2 == 0 else &"move_left", STROKE_S)
+	await hold(&"move_right", 0.6)
+	await wait_for(func() -> bool: return _purse_watch.confirmed > 0, 5.0, "the walk out picks a coin up")
+	step("danced among the coins and walked out: %s" % _purse_watch.summary())
+
+
+## Watches this side's purse from now on (PurseWatch).
+func _watch_purse() -> void:
+	var purse: Control = find(current_scene, ^"Hud/%Purse") as Control
+	if purse != null:
+		_purse_watch = PurseWatch.new(purse, session)
+
+
+## The purse kept its rule through this side's play, at the co-op pause (the verified timeline caught up): it moved
+## only on confirmed pickups, never down, and shows the State's gold.
+func _check_purse() -> void:
+	if _purse_watch == null:
+		fail("the HUD has its Purse")
+		return
+	for problem: String in _purse_watch.problems:
+		expect(false, problem)
+	var gold: int = PurseWatch.gold_of(find(current_scene, ^"Hud/%Purse") as Control)
+	expect(gold == Unified.data.hud.gold, "the purse shows the State's gold: %d (%d)" % [gold, Unified.data.hud.gold])
+	step("the purse moved on confirmed pickups only, at %d (%s)" % [gold, _purse_watch.summary()])
 
 
 ## Names the joiner's player as its Settings enters the tree: before the session starts, with that name, from uni's

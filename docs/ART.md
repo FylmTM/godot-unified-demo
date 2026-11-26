@@ -36,7 +36,8 @@ relief, rocks or a decoration, is walked through). Characters face +Z.
   `rig_animations.tscn`, and `clips.gd`, the clips the game plays.
 - `game/levels/parts/<kit>/`: the kit parts levels are built from (`crypt/`, `hub/`).
 - `game/fx/`: fire, its flicker, the light a hero carries, the highlight on the prop a hero would grab, a hit's
-  flash, and the fights' one-shot effects (sparks, a bolt's burst, dust, the crossbow's tracer: a glowing beam).
+  flash, and the fights' one-shot effects (sparks, a bolt's burst, dust, the crossbow's tracer: a glowing beam, a
+  picked-up coin's glint).
 - `game/environments/`: each place's Environment (fog, glow, ambient, tonemap).
 - `game/lookdev/`: the look-dev scene and its stages.
 - `game/crowd/`: the skeleton minions drawn as one crowd: the bake (`crowd_bake.gd`, `crowd_clips.gd`), what is baked
@@ -185,7 +186,8 @@ its brown family only: the parchment panel with metal corners for what asks the 
 (darkened, nearly opaque) for plates over the world, the brown button with ink lettering, the hanging banner for a
 moment's title. The focus, the pad's cursor, is a gold frame drawn just outside the control, pulsing slowly: the one
 bright thing on a menu. Lettering is Kenney Mini Square, and Kenney Future for the game's name on the title; type
-variations name each use (`Title`, `Heading`, `HudText`, `Dim`, and `Ink`, `InkHeading`, `InkDim` on parchment).
+variations name each use (`Title`, `Heading`, `HudText`, `Dim`, `Gain` for a pickup's gold "+N", and `Ink`,
+`InkHeading`, `InkDim` on parchment).
 
 The canvas is 1920×1080 (`window/size/viewport_*`; the window opens at 1280×720, an export fullscreen, and the canvas
 stretches to the window): the pack's Double PNGs draw at their own size there, so they stay sharp up to 1440p. Layouts

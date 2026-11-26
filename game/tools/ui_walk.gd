@@ -12,8 +12,8 @@ extends TogetherWalk
 ##     second slot, a pad button, a refused clear, the prompt bar's Cancel and Clear, the resets); attack left on F;
 ##     the name field (PartyWalk);
 ##   - pad A on New game: hero select on pads (PartyWalk), the party in the crypt, the guest dropping out, F attacks,
-##     the hints follow the device and the setting, the pause menu alone (SessionWalk), the reconnecting plate takes
-##     nothing;
+##     the hints follow the device and the setting, coins dropped and one picked up (the purse counting it once
+##     confirmed), the pause menu alone (SessionWalk), the reconnecting plate takes nothing;
 ##   - the couch's join cards (PartyWalk), with the toasts and the guests' own glyphs; the Players list drops a guest;
 ##     a key held while a guest leaves and released while the first player is free walks nobody once the guest is
 ##     back; the window in the background pauses;
@@ -34,6 +34,8 @@ extends TogetherWalk
 const SILENT_PORT: int = 9
 ## How long the focus frame is watched pulsing, in frames.
 const PULSE_FRAMES: int = 30
+## How many coins the walk drops round the hero (on DEV_DROP_RING: walking out of it picks one up).
+const LOOT_DROPPED: int = 6
 
 
 func _run() -> void:
@@ -341,8 +343,58 @@ func _walk_new_game() -> void:
 	expect(hints.visible, "Briefly: a change of device shows them again")
 	set_setting(&"hints", setting_value(&"Hints", &"ALWAYS"))  # the couch's glyph checks read them
 	step("in the crypt: F attacks, the hints follow, tick %d" % session.tick)
+	await _walk_loot()
 	await _walk_single_pause()
 	await _walk_link_status()
+
+
+## Coins and the purse (game/views/coins.gd, game/play/purse.gd): dev_drop_loot lays six round the hero, and the coins'
+## MultiMesh shows one instance each (a gold each, aged since they fell: alone, every tick is verified at once). The
+## hero walks out through the ring and picks one up: it glints, the purse counts it once its event is CONFIRMED (each
+## change of the purse in a frame that delivered one; PurseWatch), never down, with one chime and a "+1" rising over
+## the coin, and ends at the State's gold.
+func _walk_loot() -> void:
+	var coins: MultiMeshInstance3D = current_scene.find_child("Coins", true, false) as MultiMeshInstance3D
+	var purse: Control = find(current_scene, ^"Hud/%Purse") as Control
+	if coins == null or purse == null:
+		fail("the play scene has its Coins and the HUD its Purse")
+		return
+	var watch := PurseWatch.new(purse, session)
+	var before: int = PurseWatch.gold_of(purse)
+	var drop := CommandDevDropLoot.new()
+	drop.count = LOOT_DROPPED
+	session.send_command(drop)
+	await wait_for(func() -> bool: return coins.multimesh.visible_instance_count == LOOT_DROPPED, 2.0,
+		"the coins' MultiMesh shows the %d coins dropped" % LOOT_DROPPED)
+	var buffer: PackedFloat32Array = coins.multimesh.buffer
+	for index: int in coins.multimesh.visible_instance_count:
+		var custom: PackedFloat32Array = buffer.slice(index * 16 + 12, index * 16 + 16)
+		expect(custom[0] == 1.0 and custom[1] > -0.1 and custom[1] < 2.0,  # the shown time trails the newest tick
+			"coin %d is worth a gold and fell a moment ago (%s)" % [index, custom])
+	await seconds(0.7)  # armed (LOOT_ARM_S) and done hopping
+	await shot("02d_coins")
+	var mark: int = sounds.size()
+	await key(KEY_D, true)
+	await wait_for(func() -> bool: return PurseWatch.gold_of(purse) > before, 3.0, "walking out of the ring picks a coin up")
+	await key(KEY_D, false)
+	var gains: Array[Node] = purse.get_children().filter(_is_gain)
+	expect(gains.size() >= 1, "a \"+1\" rises over the coin")
+	expect(played(&"coin", mark) >= 1, "the coin's chime plays")
+	await frames(6)
+	await shot("02e_pickup")
+	await seconds(0.3)
+	watch.stop()
+	for problem: String in watch.problems:
+		expect(false, problem)
+	var gold: int = PurseWatch.gold_of(purse)
+	expect(watch.confirmed >= 1 and gold == Unified.data.hud.gold,
+		"the purse shows the State's gold: %d (data %d)" % [gold, Unified.data.hud.gold])
+	step("coins: %d dropped, the purse at %d (%s)" % [LOOT_DROPPED, gold, watch.summary()])
+
+
+## Whether `node` is a purse's rising "+1".
+func _is_gain(node: Node) -> bool:
+	return node is Label and (node as Label).text == "+1"
 
 
 ## The plate a lost link shows over play takes nothing from the player: no focus, the game's input on; Leave game

@@ -5,7 +5,8 @@ extends Node3D
 ## crypt's environment and the HUD. The session is the app's (Game's), already running when this scene loads: this
 ## hands it the two roots, which leave with the scene. It turns the sim's events into effects as soon as they are
 ## predicted (EMITTED): sparks on a hit, a bolt's burst, a crossbow's tracer (from the crossbow as drawn to where the
-## sim's shot ended), dust where a prop lands hard, and a shake when a local hero is hurt.
+## sim's shot ended), dust where a prop lands hard, and a shake when a local hero is hurt. A coin picked up glints as
+## predicted too (its coin gone with it, as the state has it); the purse counts it once confirmed (the HUD's Purse).
 ##
 ## The mouse's aim reaches the sim through it, as only a script knows it: just before the session samples (its
 ## input_wanted, so this frame's sample takes it), the cursor's ray meets a plane at chest height, and the direction
@@ -25,6 +26,8 @@ const HIT_HEIGHT: float = 1.1
 const DUST_SPEED: float = 5.0
 ## How hard a local hero's hurt shakes the camera (0 to 1), at the player's full screen shake (Settings).
 const HURT_SHAKE: float = 0.5
+## Where a picked-up coin's glint shines from, above where it lay (its hover: game/views/coin.gdshader).
+const GLINT_HEIGHT: float = 0.4
 
 ## The pause menu (game/play/pause_menu.tscn), made when it opens.
 @export var pause_menu_scene: PackedScene
@@ -166,3 +169,5 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 	elif event is EventHeroHurt:
 		if _session.get_local_index((event as EventHeroHurt).player) >= 0:
 			_camera_rig.shake(HURT_SHAKE * Settings.screen_shake)
+	elif event is EventLootCollected:
+		_effects.glint((event as EventLootCollected).position + Vector3(0, GLINT_HEIGHT, 0))

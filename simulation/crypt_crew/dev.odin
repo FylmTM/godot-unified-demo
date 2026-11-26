@@ -8,7 +8,8 @@ import "unified:sim"
 
 // Each present player's dev commands: `Command_Dev_Set_Class` turns their hero into another class (ending an attack
 // of the old one), `Command_Dev_Spawn_Minions` raises minions around it, `Command_Dev_Hurt` hurts a hero,
-// `Command_Dev_Kill_Minions` kills every minion (through damage_minion, as the attacks do).
+// `Command_Dev_Kill_Minions` kills every minion (through damage_minion, as the attacks do), `Command_Dev_Drop_Loot`
+// drops coins around it (drop_loot, as a death does).
 apply_dev_commands :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
@@ -29,6 +30,8 @@ apply_dev_commands :: proc(t: ^Tick) {
 					away := dmath.normalize(minion.pos.xz - hero.pos.xz)
 					damage_minion(t, handle, MINION_HP, away, DEV_KILL_KNOCK, player, .Dev)
 				}
+			case Command_Dev_Drop_Loot:
+				drop_loot(t, hero.pos, int(command.count), int(command.count), DEV_DROP_RING)
 			}
 		}
 	}

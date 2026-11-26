@@ -27,6 +27,9 @@ SCRIPT_HURT_AT :: 360 // ... the tick in each round it is sent
 SCRIPT_PAUSE_EVERY :: 512 // ticks between the scripted co-op pauses (slot 0's)
 SCRIPT_PAUSE_AT :: 300 // the tick in each SCRIPT_PAUSE_EVERY a pause starts
 SCRIPT_PAUSE_TICKS :: 40 // how long one lasts
+SCRIPT_DROP_EVERY :: 320 // ticks between slot 1's dev coin drops round its hero ...
+SCRIPT_DROP_AT :: 40 // ... the tick in each a drop is sent ...
+SCRIPT_DROP_COUNT :: 6 // ... and how many coins it lays: on DEV_DROP_RING, so any walk out of it picks one up
 
 // The player in `slot` walks one of 8 directions or stands (a draw every SCRIPT_PERIOD ticks), aims one of 8
 // directions at a reach, or none (other draws), holds Attack in bursts and presses Interact now and then.
@@ -59,8 +62,9 @@ scripted_input :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup)
 // Every slot changes its hero's class once every SCRIPT_CLASS_EVERY ticks (`Any` among the classes, which leaves it),
 // slot 1 raises minions around its hero and slot 2 kills every minion now and then (so the scenarios cross spawns and
 // mass deaths whatever the attacks reach), one slot downs its own hero every SCRIPT_HURT_EVERY (every slot every third time: a wipe and the floor's
-// restart), and slot 0 pauses the game for SCRIPT_PAUSE_TICKS of every SCRIPT_PAUSE_EVERY, so the standard scenarios
-// roll back over all of it. Under a held crowd, nothing: the population stays what was asked.
+// restart), slot 0 pauses the game for SCRIPT_PAUSE_TICKS of every SCRIPT_PAUSE_EVERY, and slot 1 drops coins round its
+// hero now and then (so the scenarios cross pickups whatever the kills drop), so the standard scenarios roll back over
+// all of it. Under a held crowd, nothing: the population stays what was asked.
 scripted_commands :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup, out: ^sim.Command_Out(Command)) {
 	if setup.crowd != .None do return
 	if (tick + u32(slot) * SCRIPT_SLOT_OFFSET) % SCRIPT_CLASS_EVERY == SCRIPT_CLASS_AT {
@@ -72,6 +76,9 @@ scripted_commands :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Set
 	if slot == 2 && tick % SCRIPT_KILL_EVERY == SCRIPT_KILL_AT do sim.send_command(out, Command_Dev_Kill_Minions{})
 	if round := tick / SCRIPT_HURT_EVERY; tick % SCRIPT_HURT_EVERY == SCRIPT_HURT_AT {
 		if round % 3 == 2 || int(round) % PLAYERS == slot do sim.send_command(out, Command_Dev_Hurt{damage = HERO_HP})
+	}
+	if slot == 1 && tick % SCRIPT_DROP_EVERY == SCRIPT_DROP_AT {
+		sim.send_command(out, Command_Dev_Drop_Loot{SCRIPT_DROP_COUNT})
 	}
 	if slot != 0 do return
 	switch tick % SCRIPT_PAUSE_EVERY {

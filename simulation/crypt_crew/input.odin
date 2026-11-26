@@ -83,6 +83,12 @@ Command_Dev_Hurt :: struct {
 // from its hero.
 Command_Dev_Kill_Minions :: struct {}
 
+// `dev_drop_loot` (dev builds): `count` coins worth 1 each fall on a ring DEV_DROP_RING round the sender's hero
+// (drop_loot), for a look at loot and the walks' pickups.
+Command_Dev_Drop_Loot :: struct {
+	count: u8,
+}
+
 // Every command a player can send.
 Command :: union {
 	Command_Set_Paused,
@@ -90,4 +96,5 @@ Command :: union {
 	Command_Dev_Spawn_Minions,
 	Command_Dev_Hurt,
 	Command_Dev_Kill_Minions,
+	Command_Dev_Drop_Loot,
 }

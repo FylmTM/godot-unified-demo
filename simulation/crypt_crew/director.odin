@@ -25,6 +25,7 @@ Roll :: enum u8 {
 	Rise_Angle, // its direction from the grave, and its facing
 	Rise_Distance, // its distance from the grave
 	Crowd_Place, // where a held crowd's minions stand (a stream: place_crowd's at key 0, a sleeping refill's after)
+	Drop, // a felled minion's drop: whether it drops (index 0) and its value (1), keyed by State.drops (loot.odin)
 }
 
 // A held crowd (Setup.crowd, which the rules and the scripted player read): what the population does while it is held.
