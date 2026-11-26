@@ -218,15 +218,16 @@ to the sim's (`docs/ART.md`, Crowds).
 
 ## How it's tested
 
-Every layer unified offers a game: rule tests on sync-tested headless runs, so each also rolls back over what it
-checks; unified's standard scenarios played by the scripted players (`script.odin`), which exercise every control and
-dev command; a bot playthrough of the four classes; a replay regression recorded from a real two-player LAN session;
-the pinned reference runs (the scripted party on Floor 1, and a crowd of MINION_CAP fighting on the arena:
-`crowd_test.odin`, which also plays the standard scenarios at that size), the cross-platform check in CI; the godot
-suite, which holds the art to `docs/ART.md` and the app layer to its contract (`game/tools/art_checks.gd`,
-`app_checks.gd`) and walks the app with real input events (`game/tools/ui_walk.gd`); and `./uni coop`, a host and a
-joiner in two processes, from session flags or, with `--menus`, each side through the game's own menus
-(`UnifiedCoop._start_host`, `_start_join`: `game/tools/coop.gd`).
+Every layer unified offers a game: rule tests on sync-tested headless runs, so each also rolls back over what it checks;
+unified's standard scenarios played by the scripted players (`script.odin`), which exercise every control and dev
+command; a bot playthrough of the four classes; a replay regression recorded from a real two-player LAN session playing
+a fixed script (`game/tools/coop_lan_pair.gd`; `./uni coop --rerecord lan_pair` records it again); the pinned reference
+runs (the scripted party on Floor 1, and a crowd of MINION_CAP fighting on the arena: `crowd_test.odin`, which also
+plays the standard scenarios at that size), the cross-platform check in CI; the godot suite, which holds the art to
+`docs/ART.md` and the app layer to its contract (`game/tools/art_checks.gd`, `app_checks.gd`) and walks the app with
+real input events (`game/tools/ui_walk.gd`); and `./uni coop`, a host and a joiner in two processes, from session flags
+or, with `--menus`, each side through the game's own menus (`UnifiedCoop._start_host`, `_start_join`:
+`game/tools/coop.gd`).
 Commands: `./uni help`.
 
 ## Benchmarks

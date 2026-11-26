@@ -17,7 +17,9 @@ change only on purpose, never to make a test pass. How they work and are re-pinn
    `./uni test --bless`: it re-pins the reference run and blesses the replay regressions that moved, and prints each
    value it changed. Review the diff (what moved, the README's Re-pinning) and commit it with the change. Results that
    moved on the build that pinned them are refused until a version is bumped. A recording whose Input, commands, Setup
-   or Profile changed layout can't be blessed: record it again.
+   or Profile changed layout can't be blessed: record it again, after the other pins pass. One its folder says how to
+   record (`coop.args`) is `./uni coop --rerecord <name>` (the failure names it): the game's coop script plays it again,
+   and the game's tests bless and judge the new recording, or refuse it and leave the old one.
 3. **Before handing back:** `./uni test --long` and `./uni bench` (a re-sim there that disagrees with the forward run
    is a determinism bug, not a speed problem).
 4. **Say why** in the commit message: what the simulation computes now, and why the old results are no longer right.

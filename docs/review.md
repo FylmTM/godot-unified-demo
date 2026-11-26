@@ -167,8 +167,8 @@ says what was decided or noticed and where. Delete a line once it is reviewed; d
   ring and a metre of the host's (`Unified.constants.arrival_ring`, the sim's); the joiner stands 3 s first, so the
   host sees it where it arrived. The host then raises four skeletons (a dev command) and swings until a hit is
   confirmed.
-- The replay regression `replays/lan_pair` is a host's recording of a two-player LAN session (what it holds now is
-  milestone 3's, below). A session ended by the app quitting keeps its recording since unified f9ccbaa.
+- The replay regression `replays/lan_pair` is a host's recording of a two-player LAN session (how it is recorded,
+  below). A session ended by the app quitting keeps its recording since unified f9ccbaa.
 - The reference run is pinned at 2400 ticks with its snapshot at 1200: it crosses the script's first wipe and several
   surges.
 - Review fixes, steps 4 and 5 (VERSION "2"): bolts in flight go with a floor restart (`enter_level`). An attack ends in
@@ -435,12 +435,13 @@ Checks:
 - The walk drives pads with unified's `UnifiedTool.pad_button(button, device)` and `pad_axis` (745e023).
 - The short scenarios' run crosses a surge (`the_suite_runs_cross_a_save`), so unified's save checks cover Game.save
   under rollback, churn and a late join.
-- `replays/lan_pair` (the host's recording, ticks 2 to 4241, about 66 s; recorded again in milestone 4 so its blows
-  land): a Knight host and a Barbarian joiner (both asked for Any), each grabbing, carrying and throwing a prop twice;
-  the host grabbing a prop, thirty-two skeletons raised round it (dev) and the prop thrown through their ring (a prop
-  hit); both attacking as they close in (blows land); the joiner's co-op pause and the host's resume; the host a Mage
-  and the joiner a Rogue (dev), both attacking; every skeleton killed (dev); the host downed (dev); four surges.
-  `the_lan_recording_fights` replays it and finds the heroes' own hits and a prop's.
+- `replays/lan_pair` is recorded by one command, `./uni coop --rerecord lan_pair` (unified's `uni coop --record`;
+  its coop.args holds `--lan -- --play=lan_pair`): game/tools/coop_lan_pair.gd plays the same script on both sides
+  every time (its header lists the steps), waiting on the shared sim, never the clock, and
+  `the_lan_recording_holds_its_play` checks the recording holds every step (classes, grabs and throws, a prop's and
+  each one's hits, the pause and resume, the bolt and the shot, the dev kill and downing, four surges); a recording
+  that misses one is refused and the folder keeps the old one. A re-record takes about 80 s, most of it waiting for
+  the fourth surge (ticks 2 to about 4000).
 - `uni coop --host-profile/--join-profile` (unified b06ba4f) gives each side its Profile; coop.gd checks each class
   against its flag (a joiner asking Any plays a class the host doesn't), names its joiner "Friend", works both pause
   menus, and the joiner continues on its own after the host leaves. With `--menus` each side goes through the menus
