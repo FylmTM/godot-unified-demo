@@ -1,10 +1,12 @@
 // The extension's views as functions of the state: a minion's crowd instance (minion_instance), the contract the
-// crowd's shader reads (game/crowd/crowd_minion.gdshader's header). An instance is a function of its minion and handle
-// alone, so what a view shows after a rollback is the re-simulated state's: the sim's own rollback tests hold that.
+// crowd's shader reads (game/crowd/crowd_minion.gdshader's header), and how an elite's scene view appears. An instance
+// is a function of its minion and handle alone, so what a view shows after a rollback is the re-simulated state's: the
+// sim's own rollback tests hold that.
 package test_crypt_crew
 
 import "core:testing"
 import "unified:dmath"
+import "unified:godot"
 import "unified:headless"
 import "unified:sim"
 
@@ -70,4 +72,17 @@ the_clips_are_the_crowds_numbers :: proc(t: ^testing.T) {
 	for number, clip in numbers {
 		testing.expectf(t, int(clip) == number, "%v is %d, not the crowd's %d", clip, int(clip), number)
 	}
+}
+
+// An elite's view appears once its spawn is verified (as a minion's): a remote dev spawn or a surge a late command
+// moved would otherwise flash and vanish. The extension's policy says so; the host's appear-on-verified is unified's.
+@(test)
+an_elite_appears_once_verified :: proc(t: ^testing.T) {
+	for policy in ext.VIEW_POLICY {
+		if policy.kind == ext.View_Elite {
+			testing.expect_value(t, policy.policy.appear, godot.Appear.Verified)
+			return
+		}
+	}
+	testing.expect(t, false, "View_Elite has no policy: it would appear on the prediction")
 }

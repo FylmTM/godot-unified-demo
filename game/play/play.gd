@@ -1,11 +1,12 @@
 class_name Play
 extends Node3D
 ## The play scene: the level root the session instances the floor under (its meshes are the crypt), the views root it
-## spawns the heroes under, the bolts' MultiMesh, the local players' devices (Couch), the camera, the effects, the
-## crypt's environment and the HUD. The session is the app's (Game's), already running when this scene loads: this
-## hands it the two roots, which leave with the scene. It turns the sim's events into effects as soon as they are
-## predicted (EMITTED): sparks on a hit, a bolt's burst, a crossbow's tracer (from the crossbow as drawn to where the
-## sim's shot ended), dust where a prop lands hard, and a shake when a local hero is hurt.
+## spawns the heroes and the elites under, the bolts' MultiMeshes (the heroes' and the skeleton Mages'), the local
+## players' devices (Couch), the camera, the effects, the crypt's environment and the HUD. The session is the app's
+## (Game's), already running when this scene loads: this hands it the two roots, which leave with the scene. It turns
+## the sim's events into effects as soon as they are predicted (EMITTED): sparks on a hit (a skeleton's, an elite's, a
+## bone bolt's; and dust where a guard breaks), a bolt's burst, a crossbow's tracer (from the crossbow as drawn to where
+## the sim's shot ended), dust where a prop lands hard, and a shake when a local hero is hurt.
 ##
 ## The mouse's aim reaches the sim through it, as only a script knows it: just before the session samples (its
 ## input_wanted, so this frame's sample takes it), the cursor's ray meets a plane at chest height, and the direction
@@ -21,6 +22,8 @@ const AIM_PLANE_HEIGHT: float = 1.2
 const AIM_DEAD_RADIUS: float = 0.5
 ## Where on a skeleton its hit's sparks fly from, above its feet.
 const HIT_HEIGHT: float = 1.1
+## Where on an elite its hit's sparks fly from, above its feet (a Warrior's shield, struck).
+const ELITE_HIT_HEIGHT: float = 1.3
 ## A prop landing faster than this (metres per second) raises dust.
 const DUST_SPEED: float = 5.0
 ## How hard a local hero's hurt shakes the camera (0 to 1), at the player's full screen shake (Settings).
@@ -154,7 +157,11 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 	if event is EventMinionHit:
 		_effects.sparks((event as EventMinionHit).position + Vector3(0, HIT_HEIGHT, 0))
 	elif event is EventBoltBurst:
-		_effects.burst((event as EventBoltBurst).position)
+		var bolt := event as EventBoltBurst
+		if bolt.bone:
+			_effects.sparks(bolt.position)  # a skeleton Mage's: bone splinters, not the hero's violet burst
+		else:
+			_effects.burst(bolt.position)
 	elif event is EventCrossbowShot:
 		var shot := event as EventCrossbowShot
 		var shooter := _session.get_player_view(EnumView.HERO, shot.player) as HeroView
@@ -166,3 +173,10 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 	elif event is EventHeroHurt:
 		if _session.get_local_index((event as EventHeroHurt).player) >= 0:
 			_camera_rig.shake(HURT_SHAKE * Settings.screen_shake)
+	# Elites
+	elif event is EventEliteHit:
+		_effects.sparks((event as EventEliteHit).position + Vector3(0, ELITE_HIT_HEIGHT, 0))
+	elif event is EventGuardBroken:
+		var broken := event as EventGuardBroken
+		_effects.sparks(broken.position + Vector3(0, ELITE_HIT_HEIGHT, 0))
+		_effects.dust(broken.position)

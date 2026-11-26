@@ -19,6 +19,7 @@ Frame :: godot.Frame(g.Game, View, MultiView)
 View :: union {
 	View_Hero,
 	View_Prop,
+	View_Elite, // keyed by its handle (its events' `elite`)
 }
 
 // The MultiMesh views (a MultiMeshInstance3D with a UnifiedMultiView each), keyed by their handles: the Mage's bolts,
@@ -26,6 +27,7 @@ View :: union {
 MultiView :: enum u8 {
 	Bolt,
 	Minion,
+	Bone_Bolt, // a skeleton Mage's bolt: a kind of its own, so it draws in its own colour (one MultiMesh, one material)
 }
 
 // How each MultiMesh kind is shown. A bolt's and a minion's corrections glide like a scene view's (each keyed instance
@@ -35,6 +37,7 @@ MultiView :: enum u8 {
 MULTI_POLICY := [MultiView]godot.View_Policy {
 	.Bolt = {smoothing = godot.SMOOTHING_DEFAULT},
 	.Minion = {appear = .Verified, smoothing = godot.SMOOTHING_DEFAULT, ages = {1, 2}},
+	.Bone_Bolt = {smoothing = godot.SMOOTHING_DEFAULT},
 }
 
 // A hero, posed at its feet and turned to its facing. Its animation is a function of this data (game/views/hero.gd):
@@ -76,8 +79,25 @@ MINION_PHASE_S :: f32(0.618034)
 // as the shown time itself, and flash every minion in a session's first ticks).
 MINION_NEVER_STRUCK :: f32(-1e9)
 
-// The scene views' policies that aren't the default (Glue.view_policy): none.
-VIEW_POLICY := []godot.View_Kind_Policy{}
+// The scene views' policies that aren't the default (Glue.view_policy): an elite appears once its spawn is verified,
+// as a minion does: one a misprediction raised (a remote dev spawn, a surge a late command moved) would flash and
+// vanish.
+VIEW_POLICY := []godot.View_Kind_Policy{{View_Elite, {appear = .Verified}}}
+
+// An elite, posed at its feet and turned to its facing; a pooled kind (game/views/elite.tscn). Its animation is a
+// function of this data (game/views/elite.gd): its phase at its age, a stagger's hit at the last hit's, else a gait
+// picked from its velocity; its health bar is hp of hp_max, and a Warrior's shield glints while it guards.
+View_Elite :: struct {
+	velocity:  [2]f32, // metres per second in its frame: x to its right, y ahead
+	since:     sim.Game_Time, // when `phase` began: a one-shot's clip time is (shown_time - since) / tick_hz
+	struck:    sim.Game_Time, // when it was last hit (0: never): the flash, and a stagger's clip
+	hp:        i16,
+	hp_max:    i16,
+	kind:      g.Elite_Kind, // EnumEliteKind: which skeleton the view shows
+	phase:     g.Elite_Phase, // EnumElitePhase
+	guard:     bool, // a Warrior whose shield is up (the rules' shield_up): the view's glint
+	staggered: bool, // reeling from a knock (ELITE_STAGGER_KNOCK)
+}
 
 // A minion's crowd instance: at its feet, turned to its facing, keyed by its handle; its custom data the contract of
 // game/crowd/crowd_minion.gdshader's header. 0: its clip (Minion_Clip: a chaser that isn't moving stands); 1: the
@@ -114,7 +134,7 @@ minion_instance :: proc(minion: ^g.Minion, handle: sim.Handle(g.Minion)) -> godo
 	}
 }
 
-// Every present hero, every prop, every bolt, every minion, then the HUD's data.
+// Every present hero, every prop, every bolt, every minion, every elite, then the HUD's data.
 fill_frame :: proc(f: ^Frame) {
 	heroes := sim.iterate_present(&f.state.players)
 	for hero, player in sim.next(&heroes) {
@@ -135,13 +155,37 @@ fill_frame :: proc(f: ^Frame) {
 	fill_props(f)
 	bolts := sim.iterate(&f.state.bolts)
 	for bolt, handle in sim.next(&bolts) {
-		godot.push_multi_view(f, {key = sim.handle_key(handle), kind = .Bolt, pos = sim.Position(bolt.pos)})
+		kind: MultiView = .Bone_Bolt if bolt.by_elite != {} else .Bolt
+		godot.push_multi_view(f, {key = sim.handle_key(handle), kind = kind, pos = sim.Position(bolt.pos)})
 	}
 	minions := sim.iterate(&f.state.minions)
 	for minion, handle in sim.next(&minions) {
 		godot.push_multi_view(f, minion_instance(minion, handle))
 	}
+	fill_elites(f)
 	fill_hud(f)
+}
+
+// Every elite (a dying one as it fell: its body is gone, its feet stay where they were).
+fill_elites :: proc(f: ^Frame) {
+	elites := sim.iterate(&f.state.elites)
+	for elite, handle in sim.next(&elites) {
+		right := [2]f32{-elite.facing.y, elite.facing.x} // a model faces +Z: its right is -X
+		godot.push_view(f, handle, {
+			pos = sim.Position(elite.pos),
+			rot = dmath.quat_yaw(elite.facing),
+		}, View_Elite {
+			velocity  = {dmath.dot(elite.vel.xz, right), dmath.dot(elite.vel.xz, elite.facing)},
+			since     = elite.since,
+			struck    = elite.struck,
+			hp        = elite.hp,
+			hp_max    = g.ELITE_SPECS[elite.kind].hp,
+			kind      = elite.kind,
+			phase     = elite.phase,
+			guard     = g.shield_up(f.time, elite),
+			staggered = sim.timer_running(f.time, elite.stagger),
+		})
+	}
 }
 
 // Every prop, the ones a local hero would grab highlighted (the rules' hands_target, on its shown facing).

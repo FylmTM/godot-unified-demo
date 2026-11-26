@@ -1,0 +1,6 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://game/fx/guard_glint.gdshader" id="glint"]
+
+[resource]
+shader = ExtResource("glint")

@@ -28,6 +28,7 @@ Data_Constants :: struct {
 	minion_rise:     f32, // how long a risen minion climbs out of the floor in seconds (RISE_S: the rise clip's last)
 	minion_death:    f32, // how long a dead minion's row lingers in seconds (DEATH_S: the crowd sinks it by then)
 	arrival_ring:    f32, // how far from the party an arrival's first ring of spots is (metres; the second, twice)
+	elite_windups:   [len(g.Elite_Kind)]f32, // each elite kind's attack windup in seconds, by EnumEliteKind
 	save_version:    u8, // the save this build writes and continues (Setup.version): the app reads a save by it
 	_pad:            [3]u8,
 }
@@ -42,6 +43,7 @@ constants :: proc() -> (constants: Data_Constants) {
 	constants.minion_rise = g.RISE_S
 	constants.minion_death = g.DEATH_S
 	constants.arrival_ring = g.ARRIVAL_RING
+	for kind in g.Elite_Kind do constants.elite_windups[kind] = f32(g.ELITE_SPECS[kind].windup) / g.TICK_HZ
 	constants.save_version = g.SAVE_VERSION
 	return
 }

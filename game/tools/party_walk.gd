@@ -149,6 +149,7 @@ func _walk_hero_select() -> void:
 		"the picks remembered by place, Any as Any: %s" % [picks])
 	step("the party in the crypt: a Knight and a Barbarian")
 	_walk_crowd()
+	await _walk_elites()
 
 
 ## The seats at 130 % interface size: inside the view, clear of the banner and the buttons.
@@ -501,3 +502,48 @@ func _walk_crowd() -> void:
 		expect(custom[1] > 0.0, "minion %d's gait has an age (%f s)" % [index, custom[1]])
 		expect(custom[2] > 1000.0, "minion %d was never struck: its hit is far in the past (%f s)" % [index, custom[2]])
 	step("the crowd: %d sleeping minions, one MultiMesh" % shown)
+
+
+## The floor's elites (its two markers) are scene views (game/views/elite.tscn), asleep where they stand, their health
+## bars full; a dev hurt shows on each bar as its health left (the bar's per-instance fill is the view data's hp of
+## hp_max), and a killing one lays them down and their views go after DEATH_S.
+func _walk_elites() -> void:
+	var elites: Array[Node] = views(EnumView.ELITE)
+	expect(elites.size() == 2, "Floor 1 shows its two elites (%d views)" % elites.size())
+	for view: Node in elites:
+		var data: ViewElite = view.get(&"data")
+		expect(data.phase == EnumElitePhase.IDLE and data.hp == data.hp_max, "an elite sleeps at full health")
+		expect(_bar_of(view) == 1.0, "its bar is full (%f)" % _bar_of(view))
+	var hurt := CommandDevHurtElites.new()
+	hurt.damage = 30
+	session.send_command(hurt)
+	await wait_for(_elites_hurt, 2.0, "the elites are hurt")
+	await frames(2)
+	for view: Node in views(EnumView.ELITE):
+		var data: ViewElite = view.get(&"data")
+		var left: float = float(data.hp) / float(data.hp_max)
+		expect(data.hp == data.hp_max - 30 and absf(_bar_of(view) - left) < 0.001,
+			"its bar tracks its health: %f of %d/%d" % [_bar_of(view), data.hp, data.hp_max])
+	hurt = CommandDevHurtElites.new()
+	hurt.damage = 500
+	session.send_command(hurt)
+	await wait_for(func() -> bool: return views(EnumView.ELITE).is_empty(), 2.0 + Unified.constants.minion_death,
+		"the felled elites' views go")
+	step("the elites: asleep, their bars tracking their health, felled")
+
+
+## Whether every elite view shows a wound.
+func _elites_hurt() -> bool:
+	for view: Node in views(EnumView.ELITE):
+		var data: ViewElite = view.get(&"data")
+		if data.hp == data.hp_max:
+			return false
+	return true
+
+
+## The fill of an elite view's health bar (its MeshInstance3D's per-instance `fraction`).
+func _bar_of(view: Node) -> float:
+	var bar: MeshInstance3D = view.get_node(^"Bar") as MeshInstance3D
+	var fill: float = bar.get_instance_shader_parameter(&"fraction")
+	return fill
+
