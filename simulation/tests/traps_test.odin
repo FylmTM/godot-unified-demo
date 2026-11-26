@@ -208,3 +208,127 @@ a_crossbow_hits_the_roller_where_the_shooter_saw_it :: proc(t: ^testing.T) {
 		scenarios.expect_synced(t, &run)
 	}
 }
+
+// A plate raises only its own spikes: with the plated spikes' plate pressed, the other spikes keep to the clock; with a
+// gate's plate pressed, the plated spikes keep to the clock too.
+@(test)
+a_plate_raises_only_its_own_spikes :: proc(t: ^testing.T) {
+	run := workshop()
+	defer headless.run_end(&run)
+	for pressed in ([][2]int{{SPIKES_PLATE, SPIKES}, {STORE_PLATE, PLATED_SPIKES}}) {
+		drop_prop_on(&run, WORKSHOP_HEAVY_CRATE, plate_spot(&run, pressed[0]) + {0, g.PLATE_TRAVEL, 0})
+		play(&run, {}, 0.5)
+		plate, _ := plate_at(&run, pressed[0])
+		testing.expect(t, plate.pressed, "the plate is pressed")
+		other, _ := trap_at(&run, pressed[1])
+		for _ in 0 ..< g.SPIKES_PERIOD_TICKS {
+			headless.run_step(&run)
+			if !testing.expect_value(t, other.up, clock_up(&run, pressed[1])) do break
+		}
+	}
+	scenarios.expect_synced(t, &run)
+}
+
+// Spikes strike an elite standing over them (its capsule has sensor events on, so their sensor holds it) while up, by
+// the trap, from no side (a Warrior's shield takes none of it). The elite is rising (awake): a sleeper is a dormant
+// body made asleep, which a sensor it was made inside doesn't begin to hold (unified's character_set_dormant).
+@(test)
+spikes_strike_elites_while_up :: proc(t: ^testing.T) {
+	run := workshop()
+	defer headless.run_end(&run)
+	centre := trap_spot(&run, SPIKES)
+	for clock_up(&run, SPIKES) do headless.run_step(&run)
+	warrior := place_elite(&run, .Warrior, centre, {0, 1}, .Rise)
+	struck := false
+	for _ in 0 ..< g.SPIKES_PERIOD_TICKS {
+		headless.run_step(&run)
+		hit, found := headless.run_last_event(&run, g.Event_Elite_Hit)
+		if !found do continue
+		testing.expect_value(t, hit.elite, warrior)
+		testing.expect_value(t, hit.source, g.Hit_Source.Trap)
+		testing.expect_value(t, hit.damage, g.SPIKES_DAMAGE)
+		testing.expect(t, clock_up(&run, SPIKES), "struck while up")
+		struck = true
+		break
+	}
+	testing.expect(t, struck, "the spikes strike the elite")
+	scenarios.expect_synced(t, &run)
+}
+
+// Where the roller's pillar stands at the middle of its path, and its path's definition.
+roller_middle :: proc(run: ^headless.Run(g.Game)) -> [3]f32 {
+	def := &sim.slice(&floor_of(run).places.traps)[ROLLER]
+	return (def.path.points[0] + def.path.points[1]) / 2
+}
+
+// The roller strikes a minion in its way: minions are kept out of a circle round its pillar's corners
+// (roller_obstacles), and that circle's edge is in the strike's reach.
+@(test)
+the_roller_strikes_minions_in_its_way :: proc(t: ^testing.T) {
+	run := workshop()
+	defer headless.run_end(&run)
+	minion := place_minion(&run, roller_middle(&run), .Idle)
+	struck := false
+	for _ in 0 ..< 2 * g.SPIKES_PERIOD_TICKS { 	// a whole cycle of the roller's: there and back
+		headless.run_step(&run)
+		hit, found := headless.run_last_event(&run, g.Event_Minion_Hit)
+		if found && hit.minion == minion && hit.source == .Trap do struck = true
+		if struck do break
+	}
+	testing.expect(t, struck, "the roller strikes the minion in its way")
+	scenarios.expect_synced(t, &run)
+}
+
+// A minion in the roller's way is pushed aside, never run through: with the roller kept from striking (its rearm held),
+// the minion stays out of the pillar for a whole cycle.
+@(test)
+the_roller_pushes_minions_aside :: proc(t: ^testing.T) {
+	run := workshop()
+	defer headless.run_end(&run)
+	roller, _ := trap_at(&run, ROLLER)
+	now := run.simulation.state.clock.time
+	roller.rearm = {
+		start  = now,
+		target = max(sim.Game_Time),
+	}
+	minion := place_minion(&run, roller_middle(&run), .Idle)
+	phys := run.simulation.world.phys
+	for _ in 0 ..< 2 * g.SPIKES_PERIOD_TICKS {
+		headless.run_step(&run)
+		centre := physics.body_position(phys, roller.body)
+		pos := sim.get(&run.simulation.state.minions, minion).pos
+		inside := g.within_square(centre, {0, 0, 0, 1}, g.ROLLER_HALF.x, pos)
+		if !testing.expectf(t, !inside, "the pillar at %v runs through the minion at %v", centre, pos) do break
+	}
+	scenarios.expect_synced(t, &run)
+}
+
+// The roller passes over a downed hero lying in its way without striking (nothing announced, its rearm untouched).
+@(test)
+the_roller_leaves_a_downed_hero_be :: proc(t: ^testing.T) {
+	run := workshop(seated = 2) // the other hero stays up: no wipe
+	defer headless.run_end(&run)
+	place_hero(&run, 0, roller_middle(&run))
+	hurt(&run, 0, g.HERO_HP)
+	for _ in 0 ..< 2 * g.SPIKES_PERIOD_TICKS do headless.run_step(&run)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Trap_Hit), 0)
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).hp, 0)
+	scenarios.expect_synced(t, &run)
+}
+
+// The roller strikes an elite in its way, by the trap.
+@(test)
+the_roller_strikes_elites_in_its_way :: proc(t: ^testing.T) {
+	run := workshop()
+	defer headless.run_end(&run)
+	warrior := place_elite(&run, .Warrior, roller_middle(&run), {1, 0}, .Idle)
+	struck := false
+	for _ in 0 ..< 2 * g.SPIKES_PERIOD_TICKS {
+		headless.run_step(&run)
+		hit, found := headless.run_last_event(&run, g.Event_Elite_Hit)
+		if found && hit.elite == warrior && hit.source == .Trap do struck = true
+		if struck do break
+	}
+	testing.expect(t, struck, "the roller strikes the elite in its way")
+	scenarios.expect_synced(t, &run)
+}

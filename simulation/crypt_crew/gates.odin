@@ -49,6 +49,9 @@ spawn_gates :: proc(t: ^Tick) {
 		shut := def.pos + {0, GATE_HALF.y + PLATE_CLEARANCE, 0}
 		body_def := physics.body_def(.Dynamic, shut, def.rot)
 		body_def.gravity_scale = 0 // the motor holds it wherever it is
+		// Never asleep: a close lands on whatever tick it lands, and the closing motor's first tick moves the grille
+		// slower than Box3D's sleep threshold, so a gate whose island fell asleep that tick would stay open for good.
+		body_def.enable_sleep = false
 		shape_def := physics.shape_def(CAT_PIECE)
 		shape_def.density = physics.box_density(GATE_MASS, GATE_HALF)
 		gate.body, _ = physics.create_box(t.world.phys, body_def, shape_def, GATE_HALF, sim.handle_key(handle))
@@ -77,7 +80,6 @@ drive_gates :: proc(t: ^Tick) {
 		phys := t.world.phys
 		physics.prismatic_joint_set_motor_speed(phys, gate.joint, GATE_SPEED if open else -GATE_SPEED)
 		physics.prismatic_joint_set_max_motor_force(phys, gate.joint, GATE_LIFT_FORCE if open else GATE_CLOSE_FORCE)
-		physics.joint_wake_bodies(phys, gate.joint) // a shut gate sleeps: a new motor speed alone doesn't wake it
 		sim.emit(t, Event_Gate{gate = handle, position = sim.Position(def.pos), open = open})
 	}
 }

@@ -33,9 +33,9 @@ WORKSHOP :: g.Setup {
 }
 
 // A sync-tested run on the workshop with `seated` heroes, its minions gone and its surges held off (hold_surges), so a
-// test sees only the skeletons it raises.
-workshop :: proc(seated := 1, seed: u64 = 1) -> headless.Run(g.Game) {
-	run := headless.run_begin(&g.GAME, seed, WORKSHOP, seated = seated)
+// test sees only the skeletons it raises; `window` is how far back each step is re-simulated.
+workshop :: proc(seated := 1, seed: u64 = 1, window: u32 = 8) -> headless.Run(g.Game) {
+	run := headless.run_begin(&g.GAME, seed, WORKSHOP, window, seated)
 	hold_surges(&run)
 	return run
 }
@@ -114,11 +114,11 @@ WORKSHOP_REFERENCE :: scenarios.Reference {
 	ticks         = 1200,
 	snapshot_tick = 600,
 	setup         = "floor=workshop",
-	checkpoints   = {0x3dbcdcdd00f8d8e3, 0x83128efebe4b999f, 0xbde12dced09c3998, 0xb30521482fb78e2c},
-	trace         = 0x1caf7c6e23b7a364,
-	snapshot      = 0x0a3afb225d11b4f1,
-	log           = 0xf8ef82b6a54689bd,
-	compat        = 0x0b47c5bb7c946b0a,
+	checkpoints   = {0xfcdf7702bea63a37, 0xcfabe0d42b117cf5, 0xa910e4325ede7eef, 0x90e1bf02177fbff4},
+	trace         = 0x2bfff1699c4ad60d,
+	snapshot      = 0x69056d9e47589820,
+	log           = 0x4f98edc5ba2f4fae,
+	compat        = 0x7bdb2085da59d8f2,
 }
 
 @(test)

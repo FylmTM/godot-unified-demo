@@ -515,7 +515,7 @@ PIECE_OBSTACLE_RADIUS :: f32(0.7)
 // motor, which bears PLATE_LOAD on top of the slab's own weight and no more: a crate, a barrel or a hero standing on it
 // (its pogo spring pushes on whatever it stands on) sinks it, a lighter load doesn't. Box3D's prismatic spring has no
 // force cap, so the motor is the spring: it lifts the slab back at PLATE_RISE_SPEED once the load is off.
-PLATE_HALF :: [3]f32{0.95, 0.04, 0.95}
+PLATE_HALF :: [3]f32{0.95, 0.02, 0.95} // thin: a minion (a row on the floor) shows sunk in it no deeper than it stands
 PLATE_TRAVEL :: f32(0.12) // how far the slab sinks: its joint's limits, from its rest to a hand above the floor
 PLATE_CLEARANCE :: f32(0.01) // between the slab, sunk all the way, and the floor under it
 PLATE_ON :: f32(0.07) // sunk deeper than this, a plate is pressed ...
@@ -527,7 +527,7 @@ PLATE_RISE_SPEED :: f32(0.5) // metres per second: a released slab is back up in
 
 // A gate (gates.odin): a grille (the gated wall, 4 m wide) on a vertical prismatic joint whose motor lifts it while
 // enough of its plates are pressed and lowers it otherwise, gravity off (the motor alone moves it).
-GATE_HALF :: [3]f32{1.95, 2, 0.2} // a hand narrower than the 4 m gap, so it never rubs the walls beside it
+GATE_HALF :: [3]f32{1.95, 2, 0.5} // the gated wall's block, a hand narrower than its 4 m gap: it never rubs the walls beside it
 GATE_MASS :: f32(120)
 GATE_SPEED :: f32(2) // metres per second, up or down
 GATE_RISE :: f32(2.6) // how high it lifts: its bottom clears a hero's head
@@ -537,12 +537,16 @@ GATE_CLOSE_FORCE :: f32(300)
 GATE_PASS :: f32(1.8) // lifted less than this, it is in minions' way (gate_obstacles)
 #assert(GATE_PASS < GATE_RISE)
 
-// A barricade (barricades.odin): a fence (the barrier, 4 m wide) welded to the world until a blow strains the weld past
-// BARRICADE_BREAK_N, which breaks it: the fence falls free as debris. A hero walking into it pushes at most
-// HERO_GROUND_FORCE; a thrown prop or a charge hits far harder.
-BARRICADE_HALF :: [3]f32{2, 0.55, 0.25}
+// A barricade (barricades.odin): a fence (the barrier, 4 m wide) welded to the world, broken free by a blow (a thrown
+// prop, a charge, a hurled body) that strains its weld past BARRICADE_BREAK_N: the blow decides, and the strain is its
+// floor, so a thrown prop that only nudges the fence leaves it. What Box3D measures (its joint event's force): a crate
+// thrown into it from 3 to 5 m, 20 to 32 kN; one nudged against it at 3 m/s, 6 to 8 kN; a hero walking into it at a
+// run, about 50 kN (no blow, so it holds).
+// The fence's body: a hand narrower than its 4 m gap, and taller than the barrier's 1.1 m model, so a crate thrown from
+// across a room meets it instead of sailing over (bolts and shots stop at it too).
+BARRICADE_HALF :: [3]f32{1.95, 0.85, 0.25}
 BARRICADE_MASS :: f32(80)
-BARRICADE_BREAK_N :: f32(6000)
+BARRICADE_BREAK_N :: f32(12000)
 
 // Spikes (traps.odin): a sensor box over the spike tile's middle, up SPIKES_UP_S of every SPIKES_PERIOD_S (a pure
 // function of the game clock and the marker's phase), or while its plate is pressed. Up, they strike as they rise and

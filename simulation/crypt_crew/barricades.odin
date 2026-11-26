@@ -1,10 +1,12 @@
 // Barricades: a fence welded to the World's anchor, broken free by a blow: its weld strained past BARRICADE_BREAK_N
 // (Box3D's joint force threshold: the step reports the joint, world_joint_events) while a blow touches it, a thrown prop
-// (its throw running), a Knight's charge or a body a Barbarian threw. The strain alone can't tell a blow from a walk: a
-// hero at a run carries twice a crate's momentum, and Box3D's contacts stop a capsule within a substep, so walking into
-// the fence strains its weld as hard as a thrown crate does. Broken, the weld goes and the fence falls free as debris: a
-// loose body in CAT_PROP that props, heroes and elites knock about (no table's, so nobody grabs it, and its tag is
-// cleared, so no prop's rule mistakes it for a prop). Until then it is in minions' way (barricade_obstacles).
+// (its throw running), a Knight's charge or a body a Barbarian threw. The blow decides and the threshold is its floor:
+// the strain alone can't tell a blow from a walk, since a hero at a run carries more momentum than a thrown crate and
+// Box3D's contacts stop a capsule within a substep, so walking into the fence strains its weld harder than a thrown crate
+// does. Broken, the weld goes and the fence falls free as debris: a loose body in CAT_PROP that props, heroes and elites
+// knock about (no table's, so nobody grabs it, and its tag is cleared, so no prop's rule mistakes it for a prop). Until
+// then it is in minions' way (barricade_obstacles). A level stands a fence clear of its walls: one pressed into a wall
+// strains its weld at rest, and every tick would report it.
 //
 // The break is Box3D's own, so a rollback across it restores the weld (it is a joint in the snapshot) and the step
 // that re-simulates the blow breaks it again; nothing about the break is kept outside the block.

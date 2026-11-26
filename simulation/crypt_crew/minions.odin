@@ -287,8 +287,9 @@ build_grid :: proc(t: ^Tick) {
 	fill_grid(&t.world.grid, floor_of(t), &t.state.minions)
 }
 
-// The grid of the minions where the physics step left them, built by the tick's first strike query (a tick whose
-// strikes ask nothing builds none) and kept for the rest of the strikes: World.strike_grid, cleared as they begin.
+// The grid of the minions where the physics step left them, built by the tick's first query after the step (the traps'
+// or the strikes'; a tick that asks nothing builds none) and kept for the rest of the tick: World.strike_grid, cleared
+// once the step is done.
 strike_grid :: proc(t: ^Tick) -> ^Minion_Grid {
 	if !t.world.strike_grid do build_grid(t)
 	t.world.strike_grid = true

@@ -108,7 +108,7 @@ World :: struct {
 	queues:         [MAX_MINIONS]Queue_Place, // scratch: each minion's place in its hero's queue then, by row
 	// scratch: the grid's cells an obstacle's reach touches this tick (set and cleared by move_minions)
 	in_way:         [MINION_GRID_CELLS]bool,
-	// scratch: the grid holds the minions where the physics step left them (strike_grid; cleared as the strikes begin)
+	// scratch: the grid holds the minions where the physics step left them (strike_grid; cleared after the step)
 	strike_grid:    bool,
 	// ---- mechanisms' scratch
 	joints:         [dynamic]physics.Joint_Ref, // the step's joint events (break_barricades)

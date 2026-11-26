@@ -10,4 +10,4 @@ script = ExtResource("barricade")
 kind = "barricade"
 
 [node name="Model" parent="." instance=ExtResource("model")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.55, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.85, 0)

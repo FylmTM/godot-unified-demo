@@ -195,10 +195,9 @@ strike_roller :: proc(t: ^Tick, trap: ^Trap, handle: sim.Handle(Trap)) -> bool {
 		damage_elite(t, elite_handle, ROLLER_DAMAGE, away, ROLLER_KNOCK, {}, .Trap, centre.xz)
 		struck = true
 	}
-	reach := ROLLER_HALF.x + MINION_RADIUS + ROLLER_TOUCH
-	walk := minions_within(t, centre.xz, reach * SQRT_2)
+	// minions are kept out of a circle round the pillar's corners (roller_obstacles), so that circle is what they touch
+	walk := minions_within(t, centre.xz, ROLLER_HALF.x * SQRT_2 + MINION_RADIUS + ROLLER_TOUCH)
 	for minion, minion_handle in next_within(&walk) {
-		if !within_square(centre, rot, reach, minion.pos) do continue
 		damage_minion(t, minion_handle, ROLLER_DAMAGE, away_from(centre, minion.pos), ROLLER_KNOCK, {}, .Trap)
 		struck = true
 	}

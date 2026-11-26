@@ -88,7 +88,7 @@ a_plate_holds_under_a_walking_hero :: proc(t: ^testing.T) {
 
 	run := workshop()
 	defer headless.run_end(&run)
-	edge := plate_spot(&run, STORE_PLATE) + {g.PLATE_HALF.x + 0.05, 0, 3} // just past its east edge, 3 m north
+	edge := plate_spot(&run, STORE_PLATE) + {g.PLATE_HALF.x + 0.1, 0, 3} // just past its east edge, 3 m north
 	place_hero(&run, 0, edge, {0, -1})
 	bobs, sunk := 0, false
 	for tick in 0 ..< 3 * g.TICK_HZ {
