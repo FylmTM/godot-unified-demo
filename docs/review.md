@@ -980,4 +980,9 @@ Step 4, the joins (beyond the design's decided calls):
   catches the hoard. The way out is its own test on a quiet floor (the_bots_take_the_floors_way_out): under the
   playthrough's dev spawns and downs the party wipes before the hoard arrives; the playthrough checks the plates and
   the barricade.
-- `coop.gd` has no vault or haul beat yet (another branch's work).
+- `coop.gd`'s vault and carry beats (both sides, before the combat beats): the host fells the elites and, until the
+  descent, every skeleton and elite every second (dev), since a surge's elite downing both heroes wipes the party and
+  starts the floor over: a new scene and every view anew (the old views stay until the new scene is in, then none for a
+  frame), which is what an earlier attempt's beats met (the joiner's hero view freed under it, a marker freed). Each
+  crosses the spike gallery on its north lane (out of the roller's reach) as the spikes fall; the carry takes 2.5 m
+  north, both holds confirmed first, the chest clear and level, neither let go nor slipped.

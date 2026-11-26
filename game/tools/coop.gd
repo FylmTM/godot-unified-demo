@@ -40,11 +40,22 @@ extends UnifiedCoop
 ## friend and throws it, then goes to where it landed); then the joiner does the same for the host. Every beat waits on
 ## what the shared sim confirmed, never on the clock.
 ##
-## The boons' beat, on both sides once their combat beats are done: the host puts the party and the hoard aboard the
-## lift (dev_board), the deck goes down, and each side's boon panel opens on the confirmed Choosing; each takes a card
-## with Interact. A panel locks its card only once its pick is CONFIRMED: from the press until then it never shows the
-## pick taken, and on a bad link (`--lag 150 --verified-players`) the joiner must see its own pick predicted (EMITTED)
-## frames before it is confirmed, the panel holding through the gap. Both then see the party descend to depth 1.
+## The vault and the hoard, on both sides before their combat beats (their revives leave each hero at REVIVE_HP): the
+## host fells every skeleton and elite the floor raises from then until the descent (dev: a hero downed waiting on its
+## plate, the other downed too, would wipe the party and start the floor over, its scene and every view anew); the
+## joiner sets out once the elites are gone. Each crosses the spike gallery along its north wall, out of the roller's
+## reach, as the spikes there fall; walks to one of the vault gate's two plates, and the gate opens only to both (its
+## confirmed Event_Gate, latched). Then each walks into the vault to an end of the hoard (the host the left, the joiner
+## the right), takes its handle, and once both holds are confirmed the two carry it a few metres together: it hangs
+## clear of the floor and level under the two holds, and neither lets go until each side lets go itself (Interact).
+## Each then walks back across the gallery to the floor's start and waits for the other there. The haul to the lift is
+## the bots' and the workshop's tests' (simulation/tests/playthrough_test.odin, workshop_test.odin).
+##
+## The boons' beat, once the combat beats are done: the host puts the party and the hoard aboard the lift (dev_board),
+## the deck goes down, and each side's boon panel opens on the confirmed Choosing; each takes a card with Interact. A
+## panel locks its card only once its pick is CONFIRMED: from the press until then it never shows the pick taken, and
+## on a bad link (`--lag 150 --verified-players`) the joiner must see its own pick predicted (EMITTED) frames before it
+## is confirmed, the panel holding through the gap. Both then see the party descend to depth 1.
 ##
 ## With `-- --play=lan_pair`, each side plays the script the replay regression replays/lan_pair records instead
 ## (CoopLanPair; `./uni coop --rerecord lan_pair` runs it with the folder's coop.args and keeps the host's recording).
@@ -85,6 +96,35 @@ const REVIVE_WITHIN: float = 1.0
 const HEAVE_WITHIN: float = 1.4
 const ABILITY_S: float = 0.5
 const BEAT_S: float = 20.0
+## The vault: how near a hero walks to its plate or a point of its way (metres), how often a walk asks the navigation
+## for its path again (frames), how often the host fells the skeletons and elites from the vault's beat on (seconds),
+## and the damage that fells every elite at once.
+const PLATE_WITHIN: float = 0.35
+const WAY_WITHIN: float = 0.25
+const REPATH_FRAMES: int = 10
+const QUIET_S: float = 1.0
+const FELL_ELITES: int = 1000
+## How near the floor's start each walks back to, and waits for the other (metres), before the combat beats.
+const MEET_WITHIN: float = 2.0
+## The spike gallery's north lane, this far north of the roller's marker (metres): past its path (1.2 m), half its
+## pillar, its touch and a hero's radius, with a quarter metre to spare each side (its north wall's face is 3.5 m out).
+## A hero waits on the lane this far west (or east) of the north spikes' marker for them to fall: clear of the tile.
+const LANE_OFF_ROLLER: float = 2.8
+const LANE_WAIT: float = 2.5
+## Where the lane meets the gate (metres west of its marker) and where a hero stands inside the vault (east of it).
+const LANE_GATE: float = 1.7
+const VAULT_IN: float = 1.5
+## The carry: where a hauler stands off the hoard's middle, along its handles (metres: past its 0.8 m half length, a
+## hero's radius and a little), how far north the two carry it (metres, in at most CARRY_S seconds), and what is
+## carried clear (the rules' haul_speed: nothing but heroes touches the chest): every corner of its bottom this far off
+## the floor (metres; one hauler lifts only an end, the other's corners drag), its bottom's half extents (HOARD_HALF's
+## x and z), and how many frames of the carry that must hold for.
+const HAUL_STAND: float = 1.6
+const CARRY_M: float = 2.5
+const CARRY_S: float = 6.0
+const CLEAR_Y: float = 0.03
+const HOARD_BOTTOM: Vector2 = Vector2(0.8, 0.6)
+const CLEAR_FRAMES: int = 10
 
 ## The host's hits on skeletons, counted once each is confirmed.
 var _hits: int = 0
@@ -103,6 +143,14 @@ var _coins: Dictionary[int, int] = {}
 var _revived_by: Dictionary[int, int] = {}
 var _revived: Dictionary[int, int] = {}
 var _landed: Dictionary[int, int] = {}
+## The vault's gate was confirmed open; the hoard's handles taken and let go, by the hauler's key, and how many of the
+## let-gos slipped (the hold stretched too far).
+var _gate_open: bool = false
+var _grabbed: Dictionary[int, int] = {}
+var _dropped: Dictionary[int, int] = {}
+var _slipped: int = 0
+## From the vault's beat to the descent: the host fells the skeletons and elites the floor raises (_keep_crypt_quiet).
+var _quiet: Array[bool] = [true]
 
 
 func _init() -> void:
@@ -195,6 +243,7 @@ func _host_play() -> void:
 	await shot("c04_coop_play")
 	step("played together: %d hits, %d skeletons" % [_hits, Unified.data.hud.minions])
 	await _coin_dance()
+	await _vault_beat(true)
 	await _host_beats(friend)
 	await _boon_beat(true)
 	if failed():
@@ -242,6 +291,7 @@ func _join_play() -> void:
 	session.sim_event.connect(_count_beats)
 	await seconds(STILL_S)
 	await _couch_guest()
+	await _vault_beat(false)
 	await _join_beats()
 	await _boon_beat(false)
 	if failed():
@@ -315,8 +365,150 @@ func _coin_dance() -> void:
 	step("danced among the coins and walked out: %s" % _purse_watch.summary())
 
 
-## The boons' beat (the header's): the host (`hosting`) boards the lift; each side waits for its panel, presses
-## Interact, and watches its panel frame by frame until its pick is confirmed, then waits for the descent.
+## The vault's beat (the header's): the host fells the skeletons and elites from now on (a grave stands by the
+## gallery's plate); the joiner waits for the elites to go. Each crosses the gallery on its north lane (by navigation
+## to the lane's west end: the hall's way, not the passage the barricade closes), walks to its plate (the host the
+## floor's first, in the passage, the joiner its second, in the gallery) and stands there until the gate's opening is
+## confirmed; then the carry (_carry_beat), and back across the gallery to the floor's start, where each waits for the
+## other (the host's beats then wait for the friend's coin: one picked up on the way, of the felled crowd's, is no
+## coin beat's).
+func _vault_beat(hosting: bool) -> void:
+	if failed():
+		return
+	if hosting:
+		_keep_crypt_quiet(_quiet)  # not awaited: it runs beside the vault and the beats, until the descent
+	await wait_for(func() -> bool: return session.get_views(EnumView.ELITE).is_empty(), BEAT_S * 2.0,
+		"the elites felled (the host's)")
+	var plates: Array[Node3D] = _markers("plate")
+	expect(plates.size() == 2 and _markers("gate").size() == 1 and _markers("trap").size() == 3,
+		"the floor has the vault's gate, its two plates, the gallery's spikes and roller")
+	if failed():
+		return
+	var plate: Vector3 = plates[0 if hosting else 1].global_position
+	await _nav_walk_to(func() -> Vector3: return _lane(-LANE_WAIT), WAY_WITHIN, "the gallery's lane, west")
+	await _cross_spikes(func() -> Vector3: return _lane_at_gate(), "across the gallery to the gate")
+	await _walk_to(func() -> Vector3: return plate, PLATE_WITHIN, "its plate")
+	await wait_for(func() -> bool: return _gate_open, BEAT_S * 2.0, "the vault's gate opens to the two plates")
+	if failed():
+		return
+	await shot("c05_vault_open_" + ("host" if hosting else "joiner"))
+	step("stood on a plate of the vault's gate: it opened to the two (%d hp)" % _hp())
+	await _walk_to(_lane_at_gate, WAY_WITHIN, "the gallery's lane at the gate")
+	await _carry_beat(hosting)
+	if failed():
+		return
+	await _walk_to(func() -> Vector3: return _lane(LANE_WAIT), WAY_WITHIN, "the gallery's lane, east")
+	await _cross_spikes(func() -> Vector3: return _lane(-LANE_WAIT), "back across the gallery")
+	await _nav_walk_to(_host_spawn, MEET_WITHIN, "the floor's start, where the combat beats play")
+	var start: Vector3 = _host_spawn()
+	await wait_for(func() -> bool:
+		var other: Node3D = _hero(_friend_player())
+		if other == null:
+			return false
+		var gap: Vector3 = other.global_position - start
+		return Vector2(gap.x, gap.z).length() < MEET_WITHIN + 1.0, BEAT_S * 2.0, "the other back at the floor's start")
+	if hosting:
+		_coins.erase(_friend_player())
+	step("back at the floor's start with the other (%d hp)" % _hp())
+
+
+## The carry (the header's), from the gallery's lane at the gate: each walks into the vault and to its end of the
+## hoard (the joiner round the chest's north side to its far end), takes the handle there as soon as the "[E] Haul"
+## prompt's rule allows (the HUD's haul), waits for the other's hold, and the two walk north until the chest has come
+## CARRY_M, then let go. Every hold and let-go counted is a confirmed event: none let go during the carry, none slipped.
+func _carry_beat(hosting: bool) -> void:
+	var me: int = session.local_player
+	var chest: Node3D = _hoard()
+	expect(chest != null, "the hoard is on the floor")
+	if failed():
+		return
+	var side: float = -1.0 if hosting else 1.0
+	var along: Vector3 = chest.global_basis.x.normalized()
+	var north: Vector3 = -chest.global_basis.z.normalized()
+	var stand: Vector3 = chest.global_position + along * side * HAUL_STAND
+	await _walk_to(func() -> Vector3: return _beyond_gate(VAULT_IN), WAY_WITHIN, "into the vault")
+	if not hosting:
+		var round_near: Vector3 = chest.global_position - along * HAUL_STAND + north * HAUL_STAND
+		await _walk_to(func() -> Vector3: return round_near, WAY_WITHIN, "the hoard's north side")
+		await _walk_to(func() -> Vector3: return stand + north * HAUL_STAND, WAY_WITHIN, "round the hoard")
+	await _walk_to(func() -> Vector3: return stand, WAY_WITHIN, "its end of the hoard")
+	await wait_for(func() -> bool: return _haul_prompt() != EnumHaulHandle.NONE, 3.0, "its handle in reach")
+	if failed():
+		return
+	await press_action(&"interact")
+	await wait_for(func() -> bool: return _tally(_grabbed, me) > 0, 5.0, "its hold of the hoard is confirmed")
+	await wait_for(func() -> bool: return _tally(_grabbed, _friend_player()) > 0, BEAT_S * 2.0, "the other's hold")
+	if failed():
+		return
+	var drops: int = _dropped.values().reduce(func(sum: int, n: int) -> int: return sum + n, 0)
+	var from: Vector3 = chest.global_position
+	var clear: int = 0  # frames the chest hung clear of the floor
+	var frames_carried: int = 0
+	var until: int = Time.get_ticks_msec() + int(CARRY_S * 1000.0)
+	Input.action_press(&"move_up")  # north (-Z): the way the hoard's -Z points on this floor
+	while not failed() and Time.get_ticks_msec() < until:
+		chest = _hoard()
+		if chest == null or (chest.global_position - from).dot(north) >= CARRY_M:
+			break
+		clear += int(_lowest_corner(chest) > CLEAR_Y)
+		frames_carried += 1
+		await process_frame
+	Input.action_release(&"move_up")
+	var carried: float = (chest.global_position - from).dot(north) if chest != null else 0.0
+	var dropped: int = _dropped.values().reduce(func(sum: int, n: int) -> int: return sum + n, 0)
+	expect(carried >= CARRY_M, "the two carried the hoard %.2f m (at least %.1f)" % [carried, CARRY_M])
+	expect(dropped == drops, "neither hold let go during the carry (%d did)" % (dropped - drops))
+	expect(clear >= CLEAR_FRAMES, "the hoard hung clear of the floor under the two holds (%d of %d frames)"
+		% [clear, frames_carried])
+	await seconds(0.3)  # both have stopped
+	var mine: int = _tally(_dropped, me)
+	await press_action(&"interact")
+	await wait_for(func() -> bool: return _tally(_dropped, me) > mine, 5.0, "its let-go is confirmed")
+	expect(_slipped == 0, "no hold slipped (%d did)" % _slipped)
+	if failed():
+		return
+	step("carried the hoard together %.1f m, clear of the floor %d of %d frames, and let go"
+		% [carried, clear, frames_carried])
+	var at: Vector3 = _hero(me).global_position
+	var inside: Vector3 = _beyond_gate(VAULT_IN)
+	await _walk_to(func() -> Vector3: return Vector3(at.x, 0.0, inside.z), WAY_WITHIN, "out from the hoard")
+	await _walk_to(func() -> Vector3: return inside, WAY_WITHIN, "the vault's mouth")
+
+
+## While `running[0]` holds, the host fells every skeleton and elite (dev) every QUIET_S: a surge rising by the
+## gallery's plate would down a hero standing on it, waiting for the other, the carry wakes the crypt (the haul's
+## surges), and every few surges bring an elite.
+func _keep_crypt_quiet(running: Array[bool]) -> void:
+	var fell := CommandDevHurtElites.new()
+	fell.damage = FELL_ELITES
+	while running[0] and not failed():
+		session.send_command(CommandDevKillMinions.new())
+		session.send_command(fell)
+		await seconds(QUIET_S)
+
+
+## Waits on the gallery's lane for the north spikes to rise and fall (they stay down two of every three seconds), then
+## walks straight to `target()` along it, across their tile before they rise again.
+func _cross_spikes(target: Callable, what: String) -> void:
+	await wait_for(func() -> bool: return _spikes_up(), BEAT_S, "the gallery's spikes rise")
+	await wait_for(func() -> bool: return not _spikes_up(), BEAT_S, "the gallery's spikes fall")
+	await _walk_to(target, WAY_WITHIN, what)
+
+
+## Whether the gallery's north spikes are up, as their view shows (false while it isn't found).
+func _spikes_up() -> bool:
+	var spikes: Vector3 = _north_spikes()
+	for view: Node in session.get_views(EnumView.TRAP):
+		var trap := view as Node3D
+		if Vector2(trap.global_position.x - spikes.x, trap.global_position.z - spikes.z).length() < 0.5:
+			var data: ViewTrap = trap.get(&"data")
+			return data != null and data.up
+	return false
+
+
+## The boons' beat (the header's): the host puts the party and the hoard aboard the lift (dev_board); each side waits
+## for its panel, presses Interact, and watches its panel frame by frame until its pick is confirmed, then waits for
+## the descent.
 func _boon_beat(hosting: bool) -> void:
 	if failed():
 		return
@@ -352,6 +544,7 @@ func _boon_beat(hosting: bool) -> void:
 	if not hosting and arg("lag") != "":
 		expect(early > 0, "on a bad link the pick was predicted %d frames before it was confirmed" % early)
 	await wait_for(func() -> bool: return Unified.data.hud.depth >= 1, BEAT_S, "the party descends")
+	_quiet[0] = false
 	step("took a boon, shown once confirmed (%d frames predicted first); the party went down" % early)
 
 
@@ -481,6 +674,9 @@ func _walk_to(target: Callable, within: float, what: String) -> void:
 	var gap: Vector2 = Vector2.INF
 	while not failed() and Time.get_ticks_msec() < until:
 		var me: Node3D = _hero(session.local_player)
+		if me == null:  # none for a frame after the floor starts over (a wipe): every view is made anew
+			await process_frame
+			continue
 		var to: Vector3 = target.call()
 		gap = Vector2(to.x - me.global_position.x, to.z - me.global_position.z)
 		if gap.length() < within:
@@ -494,6 +690,121 @@ func _walk_to(target: Callable, within: float, what: String) -> void:
 	for move: StringName in DIRS:
 		Input.action_release(move)
 	expect(gap.length() < within, "walked to %s: %.2f m off" % [what, gap.length()])
+
+
+## Walks this side's hero toward `target()` along the level's navigation (NavigationServer3D's path on the level's
+## baked mesh, asked again every REPATH_FRAMES frames), steering by the eight move directions at the path's next corner,
+## until it is within `within` metres of the target; failing after BEAT_S.
+func _nav_walk_to(target: Callable, within: float, what: String) -> void:
+	var level := find(current_scene, ^"Level") as Node3D
+	var map: RID = level.get_world_3d().navigation_map
+	var until: int = Time.get_ticks_msec() + int(BEAT_S * 1000.0)
+	var path: PackedVector3Array = []
+	var frame: int = 0
+	var gap: float = INF
+	while not failed() and Time.get_ticks_msec() < until:
+		var me: Node3D = _hero(session.local_player)
+		if me == null:  # none for a frame after the floor starts over (a wipe): every view is made anew
+			await process_frame
+			continue
+		var to: Vector3 = target.call()
+		gap = Vector2(to.x - me.global_position.x, to.z - me.global_position.z).length()
+		if gap < within:
+			break
+		if frame % REPATH_FRAMES == 0:
+			path = NavigationServer3D.map_get_path(map, me.global_position, to, true)
+		frame += 1
+		var next: Vector3 = to
+		for corner: Vector3 in path:
+			if Vector2(corner.x - me.global_position.x, corner.z - me.global_position.z).length() > 0.3:
+				next = corner
+				break
+		var steer: Vector2 = Vector2(next.x - me.global_position.x, next.z - me.global_position.z).normalized()
+		_set_move(&"move_right", steer.x > 0.38)
+		_set_move(&"move_left", steer.x < -0.38)
+		_set_move(&"move_down", steer.y > 0.38)
+		_set_move(&"move_up", steer.y < -0.38)
+		await process_frame
+	for move: StringName in DIRS:
+		Input.action_release(move)
+	expect(gap < within, "walked to %s: %.2f m off" % [what, gap])
+
+
+## The level's markers of `kind` (their UNIFIED_KIND), in marker order.
+func _markers(kind: String) -> Array[Node3D]:
+	var found: Array[Node3D] = []
+	for marker: Node in Unified.level_markers(find(current_scene, ^"Level") as Node3D):
+		var script: Script = marker.get_script()
+		if script != null and script.get_script_constant_map().get("UNIFIED_KIND") == kind:
+			found.append(marker as Node3D)
+	return found
+
+
+## The point `metres` from the vault's gate along its passage, away from the floor's start (negative: toward it, the
+## gallery's side). Every marker here is fetched anew each call: a wipe starts the floor over, and its scene with it.
+func _beyond_gate(metres: float) -> Vector3:
+	var gate: Node3D = _markers("gate")[0]
+	var across: Vector3 = gate.global_basis.z.normalized()
+	var spawn: Vector3 = _host_spawn()
+	if (gate.global_position + across).distance_to(spawn) < (gate.global_position - across).distance_to(spawn):
+		across = -across
+	return gate.global_position + across * metres
+
+
+## The point of the gallery's north lane (LANE_OFF_ROLLER north of the roller) `east` metres east of the north spikes.
+func _lane(east: float) -> Vector3:
+	var roller: Vector3 = _trap_marker("roller", false)
+	return Vector3(_north_spikes().x + east, 0.0, roller.z - LANE_OFF_ROLLER)
+
+
+## Where the gallery's north lane meets the vault's gate: LANE_GATE short of it.
+func _lane_at_gate() -> Vector3:
+	return Vector3(_beyond_gate(-LANE_GATE).x, 0.0, _lane(0.0).z)
+
+
+## The gallery's north spikes: the spikes marker farthest north (least z).
+func _north_spikes() -> Vector3:
+	return _trap_marker("spikes", true)
+
+
+## The first trap marker of `kind` ("spikes", "roller"), or with `northmost` the one of least z: its place.
+func _trap_marker(kind: String, northmost: bool) -> Vector3:
+	var found: Vector3 = Vector3.INF
+	for trap: Node3D in _markers("trap"):
+		if trap.get(&"kind") == kind and (found == Vector3.INF or (northmost and trap.global_position.z < found.z)):
+			found = trap.global_position
+	return found
+
+
+## The hoard's view (null: none), at the middle of its bottom face, turned as the chest is.
+func _hoard() -> Node3D:
+	var hoards: Array[Node] = session.get_views(EnumView.HOARD)
+	return null if hoards.is_empty() else hoards[0] as Node3D
+
+
+## How high the lowest corner of the hoard's bottom is (its view's root is the bottom's middle).
+func _lowest_corner(chest: Node3D) -> float:
+	var lowest: float = INF
+	for corner: Vector3 in [Vector3(1, 0, 1), Vector3(1, 0, -1), Vector3(-1, 0, 1), Vector3(-1, 0, -1)]:
+		var at: Vector3 = chest.global_transform * (corner * Vector3(HOARD_BOTTOM.x, 0.0, HOARD_BOTTOM.y))
+		lowest = minf(lowest, at.y)
+	return lowest
+
+
+## The hoard's handle this side's hero's Interact would take now, as the HUD has it (EnumHaulHandle).
+func _haul_prompt() -> int:
+	for hero: DataHudHero in Unified.data.hud.heroes:
+		if hero.player == session.local_player:
+			return hero.haul
+	return EnumHaulHandle.NONE
+
+
+## This side's hero's hit points, as the HUD has them.
+func _hp() -> int:
+	for hero: DataHudHero in Unified.data.hud.heroes:
+		if hero.player == session.local_player:
+			return hero.hp
+	return 0
 
 
 ## Presses or lets go of a move action.
@@ -517,7 +828,7 @@ func _tally(tally: Dictionary[int, int], player: int) -> int:
 	return tally.get(player, 0)
 
 
-## Counts the beats' CONFIRMED events (_abilities, _coins, _revived_by, _revived, _landed).
+## Counts the beats' CONFIRMED events (_abilities, _coins, _revived_by, _revived, _landed, the vault's and the hoard's).
 func _count_beats(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
 	if state != UnifiedSession.EVENT_CONFIRMED:
 		return
@@ -534,6 +845,15 @@ func _count_beats(event: UnifiedEvent, state: UnifiedSession.EventState) -> void
 	elif event is EventHeaveLanded:
 		var landed := event as EventHeaveLanded
 		_landed[landed.player] = _tally(_landed, landed.player) + 1
+	elif event is EventGate:
+		_gate_open = _gate_open or (event as EventGate).open
+	elif event is EventHoardGrabbed:
+		var grabbed := event as EventHoardGrabbed
+		_grabbed[grabbed.player] = _tally(_grabbed, grabbed.player) + 1
+	elif event is EventHoardDropped:
+		var dropped := event as EventHoardDropped
+		_dropped[dropped.player] = _tally(_dropped, dropped.player) + 1
+		_slipped += int(dropped.slipped)
 
 
 ## Watches this side's purse from now on (PurseWatch).
