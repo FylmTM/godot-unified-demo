@@ -114,11 +114,11 @@ WORKSHOP_REFERENCE :: scenarios.Reference {
 	ticks         = 1200,
 	snapshot_tick = 600,
 	setup         = "floor=workshop",
-	checkpoints   = {0xfcdf7702bea63a37, 0xcfabe0d42b117cf5, 0xa910e4325ede7eef, 0x90e1bf02177fbff4},
-	trace         = 0x2bfff1699c4ad60d,
-	snapshot      = 0x69056d9e47589820,
-	log           = 0x4f98edc5ba2f4fae,
-	compat        = 0x7bdb2085da59d8f2,
+	checkpoints   = {0x9bf7f0d147404e74, 0x6e6d00193238e3a1, 0xb1ee27bb1de6bb34, 0x44418c77feea7136},
+	trace         = 0x3e4cfc1ae0690635,
+	snapshot      = 0xbcb611d0aaa62d0c,
+	log           = 0x02e9ebf8f25f2816,
+	compat        = 0xf69f001b6904c0a9,
 }
 
 @(test)
