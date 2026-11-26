@@ -510,7 +510,7 @@ func _walk_crowd() -> void:
 
 
 ## The guest (pad 1's Rogue) rolls with its pad's B, its ability pip draining; a dev hurt downs it, and its view lies in
-## its revive ring; the first player walks up to it on the keyboard, and "[E] Revive" hangs over the guest; holding E
+## its revive ring; the skeletons are killed (dev), so no blow ends the revive; the first player walks up to it on the keyboard, and "[E] Revive" hangs over the guest; holding E
 ## fills the ring and revives it, with the toast "<first player> revived <guest>", which waits for CONFIRMED.
 func _walk_revive() -> void:
 	var guest: int = session.get_local_player_key(_local_of(1))
@@ -526,6 +526,10 @@ func _walk_revive() -> void:
 	await wait_for(func() -> bool: return _view_action(downed) == EnumAction.DOWN, 3.0, "the guest goes down")
 	var ring: Node3D = find(downed, ^"ReviveRing") as Node3D
 	expect(ring.visible, "a ring lies round the downed guest")
+	# The floor's first surge has risen by now (the elites' part came first): a blow from one of its skeletons would end
+	# the revive, so they go (dev) before the first player walks up.
+	session.send_command(CommandDevKillMinions.new())
+	await wait_for(func() -> bool: return Unified.data.hud.minions == 0, 2.0, "the skeletons are killed (dev)")
 	await _walk_up_to(downed, REVIVE_CLOSE)
 	var prompts: Node = find(current_scene, ^"Hud/%RevivePrompts")
 	var prompt: Control = prompts.get_child(0) as Control
