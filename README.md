@@ -249,7 +249,8 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
     DEATH_S. A hero at 0 HP goes down and stays down until revived: it falls as a Box3D ragdoll (RAGDOLL_SCALE tall,
     RAGDOLL_MASS, at its velocity, at most RAGDOLL_CARRY_MAX, plus RAGDOLL_KICK away from the blow or RAGDOLL_TIP
     backwards from a blow from no side) that meets everything but heroes and elites, its capsule dormant and out of
-    the world meanwhile (a Barbarian's heave stands the capsule up from it and holds that); a ragdoll fallen
+    the world meanwhile (a Barbarian's heave stands the capsule up from it and holds that); one come to rest on the
+    level alone sleeps after RAGDOLL_STILL_TICKS still, not Box3D's half second; a ragdoll fallen
     RAGDOLL_KILL_DEPTH below the floor goes, its hero lying at its spawn. Every hero down for WIPE_S restarts the
     floor.
 12. **Loot.** A felled skeleton drops a coin on a roll of 1 in LOOT_ONE_IN, worth LOOT_VALUE_MIN to LOOT_VALUE_MAX

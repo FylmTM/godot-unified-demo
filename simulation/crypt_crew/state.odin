@@ -99,13 +99,15 @@ Hero :: struct {
 	// (hero_warp): a teleport of the body bumps the body's, a new body this one.
 	warp:           u8,
 	heave:          Heave_Phase, // while down: held up by a Barbarian, or thrown by one (barbarian.odin)
-	// ---- ragdolls (ragdolls.odin)
-	// While down: the ragdoll it lies as (zero: none, and always none while up), its capsule dormant and out of the
-	// world meanwhile. Freed on every path that frees the body (destroy_hero_body: a leave, a level change).
-	ragdoll:        physics.Ragdoll,
 	// ---- the hoard and boons (hoard.odin, boons.odin)
 	picked:         u32, // the depth it last picked a boon at, plus one (0: never): a pick counts once a depth
 	boons:          Boons, // its rank in each boon, kept through a leave and a wipe
 	handle:         Haul_Handle, // the hoard's handle it holds, on `hold` (None: none)
-	_pad:           u8,
+	// ---- ragdolls (ragdolls.odin)
+	// While its ragdoll is awake: the ticks in a row every bone has been still, up to RAGDOLL_STILL_TICKS
+	// (settle_ragdolls).
+	still:          u8,
+	// While down: the ragdoll it lies as (zero: none, and always none while up), its capsule dormant and out of the
+	// world meanwhile. Freed on every path that frees the body (destroy_hero_body: a leave, a level change).
+	ragdoll:        physics.Ragdoll,
 }

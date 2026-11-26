@@ -883,6 +883,11 @@ capsule dormant; the revive at the floor by the pelvis; the heave of a ragdoll i
 - Box3D's deep hash kept every body name ever given, across a restore: the bones' names were given to the World's
   anchor before the first save, until unified's Box3D 3362633-r6 (the bump to 83e5e1d0) made the workaround go.
   `replays/lan_pair` no longer loads (the Hero's layout): recorded again at the merge.
+- A ragdoll at rest on the level alone (every bone under RAGDOLL_STILL_SPEED 0.02 m/s and RAGDOLL_STILL_SPIN 0.1 rad/s
+  for RAGDOLL_STILL_TICKS 8 ticks, touching only static bodies) is put to sleep at once rather than after Box3D's half
+  second (Hero.still): an awake ragdoll costs about 12 µs a step, so this cuts each fall's cost by a sixth; one
+  touching a prop, another ragdoll or the lift's deck is left to Box3D. `replays/lan_pair` recorded again (the Hero's
+  layout).
 
 ## Milestone 6: physics set pieces
 

@@ -121,7 +121,7 @@ World :: struct {
 	strike_grid:    bool,
 	// ---- mechanisms' scratch
 	joints:         [dynamic]physics.Joint_Ref, // the step's joint events (break_barricades)
-	touching:       [dynamic]physics.Contact_Data, // a body's contacts (break_barricades)
+	touching:       [dynamic]physics.Contact_Data, // a body's contacts (break_barricades, settle_ragdolls)
 	sensed:         [dynamic]physics.Overlap, // what a sensor holds (spring_traps)
 	overlaps:       [dynamic]physics.Overlap, // scratch: what the lift's sensor sees (hoard_aboard)
 	contacts_of:    [dynamic]physics.Contact_Data, // scratch: what the hoard touches (haul_speed)

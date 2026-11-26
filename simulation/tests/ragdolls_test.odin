@@ -1,8 +1,9 @@
 // The ragdolls' rule tests (ragdolls.odin): a hero going down falls as a ragdoll knocked away from the blow, its
 // capsule dormant and out of the world; a revive stands it up on the floor where its body lies; a ragdoll rolls back,
 // reaches a late joiner and goes with its hero (a leave, a wipe's restart); it meets the floor, props and other
-// ragdolls, never a hero; a heave stands the capsule up from it (until milestone 6's last step). Each on a sync-tested
-// run (headless.Run) that ends synced, the physics world's refs checked after every restore (an orphaned bone fails).
+// ragdolls, never a hero; at rest on the level alone it sleeps at once; a heave stands the capsule up from it (until
+// milestone 6's last step). Each on a sync-tested run (headless.Run) that ends synced, the physics world's refs checked
+// after every restore (an orphaned bone fails).
 package test_crypt_crew
 
 import "core:testing"
@@ -373,6 +374,62 @@ a_fall_carries_the_heros_momentum :: proc(t: ^testing.T) {
 	play(&run, {}, 0.75)
 	testing.expectf(t, still.pos.y - standing < 0.5, "still standing: its pelvis %v m up", still.pos.y - standing)
 	scenarios.expect_synced(t, &run)
+}
+
+// A ragdoll come to rest on the floor sleeps once every bone has been still for RAGDOLL_STILL_TICKS, not Box3D's half
+// second later; one a crate lies on is left to Box3D (its island holds the crate), and sleeps after Box3D's own wait.
+@(test)
+a_ragdoll_at_rest_sleeps_at_once :: proc(t: ^testing.T) {
+	run := ragdoll_run(2)
+	defer headless.run_end(&run)
+	phys := run.simulation.world.phys
+	hero := sim.slot_data(run.simulation, 1)
+	place_hero(&run, 1, {6, 0, 0}) // the great hall
+	hurt(&run, 1, g.HERO_HP)
+	alone := still_until_asleep(t, &run, hero)
+	testing.expectf(t, alone <= g.RAGDOLL_STILL_TICKS, "alone, still %v ticks before it slept", alone)
+	crate, _ := prop_at(&run, CRATE)
+	physics.body_teleport(phys, crate.body, hero.pos + {0, 1, 0})
+	physics.body_set_awake(phys, crate.body, true) // it falls on the body and wakes it
+	headless.run_pin(&run)
+	for _ in 0 ..< g.TICK_HZ {
+		if physics.body_is_awake(phys, hero.ragdoll.bones[.Pelvis]) do break
+		headless.run_step(&run)
+	}
+	testing.expect(t, physics.body_is_awake(phys, hero.ragdoll.bones[.Pelvis]), "the crate landing on it wakes it")
+	key := sim.player_key(sim.player_in_slot(run.simulation, 1))
+	left_awake := false
+	for _ in 0 ..< 4 * g.TICK_HZ {
+		headless.run_step(&run)
+		if !physics.body_is_awake(phys, hero.ragdoll.bones[.Pelvis]) do break
+		if hero.still < g.RAGDOLL_STILL_TICKS do continue
+		physics.body_contact_data(phys, crate.body, &run.simulation.world.touching)
+		for contact in run.simulation.world.touching {
+			if contact.a.tag == key || contact.b.tag == key do left_awake = true
+		}
+	}
+	testing.expect(t, left_awake, "the body under the crate, still, never stayed awake for Box3D to judge")
+	testing.expect(t, !physics.body_is_awake(phys, hero.ragdoll.bones[.Pelvis]), "nor did Box3D put it to sleep")
+	scenarios.expect_synced(t, &run)
+}
+
+// Steps the run until the hero's ragdoll sleeps (within SETTLE_S): the ticks before that its bones were all still, as
+// settle_ragdolls judges them.
+@(private = "file")
+still_until_asleep :: proc(t: ^testing.T, run: ^headless.Run(g.Game), hero: ^g.Hero) -> (still: int) {
+	phys := run.simulation.world.phys
+	for _ in 0 ..< SETTLE_S * g.TICK_HZ {
+		headless.run_step(run)
+		if !physics.body_is_awake(phys, hero.ragdoll.bones[.Pelvis]) do return
+		still += 1
+		for bone in hero.ragdoll.bones {
+			moving := dmath.length(physics.body_linear_velocity(phys, bone)) >= g.RAGDOLL_STILL_SPEED
+			turning := dmath.length(physics.body_angular_velocity(phys, bone)) >= g.RAGDOLL_STILL_SPIN
+			if moving || turning do still = 0
+		}
+	}
+	testing.expect(t, false, "the ragdoll never slept")
+	return
 }
 
 // A ragdoll meets props: a crate flung at one lying shoves it. It meets no elite: a Warrior chasing a hero across where

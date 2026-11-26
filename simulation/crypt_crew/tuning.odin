@@ -588,6 +588,12 @@ RAGDOLL_TIP :: f32(0.8) // a blow from no side (a dev hurt, a rejoin while down)
 RAGDOLL_FRICTION_TORQUE :: f32(2)
 // Its joints' springs back toward the standing pose it was made in (0: none, it lies as it falls).
 RAGDOLL_HERTZ :: f32(0)
+// A ragdoll whose every bone moves slower than RAGDOLL_STILL_SPEED and turns slower than RAGDOLL_STILL_SPIN for
+// RAGDOLL_STILL_TICKS in a row has come to rest: it sleeps then (settle_ragdolls), rather than spend Box3D's half second
+// of stillness awake, solving its twelve bones in every step and every re-sim.
+RAGDOLL_STILL_SPEED :: f32(0.02) // metres per second
+RAGDOLL_STILL_SPIN :: f32(0.1) // radians per second
+RAGDOLL_STILL_TICKS :: 8 // an eighth of a second: a limb at the top of its swing is still for a tick or two, not this long
 // A revived hero stands on the walkable floor's point nearest the floor under its pelvis (found within
 // RAGDOLL_FLOOR_BELOW of it, through a tomb's top or a wall the body lies on), within RAGDOLL_SNAP of it; failing that
 // (a body on a wide tomb's top), on the nearest of the spots RAGDOLL_RINGS rings round it, RAGDOLL_RING apart, find.

@@ -2,7 +2,8 @@
 // physics.Ragdoll (twelve capsule bones on their joints, a plain struct in the block: Hero.ragdoll) is made standing
 // where the hero stood, facing its way, as tall as its capsule (RAGDOLL_SCALE) and weighing RAGDOLL_MASS, moving at the
 // hero's velocity plus RAGDOLL_KICK away from the blow, and physics takes it from there: it crumples, tumbles off a
-// ledge, piles on another, lies where it comes to rest. Meanwhile the hero's capsule is dormant (no joints, nothing
+// ledge, piles on another, lies where it comes to rest, and sleeps as soon as it is still there (settle_ragdolls: an
+// awake ragdoll is a dozen jointed bodies in every step and every re-sim). Meanwhile the hero's capsule is dormant (no joints, nothing
 // drives it) and out of the world (physics.body_disable: nothing meets it, no query finds it), left where it fell: a
 // dormant capsule is still solid, so one kept on the pelvis would be an invisible post props and elites bounce off,
 // and teleporting it there each tick would move its warp epoch on every tick (the view would never interpolate).
@@ -70,6 +71,7 @@ ragdoll_hero :: proc(t: ^Tick, player: sim.Player, kick: [3]f32) {
 		dmath.quat_yaw(hero.facing),
 		tag = sim.player_key(player),
 	)
+	hero.still = 0
 	carried := hero.vel
 	if speed := dmath.length(carried); speed > RAGDOLL_CARRY_MAX do carried *= RAGDOLL_CARRY_MAX / speed
 	physics.ragdoll_set_velocity(phys, &hero.ragdoll, carried + kick)
@@ -175,6 +177,56 @@ read_back_ragdolls :: proc(t: ^Tick) {
 		physics.ragdoll_destroy(t.world.phys, &hero.ragdoll)
 		stand_capsule(t.world.phys, hero, floor_of(t).places.hero_spawns[sim.player_slot(t, player)])
 	}
+}
+
+// After read_back_ragdolls: each awake ragdoll come to rest (every bone still, RAGDOLL_STILL_TICKS in a row) on nothing
+// but the level sleeps at once, without the half second Box3D's own sleep waits out. Sleep is an island's: one touching
+// another body (a prop, another ragdoll, the lift's deck) is left to Box3D, so nothing it touches stops mid-move. A
+// sleeping ragdoll wakes as any body does, when something meets it.
+settle_ragdolls :: proc(t: ^Tick) {
+	phys := t.world.phys
+	heroes := sim.iterate_present(t)
+	for hero, player in sim.next(&heroes) {
+		if !ragdolled(hero) || !physics.body_is_awake(phys, hero.ragdoll.bones[.Pelvis]) do continue
+		if !ragdoll_still(phys, &hero.ragdoll) {
+			hero.still = 0
+			continue
+		}
+		if hero.still < RAGDOLL_STILL_TICKS do hero.still += 1
+		if hero.still < RAGDOLL_STILL_TICKS || !ragdoll_alone(t, player) do continue
+		physics.body_set_awake(phys, hero.ragdoll.bones[.Pelvis], false)
+		hero.still = 0
+	}
+}
+
+// Whether every bone of the ragdoll moves slower than RAGDOLL_STILL_SPEED and turns slower than RAGDOLL_STILL_SPIN.
+@(private = "file")
+ragdoll_still :: proc(phys: ^physics.World, ragdoll: ^physics.Ragdoll) -> bool {
+	for bone in ragdoll.bones {
+		if dmath.length_sq(physics.body_linear_velocity(phys, bone)) >= RAGDOLL_STILL_SPEED * RAGDOLL_STILL_SPEED do return false
+		if dmath.length_sq(physics.body_angular_velocity(phys, bone)) >= RAGDOLL_STILL_SPIN * RAGDOLL_STILL_SPIN do return false
+	}
+	return true
+}
+
+// Whether `player`'s ragdoll touches nothing but itself (its bones carry the player's key) and static bodies (the
+// level): its island is its own, so putting it to sleep sleeps nothing else. Its joints are all its own (a heave stands
+// it up first: barbarian.odin).
+@(private = "file")
+ragdoll_alone :: proc(t: ^Tick, player: sim.Player) -> bool {
+	phys := t.world.phys
+	key := sim.player_key(player)
+	for bone in sim.player_data(t, player).ragdoll.bones {
+		physics.body_contact_data(phys, bone, &t.world.touching)
+		for &contact in t.world.touching {
+			for side in ([2]physics.Overlap{contact.a, contact.b}) {
+				if side.tag == key && side.category & CAT_RAGDOLL != 0 do continue
+				body := physics.resolve(phys, side.body) or_return
+				if physics.body_type(phys, body) != .Static do return false
+			}
+		}
+	}
+	return true
 }
 
 // The hero's `pos` and `vel` from its ragdoll's pelvis.

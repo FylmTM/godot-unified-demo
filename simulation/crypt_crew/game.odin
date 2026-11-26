@@ -23,7 +23,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "26"
+VERSION :: "27"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -154,6 +154,7 @@ tick :: proc(t: ^Tick) {
 		read_back_heroes(t)
 		read_back_elites(t)
 		read_back_ragdolls(t) // a downed hero's pos is its pelvis
+		settle_ragdolls(t) // after the read-back: one that fell out of the level is gone
 	}
 	t.world.strike_grid = false // the first query after the step builds it (strike_grid): a tick without one builds none
 	{
