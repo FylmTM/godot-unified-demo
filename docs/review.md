@@ -854,9 +854,9 @@ Tests and tools:
   revives), a coin, a revive given and one received, each waited on as CONFIRMED. `replays/lan_pair` was recorded
   again with VERSION 21; its play needed no change.
 
-## Milestone 6, step 2: ragdolls
+## Milestone 6: physics set pieces
 
-The calls made building the downed heroes' ragdolls, beyond the design's decided ones (only heroes ragdoll; the
+Step 2, the ragdolls: the calls made building them, beyond the design's decided ones (only heroes ragdoll; the
 capsule dormant; the revive at the floor by the pelvis; the heave of a ragdoll is step 4's).
 
 - The dormant capsule is also taken out of the world (physics.body_disable) and left where it fell, not set on the
@@ -873,8 +873,6 @@ capsule dormant; the revive at the floor by the pelvis; the heave of a ragdoll i
   floor_spot; where floor_spot refuses it (a tomb's top nearer than the floor), the nearest spot of RAGDOLL_RINGS 5
   rings RAGDOLL_RING 0.75 m apart round it (the arrival's way); else the reviver's (or the heaving Barbarian's) floor;
   the spawn only for a body with neither. A ragdoll with no such spot isn't heavable (none found on Floor 1).
-- Until step 4, heaving a ragdolled ally stands its capsule up from the ragdoll (the revive's rule) and heaves that, as
-  before; let down, it lies as that capsule in the death pose until revived.
 - The view: View_Ragdoll keyed by its player, posed at the pelvis turned from its rest pose; every rig bone takes its
   ragdoll bone's turn, a limb's after the constant turn from the rig's T-pose direction to the ragdoll's rest
   direction, so knees and elbows bend in their own plane; the bones ease between ticks to the data's tick. It lingers
@@ -888,8 +886,6 @@ capsule dormant; the revive at the floor by the pelvis; the heave of a ragdoll i
   second (Hero.still): an awake ragdoll costs about 12 µs a step, so this cuts each fall's cost by a sixth; one
   touching a prop, another ragdoll or the lift's deck is left to Box3D. `replays/lan_pair` recorded again (the Hero's
   layout).
-
-## Milestone 6: physics set pieces
 
 Step 3, the hoard, the lift and boons (beyond the design's decided calls):
 
@@ -943,4 +939,40 @@ Step 3, the reviews (Opus, Fable) and the calls decided on them:
 - The save's depth is State.saved_depth, taken at each save point, so the save order shows in the save (with one floor
   in FLOOR_ORDER, the floor itself can't tell the old from the new).
 - The boon panel's party row follows the HUD data's players; the joiner's "carry on from the last save".
+
+Step 4, the joins (beyond the design's decided calls):
+
+- A hero is down exactly while it lies as a ragdoll: the heave holds the chest bone (its bones keep their gravity; the
+  hold's cap is HEAVE_MASS's, RAGDOLL_MASS asserted equal), a throw is `ragdoll_set_velocity`, a thrown body lands once
+  its pelvis falls within RAGDOLL_LAND_REACH 0.5 m of the floor; a body fallen out of the level is laid anew as a
+  ragdoll at its spawn (was: its capsule there). settle_ragdolls leaves a heaved ragdoll alone (the hold joins its
+  island to the Barbarian's). The hero view's death clip went with it.
+- The fireball's blast: a barricade it reaches breaks outright (no body touches it for break_barricades to read) and
+  its fence is blown away, debris too; a ragdoll nobody heaves takes it bone by bone by mass; the hoard, unheld,
+  weighs HOARD_MASS again as a hand had taken it (at HOARD_REST_MASS the push is nothing) and skids about 1.4 m, its
+  rest back once settled. So a Mage can nudge the hoard toward the lift: keep, or leave the hoard out of the blast?
+- A thrown ragdoll breaks a barricade as a thrown elite does (CAT_RAGDOLL contact).
+- Floor 1's east wing: the corridor widened to an 8 m spike gallery (a roller needs a hero's width each side, and a
+  4 m corridor's walls leave 0.75 m beside a 1.5 m pillar), spikes on its west column (phases 0 and 1.5 s), the roller
+  across its middle, the vault (x 24 to 32) behind the gate where the WallGated stood, and a passage north of the
+  gallery closed at the hall by the barricade: the way round the traps. Plates: one in the passage, one in the
+  gallery's south-east corner, both clear of the haul's lanes. Pack2 sleeps in the vault; Grave6 by the gallery's
+  plate; the corridor's crate in the passage; the pillars at the pieces' ends gone (a dynamic piece overlapping one
+  is pushed for good: a plate under a pillar stood pressed, which every_plate_rests_released now catches).
+- A plate's slab rests 13 cm up: a dragged hoard catches on its edge and slips, so a level keeps plates off the
+  haul's lanes (the workshop's vault plates moved apart for it). And a broken fence lies loose across the passage's
+  gap, where a dragged hoard catches on it too: heroes can shove it, the bot doesn't, so the bot hauls through the
+  gallery, waiting out the spikes. Worth a call: debris that lets the hoard through, or that fades.
+- The workshop: the lift's shaft at (2, 2), the hoard in its vault. A descent from it goes to FLOOR_ORDER's floor.
+- Crowd.Wipe (the crowd_wipe row): the fight with the heroes' damage on and no wipe restart under a held crowd.
+- The bot: two stand on the plates (by way of the gate's front: the navigation can't close the barricade's edge), the
+  Mage fireballs the barricade, the Knight drags the hoard out of the vault and through the gallery to the lift,
+  everyone boards, each picks; it waits for spikes about to rise and works round what catches the hoard. The way out
+  is its own test on a quiet floor (the_bots_take_the_floors_way_out): under the playthrough's dev spawns and downs
+  the party wipes before the hoard arrives; the playthrough checks the plates and the barricade.
+- `coop.gd` has no vault or haul beat yet: a version that walked both heroes to the plates (NavigationServer3D paths)
+  passed its vault beat, but its later beats on the joiner went wrong after that walk (the joiner's own hero view, as
+  `get_player_view` hands it back, was seen out of the tree for seconds; a level marker held across frames freed), and
+  a two-process carry of the hoard never held together. Not understood yet: worth an issue on godot-unified once it
+  is (the attempt is kept out of the repo).
 

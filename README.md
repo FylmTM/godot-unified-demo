@@ -247,8 +247,9 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    over FIREBALL_FALLOFF): the props free of a hold, the elites, the hoard unheld (at HOARD_MASS until it settles
    again), each downed hero's ragdoll nobody heaves (each bone its share) and each barricade, which breaks to it. A
    thrown elite lands once the floor is HEAVE_LAND_GAP under it, a thrown ragdoll once its pelvis falls within
-   RAGDOLL_LAND_REACH of it (or either HEAVE_FLIGHT_MAX_S on): a blast (HEAVE_LAND_RADIUS, HEAVE_LAND_DAMAGE, HEAVE_LAND_KNOCK), a thrown elite taking the
-   blow itself and a stagger; an elite stands again, a downed ally lies still down. An elite takes a blow as a minion does,
+   RAGDOLL_LAND_REACH of it (or either HEAVE_FLIGHT_MAX_S on): a blast (HEAVE_LAND_RADIUS, HEAVE_LAND_DAMAGE,
+   HEAVE_LAND_KNOCK), a thrown elite taking the blow itself and a stagger; an elite stands again, a downed ally lies
+   still down. An elite takes a blow as a minion does,
    except that a Warrior's shield takes all but ELITE_GUARD_TAKE of one from within ELITE_GUARD_COS of its facing
    (staggered or broken, none), and a knock moves its body by ELITE_KNOCK_TAKE of it (knocks and pushes together at
    most ELITE_KNOCK_MAX; none on a held elite),
@@ -282,7 +283,8 @@ PLATE_OFF. A gate lifts GATE_RISE while `need` of its plates are pressed (a latc
 most GATE_CLOSE_FORCE; below GATE_PASS it keeps minions back. A barricade breaks to a blow (a thrown prop, a charge, a
 hurled body) touching it as its weld strains past BARRICADE_BREAK_N: the blow decides, and the threshold is its floor,
 since a hero walking into the fence strains it harder than a thrown crate; a fireball's blast that reaches it breaks it
-outright. Its fence then lies loose (CAT_PROP): a dragged hoard catches on it, and heroes shove it aside. Spikes are up SPIKES_UP_S of every
+outright. Its fence then lies loose (CAT_PROP): a dragged hoard catches on it, and heroes shove it aside. Spikes are
+up SPIKES_UP_S of every
 SPIKES_PERIOD_S on the game clock from their phase, or while their plate is pressed, striking SPIKES_DAMAGE as they rise
 and every SPIKES_HIT_TICKS; the roller, on the clock too, strikes ROLLER_DAMAGE what touches it every ROLLER_HIT_TICKS.
 A level keeps a hero's width between a roller's sides and every wall or low cover along its whole path (a kinematic

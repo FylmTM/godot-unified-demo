@@ -8,13 +8,11 @@ the doc comments, and leave this file; when the game is done, this file is gone.
 A top-down co-op dungeon crawler for 1–4 players: adventurers go down a crypt full of skeletons, relight its
 braziers, and haul its treasure up to the lift.
 
-- **A floor.** Light the braziers while skeleton surges come for you; the lit braziers open the vault. Then carry the
-  hoard back to the lift: it has two handles, so two heroes carry it at walking speed and one alone drags it, while
-  the crypt wakes behind them. The lift is the save point; each hero picks a boon and the party descends.
+- **A floor.** Lighting its braziers while the surges come is a second way to open the vault, beside its two plates.
+  The lift is the run's save point.
 - **A run.** A hub between runs (the lobby), three floors, and a boss vault: 20–30 minutes. A run saves at every lift
   and continues from the menu. A player can join or rejoin at any time.
-- **Failure.** A downed hero ragdolls (a heaved one is still its capsule in the death pose until milestone 6's last
-  step). When the whole party is down, the floor restarts from the last save.
+- **Failure.** When the whole party is down, the floor restarts from the last save.
 - **Enemies.** A boss, in the boss vault, beside the skeleton crowd and its elites.
 - **Depth.** Difficulty levels (the Setup); an endless arena mode (also the stress and benchmark scene); progress
   across runs (unlocks, best floors, gold hauled) that each player brings into a session through their Profile; each
@@ -27,14 +25,13 @@ The look is decided and lives in `docs/ART.md`. Still to come: a cutaway of wall
 
 ## What it shows of unified
 
-Still to show, each where it belongs in the game, with a line in the README pointing at the file that does it: Box3D
-sensors, kinematic paths and ragdolls under rollback; debug draws, recording and replay with seek, F3 notes; and every
-way of testing (below). What it shows already is the README's.
+Still to show, each where it belongs in the game, with a line in the README pointing at the file that does it: debug
+draws, recording and replay with seek, F3 notes; and every way of testing (below). What it shows already is the
+README's.
 
 ## How it's built
 
 - **Sim:** the rule numbers get presets per difficulty and a quick preset for tests.
-- **Ragdolls** drawn on the KayKit skeleton from the bones' rotations.
 
 ## How it's tested
 
@@ -45,7 +42,6 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 
 | # | What lands |
 |---|---|
-| 6 | Physics set pieces: joints, plates, the lift, boons picked at it, traps, ragdolls, the hoard haul |
 | 7 | The run: the hub, three floors with their layouts, the boss, the run's save at each lift, difficulty, progress across runs, endless arena |
 | 8 | Polish: effects, audio, music, lighting, accessibility |
 | 9 | The testing showcase complete, `docs/testing.md` |
@@ -57,7 +53,13 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 
 - An occlusion option for `physics.world_explode` (a blast's impulse only on shapes a ray from its centre reaches
   past a mask's shapes), so a blast is Box3D's own and walls shield what is behind them: the fireball applies its
-  impulse per prop meanwhile (`simulation/crypt_crew/fireballs.odin`, blast_bodies). Later.
+  impulse per body meanwhile, a prop, an elite, the hoard, a ragdoll's bones, a barricade
+  (`simulation/crypt_crew/fireballs.odin`, blast_bodies). Later.
+- Navigation that can close an edge (`nav.field(fields, goal, closed: sim.Bits)`), so minions route round a shut gate
+  or a standing barricade rather than crowd against it, and the bot's walk to Floor 1's passage plate needs no detour
+  by the gate's front (`simulation/tests/bot.odin`, gate_front). Later.
+- A packed bones view field (`godot.Bones(N)`, a PackedFloat32Array), if the ragdoll's bone Array shows in a frame's
+  cost (`simulation/extension/frame.odin`, View_Ragdoll). Later.
 - A Linux x64 zip from `uni release` on Linux. (`uni release` itself works in a game repo since unified 830b012:
   macOS arm64 and Windows x64 zips from the game's export_presets.cfg, the unified-release skill; the demo has no
   export preset yet, milestone 10's.) Milestone 10.
