@@ -103,10 +103,12 @@ and a one-shot holds its last frame. The checks pose every clip on every charact
 
 ## Crowds
 
-The skeleton minions are drawn as a crowd: one MultiMesh of a baked minion, each instance posed by its custom data, so
-hundreds cost one draw call a pass and no node each. `game/crowd/minion_crowd.gd` says what is baked: the minion
-scene (`skeletons/minion.tscn`, its blade included), the clips a minion plays, in the order an instance names them, the
-rate each is baked at, and how far its meshes are lightened.
+The skeleton minions are drawn as a crowd: one MultiMesh of a baked minion (the play scene's `Minions`,
+`game/crowd/minion_crowd_view.gd`), each instance posed by its custom data, so hundreds cost one draw call a pass and no
+node each, and cast their shadows like the scene minion. `game/crowd/minion_crowd.gd` says what is baked: the minion
+scene (`skeletons/minion.tscn`, its blade included; the scene stays for the bake and the look-dev's cast), the clips a
+minion plays, in the order an instance names them, the rate each is baked at, and how far its meshes are lightened.
+Where in a clip an action starts (the rise, the swing's blow) is the crowd view's.
 
 - **The mesh:** the scene's visible meshes and its blade merged into one surface in the skeleton's bind space, its
   bones and four weights a vertex in `CUSTOM0` and `CUSTOM1`, the eyes marked in `UV2` (one material: the palette, the

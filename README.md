@@ -119,9 +119,11 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
   and the crypt on its status, whoever started it: the menus, the command line's session flags (`uni run`, `uni coop`,
   `uni drive`) or a tool. A start that fails, or a game that ends without the player leaving, comes back to the title
   with the reason; a join or a leave is a toast; a reconnect is a plate over the held game (`game/app/game.gd`).
-- **Views**: scene views (`game/views/`), props and minions pooled, minions shown once their spawn is verified
-  (`Appear.Verified`, `frame.odin`), the Mage's bolts one MultiMesh (`MultiView`); clips posed on the session's shown
-  game time, so a correction or a seek lands on the right frame (`game/views/hero.gd`, `minion.gd`).
+- **Views**: scene views (`game/views/`), props pooled; the Mage's bolts and the minions MultiMeshes (`MultiView`),
+  the minions a crowd of one baked minion its shader poses from each instance's custom data (`minion_instance`,
+  `frame.odin`; `game/crowd/`), shown once their spawn is verified (`Appear.Verified`), its clip and hit stamps aged by
+  the host (`View_Policy.ages`); clips posed on the session's shown game time, so a correction or a seek lands on the
+  right frame (`game/views/hero.gd`, `game/crowd/crowd_minion.gdshader`).
 - **Events**: effects play as soon as they are predicted (EMITTED: `game/play/play.gd`, `effects.gd`); a join or a
   leave is told once it is CONFIRMED (`game/app/game.gd`).
 - **Couch co-op**: hero select's seats become local players, each with its device and Profile, and pads join and drop

@@ -11,6 +11,8 @@
 [ext_resource type="PackedScene" path="res://game/fx/bolt_burst.tscn" id="bolt_burst"]
 [ext_resource type="PackedScene" path="res://game/fx/dust.tscn" id="dust"]
 [ext_resource type="PackedScene" path="res://game/fx/tracer.tscn" id="tracer"]
+[ext_resource type="Script" path="res://game/crowd/minion_crowd_view.gd" id="crowd"]
+[ext_resource type="ArrayMesh" path="res://game/crowd/minion_mesh.res" id="minion_mesh"]
 
 [sub_resource type="StandardMaterial3D" id="bolt_glow"]
 transparency = 1
@@ -29,6 +31,11 @@ rings = 6
 transform_format = 1
 mesh = SubResource("bolt_orb")
 
+[sub_resource type="MultiMesh" id="minions"]
+transform_format = 1
+use_custom_data = true
+mesh = ExtResource("minion_mesh")
+
 [node name="Play" type="Node3D"]
 script = ExtResource("play")
 pause_menu_scene = ExtResource("pause_menu")
@@ -46,6 +53,13 @@ multimesh = SubResource("bolts")
 
 [node name="UnifiedMultiView" type="UnifiedMultiView" parent="Bolts"]
 kind = "bolt"
+
+[node name="Minions" type="MultiMeshInstance3D" parent="."]
+multimesh = SubResource("minions")
+script = ExtResource("crowd")
+
+[node name="UnifiedMultiView" type="UnifiedMultiView" parent="Minions"]
+kind = "minion"
 
 [node name="Effects" type="Node3D" parent="."]
 script = ExtResource("effects")

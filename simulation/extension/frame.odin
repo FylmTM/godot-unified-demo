@@ -15,22 +15,26 @@ import g "../crypt_crew"
 Frame :: godot.Frame(g.Game, View, MultiView)
 
 // The scene views, a struct per kind: what its view's script reads as `data` (ViewHero). A hero's is keyed by its
-// player (sim.player_key), a prop's and a minion's by their handles (their events' `prop`, `minion`).
+// player (sim.player_key), a prop's by its handle (its events' `prop`).
 View :: union {
 	View_Hero,
 	View_Prop,
-	View_Minion,
 }
 
-// The MultiMesh views (a MultiMeshInstance3D with a UnifiedMultiView each): the Mage's bolts, keyed by their handles.
+// The MultiMesh views (a MultiMeshInstance3D with a UnifiedMultiView each), keyed by their handles: the Mage's bolts,
+// and the minions, the crowd (game/crowd/: the baked minion, its shader posing each instance from minion_instance).
 MultiView :: enum u8 {
 	Bolt,
+	Minion,
 }
 
-// How each MultiMesh kind is shown: a bolt's corrections glide like a scene view's (each keyed instance a track), since
-// a bolt is few and fast and a pop would show.
+// How each MultiMesh kind is shown. A bolt's and a minion's corrections glide like a scene view's (each keyed instance
+// a track): a bolt is few and fast and a pop would show, and a crowd round a remote hero mispredicts, its corrections a
+// shove the eye follows. A minion appears once its spawn is verified, since a minion a misprediction raised would
+// flash and vanish. Its custom channels 1 and 2 are game-time stamps the host ages (minion_instance).
 MULTI_POLICY := [MultiView]godot.View_Policy {
 	.Bolt = {smoothing = godot.SMOOTHING_DEFAULT},
+	.Minion = {appear = .Verified, smoothing = godot.SMOOTHING_DEFAULT, ages = {1, 2}},
 }
 
 // A hero, posed at its feet and turned to its facing. Its animation is a function of this data (game/views/hero.gd):
@@ -51,22 +55,63 @@ View_Prop :: struct {
 	aimed: bool, // a local hero's Interact would grab it now (the rules' hands_target): the view highlights it
 }
 
-// A minion, posed at its feet and turned to its facing; a pooled kind (minion.tscn) shown only once its spawn is
-// verified (VIEW_POLICY), since a minion a misprediction raised would flash and vanish. Its animation is a function of
-// its phase and when that began, its flash of when it was struck (game/views/minion.gd).
-View_Minion :: struct {
-	since:  sim.Game_Time, // when `phase` began
-	struck: sim.Game_Time, // when it was last hit (0: never)
-	phase:  g.Minion_Phase, // EnumMinionPhase
-	moving: bool, // it moved faster than MINION_STILL_SPEED this tick: a chaser that can't get anywhere stands
-	_pad:   [2]u8,
+// A crowd minion's clip, its custom channel 0: the crowd's clips in MinionCrowd.Clip's order
+// (game/crowd/minion_crowd.gd, which names the baked clips; the two lists change together).
+Minion_Clip :: enum u8 {
+	Idle,
+	Walk,
+	Attack,
+	Rise,
+	Death,
 }
 
-// Below this speed (metres per second) a minion's view stands rather than walks.
+// Below this speed (metres per second) a chasing minion stands rather than walks.
 MINION_STILL_SPEED :: f32(0.3)
+// A minion's gait phase spreads the crowd's loops apart (no lockstep): its handle's key, modulo MINION_PHASE_KEYS
+// (past its generation's bits), times MINION_PHASE_S seconds, which the loop's clip wraps.
+MINION_PHASE_KEYS :: 997
+MINION_PHASE_S :: f32(0.618034)
+// The stamp of a minion never struck (its custom channel 2): far in the past, so it never flashes (a 0 stamp would age
+// as the shown time itself, and flash every minion in a session's first ticks).
+MINION_NEVER_STRUCK :: f32(-1e9)
 
-// The kinds whose policy isn't the default (Glue.view_policy): minions appear once verified.
-VIEW_POLICY := []godot.View_Kind_Policy{{View_Minion, {appear = .Verified}}}
+// The scene views' policies that aren't the default (Glue.view_policy): none.
+VIEW_POLICY := []godot.View_Kind_Policy{}
+
+// A minion's crowd instance: at its feet, turned to its facing, keyed by its handle; its custom data the contract of
+// game/crowd/crowd_minion.gdshader's header. 0: its clip (Minion_Clip: a chaser that isn't moving stands); 1: the
+// clip's start stamp, its phase's tick for a one-shot (the rise, the swing, the fall), minus its gait phase for a loop
+// (the stance and the walk), so a minion that stops and goes doesn't restart its gait; 2: its last hit's stamp
+// (MINION_NEVER_STRUCK: never); 3: spare. Stamps are ticks; the host ages 1 and 2 into seconds at the shown time.
+minion_instance :: proc(minion: ^g.Minion, handle: sim.Handle(g.Minion)) -> godot.Multi_View_Item(MultiView) {
+	clip: Minion_Clip
+	switch minion.phase {
+	case .Rise:
+		clip = .Rise
+	case .Idle:
+		clip = .Idle
+	case .Chase:
+		moving := dmath.length_sq(minion.vel) > MINION_STILL_SPEED * MINION_STILL_SPEED
+		clip = .Walk if moving else .Idle
+	case .Attack:
+		clip = .Attack
+	case .Dying:
+		clip = .Death
+	}
+	key := sim.handle_key(handle)
+	start := f32(minion.since)
+	if clip == .Idle || clip == .Walk {
+		start = -f32(key % MINION_PHASE_KEYS) * MINION_PHASE_S * g.TICK_HZ
+	}
+	struck := f32(minion.struck) if minion.struck != 0 else MINION_NEVER_STRUCK
+	return {
+		key    = key,
+		kind   = .Minion,
+		pos    = sim.Position(minion.pos),
+		rot    = dmath.quat_yaw(minion.facing),
+		custom = {f32(clip), start, struck, 0},
+	}
+}
 
 // Every present hero, every prop, every bolt, every minion, then the HUD's data.
 fill_frame :: proc(f: ^Frame) {
@@ -93,12 +138,7 @@ fill_frame :: proc(f: ^Frame) {
 	}
 	minions := sim.iterate(&f.state.minions)
 	for minion, handle in sim.next(&minions) {
-		godot.push_view(f, handle, {pos = sim.Position(minion.pos), rot = dmath.quat_yaw(minion.facing)}, View_Minion {
-			since  = minion.since,
-			struck = minion.struck,
-			phase  = minion.phase,
-			moving = dmath.length_sq(minion.vel) > MINION_STILL_SPEED * MINION_STILL_SPEED,
-		})
+		godot.push_multi_view(f, minion_instance(minion, handle))
 	}
 	fill_hud(f)
 }

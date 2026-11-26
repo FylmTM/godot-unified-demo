@@ -148,6 +148,7 @@ func _walk_hero_select() -> void:
 	expect(picks == [EnumClass.KNIGHT, EnumClass.ANY, EnumClass.ANY, EnumClass.ANY],
 		"the picks remembered by place, Any as Any: %s" % [picks])
 	step("the party in the crypt: a Knight and a Barbarian")
+	_walk_crowd()
 
 
 ## The seats at 130 % interface size: inside the view, clear of the banner and the buttons.
@@ -479,3 +480,24 @@ func _toast_shows(text: String) -> bool:
 		if shown == text or cut > 0 and text.begins_with(shown.left(cut)) and text.ends_with(shown.substr(cut + 3)):
 			return true
 	return false
+
+
+## The minions are the crowd, one MultiMesh (game/crowd/minion_crowd_view.gd), each instance the state's minion: newly
+## on Floor 1, its packs' sleepers are its only minions, none struck, so the crowd shows as many instances as the HUD
+## counts, each in the stance clip with its gait's age running and its last hit far in the past (never: no flash).
+func _walk_crowd() -> void:
+	var crowd: MultiMeshInstance3D = current_scene.find_child("Minions", true, false) as MultiMeshInstance3D
+	expect(crowd != null and crowd.material_override is ShaderMaterial, "the crowd is a MultiMesh with its material")
+	if failed():
+		return
+	var shown: int = crowd.multimesh.visible_instance_count
+	var minions: int = Unified.data.hud.minions
+	expect(minions > 0 and shown == minions, "the crowd shows the floor's %d minions (%d instances)" % [minions, shown])
+	# The host writes the whole buffer (set_buffer): an instance is 12 floats of transform, then its 4 of custom data.
+	var buffer: PackedFloat32Array = crowd.multimesh.buffer
+	for index: int in shown:
+		var custom: PackedFloat32Array = buffer.slice(index * 16 + 12, index * 16 + 16)
+		expect(int(custom[0]) == MinionCrowd.Clip.IDLE, "minion %d sleeps in the stance (clip %d)" % [index, int(custom[0])])
+		expect(custom[1] > 0.0, "minion %d's gait has an age (%f s)" % [index, custom[1]])
+		expect(custom[2] > 1000.0, "minion %d was never struck: its hit is far in the past (%f s)" % [index, custom[2]])
+	step("the crowd: %d sleeping minions, one MultiMesh" % shown)

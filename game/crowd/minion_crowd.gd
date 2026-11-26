@@ -44,6 +44,8 @@ const BONES: String = "res://game/crowd/minion_bones.res"
 const TABLE: String = "res://game/crowd/minion_clips.tres"
 ## The crowd's shader.
 const SHADER: String = "res://game/crowd/crowd_minion.gdshader"
+## How long a hit's flash lasts, in ticks of shown game time.
+const FLASH_TICKS: float = 8.0
 ## How long the dying take to sink out of sight, the end of their row's DEATH_S.
 const SINK_S: float = 0.6
 ## How much deeper than its last pose's top a dead minion sinks: under the floor's relief.
@@ -75,7 +77,8 @@ static func inputs_hash() -> String:
 
 ## The crowd's material: the shader, its clip table and bone texture from the committed bake, and its look from where
 ## each part lives (the palette and roughness from the scene's skeleton material, the eyes from its glow, the flash
-## from hit_flash.tres and MinionView's FLASH_TICKS, the sink from DEATH_S and the death clip's last pose).
+## from hit_flash.tres and FLASH_TICKS, the sink from DEATH_S and the death clip's last pose). Where in a clip an action
+## starts (its clip_offset) is the view's (game/crowd/minion_crowd_view.gd).
 static func material() -> ShaderMaterial:
 	var crowd := ShaderMaterial.new()
 	crowd.shader = load(SHADER)
@@ -90,7 +93,7 @@ static func material() -> ShaderMaterial:
 	crowd.set_shader_parameter("eye_emission", glow.emission)
 	crowd.set_shader_parameter("eye_energy", glow.emission_energy_multiplier)
 	crowd.set_shader_parameter("flash_color", flash.albedo_color)
-	crowd.set_shader_parameter("flash_s", MinionView.FLASH_TICKS / Unified.tick_hz)
+	crowd.set_shader_parameter("flash_s", FLASH_TICKS / Unified.tick_hz)
 	var death_s: float = Unified.constants.minion_death
 	crowd.set_shader_parameter("death_clip", Clip.DEATH)
 	crowd.set_shader_parameter("sink_from", death_s - SINK_S)
