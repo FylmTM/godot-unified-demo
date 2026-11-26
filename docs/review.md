@@ -440,7 +440,7 @@ Checks:
   every time (its header lists the steps), waiting on the shared sim, never the clock, and
   `the_lan_recording_holds_its_play` checks the recording holds every step (classes, grabs and throws, a prop's and
   each one's hits, the pause and resume, the bolt and the shot, the dev kill and downing, four surges); a recording
-  that misses one is refused and the folder keeps the old one. A re-record takes about 70 s, most of it waiting for
+  that misses one is refused and the folder keeps the old one. A re-record takes about 80 s, most of it waiting for
   the fourth surge (ticks 2 to about 4000).
 - `uni coop --host-profile/--join-profile` (unified b06ba4f) gives each side its Profile; coop.gd checks each class
   against its flag (a joiner asking Any plays a class the host doesn't), names its joiner "Friend", works both pause
