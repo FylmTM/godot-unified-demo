@@ -78,6 +78,7 @@ Hit_Source :: enum u8 {
 	Dev, // dev_kill_minions
 	Charge, // a Knight's shield charge
 	Fireball, // a Mage's fireball's burst
+	Heave, // a body a Barbarian threw, landing (barbarian.odin)
 }
 
 // `player` hit `minion` for `damage` with `source` (sim.Position: where).
@@ -524,11 +525,12 @@ staggered :: proc(minion: ^Minion) -> bool {
 	return dmath.length_sq(minion.knock) > KNOCK_STAGGER * KNOCK_STAGGER
 }
 
-// `source`'s blast at `at` (a bolt's burst, a fireball's, a charging shield): every live minion within `radius` on
-// the floor plan that no wall shields (a ray from `at` to its chest) other than `skip` takes `damage` and is knocked
-// away from `at`, at `knock` at the centre falling off to BLAST_RIM of it at the rim (dot products and one sqrt a
-// minion, no trig), in the strikes' order (minions_within). Through damage_minion, so a pile of blasts knocks no faster
-// than KNOCK_MAX. The elites in it take the same, other than `skip_elite` (knock_elites).
+// `source`'s blast at `at` (a bolt's burst, a fireball's, a charging shield, a heaved body's landing): every live
+// minion within `radius` on the floor plan that no wall shields (a ray from `at` to its chest) other than `skip` takes
+// `damage` and is knocked away from `at`, at `knock` at the centre falling off to BLAST_RIM of it at the rim (dot
+// products and one sqrt a minion, no trig), in the strikes' order (minions_within). Through damage_minion, so a pile of
+// blasts knocks no faster than KNOCK_MAX. The elites in it take the same, other than `skip_elite`, a Warrior's guard
+// broken first when `breaks_guard` (knock_elites).
 knock_area :: proc(
 	t: ^Tick,
 	at: [3]f32,
@@ -539,6 +541,7 @@ knock_area :: proc(
 	source: Hit_Source,
 	skip: sim.Handle(Minion) = {},
 	skip_elite: sim.Handle(Elite) = {},
+	breaks_guard := false,
 ) {
 	walk := minions_within(t, at.xz, radius)
 	for minion, handle in next_within(&walk) {
@@ -550,7 +553,7 @@ knock_area :: proc(
 		away := offset / distance if distance > 0 else [2]f32{1, 0}
 		damage_minion(t, handle, damage, away, knock * (1 - (1 - BLAST_RIM) * distance / radius), player, source)
 	}
-	knock_elites(t, at, radius, damage, knock, player, source, skip_elite)
+	knock_elites(t, at, radius, damage, knock, player, source, skip_elite, breaks_guard)
 }
 
 // Whether a minion's target is close enough to swing at: its capsule within MINION_REACH of the minion's circle (less

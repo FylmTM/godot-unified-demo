@@ -37,7 +37,7 @@ static func line_of(hero_class: int) -> String:
 		EnumClass.KNIGHT:
 			return "A quick sword arc; a shield that blocks and charges."
 		EnumClass.BARBARIAN:
-			return "A wide, slow cleave that knocks skeletons back."
+			return "A wide, slow cleave; heaves elites and fallen allies."
 		EnumClass.MAGE:
 			return "Bursting bolts, and a fireball's blast."
 		EnumClass.ROGUE:

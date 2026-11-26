@@ -24,9 +24,9 @@ Event_Hero_Revived :: struct {
 Heroes :: sim.Players(Hero, Profile, Input, PLAYERS)
 
 // The hero down that `player`'s hero would tend now (the nobody Player: none). Nothing unless that hero is present, up,
-// its hands free and doing nothing else, attacking or tending already; else the nearest other present hero down within
-// REVIVE_RANGE of its feet on the floor plan, on a tie the lower slot. Pure: what the tick (revive_heroes) and the
-// view's prompt both ask.
+// its hands free and doing nothing else, attacking or tending already; else the nearest other present hero down and not
+// heaved (a body in a Barbarian's hands or in flight is tended once it is let down) within REVIVE_RANGE of its feet on
+// the floor plan, on a tie the lower slot. Pure: what the tick (revive_heroes) and the view's prompt both ask.
 revive_target :: proc(players: ^Heroes, player: sim.Player) -> (target: sim.Player) {
 	if !sim.player_present(players, player) do return
 	reviver := sim.player_data(players, player)
@@ -34,7 +34,7 @@ revive_target :: proc(players: ^Heroes, player: sim.Player) -> (target: sim.Play
 	nearest := REVIVE_RANGE * REVIVE_RANGE
 	heroes := sim.iterate_present(players)
 	for hero, other in sim.next(&heroes) {
-		if other == player || hero.action != .Down do continue
+		if other == player || hero.action != .Down || hero.heave != .None do continue
 		apart := dmath.length_sq(hero.pos.xz - reviver.pos.xz)
 		if apart <= nearest && (target == {} || apart < nearest) do target, nearest = other, apart
 	}
@@ -77,9 +77,11 @@ revive_heroes :: proc(t: ^Tick) {
 	}
 }
 
-// `player`'s hero, down, rises where it lies at REVIVE_HP, in its grace, revived by `by`. Whoever was tending it stops,
-// unless another hero down is in its range (revive_target): it carries on there, its Interact still held.
+// `player`'s hero, down, rises where it lies at REVIVE_HP, in its grace, revived by `by` (a heaved one let go of first:
+// end_hero_heave, so no hero up hangs on a hold). Whoever was tending it stops, unless another hero down is in its range
+// (revive_target): it carries on there, its Interact still held.
 revive_hero :: proc(t: ^Tick, player: sim.Player, by: sim.Player) {
+	end_hero_heave(t, player)
 	hero := sim.player_data(t, player)
 	hero.hp = REVIVE_HP
 	hero.action, hero.action_started = .None, t.time

@@ -15,8 +15,10 @@ extends Node3D
 ## comes later in the clip than that, and its last frame held until the cooldown lets the next attack start (a held
 ## Attack then shows one swing after another, no gait between). A hero carrying walks with plain gaits: no clip
 ## holds a load. An ability is a clip at its age too: the Knight's shield held up (blocking or charging), the Rogue's
-## dodge stretched over the roll, the Mage's spellcasting through the windup; a hero tending a downed ally reaches out
-## to them. A hero down falls where its body stands (the death clip, held on its last frame) with a ring on the floor
+## dodge stretched over the roll, the Mage's spellcasting through the windup, the Barbarian's arms raised under what it
+## heaves and its throw timed as a prop's; a hero tending a downed ally reaches out to them. A hero down falls where its
+## body stands (the death clip, held on its last frame: a downed ally a Barbarian heaves hangs and flies so) with a ring
+## on the floor
 ## round it as wide as the reach an ally revives from (Unified.constants.revive_range), which fills as its revive comes
 ## on (ground_ring.gdshader, turned with the world, not the hero); one just revived blinks while its grace lasts.
 
@@ -97,6 +99,10 @@ func _process(_delta: float) -> void:
 			_rig.pose(Clips.MAGE_CAST, (now - data.action_started) / Unified.tick_hz)
 		EnumAction.REVIVE:
 			_rig.pose(Clips.INTERACT, (now - data.action_started) / Unified.tick_hz)
+		EnumAction.HEAVE:
+			_rig.pose(Clips.BARBARIAN_HEAVE, (now - data.action_started) / Unified.tick_hz)
+		EnumAction.HURL:
+			_rig.pose(Clips.THROW, THROW_FROM + (now - data.action_started) / Unified.tick_hz)
 		_:
 			var age: float = (now - data.action_started) / Unified.tick_hz
 			if _last_action == EnumAction.ATTACK and age < Unified.constants.class_cooldowns[data.class]:

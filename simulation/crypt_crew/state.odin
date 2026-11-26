@@ -53,6 +53,9 @@ Action :: enum u8 {
 	Roll, // the Rogue's dodge roll, for ROLL_S
 	Cast, // the Mage's fireball winding up, for FIREBALL_WINDUP_S: it leaves at the end
 	Revive, // tending a downed ally, while Interact is held beside it
+	// The Barbarian's heave (barbarian.odin): an elite or a downed ally held on its hold, then thrown.
+	Heave, // holding a body up, for at most HEAVE_MAX_S
+	Hurl, // throwing it, for THROW_S: it leaves the hands THROW_WINDUP_S into it
 }
 
 // A player's hero (the State's sim.Players, by member): zeroed for someone new, kept while they are away. A leave
@@ -63,12 +66,15 @@ Hero :: struct {
 	pos:            [3]f32, // its feet, read back after the physics step (read_back_heroes)
 	vel:            [3]f32, // its body's velocity, read back with `pos`
 	facing:         [2]f32, // unit (x, z): where it looks
-	hold:           physics.Motor_Joint_Ref, // the joint holding `held` in front of it (hands.odin)
+	hold:           physics.Motor_Joint_Ref, // the joint holding `held` (hands.odin) or `heaved` in front of it
 	held:           sim.Handle(Prop), // the prop it carries (the null handle: none)
+	heaved:         Heaved, // a Barbarian's: the body it holds up on its hold (barbarian.odin)
+	heaved_by:      sim.Player, // while down and heaved (`heave`): the Barbarian holding it, or who threw it
 	ability_ready:  sim.Timer, // no ability starts while it runs (its own cooldown: abilities.odin)
 	grace:          sim.Timer, // after a revive: no damage while it runs
 	attack_ready:   sim.Timer, // no attack starts while it runs (its class's cooldown)
 	action_started: sim.Game_Time, // when `action` began (t.time): the view's clip time
+	heave_since:    sim.Game_Time, // when `heave` began: a thrown body lands at the latest HEAVE_FLIGHT_MAX_S after it
 	hp:             i16,
 	// While down: how far its revive has come, in reviver-ticks (REVIVE_TICKS: up again; revive.odin).
 	revive:         u16,
@@ -78,5 +84,5 @@ Hero :: struct {
 	// again, so this one takes the old body's count and one more for each new body. The view's epoch is the two added
 	// (hero_warp): a teleport of the body bumps the body's, a new body this one.
 	warp:           u8,
-	_pad:           [5]u8,
+	heave:          Heave_Phase, // while down: held up by a Barbarian, or thrown by one (barbarian.odin)
 }

@@ -157,7 +157,7 @@ a_fireball_lands_at_the_reach :: proc(t: ^testing.T) {
 
 // A fireball aimed through a wall lands FIREBALL_WALL_GAP short of it, and the wall shields what is behind it: a
 // skeleton beside the burst in the hall takes FIREBALL_DAMAGE, one as near behind the wall nothing; a barrel by the
-// burst is blown away, a crate as near behind the wall stays put (blast_props). A hero beside the burst isn't moved.
+// burst is blown away, a crate as near behind the wall stays put (blast_bodies). A hero beside the burst isn't moved.
 @(test)
 a_fireball_stops_at_walls_and_moves_props :: proc(t: ^testing.T) {
 	run := ability_hero(.Mage, seated = 2)
@@ -234,13 +234,13 @@ no_ability_from_a_paused_press :: proc(t: ^testing.T) {
 
 // The scripted players (script.odin) use every ability the rules have, so the standard scenarios and the reference run
 // roll back over each: in the reference run's length, each class's ability starts (a Knight's block and a charge among
-// them), a fireball bursts and a downed hero is revived.
+// them), a fireball bursts, a Barbarian's heave is thrown and lands, and a downed hero is revived.
 @(test)
 the_script_uses_every_ability :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, REFERENCE.seed)
 	defer headless.run_end(&run)
 	used: [g.Class]int
-	charges, bursts, revives := 0, 0, 0
+	charges, bursts, landings, revives := 0, 0, 0, 0
 	for _ in 0 ..< REFERENCE.ticks {
 		headless.run_scripted(&run, REFERENCE.players)
 		for &raw in sim.events_at(run.simulation, run.simulation.tick) {
@@ -250,18 +250,21 @@ the_script_uses_every_ability :: proc(t: ^testing.T) {
 				if sim.player_data(&run.simulation.state.players, event.player).action == .Charge do charges += 1
 			case g.Event_Fireball_Burst:
 				bursts += 1
+			case g.Event_Heave_Landed:
+				landings += 1
 			case g.Event_Hero_Revived:
 				revives += 1
 			}
 		}
 	}
-	for class in ([]g.Class{.Knight, .Mage, .Rogue}) do testing.expectf(t, used[class] > 0, "no %v ability: %v", class, used)
+	for class in g.Class do testing.expectf(t, class == .Any || used[class] > 0, "no %v ability: %v", class, used)
 	testing.expectf(
 		t,
-		charges > 0 && bursts > 0 && revives > 0,
-		"charges %d, bursts %d, revives %d",
+		charges > 0 && bursts > 0 && landings > 0 && revives > 0,
+		"charges %d, bursts %d, heaves landed %d, revives %d",
 		charges,
 		bursts,
+		landings,
 		revives,
 	)
 	scenarios.expect_synced(t, &run)
@@ -362,5 +365,96 @@ the_roll_and_the_fireball_wait_their_cooldowns :: proc(t: ^testing.T) {
 		hold(&run, {buttons = {.Ability}}, 1) // tick cooldown + 1
 		testing.expectf(t, hero.action == c.action, "%v once the cooldown ran out: %v", c.class, hero.action)
 		scenarios.expect_synced(t, &run)
+	}
+}
+
+// An elite's blow lands on slot 0's hero on the next tick: a Warrior `offset` from it (on the floor plan) swinging at
+// it, its windup all but run. The run is pinned.
+@(private = "file")
+elite_swings_at :: proc(run: ^headless.Run(g.Game), offset: [2]f32) {
+	hero := sim.slot_data(run.simulation, 0)
+	facing := dmath.normalize(-offset)
+	handle := place_elite(run, .Warrior, hero.pos + {offset.x, 0, offset.y}, facing, .Idle)
+	state := &run.simulation.state
+	warrior := elite_of(run, handle)
+	warrior.phase, warrior.target = .Attack, sim.player_in_slot(run.simulation, 0)
+	warrior.since = state.clock.time + 1 - sim.Game_Time(g.ELITE_SPECS[.Warrior].windup)
+	headless.run_pin(run)
+}
+
+// A skeleton Mage's bone bolt flies at slot 0's hero from `offset` away (on the floor plan, at FLIGHT_HEIGHT): a row of
+// the bolts, a Mage's (its elite out of the way, rising). The run is pinned.
+@(private = "file")
+bone_bolt_at :: proc(run: ^headless.Run(g.Game), offset: [2]f32) {
+	hero := sim.slot_data(run.simulation, 0)
+	mage := place_elite(run, .Mage, spawn_of(run, 0) + {8, 0, 0}, {-1, 0}, .Rise)
+	state := &run.simulation.state
+	bolt, _, spawned := sim.spawn(&state.bolts)
+	assert(spawned, "the bolt table is full")
+	toward := dmath.normalize(-offset)
+	bolt^ = {
+		pos      = hero.pos + {offset.x, g.FLIGHT_HEIGHT, offset.y},
+		vel      = [3]f32{toward.x, 0, toward.y} * g.BONE_BOLT_SPEED,
+		cast_at  = state.clock.time,
+		by_elite = mage,
+	}
+	headless.run_pin(run)
+}
+
+// A blocking Knight's shield takes an elite's blows as it takes a skeleton's: a Warrior's swing and a skeleton Mage's
+// bone bolt from the front let BLOCK_TAKE through (the shield clangs: Event_Blocked), and the whole of either from
+// behind.
+@(test)
+the_shield_takes_elite_blows_and_bone_bolts_from_the_front :: proc(t: ^testing.T) {
+	for side in ([]f32{1, -1}) {
+		for bolt in ([]bool{false, true}) {
+			run := ability_hero(.Knight)
+			defer headless.run_end(&run)
+			clear_elites(&run)
+			knight := sim.slot_data(run.simulation, 0)
+			hold(&run, {buttons = {.Ability}}, 2)
+			if bolt do bone_bolt_at(&run, {side * 1.5, 0})
+			else do elite_swings_at(&run, {side * 1.5, 0})
+			hold(&run, {buttons = {.Ability}}, 8) // the bolt flies 1.5 m in 6 ticks
+			testing.expect_value(t, knight.action, g.Action.Block)
+			damage := g.ELITE_SPECS[.Mage if bolt else .Warrior].damage
+			blocked := i16(dmath.round(f32(damage) * g.BLOCK_TAKE))
+			want := g.HERO_HP - (blocked if side > 0 else damage)
+			what := "bone bolt" if bolt else "Warrior's swing"
+			testing.expectf(t, knight.hp == want, "a %s from %v: %v HP, not %v", what, side, knight.hp, want)
+			testing.expect_value(t, headless.run_events(&run, g.Event_Blocked), 1 if side > 0 else 0)
+			scenarios.expect_synced(t, &run)
+		}
+	}
+}
+
+// The Rogue's roll lets an elite's blows by in its safe start as it lets a skeleton's: a Warrior's swing and a bone
+// bolt landing early in the roll hurt nothing (the bolt bursts on it all the same), where the Rogue standing still
+// takes each whole.
+@(test)
+the_roll_clears_elite_blows_and_bone_bolts :: proc(t: ^testing.T) {
+	for rolling in ([]bool{true, false}) {
+		for bolt in ([]bool{false, true}) {
+			run := ability_hero(.Rogue)
+			defer headless.run_end(&run)
+			clear_elites(&run)
+			rogue := sim.slot_data(run.simulation, 0)
+			if rolling do hold(&run, {buttons = {.Ability}}, 3) // along its facing, +X: toward the blow
+			if bolt do bone_bolt_at(&run, {1.5, 0})
+			else do elite_swings_at(&run, {1.5, 0})
+			hold(&run, {}, 8) // the bolt flies 1.5 m in 6 ticks (less when the Rogue rolls into it)
+			age := u32(run.simulation.state.clock.time - rogue.action_started)
+			testing.expect(
+				t,
+				!rolling || (rogue.action == .Roll && age < g.ROLL_SAFE_TICKS),
+				"still in its safe start",
+			)
+			damage := g.ELITE_SPECS[.Mage if bolt else .Warrior].damage
+			want := g.HERO_HP if rolling else g.HERO_HP - damage
+			what := "bone bolt" if bolt else "Warrior's swing"
+			testing.expectf(t, rogue.hp == want, "a %s, rolling %v: %v HP, not %v", what, rolling, rogue.hp, want)
+			if bolt do testing.expect_value(t, headless.run_events(&run, g.Event_Bolt_Burst), 1)
+			scenarios.expect_synced(t, &run)
+		}
 	}
 }

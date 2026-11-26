@@ -6,9 +6,10 @@ extends Node3D
 ##
 ## Its pose is a function of the view data and the session's shown time, as a hero's is: its phase at its age (the rise
 ## from the clip's hand breaking the floor, an attack timed so its blow lands at the kind's windup
-## (Unified.constants.elite_windups), a summoning's cast, the fall and the sink), a stagger's hit at the last hit's age,
-## else a gait from its velocity (a Warrior standing with its shield up holds it raised). A hit flashes it; the glint
-## pulses on the shown time. So after a rollback or a replay seek the elite shows the frame the state says.
+## (Unified.constants.elite_windups), a summoning's cast, hanging limp while a Barbarian heaves and throws it, the fall
+## and the sink), a stagger's hit at the last hit's age, else a gait from its velocity (a Warrior standing with its
+## shield up holds it raised). A hit flashes it; the glint pulses on the shown time. So after a rollback or a replay
+## seek the elite shows the frame the state says.
 ##
 ## Elites are pooled (the UnifiedView's `pool`): the data setter takes null between two elites, then the next one's,
 ## and a kind change makes that kind's skeleton anew. Each appears once its spawn is verified (the extension's policy).
@@ -76,6 +77,8 @@ func _process(_delta: float) -> void:
 			_pose_attack(age)
 		EnumElitePhase.SUMMON:
 			_rig.pose(Clips.MAGE_CAST, age)
+		EnumElitePhase.HELD, EnumElitePhase.THROWN:
+			_rig.pose(Clips.SKELETON_LIMP, age)
 		EnumElitePhase.DYING:
 			_rig.pose(Clips.SKELETON_DEATH, age)
 			sink = SINK_DEPTH * clampf((age - Unified.constants.minion_death + SINK_S) / SINK_S, 0.0, 1.0)

@@ -29,6 +29,9 @@ Event :: union {
 	Event_Fireball_Burst,
 	Event_Hero_Revived,
 	Event_Party_Wiped,
+	// The Barbarian's heave (barbarian.odin)
+	Event_Heaved,
+	Event_Heave_Landed,
 	// Elites (elites.odin)
 	Event_Elite_Hit,
 	Event_Elite_Died,

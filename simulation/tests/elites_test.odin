@@ -738,3 +738,106 @@ a_mage_casts_only_in_sight :: proc(t: ^testing.T) {
 	testing.expect_value(t, elite.phase, g.Elite_Phase.Chase)
 	scenarios.expect_synced(t, &run)
 }
+
+// A Knight's shield charge breaks a Warrior's guard (break_guard, Event_Guard_Broken) as its blast reaches it, so the
+// blast lands whole on the shield's side: every hit it takes is CHARGE_DAMAGE, none guarded.
+@(test)
+a_charge_breaks_the_guard :: proc(t: ^testing.T) {
+	run := alone_as(.Knight)
+	defer headless.run_end(&run)
+	charger := [g.PLAYERS]g.Input {
+		0 = {buttons = {.Ability}},
+	}
+	for _ in 0 ..< 2 do headless.run_step(&run, charger)
+	warrior := place_elite(&run, .Warrior, spawn_of(&run, 0) + {3.5, 0, 0}, {-1, 0}, .Idle)
+	brace(&run, warrior) // its shield up, toward the charge
+	charger[0].buttons += {.Attack}
+	headless.run_step(&run, charger)
+	charger[0].buttons -= {.Attack}
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).action, g.Action.Charge)
+	for _ in 0 ..< g.CHARGE_TICKS do headless.run_step(&run, charger)
+	hits := headless.run_events(&run, g.Event_Elite_Hit)
+	testing.expect(t, hits > 0, "the charge's blast reached the Warrior")
+	testing.expect(t, headless.run_events(&run, g.Event_Guard_Broken) > 0, "and broke its guard")
+	elite := elite_of(&run, warrior)
+	testing.expectf(
+		t,
+		elite.hp == g.ELITE_SPECS[.Warrior].hp - i16(hits) * g.CHARGE_DAMAGE,
+		"%d hits left %d HP",
+		hits,
+		elite.hp,
+	)
+	testing.expect(t, sim.timer_running(run.simulation.state.clock.time, elite.guard_down), "the guard is down")
+	scenarios.expect_synced(t, &run)
+}
+
+// A Mage's fireball breaks a Warrior's guard and lands whole on its front, its blast shoving the Warrior's body
+// (blast_bodies, on top of the knock); an elite as near behind a wall takes neither the blow nor the push.
+@(test)
+a_fireball_breaks_the_guard_and_spares_what_walls_shield :: proc(t: ^testing.T) {
+	run := alone_as(.Mage, {0, -1})
+	defer headless.run_end(&run)
+	place_hero(&run, 0, {10, 0, -8}, {0, -1}) // facing the wall at z = -12 (its hall face at -11.5)
+	aim := g.Input {
+		aim   = dmath.dir2({0, -1}),
+		reach = g.reach_steps(8),
+	}
+	pressed := aim
+	pressed.buttons = {.Ability}
+	headless.run_step(&run, [g.PLAYERS]g.Input{0 = pressed})
+	guarding := place_elite(&run, .Warrior, {10, 0, -9.5}, {0, -1}, .Idle) // the burst lands 1.7 m before its shield
+	brace(&run, guarding)
+	sheltered := place_elite(&run, .Rogue, {10, 0, -13.5}, {0, 1}, .Rise) // through the wall from the burst
+	for headless.run_events(&run, g.Event_Fireball_Burst) == 0 && run.simulation.state.clock.time < 4 * g.TICK_HZ {
+		headless.run_step(&run, [g.PLAYERS]g.Input{0 = aim})
+	}
+	testing.expect_value(t, headless.run_events(&run, g.Event_Fireball_Burst), 1)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Guard_Broken), 1)
+	phys := run.simulation.world.phys
+	warrior := elite_of(&run, guarding)
+	testing.expect_value(t, warrior.hp, g.ELITE_SPECS[.Warrior].hp - g.FIREBALL_DAMAGE)
+	shoved := dmath.length(physics.body_linear_velocity(phys, warrior.body.body).xz)
+	testing.expectf(t, shoved > 2, "the Warrior is shoved at %v m/s", shoved)
+	rogue := elite_of(&run, sheltered)
+	testing.expectf(
+		t,
+		dmath.length(rogue.pos.xz - {10, -11.2}) < g.FIREBALL_RADIUS,
+		"the Rogue is %v from the burst",
+		rogue.pos,
+	)
+	testing.expect_value(t, rogue.hp, g.ELITE_SPECS[.Rogue].hp)
+	pushed := dmath.length(physics.body_linear_velocity(phys, rogue.body.body))
+	testing.expectf(t, pushed < 0.05, "the Rogue behind the wall moves at %v m/s", pushed)
+	scenarios.expect_synced(t, &run)
+}
+
+// A fireball's blast that reaches a sleeping elite only with its push (past FIREBALL_RADIUS, within its falloff) wakes
+// it first, so the push moves it: a sleeper's capsule is kinematic (spawn_elite), and an impulse would move nothing.
+@(test)
+a_blast_wakes_the_sleeper_it_pushes :: proc(t: ^testing.T) {
+	run := alone_as(.Mage, {0, -1})
+	defer headless.run_end(&run)
+	place_hero(&run, 0, {6, 0, 3}, {0, -1}) // out of the sleeper's sight (AGGRO_RADIUS)
+	aim := g.Input {
+		aim   = dmath.dir2({0, -1}),
+		reach = g.reach_steps(5), // the burst 5 m up the hall, at z = -2
+	}
+	pressed := aim
+	pressed.buttons = {.Ability}
+	headless.run_step(&run, [g.PLAYERS]g.Input{0 = pressed})
+	handle := place_elite(&run, .Warrior, {6, 0, -6.3}, {0, 1}, .Idle) // 4.3 m beyond: its push, not its blow
+	sleeper := elite_of(&run, handle)
+	phys := run.simulation.world.phys
+	for headless.run_events(&run, g.Event_Fireball_Burst) == 0 && run.simulation.state.clock.time < 4 * g.TICK_HZ {
+		headless.run_step(&run, [g.PLAYERS]g.Input{0 = aim})
+	}
+	testing.expect_value(t, headless.run_events(&run, g.Event_Fireball_Burst), 1)
+	burst := dmath.length(sleeper.pos.xz - {6, -2})
+	testing.expectf(t, burst > g.FIREBALL_RADIUS && burst < g.FIREBALL_RADIUS + g.FIREBALL_FALLOFF, "%v m off", burst)
+	testing.expect_value(t, sleeper.hp, g.ELITE_SPECS[.Warrior].hp)
+	testing.expect_value(t, sleeper.phase, g.Elite_Phase.Chase)
+	testing.expect_value(t, physics.body_type(phys, sleeper.body.body), physics.Body_Type.Dynamic)
+	pushed := dmath.length(physics.body_linear_velocity(phys, sleeper.body.body).xz)
+	testing.expectf(t, pushed > 0.1, "the sleeper is pushed at %v m/s", pushed)
+	scenarios.expect_synced(t, &run)
+}

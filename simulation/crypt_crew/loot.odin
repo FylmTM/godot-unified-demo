@@ -5,8 +5,8 @@
 //
 // Whether a death drops, and what, are keyed rolls named by the session's count of drop rolls (State.drops), never by
 // the tick: a dev kill is a command and a pause holds game time, so when a kill lands moves no outcome (unified's
-// docs/gameplay.md, Randomness). drop_loot is the one way coins appear: a drop's `count` coins worth `total` between
-// them, what an elite's death calls with its own count and total.
+// docs/gameplay.md, Randomness). A felled elite rolls nothing: it always drops ELITE_COINS coins worth its kind's
+// ELITE_GOLD. drop_loot is the one way coins appear: a drop's `count` coins worth `total` between them.
 //
 // What the purse shows is the view's honesty test: a pickup shows as soon as it is predicted (the coin gone, a glint)
 // but counts only once it is CONFIRMED (game/play/purse.gd), so a pickup a rollback takes back, or hands to another
@@ -51,6 +51,13 @@ drop_minion_loot :: proc(t: ^Tick, at: [3]f32) {
 	key := u64(t.state.drops)
 	t.state.drops += 1
 	if value := minion_drop(t.seed, key); value > 0 do drop_loot(t, at, 1, value)
+}
+
+// A felled elite's drop (damage_elite, at its death): ELITE_COINS coins worth ELITE_GOLD of its kind between them, on
+// the LOOT_SPREAD ring round where it fell. None under a held crowd, as a minion's.
+drop_elite_loot :: proc(t: ^Tick, at: [3]f32, kind: Elite_Kind) {
+	if t.setup.crowd != .None do return
+	drop_loot(t, at, ELITE_COINS, ELITE_GOLD[kind])
 }
 
 // What the minion death behind drop roll `key` drops: the gold of its coin, 0 for none. A pure function of the

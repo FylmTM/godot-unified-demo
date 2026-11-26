@@ -36,6 +36,7 @@ const MAGE_CAST: StringName = &"CombatRanged/Ranged_Magic_Spellcasting"
 const ROGUE_AIM: StringName = &"CombatRanged/Ranged_2H_Aiming"
 const ROGUE_SHOOT: StringName = &"CombatRanged/Ranged_2H_Shoot"
 const ROGUE_RUN: StringName = &"MovementAdvanced/Running_HoldingRifle"
+const BARBARIAN_HEAVE: StringName = &"CombatRanged/Ranged_Magic_Raise"
 
 # Skeletons.
 const SKELETON_IDLE: StringName = &"Special/Skeletons_Idle"
@@ -44,6 +45,7 @@ const SKELETON_RISE: StringName = &"Special/Skeletons_Awaken_Floor"
 const SKELETON_DEATH: StringName = &"Special/Skeletons_Death"
 const SKELETON_TAUNT: StringName = &"Special/Skeletons_Taunt"
 const SKELETON_ATTACK: StringName = &"CombatMelee/Melee_1H_Attack_Chop"
+const SKELETON_LIMP: StringName = &"Special/Skeletons_Inactive_Standing_Pose"
 
 # Skeleton elites (the Warrior swings SKELETON_ATTACK and guards in KNIGHT_BLOCK, the Mage casts MAGE_BOLT and summons
 # in MAGE_CAST).

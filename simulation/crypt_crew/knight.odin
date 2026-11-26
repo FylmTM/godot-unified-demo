@@ -2,7 +2,8 @@
 // (Action.Block: a blow from the front lets BLOCK_TAKE through, guarded_damage; the Knight slows to BLOCK_SPEED), and
 // Attack pressed behind it is a shield charge (Action.Charge): a dash at CHARGE_SPEED for CHARGE_S, every blow from the
 // front taken by the shield, and every CHARGE_HIT_TICKS a blast from the shield's face (knock_area) that knocks the
-// skeletons in front aside. The charge has the Knight's ability cooldown; the block has none.
+// skeletons in front aside and breaks a Warrior's guard. The charge has the Knight's ability cooldown; the block has
+// none.
 package crypt_crew
 
 import "unified:sim"
@@ -25,13 +26,13 @@ knight_ability :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, buttons: sim.B
 }
 
 // After the physics step: each charging Knight's shield knocks aside what is in front, every CHARGE_HIT_TICKS from the
-// charge's start: a blast of CHARGE_RADIUS from the shield's face, chest-high (knock_area: walls shield, and its knock
-// falls off to BLAST_RIM at the rim).
+// charge's start: a blast of CHARGE_RADIUS from the shield's face, chest-high (knock_area: walls shield, its knock
+// falls off to BLAST_RIM at the rim, and a Warrior's guard breaks before the blow, which then lands whole).
 charge_strikes :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
 		if hero.action != .Charge || u32(t.time - hero.action_started) % CHARGE_HIT_TICKS != 0 do continue
 		face := hero.pos + [3]f32{hero.facing.x * HERO_RADIUS, CHEST_HEIGHT, hero.facing.y * HERO_RADIUS}
-		knock_area(t, face, CHARGE_RADIUS, CHARGE_DAMAGE, CHARGE_KNOCK, player, .Charge)
+		knock_area(t, face, CHARGE_RADIUS, CHARGE_DAMAGE, CHARGE_KNOCK, player, .Charge, breaks_guard = true)
 	}
 }

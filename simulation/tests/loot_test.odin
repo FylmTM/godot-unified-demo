@@ -5,6 +5,7 @@
 package test_crypt_crew
 
 import "core:testing"
+import "unified:dmath"
 import "unified:headless"
 import "unified:headless/scenarios"
 import "unified:sim"
@@ -275,4 +276,44 @@ the_suite_runs_cross_a_pickup :: proc(t: ^testing.T) {
 		"the %d-tick run picked up no coin",
 		SUITE.ticks,
 	)
+}
+
+// A felled elite drops ELITE_COINS coins on the LOOT_SPREAD ring round where it fell, worth its kind's ELITE_GOLD
+// between them, every time (no roll); under a held crowd, none.
+@(test)
+a_felled_elite_drops_its_coins :: proc(t: ^testing.T) {
+	for kind in g.Elite_Kind {
+		run := headless.run_begin(&g.GAME, 1, seated = 1)
+		defer headless.run_end(&run)
+		clear_minions(&run)
+		clear_elites(&run)
+		place_hero(&run, 0, spawn_of(&run, 0))
+		handle := place_elite(&run, kind, spawn_of(&run, 0) + {4, 0, 0}, {-1, 0}, .Rise)
+		fell := elite_of(&run, handle).pos
+		headless.run_command(&run, 0, g.Command_Dev_Hurt_Elites{g.ELITE_SPECS[kind].hp})
+		testing.expect_value(t, headless.run_events(&run, g.Event_Elite_Died), 1)
+		testing.expect_value(t, headless.run_events(&run, g.Event_Loot_Dropped), g.ELITE_COINS)
+		gold := 0
+		coins := sim.iterate(&run.simulation.state.loot)
+		for coin in sim.next(&coins) {
+			gold += int(coin.value)
+			apart := dmath.length(coin.pos.xz - fell.xz)
+			testing.expectf(
+				t,
+				abs(apart - g.LOOT_SPREAD) < 0.05,
+				"a %v's coin lies %v m from where it fell",
+				kind,
+				apart,
+			)
+		}
+		testing.expectf(t, gold == g.ELITE_GOLD[kind], "a %v's coins are worth %d", kind, gold)
+		scenarios.expect_synced(t, &run)
+	}
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Fight}, seated = 1)
+	defer headless.run_end(&run)
+	place_elite(&run, .Warrior, sim.slot_data(run.simulation, 0).pos + {3, 0, 0}, {-1, 0}, .Rise)
+	headless.run_command(&run, 0, g.Command_Dev_Hurt_Elites{g.ELITE_SPECS[.Warrior].hp})
+	testing.expect_value(t, headless.run_events(&run, g.Event_Elite_Died), 1)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Loot_Dropped), 0)
+	scenarios.expect_synced(t, &run)
 }

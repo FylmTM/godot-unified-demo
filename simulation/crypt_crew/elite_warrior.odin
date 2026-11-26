@@ -2,7 +2,8 @@
 // spec's windup, then the blow, as a minion's swing). Its shield takes most of a blow from its front: the guard judges
 // where the blow comes from against where the Warrior faces (never the attacker's facing), and a Warrior turns at
 // ELITE_TURN_COS a tick, so a hero who gets round it hits it whole. A stagger lowers the shield, and a broken guard
-// (break_guard: a thrown prop, a Knight's charge, a Mage's fireball) keeps it down for GUARD_BREAK_S.
+// (break_guard: a thrown prop, a Knight's charge, a Mage's fireball, a heaved body landing) keeps it down for
+// GUARD_BREAK_S.
 package crypt_crew
 
 import "unified:dmath"
@@ -19,10 +20,16 @@ warrior_ready :: proc(t: ^Tick, elite: ^Elite) {
 	if elite_in_reach(t, elite) && elite_faces_target(t, elite) do start_elite_attack(t, elite)
 }
 
-// Whether an elite holds a shield up at game time `now`: a Warrior awake (neither asleep, rising nor dying), not
-// staggered, its guard not broken. What warrior_guards asks, and what the view's glint and guard pose show.
+// Whether an elite holds a shield up at game time `now`: a Warrior awake and on its feet (neither asleep, rising, heaved
+// nor dying), not staggered, its guard not broken. What warrior_guards asks, and what the view's glint and guard pose
+// show.
 shield_up :: proc(now: sim.Game_Time, elite: ^Elite) -> bool {
-	if elite.kind != .Warrior || elite.phase == .Idle || elite.phase == .Rise || elite.phase == .Dying do return false
+	if elite.kind != .Warrior do return false
+	switch elite.phase {
+	case .Idle, .Rise, .Held, .Thrown, .Dying:
+		return false
+	case .Chase, .Attack, .Retreat, .Summon:
+	}
 	return !sim.timer_running(now, elite.stagger) && !sim.timer_running(now, elite.guard_down)
 }
 

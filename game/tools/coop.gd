@@ -33,6 +33,13 @@ extends UnifiedCoop
 ## On a bad link (`uni coop --lan -- --lag 150 --verified-players`: the joiner predicts the host many ticks deep) the
 ## joiner must see a pickup taken back (a CANCELLED one), so the purse is shown holding through a misprediction.
 ##
+## The combat beats, on both sides: each uses its class's ability (a Barbarian's is its heave of the downed ally it
+## then revives), each picks up a coin (the host's from its dance, the joiner's from coins it lays round itself), and
+## each revives the other: once the joiner's coin and ability are confirmed, the host fells the skeletons and downs the
+## friend (dev commands), walks over and holds Interact until the revive is confirmed (a Barbarian first heaves the
+## friend and throws it, then goes to where it landed); then the joiner does the same for the host. Every beat waits on
+## what the shared sim confirmed, never on the clock.
+##
 ## With `-- --play=lan_pair`, each side plays the script the replay regression replays/lan_pair records instead
 ## (CoopLanPair; `./uni coop --rerecord lan_pair` runs it with the folder's coop.args and keeps the host's recording).
 
@@ -62,6 +69,15 @@ const DANCE_DRIFT: float = 0.25
 const DANCE_S: float = 5.0
 ## How long the host walks out of the ring (seconds): past the coin 2 m to its right.
 const WALK_OUT_S: float = 0.8
+## The beats: how many coins the joiner lays round itself, how near a hero walks to a coin, an ally to revive or to
+## heave (metres: inside LOOT_RADIUS, REVIVE_RANGE and the grab's reach), how long a press of Ability holds (a Knight's
+## block), and how long a beat may take (seconds).
+const JOINER_COINS: int = 6
+const COIN_WITHIN: float = 0.6
+const REVIVE_WITHIN: float = 1.0
+const HEAVE_WITHIN: float = 1.4
+const ABILITY_S: float = 0.5
+const BEAT_S: float = 20.0
 
 ## The host's hits on skeletons, counted once each is confirmed.
 var _hits: int = 0
@@ -73,6 +89,12 @@ var _menu_joins: int = 0
 var _joined: String = ""
 ## The purse through this side's play (PurseWatch), from the friend's arrival.
 var _purse_watch: PurseWatch = null
+## The beats' confirmed events by player key: abilities used, coins picked up, revives given (by the reviver's key)
+## and received.
+var _abilities: Dictionary[int, int] = {}
+var _coins: Dictionary[int, int] = {}
+var _revived_by: Dictionary[int, int] = {}
+var _revived: Dictionary[int, int] = {}
 
 
 func _init() -> void:
@@ -145,6 +167,7 @@ func _host_play() -> void:
 	step("friend's hero arrived %.2f m from the host's" % gap)
 	await _check_friend(friend)
 	_watch_purse()
+	session.sim_event.connect(_count_beats)
 	await shot("c03_arrived_beside")
 	session.sim_event.connect(_count_hits)
 	var raise := CommandDevSpawnMinions.new()
@@ -164,6 +187,9 @@ func _host_play() -> void:
 	await shot("c04_coop_play")
 	step("played together: %d hits, %d skeletons" % [_hits, Unified.data.hud.minions])
 	await _coin_dance()
+	await _host_beats(friend)
+	if failed():
+		return
 	await wait_for(func() -> bool: return Unified.data.hud.surges > 0, SURGE_WITHIN_S, "a surge (a save) before leaving")
 	if failed():
 		return
@@ -204,8 +230,12 @@ func _join_play() -> void:
 	if _asked() == EnumClass.ANY:
 		expect(Heroes.class_of(session.local_player) != host_class, "asking for Any, it plays a class the host doesn't")
 	_watch_purse()
+	session.sim_event.connect(_count_beats)
 	await seconds(STILL_S)
 	await _couch_guest()
+	await _join_beats()
+	if failed():
+		return
 	Input.action_press(&"move_down")  # keeps moving while the host plays on
 	await wait_for(func() -> bool: return Unified.data.hud.paused, PAUSE_WITHIN_S, "the host pauses for everyone")
 	if failed():
@@ -271,6 +301,170 @@ func _coin_dance() -> void:
 	await hold(&"move_right", WALK_OUT_S)
 	await wait_for(func() -> bool: return _purse_watch.confirmed > mark, 5.0, "the walk out picks a coin up")
 	step("danced among the coins and walked out: %s" % _purse_watch.summary())
+
+
+## The host's beats, once its dance picked a coin up: it waits for the joiner's coin and ability, uses its own ability
+## (a Barbarian's comes with its rescue), downs the friend and revives it, then waits to be downed and revived in turn.
+func _host_beats(friend: int) -> void:
+	var barbarian: bool = Heroes.class_of(friend) == EnumClass.BARBARIAN  # its ability comes with its rescue
+	await wait_for(func() -> bool: return _tally(_coins, friend) > 0 and (barbarian or _tally(_abilities, friend) > 0),
+		BEAT_S * 2.0, "the friend's coin and ability")
+	if failed():
+		return
+	await _ability_beat()
+	await _rescue(friend)
+	await _rescued()
+	_check_beats()
+
+
+## The joiner's beats: it lays coins round itself and picks one up, uses its ability (a Barbarian's comes with its
+## rescue), waits to be downed and revived by the host, then downs the host and revives it.
+func _join_beats() -> void:
+	await _coin_beat()
+	await _ability_beat()
+	await _rescued()
+	await _rescue(_friend_player())
+	_check_beats()
+
+
+## Each beat of this side was confirmed: its ability, a coin, a revive given and one received.
+func _check_beats() -> void:
+	var me: int = session.local_player
+	expect(_tally(_abilities, me) > 0, "this side used its ability")
+	expect(_tally(_coins, me) > 0, "this side picked up a coin")
+	expect(_tally(_revived_by, me) > 0 and _tally(_revived, me) > 0, "this side revived and was revived")
+	step("beats: %d abilities, %d coins, revived %d and was revived %d" % [_tally(_abilities, me), _tally(_coins, me),
+		_tally(_revived_by, me), _tally(_revived, me)])
+
+
+## This side's ability, unless it plays the Barbarian (its heave needs a body: _rescue's): Ability held ABILITY_S (a
+## Knight's block; the Rogue's roll and the Mage's fireball start on its press), until the sim confirms it.
+func _ability_beat() -> void:
+	var me: int = session.local_player
+	if failed() or Heroes.class_of(me) == EnumClass.BARBARIAN:
+		return
+	await hold(&"ability", ABILITY_S)
+	await wait_for(func() -> bool: return _tally(_abilities, me) > 0, 5.0, "this side's ability is confirmed")
+	step("used its ability, the %s's" % Heroes.name_of(Heroes.class_of(me)))
+
+
+## The joiner lays JOINER_COINS coins round its hero (dev) and walks to the first that fell, until the sim confirms its
+## pickup (the purse's rule is PurseWatch's).
+func _coin_beat() -> void:
+	var me: int = session.local_player
+	var dropped: Array[Vector3] = []
+	var on_drop: Callable = func(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
+		if state == UnifiedSession.EVENT_EMITTED and event is EventLootDropped:
+			dropped.append((event as EventLootDropped).position)
+	session.sim_event.connect(on_drop)
+	var drop := CommandDevDropLoot.new()
+	drop.count = JOINER_COINS
+	session.send_command(drop)
+	await wait_for(func() -> bool: return dropped.size() >= JOINER_COINS, 5.0, "the joiner's coins drop")
+	session.sim_event.disconnect(on_drop)
+	if failed():
+		return
+	await seconds(0.6)  # the coins armed
+	await _walk_to(func() -> Vector3: return dropped[0], COIN_WITHIN, "a coin")
+	await wait_for(func() -> bool: return _tally(_coins, me) > 0, 5.0, "the joiner's pickup is confirmed")
+	step("picked up a coin it laid")
+
+
+## This side downs `ally` (dev, the skeletons felled first so nobody else falls) and revives it: walks over and holds
+## Interact until the sim confirms the revive. A Barbarian heaves the ally first, throws it, and goes to where it
+## landed (its ability's beat).
+func _rescue(ally: int) -> void:
+	if failed():
+		return
+	var me: int = session.local_player
+	session.send_command(CommandDevKillMinions.new())
+	var hurt := CommandDevHurt.new()
+	hurt.player = ally
+	hurt.damage = 100
+	session.send_command(hurt)
+	await wait_for(func() -> bool: return _down(ally), 5.0, "the ally is down")
+	var at: Callable = func() -> Vector3: return _hero(ally).global_position
+	if Heroes.class_of(me) == EnumClass.BARBARIAN:
+		await _walk_to(at, HEAVE_WITHIN, "the downed ally, to heave it")
+		await press_action(&"ability")
+		await wait_for(func() -> bool: return _tally(_abilities, me) > 0, 5.0, "the heave is confirmed")
+		await press_action(&"attack")
+		await seconds(2.0)  # it flies and lands
+		step("heaved the downed ally and threw it")
+	await _walk_to(at, REVIVE_WITHIN, "the downed ally, to revive it")
+	Input.action_press(&"interact")
+	await wait_for(func() -> bool: return _tally(_revived_by, me) > 0, BEAT_S, "the revive is confirmed")
+	Input.action_release(&"interact")
+	step("revived %s" % session.get_player_name(ally))
+
+
+## This side waits to be downed by the other's _rescue, and revived by it.
+func _rescued() -> void:
+	if failed():
+		return
+	var me: int = session.local_player
+	await wait_for(func() -> bool: return _down(me), BEAT_S * 2.0, "the other side downs this hero")
+	await wait_for(func() -> bool: return _tally(_revived, me) > 0, BEAT_S * 2.0, "the other side revives it")
+	step("downed and revived by %s" % session.get_player_name(_friend_player()))
+
+
+## Walks this side's hero toward `target()` (it may move: read each frame) on the floor until it is within `within`
+## metres, steering by the eight move directions, then lets go of the moves; failing after BEAT_S.
+func _walk_to(target: Callable, within: float, what: String) -> void:
+	var until: int = Time.get_ticks_msec() + int(BEAT_S * 1000.0)
+	var gap: Vector2 = Vector2.INF
+	while not failed() and Time.get_ticks_msec() < until:
+		var me: Node3D = _hero(session.local_player)
+		var to: Vector3 = target.call()
+		gap = Vector2(to.x - me.global_position.x, to.z - me.global_position.z)
+		if gap.length() < within:
+			break
+		var steer: Vector2 = gap.normalized()
+		_set_move(&"move_right", steer.x > 0.38)
+		_set_move(&"move_left", steer.x < -0.38)
+		_set_move(&"move_down", steer.y > 0.38)
+		_set_move(&"move_up", steer.y < -0.38)
+		await process_frame
+	for move: StringName in DIRS:
+		Input.action_release(move)
+	expect(gap.length() < within, "walked to %s: %.2f m off" % [what, gap.length()])
+
+
+## Presses or lets go of a move action.
+func _set_move(action: StringName, on: bool) -> void:
+	if on:
+		Input.action_press(action)
+	else:
+		Input.action_release(action)
+
+
+## Whether `player`'s hero is down, as the HUD's data has it.
+func _down(player: int) -> bool:
+	for hero: DataHudHero in Unified.data.hud.heroes:
+		if hero.player == player:
+			return hero.down
+	return false
+
+
+## How many `tally` holds for `player`.
+func _tally(tally: Dictionary[int, int], player: int) -> int:
+	return tally.get(player, 0)
+
+
+## Counts the beats' CONFIRMED events (_abilities, _coins, _revived_by, _revived).
+func _count_beats(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
+	if state != UnifiedSession.EVENT_CONFIRMED:
+		return
+	if event is EventAbility:
+		var used := event as EventAbility
+		_abilities[used.player] = _tally(_abilities, used.player) + 1
+	elif event is EventLootCollected:
+		var collected := event as EventLootCollected
+		_coins[collected.player] = _tally(_coins, collected.player) + 1
+	elif event is EventHeroRevived:
+		var revived := event as EventHeroRevived
+		_revived_by[revived.by] = _tally(_revived_by, revived.by) + 1
+		_revived[revived.player] = _tally(_revived, revived.player) + 1
 
 
 ## Watches this side's purse from now on (PurseWatch).

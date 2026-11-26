@@ -1,11 +1,11 @@
 // The heroes' abilities, the machinery every class shares; each class's own is in its file (knight: block and shield
-// charge, rogue: dodge roll, mage: fireball; the Barbarian's comes with milestone 5's heave, docs/plan.md). Ability is
-// read like Attack: a hero up, its hands free of a prop, doing nothing else or attacking (an ability cuts an attack
-// short, so a held Attack never locks it out), starts its class's ability when the button says so and the hero's own
-// cooldown (Hero.ability_ready) ran out. An ability is an action (Block, Charge, Roll, Cast) with its start, so the
-// view poses it from the state and a rollback re-poses it; each runs its course here, before the attacks start (an
-// Attack pressed while blocking is a charge, not a sword's swing). What a blow does to a hero mid-ability is
-// guarded_damage and rolled_clear, which damage_hero asks.
+// charge, rogue: dodge roll, mage: fireball, barbarian: the heave). Ability is read like Attack: a hero up, its hands
+// free of a prop, doing nothing else or attacking (an ability cuts an attack short, so a held Attack never locks it
+// out), starts its class's ability when the button says so and the hero's own cooldown (Hero.ability_ready) ran out.
+// An ability is an action (Block, Charge, Roll, Cast, Heave, Hurl) with its start, so the view poses it from the state
+// and a rollback re-poses it; each runs its course here, before the attacks start (an Attack pressed while blocking is
+// a charge, and while heaving a throw, not a swing). What a blow does to a hero mid-ability is guarded_damage and
+// rolled_clear, which damage_hero asks.
 package crypt_crew
 
 import "unified:dmath"
@@ -25,10 +25,11 @@ Event_Blocked :: struct {
 }
 
 // The actions a class's attack or ability is: a class change ends them (dev.odin).
-CLASS_ACTIONS :: bit_set[Action]{.Attack, .Block, .Charge, .Roll, .Cast}
+CLASS_ACTIONS :: bit_set[Action]{.Attack, .Block, .Charge, .Roll, .Cast, .Heave, .Hurl}
 
 // Each present hero's ability: the one under way runs its course (a block lasts while Ability is held, a charge
-// CHARGE_S, a roll ROLL_S, a cast its windup, at whose end the fireball leaves), then the hero's class may start one.
+// CHARGE_S, a roll ROLL_S, a cast its windup, at whose end the fireball leaves, a heave as heave_on says), then the
+// hero's class may start one.
 use_abilities :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
@@ -46,6 +47,8 @@ use_abilities :: proc(t: ^Tick) {
 				cast_fireball(t, hero, player)
 				hero.action, hero.action_started = .None, t.time
 			}
+		case .Heave, .Hurl:
+			heave_on(t, hero, player)
 		}
 		switch hero.class {
 		case .Knight:
@@ -54,7 +57,9 @@ use_abilities :: proc(t: ^Tick) {
 			rogue_ability(t, hero, player, buttons)
 		case .Mage:
 			mage_ability(t, hero, player, buttons)
-		case .Barbarian, .Any: // the Barbarian's heave: docs/plan.md, milestone 5
+		case .Barbarian:
+			barbarian_ability(t, hero, player, buttons)
+		case .Any:
 		}
 	}
 }
@@ -80,7 +85,8 @@ dash :: proc(t: ^Tick, hero: ^Hero, speed: f32) {
 }
 
 // What a hero's drive does during its action: its stick, and the share of its class's speed (with what it carries,
-// carry_speed); a hero down is held still, and a dash (a charge, a roll) runs along its facing at its own speed.
+// carry_speed); a hero down is held still (a heaved one hangs limp, its drive off), and a dash (a charge, a roll) runs
+// along its facing at its own speed.
 action_drive :: proc(t: ^Tick, hero: ^Hero, stick: [2]f32) -> (move: [2]f32, scale: f32) {
 	max_speed := t.world.hero_defs[hero.class].max_speed
 	#partial switch hero.action {
@@ -96,6 +102,8 @@ action_drive :: proc(t: ^Tick, hero: ^Hero, stick: [2]f32) -> (move: [2]f32, sca
 		return stick, BLOCK_SPEED
 	case .Revive:
 		return stick, REVIVE_SPEED
+	case .Heave, .Hurl:
+		return stick, HEAVE_SPEED
 	}
 	return stick, carry_speed(t, hero)
 }

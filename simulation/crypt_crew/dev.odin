@@ -20,6 +20,7 @@ apply_dev_commands :: proc(t: ^Tick) {
 			#partial switch command in sent {
 			case Command_Dev_Set_Class:
 				if command.class == .Any || command.class == hero.class do break
+				release_heave(t, player, thrown = false) // a Barbarian's heave lets its body down ...
 				hero.class = command.class
 				if hero.action in CLASS_ACTIONS do hero.action = .None // the old class's ends with it ...
 				sim.timer_stop(&hero.ability_ready) // ... and so does its ability's cooldown

@@ -16,9 +16,9 @@ const HINTS_S: float = 6.0
 const DOWN_TINT: Color = Color(1, 1, 1, 0.55)
 ## How the ability's pip is tinted while its cooldown runs: the fill dimmer than a ready one's.
 const PIP_COOLING: Color = Color(0.6, 0.6, 0.6, 0.8)
-## What each class's ability does, as its hint says (EnumClass; the Barbarian's heave comes later: "Ability").
+## What each class's ability does, as its hint says (EnumClass).
 const ABILITY_NAMES: Dictionary[int, String] = {
-	EnumClass.KNIGHT: "Block", EnumClass.MAGE: "Fireball", EnumClass.ROGUE: "Roll",
+	EnumClass.KNIGHT: "Block", EnumClass.BARBARIAN: "Heave", EnumClass.MAGE: "Fireball", EnumClass.ROGUE: "Roll",
 }
 
 ## The player and the device family the hints last showed for (-1: none yet), and until when they show (msec).

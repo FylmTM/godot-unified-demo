@@ -174,14 +174,38 @@ FIREBALL_FLIGHT_TICKS :: u32(FIREBALL_FLIGHT_S * TICK_HZ)
 FIREBALL_RADIUS :: f32(3.5) // its burst hurts every minion this close that no wall shields ...
 FIREBALL_DAMAGE :: i16(25) // ... this much
 FIREBALL_KNOCK :: f32(9) // ... knocked away at this, falling off to BLAST_RIM of it at the rim
-// Its blast on the props (fireballs.odin, blast_props): each within FIREBALL_RADIUS that no wall shields takes this
-// impulse (N·s: a barrel leaves at 8 m/s) along the floor away from it, FIREBALL_LIFT of that upward, fading to none
-// over FIREBALL_FALLOFF beyond. A crate, the lightest, rises at most about 0.9 m: no prop is blown over a wall.
+// Its blast on the Box3D bodies (fireballs.odin, blast_bodies): each prop and elite within FIREBALL_RADIUS that no wall
+// shields takes this impulse (N·s: a barrel leaves at 8 m/s, an elite under 1 m/s) along the floor away from it,
+// FIREBALL_LIFT of that upward, fading to none over FIREBALL_FALLOFF beyond. A crate, the lightest, rises at most about
+// 0.9 m: no prop is blown over a wall.
 FIREBALL_IMPULSE :: f32(240)
 FIREBALL_LIFT :: f32(0.35)
 FIREBALL_FALLOFF :: f32(1.5)
 FIREBALL_COOLDOWN_S :: f32(8) // from one cast's start to the next
 FIREBALL_COOLDOWN_TICKS :: u32(FIREBALL_COOLDOWN_S * TICK_HZ)
+
+// The Barbarian's heave (barbarian.odin): Ability's press grabs the nearest elite or downed ally in the grab cone
+// (GRAB_RANGE, GRAB_CONE_COS, as a prop), its body limp on the hold's joint; Attack throws it as a prop is thrown
+// (THROW_WINDUP_S, THROW_SPEED, THROW_LIFT), and where it lands it knocks what is round it (knock_area).
+HEAVE_MAX_S :: f32(1.5) // held this long unthrown, the body is let down where it hangs
+HEAVE_MAX_TICKS :: u32(HEAVE_MAX_S * TICK_HZ)
+HEAVE_COOLDOWN_S :: f32(1) // from a heave's end (its throw or its letting down) to the next grab
+HEAVE_COOLDOWN_TICKS :: u32(HEAVE_COOLDOWN_S * TICK_HZ)
+HEAVE_SPEED :: f32(0.6) // a hero heaving moves at this fraction of its speed
+// What a held body weighs in the hands (kg; a heavy crate's): its mass while it hangs on the hold, so the hold's joint
+// carries it as it carries a prop and a 320 kg skeleton doesn't drag the Barbarian about. Its own comes back as it is
+// let go: a thrown elite flies with its full weight.
+HEAVE_MASS :: f32(60)
+HEAVE_HOLD_HEIGHT :: f32(1.6) // a held body's centre above the hero's feet: its capsule clears the doorways' lintel
+HEAVE_LAND_RADIUS :: f32(2) // a thrown body landing knocks every skeleton this close ...
+HEAVE_LAND_DAMAGE :: i16(15) // ... this much (a thrown elite takes it too, and staggers) ...
+HEAVE_LAND_KNOCK :: f32(8) // ... knocked away at this, falling off to BLAST_RIM of it at the rim
+// A thrown body has landed once it falls with this little floor (or a prop) under its capsule (metres) ...
+HEAVE_LAND_GAP :: f32(0.25)
+HEAVE_FLIGHT_MAX_S :: f32(2) // ... or once it has flown this long, wherever it is (wedged off the floor)
+HEAVE_FLIGHT_MAX_TICKS :: u32(HEAVE_FLIGHT_MAX_S * TICK_HZ)
+BARBARIAN_THROW :: f32(1.3) // the Barbarian throws a prop this much faster along the floor (it flies this much farther)
+#assert(HEAVE_LAND_KNOCK * BLAST_RIM > KNOCK_STAGGER) // all of a landing's reach staggers
 
 // ---- downed and revive (revive.odin)
 
@@ -464,3 +488,11 @@ LOOT_ARM_TICKS :: u32(LOOT_ARM_S * TICK_HZ)
 LOOT_LIFE_S :: f32(30) // a coin nobody picks up goes this long after it dropped
 LOOT_LIFE_TICKS :: u32(LOOT_LIFE_S * TICK_HZ)
 DEV_DROP_RING :: f32(2) // dev_drop_loot lays its coins on a ring this far round the sender's hero: beyond LOOT_RADIUS
+ELITE_COINS :: 5 // a felled elite drops this many coins, on the LOOT_SPREAD ring round where it fell ...
+// ... worth this much gold between them, by kind: the Mage, the summoner a party must reach first, the most
+@(rodata)
+ELITE_GOLD := [Elite_Kind]int {
+	.Warrior = 15,
+	.Rogue   = 20,
+	.Mage    = 25,
+}

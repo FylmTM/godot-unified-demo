@@ -3,8 +3,9 @@
 // in front of the hero at chest height, its force capped by the prop's weight, turned with the hero's facing; the
 // carrier slows by the prop's carry_speed. A throw is an action: the hands let go THROW_WINDUP_S into it, at a fixed
 // velocity along the facing, so every mass flies alike, and the prop then passes through its thrower until it is clear
-// of them (props.odin, age_throws). Every path that lets go (a drop, a throw, a leave, going down, a level change) goes
-// through release_hold.
+// of them (props.odin, age_throws); a Barbarian throws BARBARIAN_THROW faster. The same hold carries what a Barbarian
+// heaves (barbarian.odin). Every path that lets go (a drop, a throw, a leave, going down, a level change) goes through
+// release_hold.
 package crypt_crew
 
 import "unified:dmath"
@@ -88,7 +89,7 @@ use_hands :: proc(t: ^Tick) {
 			continue
 		case .Pick_Up:
 			if age >= PICK_UP_TICKS do hero.action = .None
-		case .Down, .Attack, .Block, .Charge, .Roll, .Cast, .Revive:
+		case .Down, .Attack, .Block, .Charge, .Roll, .Cast, .Revive, .Heave, .Hurl:
 			continue
 		case .None:
 		}
@@ -106,18 +107,23 @@ use_hands :: proc(t: ^Tick) {
 	}
 }
 
-// Every hero holding a prop holds it where its facing now puts the hold (hold_frame). A hold's joint is live while
-// `held` is set: every way a prop or a hero's body goes lets go first (release_hold: a leave and going down drop the
-// prop, a level change releases every hold before the props and bodies go), and the physics joint calls assert it.
+// Every hero holding a prop, or heaving a body, holds it where its facing now puts the hold (hold_frame, heave_frame).
+// A hold's joint is live while `held` or `heaved` is set: every way a prop or a body goes lets go first (release_hold:
+// a leave and going down drop what is held, a level change releases every hold before the props and bodies go; a held
+// body's own end lets go of it, release_heave), and the physics joint calls assert it.
 update_holds :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero in sim.next(&heroes) {
-		if hero.held == {} do continue
-		physics.joint_set_local_frame_a(
-			t.world.phys,
-			hero.hold,
-			hold_frame(hero, sim.get(&t.state.props, hero.held).kind),
-		)
+		frame: physics.Transform
+		switch {
+		case hero.held != {}:
+			frame = hold_frame(hero, sim.get(&t.state.props, hero.held).kind)
+		case hero.heaved != {}:
+			frame = heave_frame(hero)
+		case:
+			continue
+		}
+		physics.joint_set_local_frame_a(t.world.phys, hero.hold, frame)
 	}
 }
 
@@ -137,27 +143,34 @@ hold_frame :: proc(hero: ^Hero, kind: Prop_Kind) -> physics.Transform {
 	}
 }
 
-// `player`'s hero takes the free prop `handle`: a motor joint holds it (hold_frame), the hero and the prop no longer
-// touch, the prop is nobody's throw any more, and the hero picks it up (Action.Pick_Up).
-grab_prop :: proc(t: ^Tick, player: sim.Player, handle: sim.Handle(Prop)) {
-	hero := sim.player_data(t, player)
-	prop := sim.get(&t.state.props, handle)
-	mass := PROP_SPECS[prop.kind].mass
+// A hold for `hero`: a motor joint from its body to `body` (a prop's, or a heaved body's), pulling it to `frame` in
+// the hero's frame with a spring whose force and torque are capped by `mass` (HOLD_LIFT, HOLD_TORQUE_PER_KG), so a
+// hold carries what it holds as a hand would and never flings it; the two bodies no longer touch.
+create_hold :: proc(
+	t: ^Tick,
+	hero: ^Hero,
+	body: physics.Body_Ref,
+	frame: physics.Transform,
+	mass: f32,
+) -> physics.Motor_Joint_Ref {
 	joint_def := physics.default_motor_joint_def()
 	joint_def.base.collide_connected = false
-	joint_def.base.local_frame_a = hold_frame(hero, prop.kind)
+	joint_def.base.local_frame_a = frame
 	joint_def.linear_hertz = HOLD_HERTZ
 	joint_def.linear_damping_ratio = HOLD_DAMPING
 	joint_def.angular_hertz = HOLD_HERTZ
 	joint_def.angular_damping_ratio = HOLD_DAMPING
 	joint_def.max_spring_force = HOLD_LIFT * mass * GRAVITY
 	joint_def.max_spring_torque = HOLD_TORQUE_PER_KG * mass
-	hero.hold = physics.create_motor_joint(
-		t.world.phys,
-		physics.link(hero.body.body),
-		physics.link(prop.body),
-		joint_def,
-	)
+	return physics.create_motor_joint(t.world.phys, physics.link(hero.body.body), physics.link(body), joint_def)
+}
+
+// `player`'s hero takes the free prop `handle`: a hold carries it (create_hold, at hold_frame), the prop is nobody's
+// throw any more, and the hero picks it up (Action.Pick_Up).
+grab_prop :: proc(t: ^Tick, player: sim.Player, handle: sim.Handle(Prop)) {
+	hero := sim.player_data(t, player)
+	prop := sim.get(&t.state.props, handle)
+	hero.hold = create_hold(t, hero, prop.body, hold_frame(hero, prop.kind), PROP_SPECS[prop.kind].mass)
 	hero.held = handle
 	prop.held_by = player
 	sim.timer_stop(&prop.thrown)
@@ -167,10 +180,12 @@ grab_prop :: proc(t: ^Tick, player: sim.Player, handle: sim.Handle(Prop)) {
 	sim.emit(t, Event_Prop_Grabbed{prop = handle, player = player})
 }
 
-// `player`'s hero lets go of what it holds, if anything: the hold's joint goes and the prop is nobody's. The one way
-// a hold ends; returns the prop it held (the null handle: none).
+// `player`'s hero lets go of what it holds, if anything: the hold's joint goes and the prop is nobody's, or a heaved
+// body is let down where it hangs (release_heave). The one way a hold ends; returns the prop it held (the null handle:
+// none, or a body).
 release_hold :: proc(t: ^Tick, player: sim.Player) -> sim.Handle(Prop) {
 	hero := sim.player_data(t, player)
+	if hero.heaved != {} do release_heave(t, player, thrown = false)
 	held := hero.held
 	if held == {} do return {}
 	physics.destroy_joint(t.world.phys, &hero.hold)
@@ -184,13 +199,15 @@ drop_prop :: proc(t: ^Tick, player: sim.Player) {
 	if prop := release_hold(t, player); prop != {} do sim.emit(t, Event_Prop_Dropped{prop = prop, player = player})
 }
 
-// `player`'s hero throws what it holds: THROW_SPEED along its facing and THROW_LIFT up, set as the prop's velocity;
-// the prop is the hero's throw for THROWN_TICKS and ignores the hero's body until it is clear (age_throws).
+// `player`'s hero throws what it holds: THROW_SPEED along its facing (a Barbarian's BARBARIAN_THROW times that: the
+// same arc, farther) and THROW_LIFT up, set as the prop's velocity; the prop is the hero's throw for THROWN_TICKS and
+// ignores the hero's body until it is clear (age_throws).
 throw_prop :: proc(t: ^Tick, player: sim.Player) {
 	handle := release_hold(t, player) // use_hands throws only while holding
 	prop := sim.get(&t.state.props, handle)
 	hero := sim.player_data(t, player)
-	velocity := [3]f32{hero.facing.x * THROW_SPEED, THROW_LIFT, hero.facing.y * THROW_SPEED}
+	speed := THROW_SPEED * (BARBARIAN_THROW if hero.class == .Barbarian else 1)
+	velocity := [3]f32{hero.facing.x * speed, THROW_LIFT, hero.facing.y * speed}
 	prop.thrown_by = player
 	sim.clear(&prop.hits) // a new throw: every minion may be hurt again
 	sim.clear(&prop.elites_hit) // and every elite

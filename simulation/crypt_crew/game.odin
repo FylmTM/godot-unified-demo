@@ -5,12 +5,12 @@
 // input (the input and the commands), state, events, world (the physics world, each level's floor: its navigation and
 // places; init, entering a level and restarting it), presence (arrivals, leaves, where an arrival appears), heroes
 // (facing, movement, read back), hands (grab, carry, drop, throw), attacks and abilities (the shared machinery of each)
-// and a file per class (knight, barbarian, mage, rogue), bolts and fireballs (the Mage's), props (their bodies, hits,
-// impacts and throws' ends), minions (targets, steering, swings, dying), director (sleeping packs, surges, held crowds
-// and the benchmarks' populations), elites (Box3D skeletons: the shared rules) and a file per kind (elite_warrior,
-// elite_rogue, elite_mage), health (damage, down, the wipe), revive (allies tending the downed), pause (the co-op
-// pause), saves (the Setup a save is, and the tally it carries), dev (the dev commands) and script (the scripted
-// player); loot (coins dropped and the party's purse).
+// and a file per class (knight, barbarian with its heave, mage, rogue), bolts and fireballs (the Mage's), props (their
+// bodies, hits, impacts and throws' ends), minions (targets, steering, swings, dying), director (sleeping packs, surges,
+// held crowds and the benchmarks' populations), elites (Box3D skeletons: the shared rules) and a file per kind
+// (elite_warrior, elite_rogue, elite_mage), health (damage, down, the wipe), revive (allies tending the downed), pause
+// (the co-op pause), saves (the Setup a save is, and the tally it carries), dev (the dev commands) and script (the
+// scripted player); loot (coins dropped and the party's purse).
 package crypt_crew
 
 import "unified:physics"
@@ -21,7 +21,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "20"
+VERSION :: "21"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -147,6 +147,7 @@ tick :: proc(t: ^Tick) {
 		charge_strikes(t)
 		fly_bolts(t)
 		fly_fireballs(t)
+		land_heaves(t)
 		prop_hits(t)
 	}
 	{

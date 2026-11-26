@@ -345,11 +345,10 @@ init :: proc(t: ^Tick) {
 // present hero gets a body at its slot's spawn. The coins on the floor go too. What the block keeps across it (the
 // heroes' classes, the clock, the session's counts, the purse) stays.
 enter_level :: proc(t: ^Tick, to: Level_Id) {
+	holding := sim.iterate_present(t)
+	for _, player in sim.next(&holding) do release_hold(t, player) // every hold, before any body it holds goes
 	leaving := sim.iterate_present(t)
-	for hero, player in sim.next(&leaving) {
-		release_hold(t, player)
-		destroy_hero_body(t.world.phys, hero)
-	}
+	for hero in sim.next(&leaving) do destroy_hero_body(t.world.phys, hero)
 	despawn_props(t)
 	sim.despawn_all(&t.state.minions)
 	sim.despawn_all(&t.state.bolts)

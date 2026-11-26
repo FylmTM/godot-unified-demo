@@ -7,9 +7,10 @@ extends Node3D
 ## the sim's events into effects as soon as they are predicted (EMITTED): sparks on a hit (a skeleton's, an elite's, a
 ## bone bolt's; and dust where a guard breaks), a bolt's burst, a crossbow's tracer (from the crossbow as drawn to where
 ## the sim's shot ended), dust where a prop lands hard, and a shake when a local hero is hurt; a shield's clang and
-## sparks, a fireball's blast (with a shake), a hero going down. What must be certain shows once CONFIRMED: a revive's
-## chime and its toast ("X revived Y"), and the wipe's banner (the HUD). A coin picked up glints as predicted too (its
-## coin gone with it, as the state has it); the purse counts it once confirmed (the HUD's Purse).
+## sparks, a fireball's blast (with a shake), dust and a smaller shake where a heaved body lands, a hero going down.
+## What must be certain shows once CONFIRMED: a revive's chime and its toast ("X revived Y"), and the wipe's banner (the
+## HUD). A coin picked up glints as predicted too (its coin gone with it, as the state has it); the purse counts it once
+## confirmed (the HUD's Purse).
 ##
 ## The mouse's aim reaches the sim through it, as only a script knows it: just before the session samples (its
 ## input_wanted, so this frame's sample takes it), the cursor's ray meets a plane at chest height, and the direction
@@ -33,6 +34,8 @@ const DUST_SPEED: float = 5.0
 const HURT_SHAKE: float = 0.5
 ## How hard a fireball's blast shakes the camera (0 to 1), at the player's full screen shake.
 const FIREBALL_SHAKE: float = 0.35
+## How hard a heaved body's landing shakes the camera (0 to 1), at the player's full screen shake.
+const LANDING_SHAKE: float = 0.2
 ## Where a picked-up coin's glint shines from, above where it lay (its hover: game/views/coin.gdshader).
 const GLINT_HEIGHT: float = 0.4
 
@@ -193,6 +196,9 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 		_camera_rig.shake(FIREBALL_SHAKE * Settings.screen_shake)
 	elif event is EventHeroDowned:
 		Sfx.play(&"downed")
+	elif event is EventHeaveLanded:
+		_effects.dust((event as EventHeaveLanded).position)
+		_camera_rig.shake(LANDING_SHAKE * Settings.screen_shake)
 	# Elites
 	elif event is EventEliteHit:
 		_effects.sparks((event as EventEliteHit).position + Vector3(0, ELITE_HIT_HEIGHT, 0))
