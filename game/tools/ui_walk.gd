@@ -459,7 +459,10 @@ func _walk_replay_purse() -> void:
 	}
 	for to: String in seeks:
 		session.replay_seek(seeks[to])
-		await frames(10)
+		var target: int = seeks[to]
+		# A seek re-simulates from the nearest snapshot over frames: the purse is read once it has landed.
+		await wait_for(func() -> bool: return session.tick == target, 5.0, "the seek to %s lands" % to)
+		await frames(2)
 		expect(PurseWatch.gold_of(purse) == Unified.data.hud.gold, "a seek to %s: the purse shows the State's %d (%d)"
 			% [to, Unified.data.hud.gold, PurseWatch.gold_of(purse)])
 		if to == "the start":
