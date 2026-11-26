@@ -25,6 +25,9 @@ extends UnifiedCoop
 ## The joiner's HUD says what it joined (the code or address its menus joined, "A friend's game" for a session uni's
 ## flags started) and how many play; then a couch guest joins it on pad 1, named after the joiner ("Friend +1"), and
 ## drops out again, across the two processes.
+##
+## With `-- --play=lan_pair`, each side plays the script the replay regression replays/lan_pair records instead
+## (CoopLanPair; `./uni coop --rerecord lan_pair` runs it with the folder's coop.args and keeps the host's recording).
 
 ## How far past an arrival's farther ring (twice Unified.constants.arrival_ring: the nearer one may be taken) the
 ## friend's hero may stand from the host's, in metres: the capsule settling on the floor.
@@ -112,6 +115,9 @@ func _start_join(code: String) -> void:
 
 
 func _host_play() -> void:
+	if _lan_pair():
+		await CoopLanPair.new(self).host()
+		return
 	var friend: int = _friend_player()
 	await wait_for(func() -> bool: return _hero(friend) != null, 10.0, "the friend's hero appears")
 	if failed():
@@ -162,6 +168,9 @@ func _host_play() -> void:
 
 
 func _join_play() -> void:
+	if _lan_pair():
+		await CoopLanPair.new(self).join()
+		return
 	await wait_for(_playing, 20.0, "the joiner's hero appears")
 	if failed():
 		return
@@ -280,6 +289,8 @@ func _host() -> void:
 ## the host's last save alone; Continue on your own keeps it in the slot (what the title's Continue offers) and goes
 ## through hero select into a single-player game on it, at the surge the joiner last saw.
 func _host_left() -> void:
+	if _lan_pair():
+		return  # the recording ended with the host's session
 	var seen: int = _surges_seen
 	await wait_for(func() -> bool: return scene_is("Menu"), 5.0, "back on the title")
 	var dialog: Control = find(game, ^"Overlays/Dialog") as Control
@@ -311,6 +322,11 @@ func _host_left() -> void:
 	expect(Unified.data.hud.surges == seen, "it continues from the host's last surge (%d, saw %d)"
 		% [Unified.data.hud.surges, seen])
 	step("continued on its own: surge %d, %d felled" % [Unified.data.hud.surges, Unified.data.hud.kills])
+
+
+## Whether this run plays replays/lan_pair's script (--play=lan_pair) instead of the co-op checks.
+func _lan_pair() -> bool:
+	return arg("play") == "lan_pair"
 
 
 ## The title's Play together, once the menu shows the title (the run's main scene, loaded here: no session flag
