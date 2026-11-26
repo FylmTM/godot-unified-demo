@@ -348,11 +348,11 @@ func _walk_stuck_key() -> void:
 	await _leave_guests()
 	await key(KEY_D, false)
 	await _join(1)
-	var hero: Node3D = local_hero()
 	await seconds(0.3)
-	var from: Vector3 = hero.global_position
+	# The local hero read at each moment, never kept across a wait: the join may replace its view meanwhile.
+	var from: Vector3 = local_hero().global_position
 	await seconds(0.5)
-	var moved: float = hero.global_position.distance_to(from)
+	var moved: float = local_hero().global_position.distance_to(from)
 	expect(moved < STILL, "no key held: the hero stands (it moved %.2f m)" % moved)
 	await _leave_guests()
 	step("a key let go while the guest was away walks nobody")
