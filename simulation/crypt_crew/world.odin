@@ -94,6 +94,7 @@ World :: struct {
 	barrel_hull:    ^physics.Hull_Data, // the barrel's cylinder (Box3D copies it into each body's shape)
 	barrel_density: f32, // what gives the barrel's hull its PROP_SPECS mass
 	contacts:       [dynamic]physics.Contact_Event, // scratch: the step's contact events (prop_impacts)
+	shapes:         [dynamic]physics.Shape_Ref, // scratch: a body's shapes (pass_heroes)
 	grid:           Minion_Grid, // scratch: the live minions by cell, rebuilt by move_minions and before the strikes
 	hero_spots:     [PLAYERS]Nav_Point, // scratch: each slot's hero up on the mesh (locate_heroes), by slot
 	starts:         [MAX_MINIONS][2]f32, // scratch: each minion's place on the floor plan when the moves began, by row
@@ -317,6 +318,7 @@ world_destroy :: proc(world: ^World) {
 	physics.destroy(world.phys)
 	physics.destroy_hull(world.barrel_hull)
 	delete(world.contacts)
+	delete(world.shapes)
 	for &floor in world.floors {
 		nav.fields_destroy(&floor.fields)
 		nav.destroy(&floor.mesh)

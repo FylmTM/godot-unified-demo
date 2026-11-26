@@ -50,7 +50,7 @@ MULTI_POLICY := [MultiView]godot.View_Policy {
 
 // A hero, posed at its feet and turned to its facing. Its animation is a function of this data (game/views/hero.gd):
 // a one-shot action at its age (an attack, an ability, a pick-up, a throw, a revive, going down), else a gait picked
-// from its velocity in its own frame. A hero down shows a ring that fills as its revive comes on.
+// from its velocity in its own frame. A hero down shows a ring that fills as its revive comes on, none while heaved.
 View_Hero :: struct {
 	velocity:       [2]f32, // metres per second in the hero's frame: x to its right, y ahead
 	action_started: sim.Game_Time, // when `action` began: the clip time is (shown_time - action_started) / tick_hz
@@ -58,6 +58,8 @@ View_Hero :: struct {
 	action:         g.Action, // EnumAction
 	grace:          bool, // it was revived a moment ago and takes no damage: the view blinks
 	revive:         u8, // while down: how far its revive has come, 0 (none) to 255 (up again)
+	heave:          g.Heave_Phase, // EnumHeavePhase: while down, held up or thrown by a Barbarian (no revive ring then)
+	_pad:           [3]u8,
 }
 
 // A fireball in flight, keyed by its handle. Script-posed (VIEW_POLICY): its root stays where it was made and its orb
@@ -176,23 +178,7 @@ loot_instance :: proc(coin: ^g.Loot, handle: sim.Handle(g.Loot)) -> godot.Multi_
 // Every present hero, every prop, every bolt, every fireball and where a local Mage's would land, every minion, every
 // elite, every coin, then the HUD's data.
 fill_frame :: proc(f: ^Frame) {
-	heroes := sim.iterate_present(&f.state.players)
-	for hero, player in sim.next(&heroes) {
-		facing := shown_facing(f, hero, player)
-		right := [2]f32{-facing.y, facing.x} // a model faces +Z: its right is -X
-		godot.push_view(f, player, {
-			pos  = sim.Position(hero.pos),
-			rot  = dmath.quat_yaw(facing),
-			warp = g.hero_warp(f.world.phys, hero),
-		}, View_Hero {
-			velocity       = {dmath.dot(hero.vel.xz, right), dmath.dot(hero.vel.xz, facing)},
-			action_started = hero.action_started,
-			class          = hero.class,
-			action         = hero.action,
-			grace          = sim.timer_running(f.time, hero.grace),
-			revive         = u8(dmath.min(u32(hero.revive), u32(g.REVIVE_TICKS)) * 255 / u32(g.REVIVE_TICKS)),
-		})
-	}
+	fill_heroes(f)
 	fill_props(f)
 	bolts := sim.iterate(&f.state.bolts)
 	for bolt, handle in sim.next(&bolts) {
@@ -208,6 +194,29 @@ fill_frame :: proc(f: ^Frame) {
 	coins := sim.iterate(&f.state.loot)
 	for coin, handle in sim.next(&coins) do godot.push_multi_view(f, loot_instance(coin, handle))
 	fill_hud(f)
+}
+
+// Every present hero: at its feet, turned as shown_facing says, posed by its action, its revive's progress and its
+// heave.
+fill_heroes :: proc(f: ^Frame) {
+	heroes := sim.iterate_present(&f.state.players)
+	for hero, player in sim.next(&heroes) {
+		facing := shown_facing(f, hero, player)
+		right := [2]f32{-facing.y, facing.x} // a model faces +Z: its right is -X
+		godot.push_view(f, player, {
+			pos  = sim.Position(hero.pos),
+			rot  = dmath.quat_yaw(facing),
+			warp = g.hero_warp(f.world.phys, hero),
+		}, View_Hero {
+			velocity       = {dmath.dot(hero.vel.xz, right), dmath.dot(hero.vel.xz, facing)},
+			action_started = hero.action_started,
+			class          = hero.class,
+			action         = hero.action,
+			grace          = sim.timer_running(f.time, hero.grace),
+			revive         = u8(dmath.min(u32(hero.revive), u32(g.REVIVE_TICKS)) * 255 / u32(g.REVIVE_TICKS)),
+			heave          = hero.heave,
+		})
+	}
 }
 
 // Every fireball in flight; then, for each local Mage that is up with its fireball ready (or winding one up), the

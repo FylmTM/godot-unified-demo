@@ -97,8 +97,10 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
 - **Physics under rollback**: heroes are `physics.Character` capsules (`heroes.odin`) and props dynamic bodies
   (`props.odin`); a carried prop hangs on a motor joint, and a thrown one ignores its thrower's contacts
   (`hands.odin`); a fireball's blast is an impulse on the props' and elites' Box3D bodies, walls shielding them
-  (`fireballs.odin`); elites are `physics.Character` capsules too, a sleeper's kinematic so Box3D lets it sleep
-  (`elites.odin`), and a body the Barbarian heaves goes limp on the same hold (`character_set_limp`, `barbarian.odin`).
+  (`fireballs.odin`); elites are `physics.Character` capsules too, a sleeper dormant until it wakes
+  (`character_set_dormant`, `elites.odin`), and a body the Barbarian heaves goes limp on the same hold, then flies
+  through every hero, its filter's mask changed until it lands (`character_set_limp`, `shape_set_filter`:
+  `barbarian.odin`).
 - **Shots resolved where the shooter saw them**: the Rogue's crossbow looks back by its input's `sim.Seen`
   (`rogue.odin`).
 - **Navigation**: minions walk the floor's navigation mesh along memoized distance fields, kept apart over a
@@ -176,8 +178,9 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    every blow from the front taken); the Rogue's roll (ROLL_SPEED for ROLL_S along the stick, unhurt for
    ROLL_SAFE_S); the Mage's cast (FIREBALL_WINDUP_S, then a fireball lobbed to where its aim reaches, up to
    FIREBALL_RANGE, short of a wall); the Barbarian's heave (the nearest elite or downed ally in the grab's cone, never
-   an ally who is up: its body hangs limp on the hold at HEAVE_HOLD_HEIGHT, weighing HEAVE_MASS; Attack throws it as a
-   prop is thrown, and held HEAVE_MAX_S it is let down; HEAVE_COOLDOWN_S from its end). Otherwise Attack held starts
+   an ally who is up: its body hangs limp on the hold at HEAVE_HOLD_HEIGHT, weighing HEAVE_MASS and borne by the
+   hold; Attack throws it as a prop is thrown, through every hero until it lands, and held HEAVE_MAX_S it is let
+   down; HEAVE_COOLDOWN_S from its landing or its letting down). Otherwise Attack held starts
    the class's attack (`CLASS_SPECS`: windup, duration, cooldown; held, it repeats every cooldown). The hold's joint
    follows the facing (`HOLD_*`), and the hero walks toward the stick's velocity at its class's speed, slowed by a
    carried prop or by what it does (ATTACK_SPEED, BLOCK_SPEED, REVIVE_SPEED, HEAVE_SPEED).
@@ -199,10 +202,10 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    knockback (KNOCK_DECAY, at most KNOCK_MAX); knocked faster than KNOCK_STAGGER it staggers, walking at nothing and
    swinging at nothing.
 7. **Elites.** A floor's elites (its `elite` markers) sleep until a hero comes into sight within AGGRO_RADIUS or one is
-   hit; a sleeper's capsule is kinematic, a Box3D body that may sleep, until it wakes. Awake, each is a Box3D character
-   (ELITE_DENSITY, ELITE_GROUND_FORCE, turning at most ELITE_TURN_COS a tick) after the nearest hero up by path, its
-   kind's way (`ELITE_SPECS`: health, speed, damage, windup): the Warrior walks its target's field and swings in reach
-   (ELITE_REACH, ELITE_STRIKE_COS); the Rogue circles to FLANK_BEHIND behind its target, lunges at LUNGE_SPEED and
+   hit; a sleeper is a dormant character (no drive, a capsule Box3D lets sleep) until it wakes. Awake, each is a Box3D
+   character (ELITE_DENSITY, ELITE_GROUND_FORCE, turning at most ELITE_TURN_COS a tick) after the nearest hero up by
+   path, its kind's way (`ELITE_SPECS`: health, speed, damage, windup): the Warrior walks its target's field and
+   swings in reach (ELITE_REACH, ELITE_STRIKE_COS); the Rogue circles to FLANK_BEHIND behind its target, lunges at LUNGE_SPEED and
    backs off for FLANK_RETREAT_S; the Mage keeps MAGE_NEAR to MAGE_FAR from its target, casts a bone bolt every
    BONE_BOLT_EVERY_S at one in sight within BONE_BOLT_RANGE, and raises SUMMON_COUNT minions every SUMMON_EVERY_S. A
    heaved elite's rules stand still until it lands or is let down.
@@ -220,7 +223,8 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    HEAVE_FLIGHT_MAX_S on): a blast (HEAVE_LAND_RADIUS, HEAVE_LAND_DAMAGE, HEAVE_LAND_KNOCK), a thrown elite taking the
    blow itself and a stagger; it stands again, a downed ally still down. An elite takes a blow as a minion does,
    except that a Warrior's shield takes all but ELITE_GUARD_TAKE of one from within ELITE_GUARD_COS of its facing
-   (staggered or broken, none), and a knock moves its body by ELITE_KNOCK_TAKE of it (at most ELITE_KNOCK_MAX),
+   (staggered or broken, none), and a knock moves its body by ELITE_KNOCK_TAKE of it (knocks and pushes together at
+   most ELITE_KNOCK_MAX; none on a held elite),
    staggering it ELITE_STAGGER_S from ELITE_STAGGER_KNOCK. A charge's, a fireball's and a landing's blast break the
    guard first, for GUARD_BREAK_S. A thrown prop faster than PROP_HIT_SPEED hurts each minion it meets once
    (PROP_HIT_DAMAGE, at most PROP_HITS_MAX, keeping PROP_HIT_KEEP of its velocity) for the whole of its throw

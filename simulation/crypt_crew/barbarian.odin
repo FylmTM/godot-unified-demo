@@ -1,19 +1,21 @@
-// The Barbarian: its attack a slow, wide cleave with a big knock (CLASS_SPECS[.Barbarian], strike_arc), its prop throws
-// BARBARIAN_THROW faster (hands.odin, throw_prop), and its ability the heave. Ability's press, its cooldown run, grabs
-// the nearest elite or downed ally in the grab cone (heave_target: a prop's cone and reach, and never an ally who is up,
-// so no hero is thrown against their will). The body goes limp (physics.character_set_limp: no drive, no pogo) and hangs
-// on the hold's joint as a prop does, weighing HEAVE_MASS while it hangs; the Barbarian heaves it (Action.Heave), slowed
-// to HEAVE_SPEED. Attack's press throws it (Action.Hurl, timed as a prop's throw): it leaves at THROW_SPEED with its own
-// weight back, limp until it lands (land_heaves), where it knocks every skeleton round it (knock_area, breaking a
-// Warrior's guard as a thrown prop does); a thrown elite takes the landing's blow too and staggers. Held HEAVE_MAX_S
-// unthrown, the body is let down where it hangs. Either way the body then stands on its own again (its drive and pogo
-// back): an elite chases on, a downed ally lies where it landed, still down (a throw toward revivers is a rescue). The
-// cooldown runs from the heave's end.
+// The Barbarian: its attack a slow, wide cleave with a big knock (CLASS_SPECS[.Barbarian], strike_arc), its prop
+// throws BARBARIAN_THROW faster (hands.odin, throw_prop), and its ability the heave. Ability's press, its cooldown run,
+// grabs the nearest elite or downed ally in the grab cone (heave_target: a prop's cone and reach, and never an ally
+// who is up, so no hero is thrown against their will). The body goes limp (physics.character_set_limp: no drive, no
+// pogo) and hangs on the hold's joint as a prop does, weighing HEAVE_MASS while it hangs; the Barbarian heaves it
+// (Action.Heave), slowed to HEAVE_SPEED. Attack's press throws it (Action.Hurl, timed as a prop's throw): it leaves at
+// THROW_SPEED with its own weight back, limp and passing through every hero (pass_heroes: a 300 kg skeleton at 11 m/s
+// would bowl its thrower or an ally over) until it lands (land_heaves), where it knocks every skeleton round it
+// (knock_area, breaking a Warrior's guard as a thrown prop does); a thrown elite takes the landing's blow too and
+// staggers. Held HEAVE_MAX_S unthrown, the body is let down where it hangs. Either way the body then stands on its own
+// again (its drive and pogo back): an elite chases on, a downed ally lies where it landed, still down (a throw toward
+// revivers is a rescue). The cooldown runs from then (the landing or the letting down), so the thrower can't take the
+// same body up again before it is back on its feet.
 //
-// A held elite's rules stand still (Elite_Phase.Held, Thrown: no steering, no attack); a held ally is down, which reads
-// no input already, and nobody tends it until it is let down (revive_target). Whatever ends a heave early lets go first,
-// through release_heave: the Barbarian going down or leaving (release_hold), the held body dying, leaving or being
-// revived (end_hero_heave), a level change.
+// A held elite's rules stand still (Elite_Phase.Held, Thrown: no steering, no attack); a held ally is down, which
+// reads no input already, and nobody tends it until it is let down (revive_target). Whatever ends a heave early lets
+// go first, through release_heave: the Barbarian going down or leaving (release_hold), the held body dying, leaving or
+// being revived (end_hero_heave), a level change.
 package crypt_crew
 
 import "unified:dmath"
@@ -109,14 +111,16 @@ in_grab :: proc(t: ^Tick, hero: ^Hero, feet: [3]f32, radius: f32) -> (gap: f32, 
 	return gap, !walled
 }
 
-// `player`'s hero heaves up `target`: its body goes limp and weighs HEAVE_MASS, a hold carries it (create_hold, at
-// heave_frame), an elite stops what it was doing (a sleeper wakes first: rouse_elite makes its kinematic capsule a
-// character's body again, which a hold can carry) and a downed ally is Held; the hero heaves (Action.Heave).
+// `player`'s hero heaves up `target`: its body goes limp, weighs HEAVE_MASS and feels no gravity (the hold bears it:
+// its spring's capped force all goes to carrying it round with the hero, which a 900 N weight would otherwise drag to
+// the floor on a quick turn), and a hold carries it (create_hold, at heave_frame); an elite stops what it was doing (a
+// sleeper wakes first: rouse_elite makes its dormant character a body a hold can carry) and a downed ally is Held; the
+// hero heaves (Action.Heave).
 @(private = "file")
 heave :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, target: Heaved) {
 	body := heaved_body(t, target)
 	if elite := sim.get(&t.state.elites, target.elite); elite != nil {
-		if elite.phase == .Idle do rouse_elite(t, elite)
+		if elite.phase == .Idle do rouse_elite(t.world.phys, elite, t.time)
 		elite.phase, elite.since, elite.target, elite.heaved_by = .Held, t.time, {}, player
 	} else {
 		held := sim.player_data(t, target.hero)
@@ -126,9 +130,10 @@ heave :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, target: Heaved) {
 	mass := physics.body_mass_data(t.world.phys, body.body)
 	mass.mass = HEAVE_MASS // a character's rotation is locked: its inertia is left as it is
 	physics.body_set_mass_data(t.world.phys, body.body, mass)
+	physics.body_set_gravity_scale(t.world.phys, body.body, 0)
 	hero.hold = create_hold(t, hero, body.body, heave_frame(hero), HEAVE_MASS)
 	hero.heaved = target
-	start_ability(t, hero, player, .Heave, 0) // its cooldown runs from the heave's end (release_heave)
+	start_ability(t, hero, player, .Heave, 0) // its cooldown starts as it ends (release_heave, land_heaves)
 	sim.emit(t, Event_Heaved{player = player, elite = target.elite, hero = target.hero})
 }
 
@@ -163,10 +168,11 @@ heave_on :: proc(t: ^Tick, hero: ^Hero, player: sim.Player) {
 	}
 }
 
-// `player`'s hero lets go of the body it heaves, if any: the hold's joint goes and the body has its own weight again.
+// `player`'s hero lets go of the body it heaves, if any: the hold's joint goes and the body has its own weight again
+// (its mass, and its gravity: every character's def keeps CHARACTER_DEFAULT's).
 // Thrown, it flies at THROW_SPEED along the hero's facing and THROW_LIFT up, still limp, until it lands (land_heaves);
-// else it is let down where it hangs (let_down). The heave's cooldown starts, and a hero still heaving stands free (a
-// throw runs its course). The one way a heave's hold ends.
+// else it is let down where it hangs (let_down), and the heave's cooldown starts (a throw's starts as it lands). A
+// hero still heaving stands free (a throw runs its course). The one way a heave's hold ends.
 release_heave :: proc(t: ^Tick, player: sim.Player, thrown: bool) {
 	hero := sim.player_data(t, player)
 	target := hero.heaved
@@ -174,13 +180,17 @@ release_heave :: proc(t: ^Tick, player: sim.Player, thrown: bool) {
 	physics.destroy_joint(t.world.phys, &hero.hold)
 	hero.heaved = {}
 	if hero.action == .Heave do hero.action, hero.action_started = .None, t.time
-	sim.timer_start_ticks(t, &hero.ability_ready, HEAVE_COOLDOWN_TICKS)
 	body := heaved_body(t, target)
 	physics.body_apply_mass_from_shapes(t.world.phys, body.body)
+	physics.body_set_gravity_scale(t.world.phys, body.body, physics.CHARACTER_DEFAULT.gravity_scale)
 	if !thrown {
+		sim.timer_start_ticks(t, &hero.ability_ready, HEAVE_COOLDOWN_TICKS)
 		let_down(t, target)
 		return
 	}
+	// The cooldown runs from the landing (land_heaves); until then, as long as the longest flight and the cooldown.
+	sim.timer_start_ticks(t, &hero.ability_ready, HEAVE_FLIGHT_MAX_TICKS + HEAVE_COOLDOWN_TICKS)
+	pass_heroes(t, body.body, true)
 	velocity := [3]f32{hero.facing.x * THROW_SPEED, THROW_LIFT, hero.facing.y * THROW_SPEED}
 	physics.body_set_linear_velocity(t.world.phys, body.body, velocity)
 	if elite := sim.get(&t.state.elites, target.elite); elite != nil {
@@ -192,11 +202,13 @@ release_heave :: proc(t: ^Tick, player: sim.Player, thrown: bool) {
 }
 
 // A heaved body, let go of (let down or landed), stands on its own again: its drive and pogo come back (it settles onto
-// the floor through the pogo) and it is nobody's heave. An elite chases (one heaved asleep woke as it was grabbed); a
-// downed ally lies where it is, still down.
+// the floor through the pogo), heroes meet it again, and it is nobody's heave. An elite chases (one heaved asleep woke
+// as it was grabbed); a downed ally lies where it is, still down.
 @(private = "file")
 let_down :: proc(t: ^Tick, target: Heaved) {
-	physics.character_set_limp(t.world.phys, heaved_body(t, target), false)
+	body := heaved_body(t, target)
+	physics.character_set_limp(t.world.phys, body, false)
+	pass_heroes(t, body.body, false)
 	if elite := sim.get(&t.state.elites, target.elite); elite != nil {
 		elite.heaved_by = {}
 		elite.phase, elite.since = .Chase, t.time
@@ -219,15 +231,30 @@ end_hero_heave :: proc(t: ^Tick, player: sim.Player) {
 	}
 }
 
-// After the physics step: each thrown body that has landed (heave_landed) is let down, and its landing is a blast at
-// its feet, its thrower's (land_blast). A thrown elite takes the landing's blow itself as well, from no side (no shield
-// takes it), and staggers.
+// Whether a heaved body's capsule (its one shape) passes through every hero (`through`) or meets them again: its
+// filter's mask leaves CAT_HERO out while it flies from a throw, so neither its thrower nor anyone in its path is
+// struck (a downed hero included). It still meets the walls, the props and the elites.
+@(private = "file")
+pass_heroes :: proc(t: ^Tick, body: physics.Body_Ref, through: bool) {
+	clear(&t.world.shapes)
+	physics.body_shapes(t.world.phys, body, &t.world.shapes)
+	for shape in t.world.shapes {
+		filter := physics.shape_filter(t.world.phys, shape)
+		filter.mask = filter.mask &~ CAT_HERO if through else filter.mask | CAT_HERO
+		physics.shape_set_filter(t.world.phys, shape, filter)
+	}
+}
+
+// After the physics step: each thrown body that has landed (heave_landed) is let down, its thrower's cooldown starts
+// (thrower_lands), and its landing is a blast at its feet, its thrower's (land_blast). A thrown elite takes the
+// landing's blow itself as well, from no side (no shield takes it), and staggers.
 land_heaves :: proc(t: ^Tick) {
 	elites := sim.iterate(&t.state.elites)
 	for elite, handle in sim.next(&elites) {
 		if elite.phase != .Thrown || !heave_landed(t, &elite.body, ELITE_HALF_HEIGHT, elite.since) do continue
 		thrower := elite.heaved_by
 		let_down(t, {elite = handle})
+		thrower_lands(t, thrower)
 		land_blast(t, elite.pos, thrower, handle)
 		damage_elite(t, handle, HEAVE_LAND_DAMAGE, {}, 0, thrower, .Heave, elite.pos.xz)
 		if elite.phase != .Dying do sim.timer_start_ticks(t, &elite.stagger, ELITE_STAGGER_TICKS)
@@ -237,7 +264,16 @@ land_heaves :: proc(t: ^Tick) {
 		if hero.heave != .Thrown || !heave_landed(t, &hero.body, HERO_HALF_HEIGHT, hero.heave_since) do continue
 		thrower := hero.heaved_by
 		let_down(t, {hero = player})
+		thrower_lands(t, thrower)
 		land_blast(t, hero.pos, thrower, {})
+	}
+}
+
+// What `thrower` threw has landed: its heave's cooldown starts now, if it is still here.
+@(private = "file")
+thrower_lands :: proc(t: ^Tick, thrower: sim.Player) {
+	if sim.player_present(t, thrower) {
+		sim.timer_start_ticks(t, &sim.player_data(t, thrower).ability_ready, HEAVE_COOLDOWN_TICKS)
 	}
 }
 

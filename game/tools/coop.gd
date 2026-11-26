@@ -90,11 +90,12 @@ var _joined: String = ""
 ## The purse through this side's play (PurseWatch), from the friend's arrival.
 var _purse_watch: PurseWatch = null
 ## The beats' confirmed events by player key: abilities used, coins picked up, revives given (by the reviver's key)
-## and received.
+## and received, heaved bodies landed (by the thrower's key).
 var _abilities: Dictionary[int, int] = {}
 var _coins: Dictionary[int, int] = {}
 var _revived_by: Dictionary[int, int] = {}
 var _revived: Dictionary[int, int] = {}
+var _landed: Dictionary[int, int] = {}
 
 
 func _init() -> void:
@@ -389,7 +390,7 @@ func _rescue(ally: int) -> void:
 		await press_action(&"ability")
 		await wait_for(func() -> bool: return _tally(_abilities, me) > 0, 5.0, "the heave is confirmed")
 		await press_action(&"attack")
-		await seconds(2.0)  # it flies and lands
+		await wait_for(func() -> bool: return _tally(_landed, me) > 0, 5.0, "the thrown ally lands")
 		step("heaved the downed ally and threw it")
 	await _walk_to(at, REVIVE_WITHIN, "the downed ally, to revive it")
 	Input.action_press(&"interact")
@@ -451,7 +452,7 @@ func _tally(tally: Dictionary[int, int], player: int) -> int:
 	return tally.get(player, 0)
 
 
-## Counts the beats' CONFIRMED events (_abilities, _coins, _revived_by, _revived).
+## Counts the beats' CONFIRMED events (_abilities, _coins, _revived_by, _revived, _landed).
 func _count_beats(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
 	if state != UnifiedSession.EVENT_CONFIRMED:
 		return
@@ -465,6 +466,9 @@ func _count_beats(event: UnifiedEvent, state: UnifiedSession.EventState) -> void
 		var revived := event as EventHeroRevived
 		_revived_by[revived.by] = _tally(_revived_by, revived.by) + 1
 		_revived[revived.player] = _tally(_revived, revived.player) + 1
+	elif event is EventHeaveLanded:
+		var landed := event as EventHeaveLanded
+		_landed[landed.player] = _tally(_landed, landed.player) + 1
 
 
 ## Watches this side's purse from now on (PurseWatch).

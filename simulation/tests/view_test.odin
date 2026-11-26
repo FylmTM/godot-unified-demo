@@ -167,3 +167,52 @@ a_coin_instance_is_its_state :: proc(t: ^testing.T) {
 	testing.expect_value(t, policy.appear, godot.Appear.Verified)
 	testing.expect_value(t, policy.ages, bit_set[0 ..< 4;u8]{1})
 }
+
+// A downed ally a Barbarian heaves shows no revive ring: its hero's view carries the heave (View_Hero.heave, which
+// game/views/hero.gd reads to hide the ring), Held while it hangs and None again once it is let down.
+@(test)
+a_heaved_allys_view_says_so :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 2)
+	defer headless.run_end(&run)
+	headless.run_command(&run, 0, g.Command_Dev_Set_Class{.Barbarian})
+	clear_minions(&run)
+	place_hero(&run, 0, spawn_of(&run, 0), {1, 0})
+	place_hero(&run, 1, spawn_of(&run, 0) + {1.3, 0, 0})
+	hurt(&run, 1, g.HERO_HP)
+	press(&run, 0, .Ability)
+	ally := sim.player_in_slot(run.simulation, 1)
+	testing.expect_value(t, ally_view_heave(&run, ally), g.Heave_Phase.Held)
+	for _ in 0 ..< g.HEAVE_MAX_TICKS do headless.run_step(&run)
+	testing.expect_value(t, ally_view_heave(&run, ally), g.Heave_Phase.None)
+}
+
+// The heave `player`'s hero view shows, from the heroes of a frame of the run's newest state (fill_heroes).
+@(private = "file")
+ally_view_heave :: proc(run: ^headless.Run(g.Game), player: sim.Player) -> g.Heave_Phase {
+	out := godot.Frame_Data {
+		alloc = context.allocator,
+	}
+	defer {
+		delete(out.views)
+		delete(out.data)
+	}
+	poses: godot.Pose_Memory
+	godot.pose_memory_init(&poses, 64, 64)
+	defer godot.pose_memory_destroy(&poses)
+	godot.pose_memory_begin(&poses)
+	frame := ext.Frame {
+		state = &run.simulation.state,
+		world = run.simulation.world,
+		tick  = run.simulation.tick,
+		time  = run.simulation.state.clock.time,
+		out   = &out,
+		poses = &poses,
+	}
+	ext.fill_heroes(&frame)
+	for view in out.views[:out.n_views] {
+		if view.data_type == ext.View_Hero && view.key == sim.player_key(player) {
+			return (^ext.View_Hero)(&out.data[view.data_offset]).heave
+		}
+	}
+	return .None
+}

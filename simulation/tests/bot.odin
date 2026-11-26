@@ -1,13 +1,14 @@
 // The bot: a player that reads the state, for the playthrough test (the_bot_plays_three_minutes: a copy of g.GAME
 // with these as its scripted_input and scripted_commands). Not the game's own scripted player (g.scripted_input): a
 // session samples another tick's state than an offline run, so their inputs would differ. In order of what it cares
-// about: it throws what it carries (a prop, or the body a Barbarian heaves) at the skeletons; it goes to a downed ally
-// within BOT_RESCUE_REACH and revives it; a Barbarian walks up to an elite within BOT_HEAVE_REACH and heaves it; in every
-// other BOT_PROP_WINDOW it picks up a prop beside it that no wall hides; with no skeleton near, it picks up the coins
-// within BOT_COIN_REACH; and it fights the nearest skeleton (walking up to a melee class's reach, standing off at a
-// caster's range), using its class's ability now and then: the Knight blocks and charges, the Rogue rolls back from a
-// skeleton at hand, the Mage lobs its fireball at the nearest whenever it is ready. It reads only the state it is given
-// and, for the props' bodies, the test's World (bot_world), so it is a valid input source for any run of that World.
+// about: it throws what it carries (a prop, or the body a Barbarian heaves) at the skeletons; it goes to a downed
+// ally within BOT_RESCUE_REACH and revives it; a Barbarian walks up to an elite within BOT_HEAVE_REACH and heaves it;
+// in every other BOT_PROP_WINDOW it picks up a prop beside it that no wall hides; with no skeleton near, it picks up
+// the coins within BOT_COIN_REACH; and it fights the nearest skeleton (walking up to a melee class's reach, standing
+// off at a caster's range), using its class's ability now and then: the Knight blocks and charges, the Rogue rolls
+// back from a skeleton at hand, the Mage lobs its fireball at the nearest whenever it is ready. It reads only the
+// state it is given and, for the props' bodies, the test's World (bot_world), so it is a valid input source for any
+// run of that World.
 package test_crypt_crew
 
 import "unified:dmath"

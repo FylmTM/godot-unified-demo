@@ -28,8 +28,9 @@ ARRIVAL_FILTER :: physics.Filter {
 
 // Leaves, then arrivals in slot order: a leaver drops what it carries, ends its throws' ignores (end_throws_by), is let
 // go of if a Barbarian heaves it (end_hero_heave), its body goes, and its class stays with what it brings back within
-// the floor (its hit points, its ability's cooldown, down and its revive's progress); an arrival gets a class (arrival_class) and a body at its arrival_spot, whole if it
-// is new (or the floor changed since it left), else as it left.
+// the floor (its hit points, its ability's cooldown, down and its revive's progress); an arrival gets a class
+// (arrival_class) and a body at its arrival_spot, whole if it is new (or the floor changed since it left), else as it
+// left.
 update_presence :: proc(t: ^Tick) {
 	for player in t.player_changes.left {
 		drop_prop(t, player)

@@ -785,11 +785,17 @@ Abilities:
   barrel at 8 m/s, an elite under 1 m/s on top of its knock; FIREBALL_LIFT 0.35, no prop over a wall.
 - The charge's blast is centred on the shield's face, so what is ahead goes forward and what is beside goes aside.
 - The heave (step 4): a held body is a limp character on the prop hold's motor joint, its mass set to HEAVE_MASS 60 kg
-  while it hangs (a 320 kg skeleton on a hold capped by its weight would drag the Barbarian about), its own restored
-  as it is let go, so a thrown elite flies with its full weight. HEAVE_HOLD_HEIGHT 1.6 m keeps the capsule under the
-  doorways' lintel. Added: HEAVE_SPEED 0.6 (the Barbarian slowed while heaving), HEAVE_LAND_GAP 0.25 m and
-  HEAVE_FLIGHT_MAX_S 2 (when a throw has landed). A press with nothing in the cone spends no cooldown; the cooldown
-  runs from the heave's end. Unthrown at HEAVE_MAX_S, the body is let down where it hangs (no blast).
+  while it hangs (a 320 kg skeleton on a hold capped by its weight would drag the Barbarian about) and its gravity off
+  (with it on, a quick turn dropped the body to the floor and swung it round), its own restored as it is let go, so a
+  thrown elite flies with its full weight. HEAVE_HOLD_HEIGHT 1.6 m keeps the capsule under the doorways' lintel.
+  Added: HEAVE_SPEED 0.6 (the Barbarian slowed while heaving), HEAVE_LAND_GAP 0.25 m and HEAVE_FLIGHT_MAX_S 2 (when
+  a throw has landed). A press with nothing in the cone spends no cooldown. Unthrown at HEAVE_MAX_S, the body is let
+  down where it hangs (no blast).
+- Decided in review: a thrown body passes through every hero, its thrower included, until it lands (its capsule's
+  filter leaves CAT_HERO out: a throw behind slammed the Barbarian 3.5 m, and a thrown elite bowled allies over), and
+  still meets walls, props and elites; the cooldown, HEAVE_COOLDOWN_S 3, runs from the landing or the letting down,
+  so the same elite can't be chain-heaved before it is back on its feet; an elite's knocks and the fireball's push add
+  up to ELITE_KNOCK_MAX at most, and a held elite takes neither.
 - A held downed ally stays `Action.Down` and carries `Hero.heave` (Held, Thrown) instead of the design's Action.Held
   and Thrown: every "is it down" rule (minions' targets, the wipe, loot, revive) keeps reading Down. An elite's are
   phases (Elite_Phase.Held, Thrown), so its steering and attacks stand still by phase. The Barbarian's own actions
@@ -797,7 +803,7 @@ Abilities:
 - The landing's blast hits as a thrown prop does: it breaks a Warrior's guard; a thrown elite also takes
   HEAVE_LAND_DAMAGE itself, from no side, and staggers. A thrown downed ally's landing blasts too (heroes feel none),
   so a rescue throw into a pack still knocks it back. A sleeping elite heaved or pushed by a blast is roused first,
-  since a sleeper's capsule is kinematic (resim-perf) and neither a hold nor an impulse moves it.
+  since a sleeper is a dormant character (unified's character_set_dormant) that neither a hold nor an impulse moves.
 - The Barbarian's prop throws: BARBARIAN_THROW 1.3 scales the speed along the floor only, so the arc's height and
   time stay and it flies 1.3 times as far. Its HUD hint is "Heave".
 - Sounds (Kenney's Impact Sounds; no explosion in the packs): `impactMetal_heavy_000` the block, `impactPunch_heavy_000`
@@ -813,7 +819,8 @@ Elites:
   design's `floor_surges % 3` is always 0 there).
 - Bodies: capsules in CAT_ELITE four times a hero's weight with a 24 kN drive (a hero can't shove one), turning at
   most 4° a tick so a hero can get round a shield; no hit events of their own (a prop's report the hits). A sleeper is
-  kinematic and may sleep in Box3D (Floor 1's two sleepers cost a sixth of its step as characters); nothing shoves it.
+  dormant (physics.character_set_dormant: no joints, a kinematic capsule Box3D lets sleep; Floor 1's two sleepers
+  cost a sixth of its step as characters); nothing shoves it.
   Elites steer by the nav fields and slide off props. A dying elite's body goes at once; its row lingers DEATH_S.
 - The guard: a blow from within 60° of a Warrior's facing takes 25 % (at least 1) and neither knocks nor staggers it;
   a sleeper doesn't guard. A charge's, a fireball's and a landing's blast break it before their blow lands

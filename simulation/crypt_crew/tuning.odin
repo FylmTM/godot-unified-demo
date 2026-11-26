@@ -189,12 +189,14 @@ FIREBALL_COOLDOWN_TICKS :: u32(FIREBALL_COOLDOWN_S * TICK_HZ)
 // (THROW_WINDUP_S, THROW_SPEED, THROW_LIFT), and where it lands it knocks what is round it (knock_area).
 HEAVE_MAX_S :: f32(1.5) // held this long unthrown, the body is let down where it hangs
 HEAVE_MAX_TICKS :: u32(HEAVE_MAX_S * TICK_HZ)
-HEAVE_COOLDOWN_S :: f32(1) // from a heave's end (its throw or its letting down) to the next grab
+// From a heave's end (its body landed, or let down) to the next grab: the body stands again (an elite's stagger runs
+// out) before its thrower may grab it again, and the throw's flight counts for nothing.
+HEAVE_COOLDOWN_S :: f32(3)
 HEAVE_COOLDOWN_TICKS :: u32(HEAVE_COOLDOWN_S * TICK_HZ)
 HEAVE_SPEED :: f32(0.6) // a hero heaving moves at this fraction of its speed
 // What a held body weighs in the hands (kg; a heavy crate's): its mass while it hangs on the hold, so the hold's joint
-// carries it as it carries a prop and a 320 kg skeleton doesn't drag the Barbarian about. Its own comes back as it is
-// let go: a thrown elite flies with its full weight.
+// carries it as it carries a prop and a 320 kg skeleton doesn't drag the Barbarian about (gravity off: the hold bears
+// it). Its own comes back as it is let go: a thrown elite flies with its full weight.
 HEAVE_MASS :: f32(60)
 HEAVE_HOLD_HEIGHT :: f32(1.6) // a held body's centre above the hero's feet: its capsule clears the doorways' lintel
 HEAVE_LAND_RADIUS :: f32(2) // a thrown body landing knocks every skeleton this close ...
@@ -204,6 +206,7 @@ HEAVE_LAND_KNOCK :: f32(8) // ... knocked away at this, falling off to BLAST_RIM
 HEAVE_LAND_GAP :: f32(0.25)
 HEAVE_FLIGHT_MAX_S :: f32(2) // ... or once it has flown this long, wherever it is (wedged off the floor)
 HEAVE_FLIGHT_MAX_TICKS :: u32(HEAVE_FLIGHT_MAX_S * TICK_HZ)
+#assert(ELITE_STAGGER_TICKS < HEAVE_COOLDOWN_TICKS)
 BARBARIAN_THROW :: f32(1.3) // the Barbarian throws a prop this much faster along the floor (it flies this much farther)
 #assert(HEAVE_LAND_KNOCK * BLAST_RIM > KNOCK_STAGGER) // all of a landing's reach staggers
 

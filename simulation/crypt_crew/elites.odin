@@ -156,13 +156,10 @@ spawn_elite :: proc(
 		feet + {0, ELITE_CENTRE_ABOVE_FEET, 0},
 		tag = sim.handle_key(handle),
 	)
-	// A sleeper's capsule is kinematic and may sleep until rouse_elite makes it a character: a character never sleeps
-	// in Box3D and is driven every tick, which made each sleeper cost what a fighting elite does. It stands where its
-	// pogo would hold it, and nothing shoves it.
-	if phase == .Idle {
-		physics.body_set_type(world.phys, elite.body.body, .Kinematic)
-		physics.body_enable_sleep(world.phys, elite.body.body, true)
-	}
+	// A sleeper is a dormant character (no joints, a kinematic capsule Box3D lets sleep) until rouse_elite wakes it: a
+	// character awake is driven every tick, which made each sleeper cost what a fighting elite does. It stands where
+	// its pogo would hold it, and nothing shoves it; casts still find it.
+	if phase == .Idle do physics.character_set_dormant(world.phys, &elite.body, true)
 	return handle, true
 }
 
@@ -236,15 +233,13 @@ raise_surge_elite :: proc(t: ^Tick, graves: []int) {
 	raise_elite(t, Elite_Kind(turn % len(Elite_Kind)), grave.point, {0, 1})
 }
 
-// An elite's first chase (it woke, or rose): a sleeper's capsule becomes a character again (spawn_elite), which
-// move_elites then drives; a Mage's clocks start (start_mage_clocks).
-rouse_elite :: proc(t: ^Tick, elite: ^Elite) {
-	if elite.phase == .Idle {
-		physics.body_set_type(t.world.phys, elite.body.body, .Dynamic)
-		physics.body_enable_sleep(t.world.phys, elite.body.body, false)
-	}
-	elite.phase, elite.since = .Chase, t.time
-	start_mage_clocks(elite, t.time)
+// An elite's first chase (it woke, or rose): a sleeper's dormant character wakes (spawn_elite), so move_elites drives
+// it, and a knock, a blast's push or a heave moves it, all of which come after this; a Mage's clocks start
+// (start_mage_clocks), from `now`.
+rouse_elite :: proc(phys: ^physics.World, elite: ^Elite, now: sim.Game_Time) {
+	if elite.phase == .Idle do physics.character_set_dormant(phys, &elite.body, false)
+	elite.phase, elite.since = .Chase, now
+	start_mage_clocks(elite, now)
 }
 
 // A Mage's clocks at its first chase, from `now`: its first bolt BONE_BOLT_FIRST_S off and its first summoning
@@ -269,7 +264,7 @@ wake_elites :: proc(t: ^Tick) {
 		heroes := sim.iterate_present(t)
 		for _, player in sim.next(&heroes) {
 			if !elite_sees(t, elite, player, AGGRO_RADIUS) do continue
-			rouse_elite(t, elite)
+			rouse_elite(t.world.phys, elite, t.time)
 			break
 		}
 	}
@@ -415,7 +410,7 @@ age_elites :: proc(t: ^Tick) {
 		spec := &ELITE_SPECS[elite.kind]
 		switch elite.phase {
 		case .Rise:
-			if age >= RISE_TICKS do rouse_elite(t, elite)
+			if age >= RISE_TICKS do rouse_elite(t.world.phys, elite, t.time)
 		case .Chase:
 			if elite.target == {} || elite_staggered(t, elite) do continue
 			switch elite.kind {
@@ -478,8 +473,8 @@ elite_swing_lands :: proc(t: ^Tick, elite: ^Elite) {
 // plan: what a Warrior's shield judges), knocked along `knock_dir` (unit) by `knock` metres per second; asleep, it
 // wakes (a sleeper doesn't guard: that blow lands whole). A Warrior's guard (warrior_guards) takes all but
 // ELITE_GUARD_TAKE of a blow from its front, which then neither knocks nor staggers it; otherwise the knock moves it
-// (knock_elite). At 0 it dies: Dying, its body gone (a held one let go of first), and its coins fall (drop_elite_loot).
-// A dying elite takes nothing. The only way an elite takes damage or dies.
+// (knock_elite). At 0 it dies: Dying, its body gone (a held one let go of first), and its coins fall
+// (drop_elite_loot). A dying elite takes nothing. The only way an elite takes damage or dies.
 damage_elite :: proc(
 	t: ^Tick,
 	handle: sim.Handle(Elite),
@@ -493,7 +488,7 @@ damage_elite :: proc(
 	elite := sim.get(&t.state.elites, handle)
 	if elite == nil || elite.phase == .Dying || damage <= 0 do return
 	guarded := warrior_guards(t, elite, from) // before it wakes: a sleeper's shield is down
-	if elite.phase == .Idle do rouse_elite(t, elite)
+	if elite.phase == .Idle do rouse_elite(t.world.phys, elite, t.time)
 	taken := guard_take(damage) if guarded else damage
 	elite.hp -= taken
 	elite.struck = t.time
@@ -508,7 +503,8 @@ damage_elite :: proc(
 	}
 	sim.emit(t, hit)
 	if elite.hp > 0 do return
-	if elite.phase == .Held do release_heave(t, elite.heaved_by, thrown = false) // the hold lets go before the body goes
+	// the hold lets go before the body goes
+	if elite.phase == .Held do release_heave(t, elite.heaved_by, thrown = false)
 	elite.phase, elite.since, elite.target, elite.heaved_by = .Dying, t.time, {}, {}
 	physics.character_destroy(t.world.phys, &elite.body)
 	t.state.kills += 1
@@ -523,19 +519,26 @@ damage_elite :: proc(
 	drop_elite_loot(t, elite.pos, elite.kind) // loot.odin
 }
 
-// A knock: `knock` times ELITE_KNOCK_TAKE added to the body's velocity along `dir`, its speed on the floor at most
-// ELITE_KNOCK_MAX after it (its drive's friction then slows it); a knock of ELITE_STAGGER_KNOCK or more staggers it for
-// ELITE_STAGGER_TICKS, which cuts off an attack or a summoning (tried again SUMMON_RETRY_S on).
+// A knock: `knock` times ELITE_KNOCK_TAKE along `dir` (shove_elite); a knock of ELITE_STAGGER_KNOCK or more staggers
+// it for ELITE_STAGGER_TICKS, which cuts off an attack or a summoning (tried again SUMMON_RETRY_S on).
 @(private = "file")
 knock_elite :: proc(t: ^Tick, elite: ^Elite, dir: [2]f32, knock: f32) {
 	if knock <= 0 || elite.body == {} do return
-	velocity := physics.body_linear_velocity(t.world.phys, elite.body.body)
-	floor_velocity := dmath.clamp_length(velocity.xz + dir * (knock * ELITE_KNOCK_TAKE), ELITE_KNOCK_MAX)
-	physics.body_set_linear_velocity(t.world.phys, elite.body.body, {floor_velocity.x, velocity.y, floor_velocity.y})
+	shove_elite(t, elite, [3]f32{dir.x, 0, dir.y} * (knock * ELITE_KNOCK_TAKE))
 	if knock < ELITE_STAGGER_KNOCK do return
 	sim.timer_start_ticks(t, &elite.stagger, ELITE_STAGGER_TICKS)
 	if elite.phase == .Summon do sim.timer_start_ticks(t, &elite.next_summon, SUMMON_RETRY_TICKS)
 	if elite.phase == .Attack || elite.phase == .Summon do elite.phase, elite.since = .Chase, t.time
+}
+
+// `elite`'s body shoved by `change` (a velocity change, metres per second: a blow's knock, a blast's push), its speed
+// along the floor at most ELITE_KNOCK_MAX after it however the shoves add up (its drive's friction then slows it). A
+// held elite takes none: its body is its hold's (a heaved one is let go of first, or the hold flings it).
+shove_elite :: proc(t: ^Tick, elite: ^Elite, change: [3]f32) {
+	if elite.body == {} || elite.phase == .Held do return
+	velocity := physics.body_linear_velocity(t.world.phys, elite.body.body) + change
+	along := dmath.clamp_length(velocity.xz, ELITE_KNOCK_MAX)
+	physics.body_set_linear_velocity(t.world.phys, elite.body.body, {along.x, velocity.y, along.y})
 }
 
 // `elite`'s guard breaks for GUARD_BREAK_TICKS (a Warrior's; the other kinds carry no shield): what a Knight's charge,

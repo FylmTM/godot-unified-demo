@@ -18,9 +18,9 @@ extends Node3D
 ## dodge stretched over the roll, the Mage's spellcasting through the windup, the Barbarian's arms raised under what it
 ## heaves and its throw timed as a prop's; a hero tending a downed ally reaches out to them. A hero down falls where its
 ## body stands (the death clip, held on its last frame: a downed ally a Barbarian heaves hangs and flies so) with a ring
-## on the floor
-## round it as wide as the reach an ally revives from (Unified.constants.revive_range), which fills as its revive comes
-## on (ground_ring.gdshader, turned with the world, not the hero); one just revived blinks while its grace lasts.
+## on the floor round it as wide as the reach an ally revives from (Unified.constants.revive_range), which fills as its
+## revive comes on (ground_ring.gdshader, turned with the world, not the hero), and none while it is heaved (no ally
+## tends it then); one just revived blinks while its grace lasts.
 
 ## A standing hero walks from this speed, and a walking one stands below the lower (metres per second).
 const WALK_FROM: float = 0.5
@@ -115,10 +115,10 @@ func _process(_delta: float) -> void:
 	_show_revive_ring()
 
 
-## While the hero is down: the ring round it, filled as far as its revive has come, its arc starting up the screen
-## whichever way the hero fell facing.
+## While the hero is down and not heaved: the ring round it, filled as far as its revive has come, its arc starting up
+## the screen whichever way the hero fell facing.
 func _show_revive_ring() -> void:
-	_revive_ring.visible = data.action == EnumAction.DOWN
+	_revive_ring.visible = data.action == EnumAction.DOWN and data.heave == EnumHeavePhase.NONE
 	if not _revive_ring.visible:
 		return
 	_revive_ring.global_basis = Basis.from_scale(Vector3.ONE * Unified.constants.revive_range)  # the quad: 2 m across

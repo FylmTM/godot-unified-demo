@@ -377,6 +377,7 @@ elite_swings_at :: proc(run: ^headless.Run(g.Game), offset: [2]f32) {
 	handle := place_elite(run, .Warrior, hero.pos + {offset.x, 0, offset.y}, facing, .Idle)
 	state := &run.simulation.state
 	warrior := elite_of(run, handle)
+	g.rouse_elite(run.simulation.world.phys, warrior, state.clock.time) // awake, as the rules wake a sleeper
 	warrior.phase, warrior.target = .Attack, sim.player_in_slot(run.simulation, 0)
 	warrior.since = state.clock.time + 1 - sim.Game_Time(g.ELITE_SPECS[.Warrior].windup)
 	headless.run_pin(run)

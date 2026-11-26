@@ -62,10 +62,13 @@ hold_attack :: proc(run: ^headless.Run(g.Game), ticks: u32, facing: [2]f32) {
 }
 
 // `handle`'s elite swings at nothing (an attack with no target, which lands on nobody): its facing locked for its
-// spec's duration, awake, a Warrior's shield up. The run is pinned.
+// spec's duration, awake (a sleeper roused as the rules rouse one: rouse_elite), a Warrior's shield up. The run is
+// pinned.
 brace :: proc(run: ^headless.Run(g.Game), handle: sim.Handle(g.Elite)) {
 	elite := elite_of(run, handle)
-	elite.phase, elite.since, elite.target = .Attack, run.simulation.state.clock.time, {}
+	now := run.simulation.state.clock.time
+	if elite.phase == .Idle do g.rouse_elite(run.simulation.world.phys, elite, now)
+	elite.phase, elite.since, elite.target = .Attack, now, {}
 	headless.run_pin(run)
 }
 
@@ -495,7 +498,9 @@ an_elite_dies_mid_swing :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// The floor's markers put its elites to sleep where they stand; a hero coming into sight wakes one, a hit wakes one.
+// The floor's markers put its elites to sleep where they stand, dormant (no drive, a kinematic capsule left to
+// sleep); a hero coming into sight wakes one, a hit wakes one, and either way it is a character's dynamic body again
+// (the one that saw the hero walks at it).
 @(test)
 the_floors_elites_sleep_until_seen_or_hit :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 1)
@@ -505,16 +510,30 @@ the_floors_elites_sleep_until_seen_or_hit :: proc(t: ^testing.T) {
 	testing.expect_value(t, int(run.simulation.state.elites.count), len(defs))
 	play(&run, {}, 1)
 	elites := sim.iterate(&run.simulation.state.elites)
-	for elite in sim.next(&elites) do testing.expect_value(t, elite.phase, g.Elite_Phase.Idle)
+	for elite in sim.next(&elites) {
+		testing.expect_value(t, elite.phase, g.Elite_Phase.Idle)
+		testing.expect(t, physics.character_dormant(&elite.body), "a sleeper is dormant")
+	}
 	first, handle, _ := sim.item_at(&run.simulation.state.elites, 0)
 	place_hero(&run, 0, first.pos + {-6, 0, 0.5}, {1, 0})
 	play(&run, {}, 0.25)
 	testing.expect_value(t, first.phase, g.Elite_Phase.Chase)
 	headless.run_command(&run, 0, g.Command_Dev_Hurt_Elites{1})
+	starts: [g.MAX_ELITES][3]f32
 	elites = sim.iterate(&run.simulation.state.elites)
 	for elite, other in sim.next(&elites) {
 		if other != handle do testing.expect(t, elite.phase != .Idle, "a hit woke it")
+		testing.expect(t, !physics.character_dormant(&elite.body), "awake, it is no longer dormant")
+		starts[other.index] = elite.pos
 	}
+	play(&run, {}, 1.5)
+	elites = sim.iterate(&run.simulation.state.elites)
+	for elite in sim.next(&elites) {
+		body := physics.body_type(run.simulation.world.phys, elite.body.body)
+		testing.expectf(t, body == .Dynamic, "the %v woken is a %v body", elite.kind, body)
+	}
+	walked := dmath.length(first.pos.xz - starts[handle.index].xz)
+	testing.expectf(t, walked > 0.5, "the %v that saw the hero walks at it: %v m", first.kind, walked)
 	scenarios.expect_synced(t, &run)
 }
 
@@ -797,7 +816,16 @@ a_fireball_breaks_the_guard_and_spares_what_walls_shield :: proc(t: ^testing.T) 
 	warrior := elite_of(&run, guarding)
 	testing.expect_value(t, warrior.hp, g.ELITE_SPECS[.Warrior].hp - g.FIREBALL_DAMAGE)
 	shoved := dmath.length(physics.body_linear_velocity(phys, warrior.body.body).xz)
-	testing.expectf(t, shoved > 2, "the Warrior is shoved at %v m/s", shoved)
+	apart := dmath.length(warrior.pos.xz - {10, -11.2})
+	knock := g.FIREBALL_KNOCK * (1 - (1 - g.BLAST_RIM) * apart / g.FIREBALL_RADIUS) * g.ELITE_KNOCK_TAKE
+	push := g.FIREBALL_IMPULSE / physics.body_mass(phys, warrior.body.body)
+	testing.expectf(
+		t,
+		shoved > knock + push / 2,
+		"the Warrior is shoved at %v m/s: its knock's %v, and a push",
+		shoved,
+		knock,
+	)
 	rogue := elite_of(&run, sheltered)
 	testing.expectf(
 		t,
@@ -839,5 +867,73 @@ a_blast_wakes_the_sleeper_it_pushes :: proc(t: ^testing.T) {
 	testing.expect_value(t, physics.body_type(phys, sleeper.body.body), physics.Body_Type.Dynamic)
 	pushed := dmath.length(physics.body_linear_velocity(phys, sleeper.body.body).xz)
 	testing.expectf(t, pushed > 0.1, "the sleeper is pushed at %v m/s", pushed)
+	scenarios.expect_synced(t, &run)
+}
+
+// A blow's knock and a blast's push add up to ELITE_KNOCK_MAX at most along the floor (shove_elite): an elite already
+// knocked near the cap, caught in a fireball's burst, is still no faster than it after the blast and its push.
+@(test)
+a_knock_and_a_push_stay_under_the_cap :: proc(t: ^testing.T) {
+	run := alone_as(.Mage, {0, -1})
+	defer headless.run_end(&run)
+	place_hero(&run, 0, {6, 0, 3}, {0, -1})
+	aim := g.Input {
+		aim   = dmath.dir2({0, -1}),
+		reach = g.reach_steps(5), // the burst at z = -2
+	}
+	pressed := aim
+	pressed.buttons = {.Ability}
+	headless.run_step(&run, [g.PLAYERS]g.Input{0 = pressed})
+	handle := place_elite(&run, .Rogue, {6, 0, -4}, {0, 1}, .Rise)
+	rogue := elite_of(&run, handle)
+	phys := run.simulation.world.phys
+	for run.simulation.state.fireballs.count == 0 do headless.run_step(&run, [g.PLAYERS]g.Input{0 = aim})
+	walk := sim.iterate(&run.simulation.state.fireballs)
+	cast_at: sim.Game_Time
+	for fireball in sim.next(&walk) do cast_at = fireball.cast_at
+	for run.simulation.state.clock.time - cast_at < sim.Game_Time(g.FIREBALL_FLIGHT_TICKS) - 1 {
+		headless.run_step(&run, [g.PLAYERS]g.Input{0 = aim})
+	}
+	physics.body_set_linear_velocity(phys, rogue.body.body, {0, 0, -(g.ELITE_KNOCK_MAX - 0.1)}) // away from the burst
+	headless.run_pin(&run)
+	headless.run_step(&run, [g.PLAYERS]g.Input{0 = aim})
+	testing.expect_value(t, headless.run_events(&run, g.Event_Fireball_Burst), 1)
+	speed := dmath.length(physics.body_linear_velocity(phys, rogue.body.body).xz)
+	testing.expectf(t, speed <= g.ELITE_KNOCK_MAX + 1e-3, "%v m/s, past the cap", speed)
+	scenarios.expect_synced(t, &run)
+}
+
+// A held elite's body is its hold's: a fireball bursting by it neither knocks it nor pushes it off the Barbarian's hold
+// (shove_elite), though the blast hurts it.
+@(test)
+a_held_elite_takes_no_shove :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 2)
+	defer headless.run_end(&run)
+	headless.run_command(&run, 0, g.Command_Dev_Set_Class{.Barbarian})
+	headless.run_command(&run, 1, g.Command_Dev_Set_Class{.Mage})
+	clear_minions(&run)
+	clear_elites(&run)
+	place_hero(&run, 0, {6, 0, 0}, {1, 0}) // the great hall
+	place_hero(&run, 1, {7, 0, -6}, {0, 1})
+	inputs := [g.PLAYERS]g.Input {
+		1 = {aim = dmath.dir2({0, 1}), reach = g.reach_steps(6), buttons = {.Ability}}, // the burst under the hold
+	}
+	headless.run_step(&run, inputs)
+	inputs[1].buttons = {}
+	handle := place_elite(&run, .Rogue, {7.3, 0, 0}, {-1, 0}, .Idle)
+	inputs[0].buttons = {.Ability}
+	headless.run_step(&run, inputs)
+	inputs[0].buttons = {}
+	held := elite_of(&run, handle)
+	testing.expect_value(t, held.phase, g.Elite_Phase.Held)
+	phys := run.simulation.world.phys
+	for headless.run_events(&run, g.Event_Fireball_Burst) == 0 && run.simulation.state.clock.time < 4 * g.TICK_HZ {
+		headless.run_step(&run, inputs)
+	}
+	testing.expect_value(t, headless.run_events(&run, g.Event_Fireball_Burst), 1)
+	testing.expect_value(t, held.phase, g.Elite_Phase.Held)
+	testing.expect_value(t, held.hp, g.ELITE_SPECS[.Rogue].hp - g.FIREBALL_DAMAGE)
+	moving := dmath.length(physics.body_linear_velocity(phys, held.body.body))
+	testing.expectf(t, moving < 1, "the held Rogue is flung at %v m/s", moving)
 	scenarios.expect_synced(t, &run)
 }

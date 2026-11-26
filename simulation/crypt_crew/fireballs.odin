@@ -87,11 +87,11 @@ burst_fireball :: proc(t: ^Tick, fireball: ^Fireball) {
 	sim.emit(t, Event_Fireball_Burst{position = sim.Position(fireball.to)})
 }
 
-// The blast on the Box3D bodies, in table order: each prop free of a hold and each live elite not heaved up (a held
-// body is its hold's) that the blast reaches (blast_impulse) takes its impulse; a sleeping elite it reaches wakes first
-// (rouse_elite: its kinematic capsule becomes a character's body, which an impulse moves). The impulse is the same on
-// every body, so a light prop skids and hops while an elite, at its weight, barely shifts on top of the knock the blast
-// already gave it (knock_area: a skeleton's rule).
+// The blast on the Box3D bodies, in table order: each prop free of a hold and each live elite that the blast reaches
+// (blast_impulse) takes its impulse; a sleeping elite it reaches wakes first (rouse_elite: its dormant character a
+// body an impulse moves again). The impulse is the same on every body, so a light prop skids and hops while an elite,
+// at its weight, barely shifts on top of the knock the blast already gave it (knock_area: a skeleton's rule); the two
+// add up to ELITE_KNOCK_MAX at most, and a held elite takes neither (shove_elite).
 @(private = "file")
 blast_bodies :: proc(t: ^Tick, heart: [3]f32) {
 	props := sim.iterate(&t.state.props)
@@ -103,10 +103,10 @@ blast_bodies :: proc(t: ^Tick, heart: [3]f32) {
 	}
 	elites := sim.iterate(&t.state.elites)
 	for elite in sim.next(&elites) {
-		if elite.phase == .Held || elite.phase == .Dying do continue
+		if elite.phase == .Dying do continue
 		if impulse, reached := blast_impulse(t, heart, elite.body.body); reached {
-			if elite.phase == .Idle do rouse_elite(t, elite)
-			physics.body_apply_linear_impulse_to_center(t.world.phys, elite.body.body, impulse)
+			if elite.phase == .Idle do rouse_elite(t.world.phys, elite, t.time)
+			shove_elite(t, elite, impulse / physics.body_mass(t.world.phys, elite.body.body))
 		}
 	}
 }
