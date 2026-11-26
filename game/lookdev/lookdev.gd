@@ -11,8 +11,21 @@ extends Node3D
 ##
 ## The parity stage stands each of the crowd minion's clips (MinionCrowd) twice side by side, at the same time in it:
 ## the minion scene on the left, the baked crowd instance on the right, under one key light: the bake must look the
-## same. Behind them stand two crowd instances in what only the crowd's shader shows: one flashing from a hit, one dying
-## and sinking into the floor.
+## same. At the row's ends stand two crowd instances in what only the crowd's shader shows: one flashing from a hit, one
+## dying and sinking into the floor.
+
+## Where a shot is: the crypt (its braziers and torches), the hub (moonlit) or the parity stage (its key light).
+enum Stage { CRYPT, HUB, PARITY }
+
+## How far right of its rig a parity pair's crowd instance stands.
+const PARITY_APART: float = 1.1
+## The seconds since a parity instance was struck: never, so it doesn't flash (the rigs don't).
+const NEVER_STRUCK: float = 1.0e6
+## The two crowd instances at the row's ends: a walker just struck (its flash) and a minion late in its death (sinking).
+const FLASHING_AT: Vector3 = Vector3(-6.6, 0, 0)
+const SINKING_AT: Vector3 = Vector3(7.2, 0, 0)
+const STRUCK_S: float = 0.05
+const SINKING_S: float = 1.75
 
 ## Each cast member's pose, by node name under Cast; a member without one idles.
 var poses: Dictionary[StringName, Pose] = {
@@ -51,22 +64,9 @@ var shots: Array[Shot] = [
 	Shot.new("heroes", Vector3(0, 3.6, 10.5), Vector3(0, 1.2, 2.4), Stage.CRYPT),
 	Shot.new("hoard", Vector3(0, 4.5, 1.5), Vector3(0, 1.2, -4.5), Stage.CRYPT),
 	Shot.new("hub", Vector3(0, 15, 14), Vector3(0, 0, -2.5), Stage.HUB),
-	Shot.new("crowd_parity", Vector3(0.5, 2.8, 12), Vector3(0.5, 0.9, 0), Stage.PARITY),
-	Shot.new("crowd_parity_game", Vector3(0.5, 9, 9.5), Vector3(0.5, 0.6, 0), Stage.PARITY),
+	Shot.new("crowd_parity", Vector3(0.3, 3.2, 14.5), Vector3(0.3, 0.9, 0), Stage.PARITY),
+	Shot.new("crowd_parity_game", Vector3(0.3, 11, 11.5), Vector3(0.3, 0.6, 0), Stage.PARITY),
 ]
-
-## Where a shot is: the crypt (its braziers and torches), the hub (moonlit) or the parity stage (its key light).
-enum Stage { CRYPT, HUB, PARITY }
-
-## How far right of its rig a parity pair's crowd instance stands.
-const PARITY_APART: float = 1.1
-## The seconds since a parity instance was struck: never, so it doesn't flash (the rigs don't).
-const NEVER_STRUCK: float = 1.0e6
-## The two crowd instances behind the pairs: a walker just struck (its flash) and a minion late in its death (sinking).
-const FLASHING_AT: Vector3 = Vector3(-1.2, 0, -2.2)
-const SINKING_AT: Vector3 = Vector3(1.2, 0, -2.2)
-const STRUCK_S: float = 0.05
-const SINKING_S: float = 1.75
 
 var _time: float = 0.0
 var _idle: Pose = Pose.new(Clips.IDLE, 0.0)
