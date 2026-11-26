@@ -510,7 +510,7 @@ func _walk_crowd() -> void:
 
 ## The guest (pad 1's Rogue) rolls with its pad's B, its ability pip draining; a dev hurt downs it, and its view lies in
 ## its revive ring; the first player walks up to it on the keyboard, and "[E] Revive" hangs over the guest; holding E
-## fills the ring and revives it, once confirmed with the toast "<first player> revived <guest>".
+## fills the ring and revives it, with the toast "<first player> revived <guest>", which waits for CONFIRMED.
 func _walk_revive() -> void:
 	var guest: int = session.get_local_player_key(_local_of(1))
 	var pip: ProgressBar = find(current_scene, ^"Hud/Heroes/HeroPlate2/%AbilityPip") as ProgressBar
@@ -530,6 +530,11 @@ func _walk_revive() -> void:
 	var prompt: Control = prompts.get_child(0) as Control
 	await wait_for(func() -> bool: return prompt.visible, 2.0, "beside the downed guest, \"[E] Revive\" shows")
 	await shot("03d_revive_prompt")
+	var seen: Array[UnifiedEvent] = []  # the revive's event, as the session gave it (read-only: kept to show again)
+	var keep: Callable = func(event: UnifiedEvent, _state: UnifiedSession.EventState) -> void:
+		if event is EventHeroRevived and seen.is_empty():
+			seen.append(event)
+	session.sim_event.connect(keep)
 	await key(KEY_E, true)
 	await seconds(1.0)
 	var data: ViewHero = downed.get(&"data")
@@ -541,8 +546,30 @@ func _walk_revive() -> void:
 	await key(KEY_E, false)
 	expect(not ring.visible, "the ring goes with the revive")
 	var toast: String = "%s revived %s" % [session.get_player_name(session.local_player), _guest(1)]
-	await wait_for(func() -> bool: return _toast_shows(toast), 3.0, "a toast once confirmed: %s" % toast)
+	await wait_for(func() -> bool: return _toast_shows(toast), 3.0, "a toast: %s" % toast)
+	session.sim_event.disconnect(keep)
+	expect(not seen.is_empty(), "the session told of the revive")
+	if not seen.is_empty():
+		await _walk_revive_confirmed(seen[0])
 	step("the guest rolled, went down and was revived")
+
+
+## A revive's chime and toast wait for its CONFIRMED showing. A session alone has no peer to wait for (its events come
+## EMITTED and CONFIRMED in one frame), so the play scene is shown the revive `revived` again in each state by hand:
+## EMITTED alone, nothing; CONFIRMED, the chime and the toast.
+func _walk_revive_confirmed(revived: UnifiedEvent) -> void:
+	var toasts: Node = overlay("Toasts")
+	toasts.call(&"clear")
+	var shown: int = 0
+	var mark: int = sounds.size()
+	current_scene.call(&"_on_sim_event", revived, UnifiedSession.EVENT_EMITTED)
+	await frames(2)
+	expect(played(&"revived", mark) == 0 and toasts.get_child_count() == shown,
+		"a revive only predicted (EMITTED): no chime, no toast")
+	current_scene.call(&"_on_sim_event", revived, UnifiedSession.EVENT_CONFIRMED)
+	await frames(2)
+	expect(played(&"revived", mark) == 1 and toasts.get_child_count() == shown + 1,
+		"once CONFIRMED: the chime and the toast")
 
 
 ## Walks the first player's hero (on the keyboard's moves) until its feet are within `close` of `target`'s.
