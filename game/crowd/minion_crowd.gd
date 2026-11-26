@@ -1,8 +1,8 @@
 class_name MinionCrowd
 extends RefCounted
-## The skeleton minions drawn as a crowd: what unified's crowd bake makes of them (recipe(); `./uni tool bake_crowd`),
-## where the bake is kept, and the material that draws it (material(): crowd_minion.gdshader, its look taken from where
-## each part of it lives).
+## The skeleton minions drawn as a crowd: the clips an instance names, where the bake is kept, and the material that
+## draws it (material(): crowd_minion.gdshader, its look taken from where each part of it lives). What the bake makes
+## of the minion is a tool's (game/tools/minion_bake.gd): a running game loads only what is here.
 ##
 ## An instance of the crowd is a minion: its transform the minion's feet and facing, its custom data the pose (a clip of
 ## CLIPS by index, and the seconds since it began) and the seconds since it was last struck (its flash), as the
@@ -11,8 +11,6 @@ extends RefCounted
 ## An instance's clip (INSTANCE_CUSTOM.x): CLIPS' order.
 enum Clip { IDLE, WALK, ATTACK, RISE, DEATH }
 
-## The character the crowd is baked from: the minion scene the game showed each minion as, weapon and all.
-const SCENE: String = "res://game/characters/skeletons/minion.tscn"
 ## The clips a minion plays, in the order an instance names them (Clip).
 const CLIPS: Array[StringName] = [
 	Clips.SKELETON_IDLE,
@@ -21,19 +19,8 @@ const CLIPS: Array[StringName] = [
 	Clips.SKELETON_RISE,
 	Clips.SKELETON_DEATH,
 ]
-## The frames a second each clip is baked at: its keys' rate (KayKit's 30) for the stance and the gait, four times it
-## for the swing, the rise and the fall, whose bones turn up to 70 and 130 degrees between keys: at 30 a blend of two
-## frames' matrices cuts such a turn's arc by up to 15 cm, at 120 by about 1 (the art checks hold it within
-## CROWD_PARITY).
-const RATES: PackedFloat32Array = [30.0, 30.0, 120.0, 120.0, 120.0]
-## How far the bake lightens each of the minion's meshes: Godot's LOD error, relative to the mesh's size. Past it the
-## minion's LOD chains jump (an arm or a leg to 0.15 and on, the body, head, cloak and blade to about 0.4: they lose
-## their shape); within it the scene's 5,745 triangles become 2,425, the head, jaw and eyes whole.
-const LOD_ERROR: float = 0.11
-## The most triangles the crowd minion may have (the crowd check): 500 of them a pass.
-const TRIANGLES: int = 2450
-## The scene's material that glows: the eyes (the bake keeps them whole and marks them in UV2; the crowd draws them
-## with its colours).
+## The scene's material that glows: the eyes (the bake keeps them whole and marks them 1 in UV2, its only masked
+## material; the crowd draws them with its colours).
 const GLOW: String = "res://game/materials/skeleton_glow.tres"
 ## The scene's material for the rest: the palette atlas and its roughness.
 const SKIN: String = "res://game/materials/skeleton.tres"
@@ -51,24 +38,6 @@ const FLASH_TICKS: float = 8.0
 const SINK_S: float = 0.6
 ## How much deeper than its last pose's top a dead minion sinks: under the floor's relief.
 const SINK_MARGIN: float = 0.05
-
-
-## What the bake makes of the minion, and where it is kept (unified's UnifiedCrowdBake bakes it, UnifiedCrowdCheck holds
-## it fresh and true).
-static func recipe() -> UnifiedCrowdRecipe:
-	var out := UnifiedCrowdRecipe.new()
-	out.scene = SCENE
-	out.clips = CLIPS
-	out.loops = Clips.LOOPING
-	out.rates = RATES
-	out.masked = [load(GLOW) as Material]
-	out.max_error = LOD_ERROR
-	out.max_triangles = TRIANGLES
-	out.pose_method = &"pose"
-	out.mesh_path = MESH
-	out.bones_path = BONES
-	out.clips_path = TABLE
-	return out
 
 
 ## The crowd's material: the shader, its clip table and bone texture from the committed bake, and its look from where
@@ -94,5 +63,5 @@ static func material() -> ShaderMaterial:
 	crowd.set_shader_parameter("death_clip", Clip.DEATH)
 	crowd.set_shader_parameter("sink_from", death_s - SINK_S)
 	crowd.set_shader_parameter("sink_until", death_s)
-	crowd.set_shader_parameter("sink_depth", clips.tops[Clip.DEATH] + SINK_MARGIN)
+	crowd.set_shader_parameter("sink_depth", clips.last_bounds[Clip.DEATH].end.y + SINK_MARGIN)
 	return crowd

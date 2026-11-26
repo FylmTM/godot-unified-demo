@@ -1,6 +1,6 @@
 extends UnifiedTool
 ## Bakes the skeleton minions' crowd (`./uni tool bake_crowd`, headless): unified's UnifiedCrowdBake makes what
-## MinionCrowd's recipe says, the minion scene merged and lightened into one mesh and its clips baked into bone
+## MinionBake's recipe says, the minion scene merged and lightened into one mesh and its clips baked into bone
 ## matrices, and writes it where the recipe says (the mesh and the bones as binary resources, the table as text). Run it
 ## after the minion's model, weapon, clips or import settings change, the recipe does, or unified's bake: the art checks
 ## fail while the committed bake is stale.
@@ -8,7 +8,7 @@ extends UnifiedTool
 
 func _run() -> void:
 	var started: int = Time.get_ticks_msec()
-	var baked: UnifiedCrowdBake.Baked = UnifiedCrowdBake.bake(MinionCrowd.recipe(), root)
+	var baked: UnifiedCrowdBake.Baked = UnifiedCrowdBake.bake(MinionBake.recipe(), root)
 	if not baked.errors.is_empty():
 		fail("the bake: " + "; ".join(baked.errors))
 		return

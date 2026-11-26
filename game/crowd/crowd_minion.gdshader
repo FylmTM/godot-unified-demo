@@ -1,7 +1,7 @@
 // The skeleton minions' crowd (MinionCrowd): one MultiMesh of the baked minion, each instance posed by its custom
 // data and skinned by unified's crowd skinning from the baked bone matrices (UnifiedCrowdClips), so the whole crowd is
 // one draw call a pass and its animation costs no node. Matte on the skeletons' palette atlas, as
-// game/materials/skeleton.tres draws the scene minion; the eyes (the bake's mask, UV2's x) glow as skeleton_glow.tres
+// game/materials/skeleton.tres draws the scene minion; the eyes (the bake's mask, UV2's x: 1, the eyes' material the only one masked) glow as skeleton_glow.tres
 // does. MinionCrowd.material() sets every uniform from where it lives.
 //
 // INSTANCE_CUSTOM, the contract a crowd's view keeps (simulation/extension/frame.odin's minion_instance writes game-time
@@ -17,7 +17,7 @@
 shader_type spatial;
 
 // The skinning: the bake's bone texture (its clip table in its header row), set by UnifiedCrowdClips.apply.
-#include "res://unified/tools_godot/crowd_skin.gdshaderinc"
+#include "res://unified/godot_runtime/crowd_skin.gdshaderinc"
 
 // The clips an instance names (MinionCrowd.Clip, held equal by the art checks).
 const int CLIPS = 5;

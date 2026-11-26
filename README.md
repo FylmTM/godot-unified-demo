@@ -186,9 +186,9 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 ## The crowd
 
 The skeleton minions are one MultiMesh (the play scene's `Minions`), however many are up: hundreds cost one draw call
-a pass and no node each. The minion scene is baked offline by unified's crowd bake, as `MinionCrowd.recipe()` says
-(`game/crowd/minion_crowd.gd`): its meshes and blade merged into one lighter mesh that keeps its skin, and every frame
-of each of its clips as bone matrices in a texture. Each tick the extension writes an instance per minion
+a pass and no node each. The minion scene is baked offline by unified's crowd bake, as `MinionBake.recipe()` says
+(`game/tools/minion_bake.gd`, bake-time only): its meshes and blade merged into one lighter mesh that keeps its skin,
+and every frame of each of its clips as bone matrices in a texture. Each tick the extension writes an instance per minion
 (`minion_instance`, `frame.odin`): its feet and facing, the clip it plays (`Minion_Clip`, `MinionCrowd.Clip`'s
 numbers), when that clip started and when it was last struck, as game-time stamps the host turns into seconds at the
 shown time (the minion kind's `ages`). The crowd's shader skins each vertex from the texture at that clip and time, and

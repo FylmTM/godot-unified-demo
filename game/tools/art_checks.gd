@@ -41,13 +41,14 @@ const STAGES: Array[String] = ["res://game/lookdev/crypt_stage.tscn", "res://gam
 const KIT_STAGE: String = "res://game/lookdev/kit_stage.tscn"
 ## How far a baked crowd vertex may stand from where the minion scene puts it, in metres, at any time in a clip
 ## (unified's crowd check, its parity): at a baked frame it stands where the scene puts it; between two, the bake blends
-## their matrices linearly where the scene turns each bone along an arc (MinionCrowd.RATES keeps the cut within about a
+## their matrices linearly where the scene turns each bone along an arc (MinionBake.RATES keeps the cut within about a
 ## centimetre at the fastest turns).
 const CROWD_PARITY: float = 0.015
 ## The crowd's shader: its CLIPS must be MinionCrowd.Clip's count.
 const CROWD_SHADER_CLIPS: String = "const int CLIPS = %d;"
-## The crowd's clip numbers (MinionCrowd.Clip), the shader's index into the clip table: simulation/extension/frame.odin's
-## Minion_Clip writes them, and its test (view_test.odin's the_clips_are_the_crowds_numbers) pins these same numbers.
+## The crowd's clip numbers (MinionCrowd.Clip), the shader's index into the clip table: the extension's Minion_Clip
+## (simulation/extension/frame.odin) writes them, and its test (view_test.odin's the_clips_are_the_crowds_numbers) pins
+## these same numbers.
 const CROWD_CLIPS: Dictionary[String, int] = {"IDLE": 0, "WALK": 1, "ATTACK": 2, "RISE": 3, "DEATH": 4}
 ## The script on the play scene's crowd: the art's timing, where in a clip an action starts (its clip offsets).
 const CROWD_VIEW: String = "res://game/crowd/minion_crowd_view.gd"
@@ -172,7 +173,7 @@ func _check_materials() -> void:
 
 ## The crowd's material draws, as every mesh does, with its model's pack atlas (the scene minion's own material's).
 func _check_crowd_material() -> void:
-	var rig: Node = (load(MinionCrowd.SCENE) as PackedScene).instantiate()
+	var rig: Node = (load(MinionBake.SCENE) as PackedScene).instantiate()
 	var model: String = rig.get_node("Model").scene_file_path
 	rig.free()
 	var palette: Texture2D = MinionCrowd.material().get_shader_parameter("palette")
@@ -281,6 +282,11 @@ func _check_clips() -> void:
 			_problem("Clips.LOOPING names %s, which no constant of Clips does" % clip, ANIMATIONS)
 		elif player.has_animation(clip) and not _seamless(player.get_animation(clip)):
 			_problem("Clips.LOOPING names %s, which ends in another pose than it starts: it can't loop" % clip, ANIMATIONS)
+	for clip: StringName in clips:
+		if player.has_animation(clip) and (player.get_animation(clip).loop_mode != Animation.LOOP_NONE) != (
+				clip in Clips.LOOPING):
+			_problem("%s: its import's loop mode is not what Clips.LOOPING says (the .import's settings/loop_mode)" % clip,
+				ANIMATIONS)
 	for clip: StringName in clips:
 		if not player.has_animation(clip):
 			_problem("no clip %s" % clip, ANIMATIONS)
@@ -439,11 +445,11 @@ func _check_lookdev() -> void:
 	lookdev.free()
 
 
-## The crowd's bake (MinionCrowd's recipe) is fresh and true, as unified's UnifiedCrowdCheck holds it (whole, made
+## The crowd's bake (MinionBake's recipe) is fresh and true, as unified's UnifiedCrowdCheck holds it (whole, made
 ## from today's inputs, its mesh's rules, posing as the minion scene does within CROWD_PARITY); the game's own numbers
 ## agree (_crowd_numbers); and its material's timing is the sim's (_check_crowd_timing).
 func _check_crowd() -> void:
-	var check := UnifiedCrowdCheck.new(MinionCrowd.recipe())
+	var check := UnifiedCrowdCheck.new(MinionBake.recipe())
 	check.parity_tolerance = CROWD_PARITY
 	check.check(_tree_root)
 	for problem: UnifiedCrowdCheck.Problem in check.problems:
@@ -529,9 +535,10 @@ func _check_crowd_sink(crowd: ShaderMaterial, offsets: PackedFloat32Array, clips
 		if value is float:
 			depth = value
 		depths.append(depth)
-	if not (absf(depths[0]) <= CROWD_TIME and absf(depths[1]) <= CROWD_TIME and depths[2] >= clips.tops[death]):
+	var top: float = clips.last_bounds[death].end.y
+	if not (absf(depths[0]) <= CROWD_TIME and absf(depths[1]) <= CROWD_TIME and depths[2] >= top):
 		_problem("the dying sink %s m at %s s into their fall, not 0, 0 and past their last pose's %.2f m top" % [depths,
-			moments, clips.tops[death]], MinionCrowd.SHADER)
+			moments, top], MinionCrowd.SHADER)
 
 
 ## How many times a scene instances each scene, by path.

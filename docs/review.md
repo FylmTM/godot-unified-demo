@@ -742,7 +742,21 @@ Calls made in step 6 (the bake lifted into unified's `tools_godot`; milestone 4 
 - A bug found by unified's new test: the bounds took each bone's bind twice (its reach was already in bone space), so
   they sat about a metre low (-1.83 to 2.15 m against the poses' -0.83 to 2.45). Fixed in the bake; the culling box is
   now every pose's.
-- The hash covers unified's `crowd_bake.gd`: a unified bump that touches it makes the demo's bake stale until
-  re-baked, as an edit to the game's own bake did.
 - Checked: the art checks pass; a stale bake and the attack at 60 fps (4.07 cm at 0.592 s, the blade) fail them; the
   look-dev parity shots and the arena's 500 chasing (`./uni drive`) look as before.
+
+Calls made in step 6's review (two reviewers' findings, the developer's decisions on them):
+
+- Exports: unified's runtime files (the clip table's script, the skinning include) moved to `unified/godot_runtime/`,
+  which an export ships; the tools stay in `unified/tools_godot/`, left out. The recipe is bake-time tooling, so it
+  left `MinionCrowd` for `game/tools/minion_bake.gd` (`MinionBake`): nothing the running game loads names a tool, and
+  unified's validate fails on one that does.
+- Staleness: the bake's hash no longer covers unified's code (a comment edit staled every game) or textures and
+  materials: the character's scenes, meshes and animations with their `.import` files, the recipe, Godot's version and
+  the bake's own version. A pose script's change shows in the check's bake now instead.
+- Loops: a clip loops as its Animation says (`UnifiedCrowdClip`'s default), and unified's bake refuses a recipe that
+  says otherwise, so the minion's idle and walk needed their import to loop. Every clip of `Clips.LOOPING` now loops in
+  its `.import` (`settings/loop_mode`), and the art checks hold the two equal; `CharacterRig.pose()` wraps them itself
+  as before, so no view moves.
+- The sink reads the death clip's last pose's bounds (`last_bounds`, the API's generalisation of `tops`); the eyes are
+  mask 1 in UV2 (a masked material's index plus one).

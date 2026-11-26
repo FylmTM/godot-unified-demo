@@ -47,7 +47,8 @@ imports `unified:eos` needs `UNIFIED_EOS_SDK` and the five `UNIFIED_EOS_*` IDs (
   digits, `-` and `.` only (no `_`). The template's `com.example.<game>` is a placeholder: set it before shipping.
 - The presets export Godot resources only (`all_resources`): files the game reads raw (`FileAccess`, e.g. `.level`
   files) must match the presets' `include_filter`, or the export silently leaves them out. `exclude_filter` keeps
-  `unified/*` and `game/tools/*` out of the package.
+  `unified/tools_godot/*` and `game/tools/*` out of the package, never the whole of `unified/`: a running game loads
+  `unified/godot_runtime/` (the crowd's clip table and skinning include).
 - The smoke test runs a single-player session with unified's own flags (`-- --autostart --ticks N --quit-at-end`),
   nothing of the game's: it requires the extension's `unified: extension initialized` line, the session's result
   line at tick N, exit 0 and no `ERROR` lines. A main scene that starts a session of its own must leave

@@ -3,10 +3,10 @@ extends RefCounted
 ## The animation clips the game plays, named for what they show, each as `Library/Clip` in rig_animations.tscn's
 ## libraries (KayKit's Rig_Medium clip files, in assets/kaykit/animations/).
 ##
-## This is the one list of clips the game depends on, and the one place that says which loop: a view names a clip
-## through these constants, never by its KayKit name, and CharacterRig.pose() wraps the looping ones itself (the
-## imported clips keep KayKit's own, unlooped settings). The art checks (game/tools/art_checks.gd) prove every constant
-## here names a clip that exists and moves only Rig_Medium bones.
+## This is the one list of clips the game depends on: a view names a clip through these constants, never by its KayKit
+## name, and CharacterRig.pose() wraps the looping ones itself. Which loop is said twice, held equal by the art checks:
+## here (LOOPING) and in the clips' import (settings/loop_mode, which the crowd's bake reads). The art checks
+## (game/tools/art_checks.gd) prove every constant here names a clip that exists and moves only Rig_Medium bones.
 
 # Every character.
 const IDLE: StringName = &"General/Idle_A"
