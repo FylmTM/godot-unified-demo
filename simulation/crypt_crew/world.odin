@@ -84,6 +84,8 @@ Floor :: struct {
 	grid_origin:  [2]f32, // the minion grid's corner, its columns and rows: laid over the mesh's extent
 	grid_columns: int,
 	grid_rows:    int,
+	// ---- ragdolls (ragdolls.odin)
+	lowest:       f32, // the navigation mesh's lowest point: a ragdoll RAGDOLL_KILL_DEPTH below it has left the level
 }
 
 // The world outside the block.
@@ -155,6 +157,8 @@ build_floor :: proc(floor: ^Floor, data: ^level.Level, seed: u64) {
 	assert(err == .None, "crypt_crew: a level's navigation mesh doesn't build (bake it: uni bake --nav)")
 	floor.fields = nav.fields_make(&floor.mesh, MAX_FIELDS)
 	lay_grid(floor)
+	floor.lowest = max(f32)
+	for vertex in floor.mesh.vertices do floor.lowest = dmath.min(floor.lowest, vertex.y)
 	read_places(&floor.places, data)
 	spawn_poly, _ := nav.nearest(&floor.mesh, floor.places.hero_spawns[0], HERO_NAV_REACH)
 	assert(spawn_poly != nav.NO_POLY, "crypt_crew: slot 0's hero_spawn is off the navigation mesh")

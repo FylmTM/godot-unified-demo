@@ -84,7 +84,7 @@ revive_heroes :: proc(t: ^Tick) {
 // held.
 revive_hero :: proc(t: ^Tick, player: sim.Player, by: sim.Player) {
 	end_hero_heave(t, player)
-	stand_up(t, player)
+	stand_up(t, player, by)
 	hero := sim.player_data(t, player)
 	hero.hp = REVIVE_HP
 	hero.action, hero.action_started = .None, t.time

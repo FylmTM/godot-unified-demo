@@ -73,9 +73,10 @@ barbarian_ability :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, buttons: si
 }
 
 // The body `player`'s hero would heave now (zero: none): the nearest live elite, awake or asleep but neither rising nor
-// heaved already, or the nearest ally down and not heaved, within GRAB_RANGE of the hero's capsule, in its grab cone
-// (GRAB_CONE_COS; or right against it, GRAB_ANYWHERE), within GRAB_HEIGHT of its feet and no wall between their chests,
-// as hands_target picks a prop; on a tie the elites first, in table order, then the heroes in slot order.
+// heaved already, or the nearest ally down and not heaved (one lying as a ragdoll only with a standing_spot), within
+// GRAB_RANGE of the hero's capsule, in its grab cone (GRAB_CONE_COS; or right against it, GRAB_ANYWHERE), within
+// GRAB_HEIGHT of its feet and no wall between their chests, as hands_target picks a prop; on a tie the elites first,
+// in table order, then the heroes in slot order.
 heave_target :: proc(t: ^Tick, hero: ^Hero, player: sim.Player) -> (target: Heaved) {
 	nearest := max(f32)
 	elites := sim.iterate(&t.state.elites)
@@ -89,6 +90,11 @@ heave_target :: proc(t: ^Tick, hero: ^Hero, player: sim.Player) -> (target: Heav
 	for other, other_player in sim.next(&heroes) {
 		if other_player == player || other.action != .Down || other.heave != .None do continue
 		if gap, ok := in_grab(t, hero, other.pos, HERO_RADIUS); ok && gap < nearest {
+			// Until the heave holds a ragdoll (docs/plan.md, Milestones), one is heaved as its capsule stood up
+			// (stand_up): not one with no floor to stand it on near it or the Barbarian (it would stand at its spawn).
+			if ragdolled(other) {
+				if _, stands := standing_spot(t, other.pos, hero.pos); !stands do continue
+			}
 			target, nearest = {
 					hero = other_player,
 				}, gap
@@ -124,7 +130,7 @@ heave :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, target: Heaved) {
 		if elite.phase == .Idle do rouse_elite(t.world.phys, elite, t.time)
 		elite.phase, elite.since, elite.target, elite.heaved_by = .Held, t.time, {}, player
 	} else {
-		stand_up(t, target.hero)
+		stand_up(t, target.hero, player)
 		held := sim.player_data(t, target.hero)
 		held.heave, held.heave_since, held.heaved_by = .Held, t.time, player
 	}

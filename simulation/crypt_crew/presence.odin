@@ -57,7 +57,7 @@ update_presence :: proc(t: ^Tick) {
 		hero.hp, hero.revive, hero.ability_ready = kept.hp, kept.revive, kept.ability_ready
 		if kept.action == .Down { 	// it falls where it arrives, a ragdoll as it was (action_started: now)
 			hero.action = .Down
-			ragdoll_hero(t, player, {})
+			ragdoll_hero(t, player, ragdoll_kick(hero.pos, hero.pos, hero.facing))
 		}
 	}
 }

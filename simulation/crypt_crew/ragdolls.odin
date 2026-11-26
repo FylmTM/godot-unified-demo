@@ -57,7 +57,8 @@ ragdoll_def :: proc() -> physics.Ragdoll_Def {
 
 // `player`'s hero, down, falls as a ragdoll: its capsule goes dormant and out of the world where it is, and a ragdoll
 // stands in its place (ragdoll_rest_pose on its feet, facing its way), its bones tagged with the player's key as the
-// capsule is, moving at the hero's velocity plus `kick`; the hero's `pos` and `vel` are its pelvis's from now on.
+// capsule is, moving at the hero's velocity (at most RAGDOLL_CARRY_MAX of it) plus `kick`; the hero's `pos` and `vel`
+// are its pelvis's from now on.
 ragdoll_hero :: proc(t: ^Tick, player: sim.Player, kick: [3]f32) {
 	hero := sim.player_data(t, player)
 	phys := t.world.phys
@@ -71,15 +72,18 @@ ragdoll_hero :: proc(t: ^Tick, player: sim.Player, kick: [3]f32) {
 		dmath.quat_yaw(hero.facing),
 		tag = sim.player_key(player),
 	)
-	physics.ragdoll_set_velocity(phys, &hero.ragdoll, hero.vel + kick)
+	carried := hero.vel
+	if speed := dmath.length(carried); speed > RAGDOLL_CARRY_MAX do carried *= RAGDOLL_CARRY_MAX / speed
+	physics.ragdoll_set_velocity(phys, &hero.ragdoll, carried + kick)
 	read_back_ragdoll(phys, hero)
 }
 
-// What a blow from `from` gives the ragdoll of the hero it downs at `feet`: RAGDOLL_KICK along the floor, away from the
-// blow; none from right where the hero stands (a dev hurt: a blow from no side), which crumples where it stands.
-ragdoll_kick :: proc(feet, from: [3]f32) -> [3]f32 {
-	away := dmath.normalize(feet.xz - from.xz)
-	return {away.x, 0, away.y} * RAGDOLL_KICK
+// What a blow from `from` gives the ragdoll of the hero it downs at `feet`, facing `facing`: RAGDOLL_KICK along the
+// floor, away from the blow; from right where the hero stands (a blow from no side: a dev hurt, a rejoin while down),
+// RAGDOLL_TIP backwards, so the body topples at once rather than stand a moment balanced on its feet.
+ragdoll_kick :: proc(feet, from: [3]f32, facing: [2]f32) -> [3]f32 {
+	if away := dmath.normalize(feet.xz - from.xz); away != {} do return {away.x, 0, away.y} * RAGDOLL_KICK
+	return {-facing.x, 0, -facing.y} * RAGDOLL_TIP
 }
 
 // What finds the floor under a ragdoll's pelvis: the floor alone, through a tomb's top or a wall it lies on or in.
@@ -88,24 +92,55 @@ FLOOR_FILTER :: physics.Filter {
 	mask     = CAT_FLOOR,
 }
 
-// `player`'s hero gets up from its ragdoll, if it lies as one: the ragdoll goes, and its capsule, back in the world
-// and awake, stands at a standstill on the walkable floor nearest the floor under its pelvis (FLOOR_FILTER's ray down),
-// within RAGDOLL_SNAP (floor_spot: never a wall's or a tomb's top, which a body lying on one is nearer), or at its
-// slot's hero_spawn with none that near (a body that fell out of the level); its view snaps there (the teleport moves
-// the body's warp epoch on). Before that tick's move (revive_heroes, the dev revive, the heave), so the woken
+// The floor under `pelvis`: where FLOOR_FILTER's ray down meets it within RAGDOLL_FLOOR_BELOW (through a tomb's top or
+// a wall the body lies on or in); `pelvis` itself with none there. Also where the view lays a downed hero's ring.
+floor_under :: proc(phys: ^physics.World, pelvis: [3]f32) -> [3]f32 {
+	hit, found := physics.world_cast_ray_closest(phys, pelvis, {0, -RAGDOLL_FLOOR_BELOW, 0}, FLOOR_FILTER)
+	return hit.point if found else pelvis
+}
+
+// Where a hero whose ragdoll's pelvis is at `pelvis` stands up, helped by a hero standing at `helper` (its reviver,
+// or the Barbarian heaving it): the walkable floor nearest the floor under the pelvis (floor_under) within RAGDOLL_SNAP;
+// else (floor_spot refuses a point a tomb's or a wall's top is nearer than the floor: a body on a wide tomb) the spot
+// nearest it of the first of RAGDOLL_RINGS rings round it, RAGDOLL_RING apart, with one on the walkable floor (each
+// within RAGDOLL_RING of its ring's point); else the floor at the helper's feet. Not ok with none of them, for a body
+// gone where no helper stands near (stand_up then stands it at its spawn).
+standing_spot :: proc(t: ^Tick, pelvis, helper: [3]f32) -> (feet: [3]f32, ok: bool) {
+	floor := floor_of(t)
+	under := floor_under(t.world.phys, pelvis)
+	if spot, on_floor := floor_spot(floor, under, RAGDOLL_SNAP); on_floor do return spot.point, true
+	for ring in 1 ..= RAGDOLL_RINGS {
+		nearest := max(f32)
+		for dir in dmath.DIR8 {
+			at := under + [3]f32{dir.x, 0, dir.y} * (f32(ring) * RAGDOLL_RING)
+			spot := floor_spot(floor, at, RAGDOLL_RING) or_continue
+			if apart := dmath.length(spot.point.xz - under.xz); apart < nearest do feet, nearest = spot.point, apart
+		}
+		if nearest < max(f32) do return feet, true
+	}
+	if spot, on_floor := floor_spot(floor, helper, HERO_NAV_REACH); on_floor do return spot.point, true
+	return {}, false
+}
+
+// `player`'s hero gets up from its ragdoll, if it lies as one, helped by `helper` (its reviver, the Barbarian heaving
+// it; the nobody Player: none): the ragdoll goes, and its capsule stands at its standing_spot, or at its slot's
+// hero_spawn with none (stand_capsule). Before that tick's move (revive_heroes, the dev revive, the heave), so the woken
 // capsule's drive finds its ground in this tick's update.
-stand_up :: proc(t: ^Tick, player: sim.Player) {
+stand_up :: proc(t: ^Tick, player: sim.Player, helper: sim.Player) {
 	hero := sim.player_data(t, player)
 	if !ragdolled(hero) do return
-	phys := t.world.phys
-	physics.ragdoll_destroy(phys, &hero.ragdoll)
-	floor := floor_of(t)
-	under := hero.pos
-	if hit, found := physics.world_cast_ray_closest(phys, under, {0, -RAGDOLL_FLOOR_BELOW, 0}, FLOOR_FILTER); found {
-		under = hit.point
-	}
-	spot, on_floor := floor_spot(floor, under, RAGDOLL_SNAP)
-	feet := spot.point if on_floor else floor.places.hero_spawns[sim.player_slot(t, player)]
+	helped := hero.pos
+	if sim.player_present(t, helper) do helped = sim.player_data(t, helper).pos
+	feet, found := standing_spot(t, hero.pos, helped)
+	if !found do feet = floor_of(t).places.hero_spawns[sim.player_slot(t, player)]
+	physics.ragdoll_destroy(t.world.phys, &hero.ragdoll)
+	stand_capsule(t.world.phys, hero, feet)
+}
+
+// The hero's capsule, dormant and out of the world while it lay as a ragdoll, back in the world and awake, standing at
+// a standstill on `feet`; its view snaps there (the teleport moves the body's warp epoch on).
+@(private = "file")
+stand_capsule :: proc(phys: ^physics.World, hero: ^Hero, feet: [3]f32) {
 	physics.body_enable(phys, hero.body.body)
 	physics.character_teleport(phys, &hero.body, feet + {0, HERO_CENTRE_ABOVE_FEET, 0})
 	physics.character_set_dormant(phys, &hero.body, false)
@@ -149,11 +184,16 @@ intern_ragdoll_names :: proc(phys: ^physics.World) {
 }
 
 // After the physics step (and read_back_heroes, which leaves a ragdolled hero alone): each ragdolled hero's `pos` and
-// `vel`, its pelvis's.
+// `vel`, its pelvis's. A ragdoll fallen RAGDOLL_KILL_DEPTH below the floor's navigation mesh has left the level: it
+// goes, and its hero, still down, lies as its capsule at its slot's hero_spawn, where an ally can revive it.
 read_back_ragdolls :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
-	for hero in sim.next(&heroes) {
-		if ragdolled(hero) do read_back_ragdoll(t.world.phys, hero)
+	for hero, player in sim.next(&heroes) {
+		if !ragdolled(hero) do continue
+		read_back_ragdoll(t.world.phys, hero)
+		if hero.pos.y >= floor_of(t).lowest - RAGDOLL_KILL_DEPTH do continue
+		physics.ragdoll_destroy(t.world.phys, &hero.ragdoll)
+		stand_capsule(t.world.phys, hero, floor_of(t).places.hero_spawns[sim.player_slot(t, player)])
 	}
 }
 

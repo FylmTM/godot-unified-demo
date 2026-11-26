@@ -169,7 +169,8 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 4. **Heroes.** Interact pressed within REVIVE_RANGE of a downed ally starts a revive (through a held Attack, too),
    held it goes on (at REVIVE_SPEED, no attack meanwhile; a blow breaks it off): each ally tending adds a tick,
    untended it decays by REVIVE_DECAY, and at REVIVE_TICKS the ally rises where it lies (its ragdoll gone, on the
-   walkable floor nearest the floor under its pelvis, within RAGDOLL_SNAP) with REVIVE_HP, safe for SPAWN_GRACE_S; the reviver carries on to another downed ally in range. Each hero turns to its aim (else its move,
+   walkable floor nearest the floor under its pelvis within RAGDOLL_SNAP, else on the nearest spot RAGDOLL_RINGS rings
+   round it find, else by its reviver) with REVIVE_HP, safe for SPAWN_GRACE_S; the reviver carries on to another downed ally in range. Each hero turns to its aim (else its move,
    past TURN_STICK). Interact grabs the nearest prop in reach (GRAB_RANGE, GRAB_CONE_COS) or drops the one held;
    Attack while holding throws it (THROW_WINDUP_S, THROW_SPEED and THROW_LIFT; a Barbarian's BARBARIAN_THROW times
    as fast). Ability starts the class's ability (cutting an attack short), on its own cooldown: the Knight's block
@@ -237,9 +238,11 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
     if its hero is still in reach, in front (MINION_STRIKE_COS) and in sight; an elite's attack lands at its windup
     as its kind says. Every blow on a hero, a bone bolt's too, meets its block and its roll; the dead fall for
     DEATH_S. A hero at 0 HP goes down and stays down until revived: it falls as a Box3D ragdoll (RAGDOLL_SCALE tall,
-    RAGDOLL_MASS, at its velocity plus RAGDOLL_KICK away from the blow) that meets everything but heroes and elites,
-    its capsule dormant and out of the world meanwhile (a Barbarian's heave stands the capsule up from it and holds
-    that); every hero down for WIPE_S restarts the floor.
+    RAGDOLL_MASS, at its velocity, at most RAGDOLL_CARRY_MAX, plus RAGDOLL_KICK away from the blow or RAGDOLL_TIP
+    backwards from a blow from no side) that meets everything but heroes and elites, its capsule dormant and out of
+    the world meanwhile (a Barbarian's heave stands the capsule up from it and holds that); a ragdoll fallen
+    RAGDOLL_KILL_DEPTH below the floor goes, its hero lying at its spawn. Every hero down for WIPE_S restarts the
+    floor.
 12. **Loot.** A felled skeleton drops a coin on a roll of 1 in LOOT_ONE_IN, worth LOOT_VALUE_MIN to LOOT_VALUE_MAX
     gold; a felled elite drops ELITE_COINS coins worth its kind's ELITE_GOLD between them, on a LOOT_SPREAD ring (none
     under a held crowd). A hero up within LOOT_RADIUS of a coin that has lain LOOT_ARM_S picks it up into the party's

@@ -51,7 +51,7 @@ damage_hero :: proc(t: ^Tick, player: sim.Player, damage: i16, from: [3]f32) {
 	if hero.hp > 0 do return
 	drop_prop(t, player)
 	feet := hero.pos
-	ragdoll_hero(t, player, ragdoll_kick(feet, from))
+	ragdoll_hero(t, player, ragdoll_kick(feet, from, hero.facing))
 	hero.action, hero.action_started = .Down, t.time
 	hero.revive = 0
 	sim.emit(t, Event_Hero_Downed{player = player, position = sim.Position(feet)})

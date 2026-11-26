@@ -53,7 +53,7 @@ MULTI_POLICY := [MultiView]godot.View_Policy {
 // A hero, posed at its feet and turned to its facing. Its animation is a function of this data (game/views/hero.gd):
 // a one-shot action at its age (an attack, an ability, a pick-up, a throw, a revive, going down), else a gait picked
 // from its velocity in its own frame. A hero down shows a ring that fills as its revive comes on, none while heaved.
-// A hero lying as a ragdoll is posed on the floor under its pelvis and shows only its ring: its ragdoll's view
+// A hero lying as a ragdoll is posed on the floor under its pelvis and shows only its ring and light: its ragdoll's view
 // (View_Ragdoll) shows the body.
 View_Hero :: struct {
 	velocity:       [2]f32, // metres per second in the hero's frame: x to its right, y ahead
@@ -202,17 +202,16 @@ fill_frame :: proc(f: ^Frame) {
 	fill_hud(f)
 }
 
-// Every present hero: at its feet (a ragdolled one's pelvis, dropped by the pelvis's radius: the floor it lies on),
-// turned as shown_facing says, posed by its action, its revive's progress and its heave.
+// Every present hero: at its feet (a ragdolled one's on the floor under its pelvis, g.floor_under: where its ring and
+// light lie), turned as shown_facing says, posed by its action, its revive's progress and its heave.
 fill_heroes :: proc(f: ^Frame) {
-	pelvis, _ := physics.ragdoll_capsules(.Pelvis, g.RAGDOLL_SCALE)
 	heroes := sim.iterate_present(&f.state.players)
 	for hero, player in sim.next(&heroes) {
 		facing := shown_facing(f, hero, player)
 		right := [2]f32{-facing.y, facing.x} // a model faces +Z: its right is -X
 		ragdoll := g.ragdolled(hero)
 		godot.push_view(f, player, {
-			pos  = sim.Position(hero.pos - {0, pelvis[0].radius, 0} if ragdoll else hero.pos),
+			pos  = sim.Position(g.floor_under(f.world.phys, hero.pos) if ragdoll else hero.pos),
 			rot  = dmath.quat_yaw(facing),
 			warp = g.hero_warp(f.world.phys, hero),
 		}, View_Hero {
@@ -310,8 +309,9 @@ shown_facing :: proc(f: ^Frame, hero: ^g.Hero, player: sim.Player) -> [2]f32 {
 // The root is posed at the pelvis, turned as the pelvis is from its rest pose (a ragdoll lying as it was made, upright
 // and facing +Z, poses its root unturned), so the host interpolates the body as a whole; the bones are data in the
 // root's frame, which the script turns the rig's bones by: the torso's (the pelvis, the spine, the chest, the head) by
-// `turns`, each limb's to point along `reaches` (a limb's twist is the parent's: the rig's rest pose, a T-pose, is
-// not the ragdoll's, so a limb follows its direction rather than its turn).
+// `turns`, each limb's by `turns` after the turn that takes its rest direction onto the ragdoll bone's at rest (from
+// `reaches`: the rig's rest pose is a T-pose, the ragdoll's arms hang down), so a knee or an elbow bends in its own
+// plane. `time` is the tick the bones are of: the script interpolates them between two ticks, as the host does the root.
 View_Ragdoll :: struct {
 	// Each bone's rotation from its rest pose (physics.ragdoll_rest_pose, facing +Z), in the root's frame: the
 	// pelvis's is none.
@@ -319,6 +319,7 @@ View_Ragdoll :: struct {
 	// Each bone's direction, a unit vector in the root's frame, from its joint (its body's origin) to the far end of its
 	// capsule.
 	reaches: [physics.Ragdoll_Bone][3]f32,
+	time:    sim.Game_Time, // the tick of `turns` and `reaches`
 	class:   g.Class, // EnumClass: which character the view shows
 	_pad:    [3]u8,
 }
@@ -334,6 +335,7 @@ fill_ragdolls :: proc(f: ^Frame) {
 		root := dmath.quat_mul(physics.body_rotation(f.world.phys, pelvis), conjugate(rest[.Pelvis].q))
 		into_root := conjugate(root)
 		data := View_Ragdoll {
+			time  = f.time,
 			class = hero.class,
 		}
 		for body, bone in hero.ragdoll.bones {

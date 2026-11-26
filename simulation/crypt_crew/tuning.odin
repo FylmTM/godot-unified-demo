@@ -504,13 +504,21 @@ ELITE_GOLD := [Elite_Kind]int {
 
 RAGDOLL_SCALE :: HERO_HEIGHT / 1.8 // unified's ragdoll is a 1.8 m human: this makes it as tall as a hero's capsule
 RAGDOLL_MASS :: f32(60) // kilograms: its bones' density is what weighs it this (a heaved body's HEAVE_MASS)
-RAGDOLL_KICK :: f32(3) // metres per second away from the blow that downed it, on top of the hero's own velocity
+RAGDOLL_KICK :: f32(3) // metres per second away from the blow that downed it, on top of the hero's own velocity ...
+RAGDOLL_CARRY_MAX :: f32(4) // ... of which it carries at most this much (a charge doesn't fling a body into a horde)
+RAGDOLL_TIP :: f32(0.8) // a blow from no side (a dev hurt, a rejoin while down) tips it backwards this fast instead
 // Torque each joint's motor holds against (Ragdoll_Def.friction_torque, newton-metres): the sample's 5 for a 146 kg
 // body, scaled to this one's weight, so a fallen body neither flops like cloth nor holds a pose like a doll.
 RAGDOLL_FRICTION_TORQUE :: f32(2)
 // Its joints' springs back toward the standing pose it was made in (0: none, it lies as it falls).
 RAGDOLL_HERTZ :: f32(0)
 // A revived hero stands on the walkable floor's point nearest the floor under its pelvis (found within
-// RAGDOLL_FLOOR_BELOW of it, through a tomb's top or a wall the body lies on), within RAGDOLL_SNAP of it.
+// RAGDOLL_FLOOR_BELOW of it, through a tomb's top or a wall the body lies on), within RAGDOLL_SNAP of it; failing that
+// (a body on a wide tomb's top), on the nearest of the spots RAGDOLL_RINGS rings round it, RAGDOLL_RING apart, find.
 RAGDOLL_SNAP :: f32(3)
 RAGDOLL_FLOOR_BELOW :: f32(10)
+RAGDOLL_RING :: f32(0.75)
+RAGDOLL_RINGS :: 5
+// A ragdoll this far below the floor's navigation mesh has fallen out of the level: it goes, and its hero lies at its
+// spawn. Deep enough for anything a floor lowers a body through (a lift's ride).
+RAGDOLL_KILL_DEPTH :: f32(20)

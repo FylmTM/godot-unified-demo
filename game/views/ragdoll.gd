@@ -5,22 +5,23 @@ extends Node3D
 ## (game/characters/heroes/) bone by bone on its Rig_Medium skeleton.
 ##
 ## The ragdoll's bones aren't the rig's: its rest pose stands with its arms down, the rig's is a T-pose, and the rig's
-## legs are shorter (a KayKit hero's big head). So the torso's bones (hips, spine, chest, head) take the ragdoll's
-## bones' turns from their rest pose as they are (both stand upright, facing +Z), and each limb bone is swung, the least
-## turn from where its parent's turn carries its rest direction, to point along its ragdoll bone (the data's
-## `reaches`): its twist is its parent's. The rig rides the root with its hip joints on the pelvis. The pose is a function of the data
-## alone, set when the data changes, so a rollback or a replay seek shows what the state says; the host interpolates
-## the root between ticks. It lingers not at all (its marker's linger_s): a revived hero's own view stands up where the
-## body lay that very tick, and two bodies would show.
+## legs are shorter (a KayKit hero's big head). Each rig bone takes its ragdoll bone's turn from its rest pose (the
+## data's `turns`); a limb's first the turn that takes the rig's rest direction onto the ragdoll bone's rest direction
+## (its reach turned back by its turn: the same whatever the pose), so an arm hanging at rest hangs, and a knee or an
+## elbow bends in its own plane. The rig rides the root with its hip joints on the pelvis. The pose is a function of the
+## data and the shown time alone: each bone's turn eases from what is shown when new data comes to the data's, by the
+## shown time reaching the data's tick (`time`), as the host moves the root between ticks, so a tumble doesn't step at
+## the tick rate, and a rollback or a replay seek lands on what the state says. It lingers not at all (its marker's
+## linger_s): a revived hero's own view stands up where the body lay that very tick, and two bodies would show.
 
 ## The rig's bone each ragdoll bone poses, in physics.Ragdoll_Bone's order (unified's ragdoll.odin): the torso's four
-## first, turned whole, then the limbs.
+## first, then the limbs.
 const BONES: Array[StringName] = [
 	&"hips", &"spine", &"chest", &"head",
 	&"upperleg.l", &"lowerleg.l", &"upperleg.r", &"lowerleg.r",
 	&"upperarm.l", &"lowerarm.l", &"upperarm.r", &"lowerarm.r",
 ]
-## How many of BONES are the torso's (turned whole); the rest are limbs (swung along their reach).
+## How many of BONES are the torso's (their rest directions match the rig's: upright).
 const TORSO: int = 4
 ## The rig's bone each limb of BONES points at (its rest direction runs from the limb's bone to this one), by BONES'
 ## index.
@@ -44,7 +45,7 @@ var data: ViewRagdoll:
 			return
 		if class_changed:
 			_show_class()
-		_pose()
+		_aim()
 
 var _rig: CharacterRig
 var _skeleton: Skeleton3D
@@ -54,30 +55,65 @@ var _bones: PackedInt32Array
 var _parents: PackedInt32Array
 var _rests: Array[Transform3D] = []
 var _directions: PackedVector3Array
+## By BONES' index: each bone's turn as shown when the data last came, and the data's; the shown time then, and the
+## data's tick.
+var _from: Array[Quaternion] = []
+var _to: Array[Quaternion] = []
+var _from_time: float = 0.0
+var _to_time: float = 0.0
+## How far from _from to _to the bones were last posed (0 to 1).
+var _weight: float = 0.0
 
 
 func _ready() -> void:
 	_show_class()
-	_pose()
+	_aim()
 
 
-## Poses the rig from the data: each of BONES in order (a parent before its children) turned from its rest, the
-## torso's by its ragdoll bone's turn, a limb's by the least swing from where its parent's turn carries its rest
-## direction onto its reach, then its parent's turn; its local pose rotation is what that leaves of its parent's.
-func _pose() -> void:
-	var turns: Array = data.turns
-	var reaches: Array = data.reaches
-	var turned: Array[Quaternion] = []
+func _process(_delta: float) -> void:
+	var now: float = Unified.session.shown_time
+	var weight: float = 1.0 if _to_time <= _from_time else clampf((now - _from_time) / (_to_time - _from_time), 0.0, 1.0)
+	_pose(weight)
+
+
+## New data: each bone eases from where it is shown now to the data's turn (_turn), by the shown time reaching its tick.
+func _aim() -> void:
+	var shown: Array[Quaternion] = []
+	if _to.size() == BONES.size():
+		for i: int in BONES.size():
+			shown.append(_shown(i))
+	_from_time = Unified.session.shown_time
+	_to_time = float(data.time)
+	_to.clear()
+	for i: int in BONES.size():
+		_to.append(_turn(i))
+	_from = shown if not shown.is_empty() else _to.duplicate()
+	_pose(0.0)
+
+
+## The turn of bone `i` of BONES from its rest pose, in the root's frame, as the data has it: its ragdoll bone's turn,
+## a limb's after the turn from the rig's rest direction onto the ragdoll bone's (its reach turned back by its turn).
+func _turn(i: int) -> Quaternion:
+	var turn: Quaternion = data.turns[i]
+	if i < TORSO:
+		return turn
+	var reach: Vector3 = data.reaches[i]
+	return turn * Quaternion(_directions[i], turn.inverse() * reach)
+
+
+## Bone `i`'s turn as shown now: as far from its old turn to the data's as _process last posed it.
+func _shown(i: int) -> Quaternion:
+	return _from[i].slerp(_to[i], _weight)
+
+
+## Poses the rig `weight` of the way from the turns shown when the data came to the data's: each of BONES in order (a
+## parent before its children), its global rest turned, its local pose rotation what that leaves of its parent's.
+func _pose(weight: float) -> void:
+	_weight = weight
 	var globals: Array[Basis] = []
 	for i: int in BONES.size():
+		globals.append(Basis(_shown(i)) * _rests[i].basis)
 		var parent: int = _parents[i]
-		var parent_turn: Quaternion = Quaternion.IDENTITY if parent < 0 else turned[parent]
-		var turn: Quaternion = turns[i]
-		if i >= TORSO:
-			var reach: Vector3 = reaches[i]
-			turn = Quaternion(parent_turn * _directions[i], reach) * parent_turn
-		turned.append(turn)
-		globals.append(Basis(turn) * _rests[i].basis)
 		var parent_global: Basis = (_skeleton.get_bone_global_rest(_skeleton.get_bone_parent(_bones[i])).basis
 			if parent < 0 else globals[parent])
 		_skeleton.set_bone_pose_rotation(_bones[i], (parent_global.inverse() * globals[i]).get_rotation_quaternion())

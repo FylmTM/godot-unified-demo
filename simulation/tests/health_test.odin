@@ -232,7 +232,8 @@ a_leaver_comes_back_as_it_left :: proc(t: ^testing.T) {
 	place_hero(&run, 0, spawn_of(&run, 0))
 	place_hero(&run, 1, spawn_of(&run, 0) + {1.1, 0, 0}, {-1, 0})
 	hurt(&run, 1, g.HERO_HP)
-	place_hero(&run, 0, spawn_of(&run, 0), {1, 0})
+	settle(&run)
+	place_hero(&run, 0, on_floor(&run, hero.pos - {1.1, 0, 0}), {1, 0}) // beside where its body came to rest
 	inputs := [g.PLAYERS]g.Input {
 		0 = {buttons = {.Interact}},
 	}
