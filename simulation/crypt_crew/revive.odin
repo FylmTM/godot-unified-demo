@@ -80,7 +80,7 @@ revive_heroes :: proc(t: ^Tick) {
 }
 
 // `player`'s hero, down, rises where it lies at REVIVE_HP, in its grace, revived by `by` (a heaved one let go of first:
-// end_hero_heave, so no hero up hangs on a hold; one lying as a ragdoll stands up from it, stand_up). Whoever was
+// end_hero_heave, so no hero up hangs on a hold; it stands up from its ragdoll, stand_up). Whoever was
 // tending it stops, unless another hero down is in its range (revive_target): it carries on there, its Interact still
 // held.
 revive_hero :: proc(t: ^Tick, player: sim.Player, by: sim.Player) {

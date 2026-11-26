@@ -2,11 +2,12 @@
 // gave as its cast left (Fireball.to), over anything between, bursting there FIREBALL_FLIGHT_S after the cast. Its
 // flight is the view's (a parabola from `from` to `to` at its age): the rules only wait it out, so where it lands is
 // known from the cast on. The burst is a blast twice over: on the skeletons through knock_area (FIREBALL_DAMAGE and a
-// knock away from it, a Warrior's guard broken first), and on the Box3D bodies of the props, the elites, the hoard,
-// the downed heroes' ragdolls and the barricades as an impulse (blast_bodies; a barricade it reaches breaks), which
-// rolls back with the rest of the physics; walls shield both, by the same ray from the blast's heart. (Box3D's own explosion, world_explode, sees through walls: docs/plan.md, Needed from unified.)
-// fireball_target is both what the cast reads and what the view's landing ring shows, on the newest local input, so
-// the ring is where the fireball will land.
+// knock away from it, a Warrior's guard broken first), and on the Box3D bodies of the props, the elites, the downed
+// heroes' ragdolls and the barricades as an impulse (blast_bodies; a barricade it reaches breaks), which rolls back
+// with the rest of the physics; walls shield both, by the same ray from the blast's heart. The hoard goes where it is
+// hauled: no blast moves it. (Box3D's own explosion, world_explode, sees through walls: docs/plan.md, Needed from
+// unified.) fireball_target is both what the cast reads and what the view's landing ring shows, on the newest local
+// input, so the ring is where the fireball will land.
 package crypt_crew
 
 import "unified:dmath"
@@ -26,9 +27,9 @@ Event_Fireball_Burst :: struct {
 	position: sim.Position,
 }
 
-// Where a fireball cast by `hero` on `input` lands: along where the input turns the hero (hero_facing: its aim, else its
-// move, else its facing), as far as the aim reaches (Input.reach) up to FIREBALL_RANGE, or FIREBALL_NO_AIM without a
-// reach; a wall on the way, met by a ray at FLIGHT_HEIGHT, brings it down FIREBALL_WALL_GAP short of the wall. On the
+// Where a fireball cast by `hero` on `input` lands: along where the input turns the hero (hero_facing: its aim, else
+// its move, else its facing), as far as the aim reaches (Input.reach) up to FIREBALL_RANGE, or FIREBALL_NO_AIM without
+// a reach; a wall on the way, met by a ray at FLIGHT_HEIGHT, brings it down FIREBALL_WALL_GAP short of the wall. On the
 // floor beneath the hero's feet. Pure: what the cast (cast_fireball) and the view's ring both ask.
 fireball_target :: proc(phys: ^physics.World, hero: ^Hero, input: Input) -> [3]f32 {
 	dir := hero_facing(input, hero.facing)
@@ -91,9 +92,9 @@ burst_fireball :: proc(t: ^Tick, fireball: ^Fireball) {
 // blast reaches (blast_impulse) takes its impulse; a sleeping elite it reaches wakes first (rouse_elite: its dormant
 // character a body an impulse moves again). The impulse is the same on every body, so a light prop skids and hops while
 // an elite, at its weight, barely shifts on top of the knock the blast already gave it (knock_area: a skeleton's rule);
-// the two add up to ELITE_KNOCK_MAX at most, and a held elite takes neither (shove_elite). Then the hoard, unheld
-// (blast_hoard), each downed hero's ragdoll nobody heaves (blast_ragdoll) and each barricade (blast_barricades: one
-// standing breaks, its debris blown away).
+// the two add up to ELITE_KNOCK_MAX at most, and a held elite takes neither (shove_elite). Then each downed hero's
+// ragdoll nobody heaves (blast_ragdoll: a heaved one the hold keeps) and each barricade (blast_barricades: one standing
+// breaks, its debris blown away).
 @(private = "file")
 blast_bodies :: proc(t: ^Tick, heart: [3]f32, caster: sim.Player) {
 	props := sim.iterate(&t.state.props)
@@ -111,7 +112,6 @@ blast_bodies :: proc(t: ^Tick, heart: [3]f32, caster: sim.Player) {
 			shove_elite(t, elite, impulse / physics.body_mass(t.world.phys, elite.body.body))
 		}
 	}
-	blast_hoard(t, heart)
 	heroes := sim.iterate_present(t)
 	for hero in sim.next(&heroes) {
 		if !ragdolled(hero) || hero.heave != .None do continue
@@ -120,19 +120,6 @@ blast_bodies :: proc(t: ^Tick, heart: [3]f32, caster: sim.Player) {
 		}
 	}
 	blast_barricades(t, heart, caster)
-}
-
-// The blast on the hoard, if it has one nobody holds and the blast reaches it: it weighs HOARD_MASS as a hand had taken
-// it (at HOARD_REST_MASS the impulse would barely stir it) and takes the impulse, so it skids a stride or so; it
-// weighs its rest again once it has settled (settle_hoard).
-@(private = "file")
-blast_hoard :: proc(t: ^Tick, heart: [3]f32) {
-	hoard := &t.state.hoard
-	if hoard.body == {} || hoard.haulers != {} do return
-	impulse, reached := blast_impulse(t, heart, hoard.body)
-	if !reached do return
-	unrest_hoard(t.world.phys, hoard)
-	physics.body_apply_linear_impulse_to_center(t.world.phys, hoard.body, impulse)
 }
 
 // The blast's `impulse` on a ragdoll: each bone its share by its mass, so the whole body moves off together (at the

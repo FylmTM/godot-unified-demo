@@ -696,8 +696,9 @@ strong_back_hauls_faster :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// A downed hero's ragdoll rides the deck down with the party: aboard (its pelvis over the deck) from the boarding to the
-// bottom, never left at the top nor fallen out of the level (RAGDOLL_KILL_DEPTH is far below the shaft's LIFT_DROP).
+// A downed hero's ragdoll rides the deck down with the party: aboard (its pelvis over the deck) from the boarding to
+// the bottom, never left at the top nor fallen out of the level (RAGDOLL_KILL_DEPTH is far below the shaft's
+// LIFT_DROP).
 @(test)
 a_downed_body_rides_the_lift_down :: proc(t: ^testing.T) {
 	run := quiet_run(2)
@@ -749,10 +750,10 @@ a_hero_downed_on_the_lift_arrives_up :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// A Barbarian heaves a downed ally's ragdoll and throws it onto the waiting deck from across the room, then walks aboard
-// itself: the body comes down on the deck and slides into the hoard resting across its far edge (a thrown body lands
-// some ten metres off at a throw's speed, and would slide on off the 4 m deck) and lies there, and with the hoard aboard the lift boards (a downed hero
-// aboard counts as aboard, however it got there).
+// A Barbarian heaves a downed ally's ragdoll and throws it onto the waiting deck from across the room, then walks
+// aboard itself: the body comes down on the deck and slides into the hoard resting across its far edge (a thrown body
+// lands some ten metres off at a throw's speed, and would slide on off the 4 m deck) and lies there, and with the hoard
+// aboard the lift boards (a downed hero aboard counts as aboard, however it got there).
 @(test)
 a_heaved_ragdoll_thrown_onto_the_deck_boards :: proc(t: ^testing.T) {
 	run := quiet_run(2)
@@ -789,5 +790,194 @@ a_heaved_ragdoll_thrown_onto_the_deck_boards :: proc(t: ^testing.T) {
 	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Waiting) // the Barbarian is still off it
 	place_hero(&run, 0, deck_point(&run, {1, 0, 1} * g.LIFT_SLOT_SPREAD))
 	testing.expect(t, until_lift(&run, .Boarding, 1), "the lift boards with the thrown body aboard")
+	scenarios.expect_synced(t, &run)
+}
+
+// A lone hauler drags the hoard toward the vault's gate, from Floor 1's marker and from a metre past the vault's tile
+// seam (x = 28), whenever its grab comes (every tick of the first LONE_HAUL_TIMINGS after it is put beside the handle:
+// the hoard's rest and the hauler's settling at every phase): the dragged end slides over the floor tiles' seams,
+// never catching on one, so the hold never slips and the hoard comes LONE_HAUL_DISTANCE toward the gate (shut: the
+// hauler stops at it).
+@(test)
+a_lone_hauler_drags_the_hoard_toward_the_gate :: proc(t: ^testing.T) {
+	gate_x := f32(0)
+	for from_seam in ([]bool{false, true}) do for timing in 0 ..= LONE_HAUL_TIMINGS {
+		run := quiet_run(1, in_vault = true)
+		defer headless.run_end(&run)
+		state := &run.simulation.state
+		phys := run.simulation.world.phys
+		gate_x = sim.slice(&floor_of(&run).places.gates)[0].pos.x
+		if from_seam {
+			physics.body_teleport(phys, state.hoard.body, {29, g.HOARD_HALF.y, -2})
+			headless.run_pin(&run)
+		}
+		beside_handle(&run, 0, .Left)
+		for _ in 0 ..< timing do headless.run_step(&run)
+		press(&run, 0, .Interact)
+		hero := sim.slot_data(run.simulation, 0)
+		from := physics.body_position(phys, state.hoard.body)
+		walk(&run, {0}, {-127, 0}, 3)
+		moved := from.x - physics.body_position(phys, state.hoard.body).x
+		slips := headless.run_events(&run, g.Event_Hoard_Dropped) // nothing but a slip lets go here
+		ok := slips == 0 && hero.handle == .Left && moved > LONE_HAUL_DISTANCE
+		testing.expectf(t, ok, "from the seam %v, grabbed %d ticks in: %d slips, dragged %v m", from_seam, timing, slips, moved)
+		if !ok do return
+	}
+	testing.expect(t, gate_x != 0, "Floor 1 has its vault gate")
+}
+
+// The lone haul's grab timings (ticks), and how far it drags the hoard in three seconds at least (metres).
+LONE_HAUL_TIMINGS :: 48
+LONE_HAUL_DISTANCE :: f32(2.5)
+
+// Boarding (dev_board) while a Barbarian heaves a downed ally, held or thrown, lets the heave go first: the Barbarian
+// stands free, the ally lies anew on the deck, nobody's heave, and no joint is left on the bones that went (no crash,
+// check_refs after every restore).
+@(test)
+boarding_lets_go_of_a_heave :: proc(t: ^testing.T) {
+	for thrown in ([]bool{false, true}) {
+		run := quiet_run(2)
+		defer headless.run_end(&run)
+		headless.run_command(&run, 0, g.Command_Dev_Set_Class{.Barbarian})
+		barbarian := sim.slot_data(run.simulation, 0)
+		ally := sim.slot_data(run.simulation, 1)
+		place_hero(&run, 0, {6, 0, -4}, {1, 0})
+		place_hero(&run, 1, {6 + GRAB_AHEAD, 0, -4})
+		hurt(&run, 1, g.HERO_HP)
+		press(&run, 0, .Ability)
+		testing.expect_value(t, ally.heave, g.Heave_Phase.Held)
+		if thrown {
+			press(&run, 0, .Attack)
+			for _ in 0 ..< g.THROW_WINDUP_TICKS do headless.run_step(&run)
+			testing.expect_value(t, ally.heave, g.Heave_Phase.Thrown)
+		}
+		board(&run)
+		if !thrown do testing.expect_value(t, barbarian.action, g.Action.None) // let go of, not still heaving
+		testing.expect_value(t, barbarian.heaved, g.Heaved{})
+		testing.expect_value(t, ally.heave, g.Heave_Phase.None)
+		testing.expect(t, g.ragdolled(ally), "the ally lies as a ragdoll")
+		testing.expect(t, g.on_deck(run.simulation.world.phys, &run.simulation.state.lift, ally.pos), "on the deck")
+		play(&run, {}, 0.5)
+		scenarios.expect_synced(t, &run)
+	}
+}
+
+// An arrival never lands in the hoard: with the party's hero standing an arrival ring out from the hoard, in the
+// direction the arriving slot tries first (ARRIVAL_SLOT_TURN), the arrival stands clear of HOARD_FOOTPRINT.
+@(test)
+an_arrival_lands_clear_of_the_hoard :: proc(t: ^testing.T) {
+	run := quiet_run(1)
+	defer headless.run_end(&run)
+	phys := run.simulation.world.phys
+	hoard := [3]f32{8, 0, -7} // the great hall's open floor
+	physics.body_teleport(phys, run.simulation.state.hoard.body, hoard + {0, g.HOARD_HALF.y, 0})
+	dir := dmath.DIR8[g.ARRIVAL_SLOT_TURN % len(dmath.DIR8)] // slot 1's first
+	place_hero(&run, 0, hoard - [3]f32{dir.x, 0, dir.y} * g.ARRIVAL_RING)
+	headless.run_seat(&run, 1, 2)
+	headless.run_step(&run)
+	arrived := sim.slot_data(run.simulation, 1)
+	apart := dmath.length(arrived.pos.xz - hoard.xz)
+	testing.expectf(t, apart >= g.HERO_RADIUS + g.HOARD_FOOTPRINT, "arrived %v m from the hoard's middle", apart)
+	scenarios.expect_synced(t, &run)
+}
+
+// The ways the hoard is hauled, each level's, as points along the floor: Floor 1's out of the vault through the
+// spike gallery to the lift, and out of it through the passage (the barricade broken) to the lift; the workshop's out
+// of its vault, between its plates, to its lift.
+@(private = "file")
+HAUL_LANES := [?]struct {
+	level:  g.Level_Id,
+	what:   string,
+	points: [][2]f32,
+} {
+	{
+		.Floor_1,
+		"the gallery",
+		{{30, -2}, {21.5, -2}, {16, -2.2}, {12, -3.6}, {4, -3.6}, {0, -2}, {-8, -2}, {-12, -3}, {-16, -4}},
+	},
+	{
+		.Floor_1,
+		"the passage",
+		{{30, -2}, {21.5, -2}, {20.7, -2.6}, {20.7, -6}, {14.5, -6}, {13, -4.2}, {12, -3.6}, {4, -3.6}},
+	},
+	{.Workshop, "the workshop", {{-6, -6.4}, {-6, 0.2}, {1, 0.2}, {2, 2}}},
+}
+
+// Every haul lane (HAUL_LANES) is clear for a dragged hoard all along: its box, lengthwise along the lane (as a hauler
+// drags it), every HAUL_LANE_STEP of the way, meets no wall or low cover from a hand over the floor up, and no plate's
+// slab under it (a dragged end catches on the slab's edge: a plate belongs off the hoard's lanes).
+@(test)
+every_haul_lane_is_clear :: proc(t: ^testing.T) {
+	for lane in HAUL_LANES {
+		run := headless.run_begin(&g.GAME, 1, g.Setup{floor = lane.level})
+		defer headless.run_end(&run)
+		phys := run.simulation.world.phys
+		out: [dynamic]physics.Overlap
+		defer delete(out)
+		plates := sim.slice(&floor_of(&run).places.plates)
+		blocked := false
+		for k in 0 ..< len(lane.points) - 1 {
+			a, b := lane.points[k], lane.points[k + 1]
+			along := dmath.normalize(b - a)
+			across := [2]f32{-along.y, along.x}
+			steps := int(dmath.length(b - a) / HAUL_LANE_STEP) + 1
+			for s in 0 ..= steps {
+				at := a + (b - a) * (f32(s) / f32(steps))
+				corners: [8][3]f32
+				for &corner, c in corners {
+					x := (f32(c & 1) * 2 - 1) * g.HOARD_HALF.x
+					z := (f32((c >> 1) & 1) * 2 - 1) * g.HOARD_HALF.z
+					y := f32(c >> 2) * 2 * g.HOARD_HALF.y
+					foot := along * x + across * z
+					corner = {foot.x, y, foot.y}
+				}
+				box := physics.make_proxy(corners[:], 0)
+				filter := physics.Filter {
+					category = g.CAT_HOARD,
+					mask     = g.CAT_WALL | g.CAT_LOW,
+				}
+				physics.world_overlap_shape(phys, {at.x, 0.05, at.y}, box, &out, filter)
+				if len(out) > 0 {
+					testing.expectf(t, false, "%s: the hoard meets a wall at %v", lane.what, at)
+					blocked = true
+				}
+				for plate in plates {
+					for corner in corners {
+						point := [3]f32{at.x + corner.x, 0, at.y + corner.z}
+						if g.within_square(plate.pos, plate.rot, g.PLATE_HALF.x, point) {
+							testing.expectf(t, false, "%s: the hoard drags over the plate at %v", lane.what, plate.pos)
+							blocked = true
+							break
+						}
+					}
+				}
+				if blocked do break
+			}
+			if blocked do break
+		}
+	}
+}
+
+// How far apart the haul lanes are checked (metres).
+HAUL_LANE_STEP :: f32(0.1)
+
+// Boarding (dev_board) lets go of every hold: a hauler's handle and a carried prop, as a heave's (above), so nobody
+// stands on the deck still holding a hoard or a crate the board moved.
+@(test)
+boarding_lets_go_of_every_hold :: proc(t: ^testing.T) {
+	run := quiet_run(2)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	beside_handle(&run, 0, .Left)
+	press(&run, 0, .Interact)
+	carrier := sim.slot_data(run.simulation, 1)
+	place_hero(&run, 1, {2.4, 0, -4}, {0, 1}) // facing the crate by the corridor's mouth
+	place_prop(&run, CRATE, {2.4, 0, -2.9})
+	press(&run, 1, .Interact)
+	testing.expect(t, sim.slot_data(run.simulation, 0).handle == .Left && carrier.held != {}, "a hauler and a carrier")
+	board(&run)
+	testing.expect_value(t, state.hoard.haulers, [2]sim.Player{})
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).handle, g.Haul_Handle.None)
+	testing.expect_value(t, carrier.held, sim.Handle(g.Prop){})
 	scenarios.expect_synced(t, &run)
 }

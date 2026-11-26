@@ -871,8 +871,8 @@ capsule dormant; the revive at the floor by the pelvis; the heave of a ragdoll i
   lift's ride). RAGDOLL_FRICTION_TORQUE 2 N·m and RAGDOLL_HERTZ 0 (limp) added.
 - The revive's floor is found by a ray down from the pelvis to CAT_FLOOR (RAGDOLL_FLOOR_BELOW 10 m) before
   floor_spot; where floor_spot refuses it (a tomb's top nearer than the floor), the nearest spot of RAGDOLL_RINGS 5
-  rings RAGDOLL_RING 0.75 m apart round it (the arrival's way); else the reviver's (or the heaving Barbarian's) floor;
-  the spawn only for a body with neither. A ragdoll with no such spot isn't heavable (none found on Floor 1).
+  rings RAGDOLL_RING 0.75 m apart round it (the arrival's way); else the reviver's floor; the spawn only for a body
+  with neither.
 - The view: View_Ragdoll keyed by its player, posed at the pelvis turned from its rest pose; every rig bone takes its
   ragdoll bone's turn, a limb's after the constant turn from the rig's T-pose direction to the ragdoll's rest
   direction, so knees and elbows bend in their own plane; the bones ease between ticks to the data's tick. It lingers
@@ -944,35 +944,40 @@ Step 4, the joins (beyond the design's decided calls):
 
 - A hero is down exactly while it lies as a ragdoll: the heave holds the chest bone (its bones keep their gravity; the
   hold's cap is HEAVE_MASS's, RAGDOLL_MASS asserted equal), a throw is `ragdoll_set_velocity`, a thrown body lands once
-  its pelvis falls within RAGDOLL_LAND_REACH 0.5 m of the floor; a body fallen out of the level is laid anew as a
-  ragdoll at its spawn (was: its capsule there). settle_ragdolls leaves a heaved ragdoll alone (the hold joins its
-  island to the Barbarian's). The hero view's death clip went with it.
+  its pelvis falls within RAGDOLL_LAND_REACH 0.5 m of the floor and keeps RAGDOLL_LAND_KEEP 0.15 of its bones'
+  velocity there (it rests within a metre or so, as a thrown elite does); a body fallen out of the level is laid anew
+  as a ragdoll at its spawn (was: its capsule there), a heave on it let go of first. The hero view's death clip went.
 - The fireball's blast: a barricade it reaches breaks outright (no body touches it for break_barricades to read) and
-  its fence is blown away, debris too; a ragdoll nobody heaves takes it bone by bone by mass; the hoard, unheld,
-  weighs HOARD_MASS again as a hand had taken it (at HOARD_REST_MASS the push is nothing) and skids about 1.4 m, its
-  rest back once settled. So a Mage can nudge the hoard toward the lift: keep, or leave the hoard out of the blast?
+  its fence is blown away, debris too; a ragdoll nobody heaves takes it bone by bone by mass (a held one the hold
+  keeps). Decided in review: the hoard takes none (it goes where it is hauled), and the fence's debris lets the hoard
+  through (DEBRIS_FILTER: a prop to all but CAT_HOARD), so a broken fence never blocks the passage's haul.
 - A thrown ragdoll breaks a barricade as a thrown elite does (CAT_RAGDOLL contact).
 - Floor 1's east wing: the corridor widened to an 8 m spike gallery (a roller needs a hero's width each side, and a
   4 m corridor's walls leave 0.75 m beside a 1.5 m pillar), spikes on its west column (phases 0 and 1.5 s), the roller
   across its middle, the vault (x 24 to 32) behind the gate where the WallGated stood, and a passage north of the
-  gallery closed at the hall by the barricade: the way round the traps. Plates: one in the passage, one in the
-  gallery's south-east corner, both clear of the haul's lanes. Pack2 sleeps in the vault; Grave6 by the gallery's
-  plate; the corridor's crate in the passage; the pillars at the pieces' ends gone (a dynamic piece overlapping one
-  is pushed for good: a plate under a pillar stood pressed, which every_plate_rests_released now catches).
-- A plate's slab rests 13 cm up: a dragged hoard catches on its edge and slips, so a level keeps plates off the
-  haul's lanes (the workshop's vault plates moved apart for it). And a broken fence lies loose across the passage's
-  gap, where a dragged hoard catches on it too: heroes can shove it, the bot doesn't, so the bot hauls through the
-  gallery, waiting out the spikes. Worth a call: debris that lets the hoard through, or that fades.
+  gallery closed at the hall by the barricade: the way round the traps. Plates: one against the passage's east wall,
+  one in the gallery's south-east corner, both off the hoard's lanes. The hoard mid-tile in the vault, Pack2 beside
+  it; Grave6 between the spike tiles (off the plate); the corridor's crate in the passage; the pillars at the pieces'
+  ends gone (a dynamic piece overlapping one is pushed for good: a plate under a pillar stood pressed).
+- A plate's slab rests 13 cm up and a dragged hoard catches on its edge, so a level keeps plates off the hoard's
+  lanes; every_haul_lane_is_clear sweeps a hoard's box along each level's lanes (the workshop's vault plates moved
+  apart for it). Decided in review: the hoard is a hull with chamfered bottom edges (HOARD_CHAMFER 0.2 m): a box's
+  dragged end caught on the seam between two floor tiles (Box3D's contact on an internal edge) and slipped; a lone
+  haul from the marker and from a metre past a seam now holds at every grab timing.
+- Decided in review: low cover on a level's edge (Floor 1's south fences, the arena's) carries an invisible wall to a
+  wall's height (each level's `Rims`, StaticBody3D in CAT_WALL, not kit parts: no model to hold a collider to), so a
+  throw over it no longer falls out and lies 36 m off at its spawn.
+- settle_ragdolls has no heave guard: a held ragdoll is never still (its hold's spring keeps it swinging), so the
+  guard could never act; a test holds that it never sleeps. The heave's explicit wake went too: the hold's joint wakes
+  a sleeping ragdoll with its island (a test heaves one asleep).
+- Boarding (dev_board) lets go of every hold first (a heave's, a hauler's, a carrier's): it crashed on a held body.
+  An arrival keeps HOARD_FOOTPRINT clear of the hoard.
 - The workshop: the lift's shaft at (2, 2), the hoard in its vault. A descent from it goes to FLOOR_ORDER's floor.
 - Crowd.Wipe (the crowd_wipe row): the fight with the heroes' damage on and no wipe restart under a held crowd.
-- The bot: two stand on the plates (by way of the gate's front: the navigation can't close the barricade's edge), the
-  Mage fireballs the barricade, the Knight drags the hoard out of the vault and through the gallery to the lift,
-  everyone boards, each picks; it waits for spikes about to rise and works round what catches the hoard. The way out
-  is its own test on a quiet floor (the_bots_take_the_floors_way_out): under the playthrough's dev spawns and downs
-  the party wipes before the hoard arrives; the playthrough checks the plates and the barricade.
-- `coop.gd` has no vault or haul beat yet: a version that walked both heroes to the plates (NavigationServer3D paths)
-  passed its vault beat, but its later beats on the joiner went wrong after that walk (the joiner's own hero view, as
-  `get_player_view` hands it back, was seen out of the tree for seconds; a level marker held across frames freed), and
-  a two-process carry of the hoard never held together. Not understood yet: worth an issue on godot-unified once it
-  is (the attempt is kept out of the repo).
-
+- The bot: two stand on the plates (by way of the gate's front while the barricade stands across the way: the
+  navigation can't close its edge), the Mage fireballs the barricade, the Knight drags the hoard out of the vault and
+  through the gallery to the lift, everyone boards, each picks; it waits for spikes about to rise and works round what
+  catches the hoard. The way out is its own test on a quiet floor (the_bots_take_the_floors_way_out): under the
+  playthrough's dev spawns and downs the party wipes before the hoard arrives; the playthrough checks the plates and
+  the barricade.
+- `coop.gd` has no vault or haul beat yet (another branch's work).

@@ -37,8 +37,9 @@ hero_up :: proc(t: ^Tick, player: sim.Player) -> bool {
 }
 
 // `player`'s hero takes `damage` from something at `from`, unless it is down or in its grace, or a crowd is held but
-// for Wipe (director.odin, Crowd), or the lift has gone down (lift_gone: the floor is won); a roll's safe start lets it all by, a shield takes its share (guarded_damage). A hurt hero tending an ally
-// breaks off the revive. At 0 HP it goes down.
+// for Wipe (director.odin, Crowd), or the lift has gone down (lift_gone: the floor is won); a roll's safe start lets it
+// all by, a shield takes its share (guarded_damage). A hurt hero tending an ally breaks off the revive. At 0 HP it goes
+// down.
 damage_hero :: proc(t: ^Tick, player: sim.Player, damage: i16, from: [3]f32) {
 	if damage <= 0 || !hero_up(t, player) || lift_gone(t) do return
 	if t.setup.crowd != .None && t.setup.crowd != .Wipe do return

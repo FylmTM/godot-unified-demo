@@ -239,6 +239,11 @@ a_heave_holds_the_ragdoll_by_its_chest :: proc(t: ^testing.T) {
 	place_hero(&run, 1, start + {1.3, 0, 0})
 	hurt(&run, 1, g.HERO_HP)
 	settle(&run)
+	testing.expect(
+		t,
+		!physics.body_is_awake(phys, ally.ragdoll.bones[.Pelvis]),
+		"asleep on the floor before the heave",
+	)
 	place_hero(&run, 0, on_floor(&run, ally.pos - {1.3, 0, 0}), {1, 0})
 	press(&run, 0, .Ability)
 	testing.expect_value(t, ally.heave, g.Heave_Phase.Held)
@@ -547,4 +552,221 @@ expect_ragdoll_views :: proc(t: ^testing.T, run: ^headless.Run(g.Game), slot: in
 		}
 	}
 	testing.expect(t, shown_hero && shown_ragdoll, "the downed hero has its hero view and its ragdoll's", loc = loc)
+}
+
+
+// ---- the second review: when a ragdoll may sleep, the heave's ends, the edge of the level, a throw's landing
+
+// Steps until the ragdoll of `hero` falls asleep (at most `seconds`), counting the ticks in a row every bone has been
+// still (RAGDOLL_STILL_SPEED, RAGDOLL_STILL_SPIN) up to that tick: the run it slept after, and whether it slept.
+@(private = "file")
+still_run_at_sleep :: proc(run: ^headless.Run(g.Game), hero: ^g.Hero, seconds: f32) -> (still: int, slept: bool) {
+	phys := run.simulation.world.phys
+	for _ in 0 ..< int(seconds * g.TICK_HZ) {
+		was_awake := physics.body_is_awake(phys, hero.ragdoll.bones[.Pelvis])
+		headless.run_step(run)
+		every := true
+		for bone in hero.ragdoll.bones {
+			every &&= dmath.length(physics.body_linear_velocity(phys, bone)) < g.RAGDOLL_STILL_SPEED
+			every &&= dmath.length(physics.body_angular_velocity(phys, bone)) < g.RAGDOLL_STILL_SPIN
+		}
+		still = still + 1 if every else 0
+		if was_awake && !physics.body_is_awake(phys, hero.ragdoll.bones[.Pelvis]) do return still, true
+	}
+	return
+}
+
+// A ragdoll is put to sleep only once every bone has been still RAGDOLL_STILL_TICKS in a row: after a fall, and after
+// one limb is set swinging while the pelvis lies still (a swinging arm keeps the body awake).
+@(test)
+a_ragdoll_sleeps_only_once_every_bone_is_still :: proc(t: ^testing.T) {
+	for swing in ([]bool{false, true}) {
+		run := ragdoll_run(2)
+		defer headless.run_end(&run)
+		phys := run.simulation.world.phys
+		hero := sim.slot_data(run.simulation, 1)
+		place_hero(&run, 1, {6, 0, 0})
+		hurt(&run, 1, g.HERO_HP)
+		if swing {
+			settle(&run)
+			forearm := hero.ragdoll.bones[.Right_Forearm]
+			physics.body_set_angular_velocity(phys, forearm, {0, 0, 6})
+			physics.body_set_awake(phys, forearm, true)
+			headless.run_pin(&run)
+		}
+		still, slept := still_run_at_sleep(&run, hero, 4)
+		testing.expectf(t, slept, "swinging %v: it sleeps in the end", swing)
+		testing.expectf(
+			t,
+			still >= g.RAGDOLL_STILL_TICKS,
+			"swinging %v: asleep after %d still ticks, not %d",
+			swing,
+			still,
+			g.RAGDOLL_STILL_TICKS,
+		)
+		scenarios.expect_synced(t, &run)
+	}
+}
+
+// A ragdoll lying on the lift's deck (a kinematic body, not the level) is left to Box3D's own sleep, never put to sleep
+// at RAGDOLL_STILL_TICKS: it sleeps, if at all, only after twice that still.
+@(test)
+a_ragdoll_on_the_deck_is_left_to_box3d :: proc(t: ^testing.T) {
+	run := ragdoll_run(2)
+	defer headless.run_end(&run)
+	hero := sim.slot_data(run.simulation, 1)
+	deck := physics.body_world_point(run.simulation.world.phys, run.simulation.state.lift.body, {0, g.LIFT_HALF.y, 0})
+	place_hero(&run, 1, deck)
+	hurt(&run, 1, g.HERO_HP) // it falls on the deck, nothing else there
+	still, slept := still_run_at_sleep(&run, hero, 3)
+	testing.expect(
+		t,
+		g.on_deck(run.simulation.world.phys, &run.simulation.state.lift, hero.pos),
+		"it lies on the deck",
+	)
+	testing.expectf(
+		t,
+		!slept || still > 2 * g.RAGDOLL_STILL_TICKS,
+		"on the deck asleep after only %d still ticks",
+		still,
+	)
+	scenarios.expect_synced(t, &run)
+}
+
+// Slot 0's Barbarian standing at `at` facing +X heaves slot 1's hero, downed GRAB_AHEAD in front of it.
+@(private = "file")
+heave_ally_at :: proc(run: ^headless.Run(g.Game), at: [3]f32, facing := [2]f32{1, 0}) {
+	headless.run_command(run, 0, g.Command_Dev_Set_Class{.Barbarian})
+	place_hero(run, 0, at, facing)
+	place_hero(run, 1, at + [3]f32{facing.x, 0, facing.y} * GRAB_AHEAD)
+	hurt(run, 1, g.HERO_HP)
+	press(run, 0, .Ability)
+}
+
+// A ragdoll a Barbarian holds up is never put to sleep (its island is the Barbarian's too: sleeping it would stop the
+// Barbarian mid-stride), and neither is the Barbarian: the hold's spring keeps it swinging, never still, however
+// still the Barbarian stands.
+@(test)
+a_held_ragdoll_never_sleeps :: proc(t: ^testing.T) {
+	run := ragdoll_run(2)
+	defer headless.run_end(&run)
+	phys := run.simulation.world.phys
+	heave_ally_at(&run, {6, 0, 0})
+	ally := sim.slot_data(run.simulation, 1)
+	barbarian := sim.slot_data(run.simulation, 0)
+	testing.expect_value(t, ally.heave, g.Heave_Phase.Held)
+	for _ in 0 ..< int(g.HEAVE_MAX_TICKS) - 8 {
+		headless.run_step(&run)
+		if !physics.body_is_awake(phys, ally.ragdoll.bones[.Pelvis]) ||
+		   !physics.body_is_awake(phys, barbarian.body.body) {
+			testing.expect(t, false, "the held ragdoll, or its Barbarian, fell asleep")
+			break
+		}
+	}
+	scenarios.expect_synced(t, &run)
+}
+
+// A held ragdoll that falls out of the level (RAGDOLL_KILL_DEPTH) is let go of before it goes: the Barbarian stands
+// free, with no joint left on the gone bones (check_refs), and the hero lies anew at its spawn, nobody's heave.
+@(test)
+a_heaved_body_out_of_the_level_is_let_go_of :: proc(t: ^testing.T) {
+	run := ragdoll_run(2)
+	defer headless.run_end(&run)
+	phys := run.simulation.world.phys
+	heave_ally_at(&run, {6, 0, 0})
+	ally := sim.slot_data(run.simulation, 1)
+	barbarian := sim.slot_data(run.simulation, 0)
+	testing.expect_value(t, ally.heave, g.Heave_Phase.Held)
+	drop := [3]f32{0, floor_of(&run).lowest - g.RAGDOLL_KILL_DEPTH - 2 - ally.pos.y, 0}
+	for body in ally.ragdoll.bones {
+		physics.body_set_transform(
+			phys,
+			body,
+			physics.body_position(phys, body) + drop,
+			physics.body_rotation(phys, body),
+		)
+	}
+	headless.run_pin(&run)
+	headless.run_step(&run)
+	testing.expect_value(t, barbarian.heaved, g.Heaved{})
+	testing.expect_value(t, barbarian.action, g.Action.None)
+	testing.expect_value(t, ally.heave, g.Heave_Phase.None)
+	testing.expectf(t, dmath.length(ally.pos.xz - spawn_of(&run, 1).xz) < 0.5, "it lies at its spawn: %v", ally.pos)
+	play(&run, {}, 0.5)
+	scenarios.expect_synced(t, &run)
+}
+
+// A body thrown over the low cover on the level's edge (Floor 1's hall, its south fence) meets the invisible wall over
+// it and falls back in: it lies inside the hall, never fallen out and laid anew at its spawn.
+@(test)
+a_throw_over_the_edge_stays_in_the_level :: proc(t: ^testing.T) {
+	run := ragdoll_run(2)
+	defer headless.run_end(&run)
+	heave_ally_at(&run, {10, 0, 1.6}, {0, 1})
+	ally := sim.slot_data(run.simulation, 1)
+	testing.expect_value(t, ally.heave, g.Heave_Phase.Held)
+	press(&run, 0, .Attack)
+	play(&run, {}, 3)
+	testing.expectf(t, ally.pos.z < 3.8 && ally.pos.y > -0.5, "it lies inside the hall, at %v", ally.pos)
+	testing.expectf(
+		t,
+		dmath.length(ally.pos.xz - spawn_of(&run, 1).xz) > 5,
+		"not laid anew at its spawn: %v",
+		ally.pos,
+	)
+	scenarios.expect_synced(t, &run)
+}
+
+// A thrown ragdoll stops short where it lands, as a thrown elite does (RAGDOLL_LAND_KEEP): on the arena's open floor,
+// its pelvis comes to rest within 1.5 m of where it landed, not skidding on at a throw's speed.
+@(test)
+a_thrown_body_rests_where_it_lands :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena}, seated = 2)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	heave_ally_at(&run, {0, 0, -10}, {0, 1})
+	ally := sim.slot_data(run.simulation, 1)
+	press(&run, 0, .Attack)
+	landed := ally.pos
+	for _ in 0 ..< 3 * g.TICK_HZ {
+		headless.run_step(&run)
+		if ally.heave == .None {
+			landed = ally.pos
+			break
+		}
+	}
+	testing.expect_value(t, headless.run_events(&run, g.Event_Heave_Landed), 1)
+	play(&run, {}, 2)
+	slid := dmath.length(ally.pos.xz - landed.xz)
+	testing.expectf(t, slid < 1.5, "it slid %v m on from where it landed", slid)
+	scenarios.expect_synced(t, &run)
+}
+
+// When a thrown ragdoll has landed (ragdoll_landed): not while it rises, though a crate's top lies within
+// RAGDOLL_LAND_REACH under its pelvis; and HEAVE_FLIGHT_MAX_S after the throw, wherever it is.
+@(test)
+a_thrown_ragdoll_lands_when_it_should :: proc(t: ^testing.T) {
+	for capped in ([]bool{false, true}) {
+		run := ragdoll_run(2)
+		defer headless.run_end(&run)
+		heave_ally_at(&run, {6, 0, 0})
+		ally := sim.slot_data(run.simulation, 1)
+		play(&run, {}, 0.3)
+		press(&run, 0, .Attack)
+		for _ in 0 ..< g.THROW_WINDUP_TICKS do headless.run_step(&run)
+		testing.expect_value(t, ally.heave, g.Heave_Phase.Thrown)
+		if capped {
+			ally.heave_since = run.simulation.state.clock.time + 1 - sim.Game_Time(g.HEAVE_FLIGHT_MAX_TICKS)
+			headless.run_pin(&run)
+			headless.run_step(&run)
+			testing.expect_value(t, headless.run_events(&run, g.Event_Heave_Landed), 1)
+			testing.expectf(t, ally.pos.y > 0.6, "landed by its flight's end, in the air at %v", ally.pos)
+		} else {
+			testing.expectf(t, ally.vel.y > 0, "it rises from the throw: %v", ally.vel)
+			place_prop(&run, CRATE, ally.pos * {1, 0, 1} + {0, ally.pos.y - 0.85, 0})
+			headless.run_step(&run)
+			testing.expect_value(t, headless.run_events(&run, g.Event_Heave_Landed), 0)
+		}
+		scenarios.expect_synced(t, &run)
+	}
 }

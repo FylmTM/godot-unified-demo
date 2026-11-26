@@ -37,8 +37,8 @@ Crowd :: enum u8 {
 	Idle, // asleep out of the heroes' sight, the scripted heroes standing still: what sleepers cost
 	Chase, // chasing scripted heroes who walk and never attack: what a crowd on the move costs
 	Fight, // around scripted heroes who walk and hold Attack: blows, bursts, deaths and the felled rising again
-	// The fight, its heroes taking the crowd's blows: they go down as ragdolls under it one by one, and lie there (nobody
-	// revives them, no wipe restarts the floor): what the most ragdolls a party has cost under a crowd.
+	// The fight, its heroes taking the crowd's blows: they go down as ragdolls under it one by one, and lie there
+	// (nobody revives them, no wipe restarts the floor): what the most ragdolls a party has cost under a crowd.
 	Wipe,
 }
 

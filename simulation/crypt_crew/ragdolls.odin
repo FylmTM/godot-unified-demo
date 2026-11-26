@@ -1,12 +1,13 @@
-// Ragdolls: a hero that goes down falls as a Box3D ragdoll, and gets up from it when revived. unified's
-// physics.Ragdoll (twelve capsule bones on their joints, a plain struct in the block: Hero.ragdoll) is made standing
-// where the hero stood, facing its way, as tall as its capsule (RAGDOLL_SCALE) and weighing RAGDOLL_MASS, moving at the
-// hero's velocity plus RAGDOLL_KICK away from the blow, and physics takes it from there: it crumples, tumbles off a
-// ledge, piles on another, lies where it comes to rest, and sleeps as soon as it is still there (settle_ragdolls: an
-// awake ragdoll is a dozen jointed bodies in every step and every re-sim). Meanwhile the hero's capsule is dormant (no joints, nothing
-// drives it) and out of the world (physics.body_disable: nothing meets it, no query finds it), left where it fell: a
-// dormant capsule is still solid, so one kept on the pelvis would be an invisible post props and elites bounce off,
-// and teleporting it there each tick would move its warp epoch on every tick (the view would never interpolate).
+// Ragdolls: a hero that goes down falls as a Box3D ragdoll, and gets up from it when revived. unified's physics.Ragdoll
+// (twelve capsule bones on their joints, a plain struct in the block: Hero.ragdoll) is made standing where the hero
+// stood, facing its way, as tall as its capsule (RAGDOLL_SCALE) and weighing RAGDOLL_MASS, moving at the hero's
+// velocity plus RAGDOLL_KICK away from the blow, and physics takes it from there: it crumples, tumbles off a ledge,
+// piles on another, lies where it comes to rest, and sleeps as soon as it is still there (settle_ragdolls: an awake
+// ragdoll is a dozen jointed bodies in every step and every re-sim). Meanwhile the hero's capsule is dormant (no
+// joints, nothing drives it) and out of the world (physics.body_disable: nothing meets it, no query finds it), left
+// where it fell: a dormant capsule is still solid, so one kept on the pelvis would be an invisible post props and
+// elites bounce off, and teleporting it there each tick would move its warp epoch on every tick (the view would never
+// interpolate).
 //
 // While down, the hero's `pos` is its pelvis (read_back_ragdolls), so every rule that finds a downed hero by where it
 // is (a revive's reach, the heave's cone, the camera) finds it where its body lies. Reviving it destroys the ragdoll
@@ -15,8 +16,8 @@
 // A ragdoll's bones meet everything but heroes and elites (RAGDOLL_FILTER): nobody trips over a fallen ally, an elite
 // walks over one, a thrown prop, a fireball's blast (fireballs.odin) or the roller knocks one about, two fall on each
 // other, and one weighs a plate down. A hero is down exactly while it lies as a ragdoll: a Barbarian heaving it holds
-// the ragdoll by its chest bone and throws it whole (barbarian.odin), and a body fallen out of the level is laid anew at
-// its spawn.
+// the ragdoll by its chest bone and throws it whole (barbarian.odin), and a body fallen out of the level is laid anew
+// at its spawn.
 package crypt_crew
 
 import "unified:dmath"
@@ -106,6 +107,7 @@ floor_under :: proc(phys: ^physics.World, pelvis: [3]f32) -> [3]f32 {
 // nearest it of the first of RAGDOLL_RINGS rings round it, RAGDOLL_RING apart, with one on the walkable floor (each
 // within RAGDOLL_RING of its ring's point); else the floor at the helper's feet. Not ok with none of them, for a body
 // gone where no helper stands near (stand_up then stands it at its spawn).
+@(private = "file")
 standing_spot :: proc(t: ^Tick, pelvis, helper: [3]f32) -> (feet: [3]f32, ok: bool) {
 	floor := floor_of(t)
 	under := floor_under(t.world.phys, pelvis)
@@ -185,15 +187,14 @@ read_back_ragdolls :: proc(t: ^Tick) {
 
 // After read_back_ragdolls: each awake ragdoll come to rest (every bone still, RAGDOLL_STILL_TICKS in a row) on nothing
 // but the level sleeps at once, without the half second Box3D's own sleep waits out. Sleep is an island's: one touching
-// another body (a prop, another ragdoll, the lift's deck) is left to Box3D, so nothing it touches stops mid-move, and
-// so is one a Barbarian heaves (its hold joins it to the Barbarian's island). A sleeping ragdoll wakes as any body
-// does, when something meets it.
+// another body (a prop, another ragdoll, the lift's deck) is left to Box3D, so nothing it touches stops mid-move. One a
+// Barbarian heaves is never still (its hold's spring swings it), nor one in flight. A sleeping ragdoll wakes as any
+// body does, when something meets it.
 settle_ragdolls :: proc(t: ^Tick) {
 	phys := t.world.phys
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
-		if !ragdolled(hero) || hero.heave != .None do continue
-		if !physics.body_is_awake(phys, hero.ragdoll.bones[.Pelvis]) do continue
+		if !ragdolled(hero) || !physics.body_is_awake(phys, hero.ragdoll.bones[.Pelvis]) do continue
 		if !ragdoll_still(phys, &hero.ragdoll) {
 			hero.still = 0
 			continue
@@ -216,8 +217,8 @@ ragdoll_still :: proc(phys: ^physics.World, ragdoll: ^physics.Ragdoll) -> bool {
 }
 
 // Whether `player`'s ragdoll touches nothing but itself (its bones carry the player's key) and static bodies (the
-// level): its island is its own, so putting it to sleep sleeps nothing else. Its joints are all its own (settle_ragdolls
-// leaves a heaved one alone: the hold joins it to its Barbarian).
+// level): its island is its own, so putting it to sleep sleeps nothing else. Its joints are all its own but a heave's
+// hold, and a held ragdoll is never still (settle_ragdolls).
 @(private = "file")
 ragdoll_alone :: proc(t: ^Tick, player: sim.Player) -> bool {
 	phys := t.world.phys

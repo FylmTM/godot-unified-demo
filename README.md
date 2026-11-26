@@ -15,8 +15,8 @@ dungeon crawler for 1–4 players, and the answer to "what does a real game buil
 > Rogue's crossbow and dodge roll, and the barrels and crates any hero picks up and throws. Felled skeletons drop coins
 > into the party's purse. The floor's way out: two plates open the vault, a spike gallery with a roller guards it (a
 > barricade's passage round the traps, once broken), and the hoard inside is hauled by its two handles to the lift,
-> where each hero picks a boon and the party goes down. A hero at 0 HP falls as a ragdoll until an ally revives it
-> (or a Barbarian heaves it to safety); the whole party down restarts the floor.
+> where each hero picks a boon and the party goes down. A hero at 0 HP falls as a ragdoll and lies there until an
+> ally revives it; the whole party down restarts the floor.
 > What the game becomes, and in what order, is [`docs/plan.md`](docs/plan.md).
 
 ## Play it
@@ -202,10 +202,10 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    an ally who is up: an elite hangs limp on the hold at HEAVE_HOLD_HEIGHT, weighing HEAVE_MASS and borne by the hold,
    a downed ally's ragdoll by its chest bone at that height, RAGDOLL_MASS being HEAVE_MASS; Attack throws it as a prop
    is thrown, an elite through every hero, until it lands, and held HEAVE_MAX_S it is let down; HEAVE_COOLDOWN_S from
-   its landing or its letting down). Otherwise Attack held starts
-   the class's attack (`CLASS_SPECS`: windup, duration, cooldown; held, it repeats every cooldown). The hold's joint
-   follows the facing (`HOLD_*`), and the hero walks toward the stick's velocity at its class's speed, slowed by a
-   carried prop or by what it does (ATTACK_SPEED, BLOCK_SPEED, REVIVE_SPEED, HEAVE_SPEED).
+   its landing or its letting down). Otherwise Attack held starts the class's attack (`CLASS_SPECS`: windup,
+   duration, cooldown; held, it repeats every cooldown). The hold's joint follows the facing (`HOLD_*`), and the hero
+   walks toward the stick's velocity at its class's speed, slowed by a carried prop or by what it does (ATTACK_SPEED,
+   BLOCK_SPEED, REVIVE_SPEED, HEAVE_SPEED).
 5. **Director.** A sleeping pack wakes when a hero one of its minions can see comes within AGGRO_RADIUS (each looks
    every SIGHT_S) or one of them is hit. A surge is owed SURGE_FIRST_S into a floor and every SURGE_EVERY_S after:
    SURGE_BASE minions plus SURGE_PER_HERO per hero and SURGE_GROWTH per surge faced on the floor, rising one per grave
@@ -214,8 +214,9 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    walkable floor, at most MINION_CAP) and never into more rows than the table has free. Every ELITE_SURGE_EVERY-th
    surge on a floor brings an elite too (a Warrior, a Rogue, a Mage in turn) at one of its graves, while fewer than
    ELITES_ALIVE_MAX are alive. A Setup may hold a crowd instead (`floor=arena,crowd=fight`): the floor's cap placed on
-   the first tick, asleep, chasing or fighting, the felled coming back, its heroes taking no damage, no elite and no
-   drop; the benchmark rows and the scale tests play it.
+   the first tick, asleep, chasing or fighting, the felled coming back, its heroes taking no damage (but under
+   `crowd=wipe`, where the crowd's blows down them into ragdolls), never wiping, no elite and no drop; the benchmark
+   rows and the scale tests play it.
 6. **Minions.** Each picks the nearest hero up by path (every RETARGET_S), steers along that hero's field (every
    tick within STEER_NEAR of it or in its chase's first ticks, else every STEER_S, walking its facing between), keeps
    SEPARATION from its neighbours (where they stood when the moves began) and out of the props' and elites' footprints,
@@ -232,7 +233,9 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    BONE_BOLT_EVERY_S at one in sight within BONE_BOLT_RANGE, and raises SUMMON_COUNT minions every SUMMON_EVERY_S. A
    heaved elite's rules stand still until it lands or is let down.
 8. **Physics.** The lift's deck is driven to where its phase puts it; Box3D steps; the heroes' and elites' feet and
-   velocities are read back into the state (a downed hero's are its ragdoll's pelvis's). Then the hoard and the lift: a
+   velocities are read back into the state (a downed hero's are its ragdoll's pelvis's; a ragdoll fallen
+   RAGDOLL_KILL_DEPTH below the floor goes, a heave on it let go of, and its hero lies anew at its spawn), and a
+   ragdoll come to rest on the level alone sleeps after RAGDOLL_STILL_TICKS still. Then the hoard and the lift: a
    hold on the hoard stretched past HOARD_SLIP lets go, and the lift moves through its phases (below, The hoard, the
    lift and boons).
 9. **Strikes.** A blow lands at its windup on the minions and elites in its reach and arc, or touching the hero
@@ -266,29 +269,30 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
     DEATH_S. A hero at 0 HP goes down and stays down until revived: it falls as a Box3D ragdoll (RAGDOLL_SCALE tall,
     RAGDOLL_MASS, at its velocity, at most RAGDOLL_CARRY_MAX, plus RAGDOLL_KICK away from the blow or RAGDOLL_TIP
     backwards from a blow from no side) that meets everything but heroes and elites, its capsule dormant and out of
-    the world meanwhile; one come to rest on the level alone (and nobody's heave) sleeps after RAGDOLL_STILL_TICKS
-    still, not Box3D's half second; a ragdoll fallen RAGDOLL_KILL_DEPTH below the floor goes, and its hero lies at its
-    spawn as a ragdoll laid anew. Every hero down for WIPE_S restarts the
-    floor.
+    the world meanwhile (its sleep and its fall out of the level are step 8's). Every hero down for WIPE_S restarts
+    the floor, but under a held crowd.
 12. **Loot.** A felled skeleton drops a coin on a roll of 1 in LOOT_ONE_IN, worth LOOT_VALUE_MIN to LOOT_VALUE_MAX
     gold; a felled elite drops ELITE_COINS coins worth its kind's ELITE_GOLD between them, on a LOOT_SPREAD ring (none
     under a held crowd). A hero up within LOOT_RADIUS of a coin that has lain LOOT_ARM_S picks it up into the party's
     one purse (two at once: the lower slot); a coin nobody takes goes after LOOT_LIFE_S. The save carries the purse as
     it stood at the last surge; a wipe takes the coins lying on the floor and keeps the purse.
 
-**Mechanisms**, a floor's Box3D pieces (plates.odin, gates.odin, barricades.odin, traps.odin): before the step each gate's
-motor is set from its plates and each roller driven along its path; after it, plates, barricades and traps are read.
-A plate is pressed once its slab sinks past PLATE_ON under anything weighing more than PLATE_LOAD, and released above
-PLATE_OFF. A gate lifts GATE_RISE while `need` of its plates are pressed (a latched one stays up), and closes pressing at
-most GATE_CLOSE_FORCE; below GATE_PASS it keeps minions back. A barricade breaks to a blow (a thrown prop, a charge, a
-hurled body) touching it as its weld strains past BARRICADE_BREAK_N: the blow decides, and the threshold is its floor,
-since a hero walking into the fence strains it harder than a thrown crate; a fireball's blast that reaches it breaks it
-outright. Its fence then lies loose (CAT_PROP): a dragged hoard catches on it, and heroes shove it aside. Spikes are
-up SPIKES_UP_S of every
-SPIKES_PERIOD_S on the game clock from their phase, or while their plate is pressed, striking SPIKES_DAMAGE as they rise
-and every SPIKES_HIT_TICKS; the roller, on the clock too, strikes ROLLER_DAMAGE what touches it every ROLLER_HIT_TICKS.
-A level keeps a hero's width between a roller's sides and every wall or low cover along its whole path (a kinematic
-pillar pushes on through what it squeezes), which `every_roller_keeps_room_to_pass_it` holds.
+**Mechanisms**, a floor's Box3D pieces (plates.odin, gates.odin, barricades.odin, traps.odin): before the step each
+gate's motor is set from its plates and each roller driven along its path; after it, plates, barricades and traps are
+read. A plate is pressed once its slab sinks past PLATE_ON under anything weighing more than PLATE_LOAD, and released
+above PLATE_OFF. A gate lifts GATE_RISE while `need` of its plates are pressed (a latched one stays up), and closes
+pressing at most GATE_CLOSE_FORCE; below GATE_PASS it keeps minions back. A barricade breaks to a blow (a thrown prop, a
+charge, a hurled body) touching it as its weld strains past BARRICADE_BREAK_N: the blow decides, and the threshold is
+its floor, since a hero walking into the fence strains it harder than a thrown crate; a fireball's blast that reaches it
+breaks it outright. Its fence then lies loose (CAT_PROP), a prop to everything but the hoard, which a hauler drags
+through it. Spikes are up SPIKES_UP_S of every SPIKES_PERIOD_S on the game clock from their phase, or while their plate
+is pressed, striking SPIKES_DAMAGE as they rise and every SPIKES_HIT_TICKS; the roller, on the clock too, strikes
+ROLLER_DAMAGE what touches it every ROLLER_HIT_TICKS. A level keeps a hero's width between a roller's sides and every
+wall or low cover along its whole path (a kinematic pillar pushes on through what it squeezes), which
+`every_roller_keeps_room_to_pass_it` holds; low cover on a level's edge carries an invisible wall (a `Rims` body,
+CAT_WALL) up to a wall's height, so nothing thrown leaves the level over it; and the hoard's lanes keep clear of plates
+(a dragged end catches on a slab's edge: `every_haul_lane_is_clear`). The hoard's box is a hull with chamfered bottom
+edges (HOARD_CHAMFER): a dragged end slides over the tiles' seams.
 
 Floor 1's way out: the vault east of the great hall, its gate (`need` 2, latched) opened by two plates, one in the
 spike gallery before it and one in the passage north of the gallery; the gallery's two spike tiles (phases half a

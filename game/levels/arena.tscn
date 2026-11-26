@@ -47,6 +47,9 @@ geometry_parsed_geometry_type = 1
 agent_height = 2.0
 agent_max_climb = 0.3
 
+[sub_resource type="BoxShape3D" id="BoxShape3D_RimSouth"]
+size = Vector3(48, 2.9, 0.5)
+
 [node name="Arena" type="Node3D" unique_id=351743435]
 
 [node name="Nav" type="NavigationRegion3D" parent="." unique_id=715292628]
@@ -1051,3 +1054,13 @@ script = ExtResource("37_a2mt2")
 [node name="Grave15" type="Marker3D" parent="Markers" unique_id=1023285830]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 7.4)
 script = ExtResource("37_a2mt2")
+
+[node name="Rims" type="Node3D" parent="." unique_id=1073645899]
+
+[node name="RimSouth" type="StaticBody3D" parent="Rims" unique_id=1663798354]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 16)
+metadata/unified_category = 2
+
+[node name="Shape" type="CollisionShape3D" parent="Rims/RimSouth" unique_id=1808266360]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.55, 0)
+shape = SubResource("BoxShape3D_RimSouth")

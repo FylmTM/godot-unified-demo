@@ -207,6 +207,9 @@ HEAVE_LAND_GAP :: f32(0.25)
 // A thrown downed hero's ragdoll has landed once its pelvis falls with this little floor (or a prop) under it
 // (metres): about a body lying on its back's, plus a hand ...
 RAGDOLL_LAND_REACH :: f32(0.5)
+// ... and keeps this much of its bones' velocity and spin as it lands: it comes to rest within a metre or so of where it
+// came down, as a thrown elite does, not skidding on at a throw's speed
+RAGDOLL_LAND_KEEP :: f32(0.15)
 HEAVE_FLIGHT_MAX_S :: f32(2) // ... or once it has flown this long, wherever it is (wedged off the floor)
 HEAVE_FLIGHT_MAX_TICKS :: u32(HEAVE_FLIGHT_MAX_S * TICK_HZ)
 #assert(ELITE_STAGGER_TICKS < HEAVE_COOLDOWN_TICKS)
@@ -618,6 +621,9 @@ HOARD_MASS :: f32(120) // kilograms: one hold lifts one end of it, two lift it c
 HOARD_REST_MASS :: f32(12000)
 #assert(HOARD_FRICTION * HOARD_REST_MASS * GRAVITY > PLAYERS * HERO_GROUND_FORCE)
 HOARD_HALF :: [3]f32{0.8, 0.5, 0.6} // its box's half extents, measured from its model (chest_gold)
+// Its box's bottom edges are cut back this far (metres, along both faces): a dragged end rides up over the seam between
+// two floor tiles (Box3D's contact on a box's internal edge) instead of catching on it, which a square edge did.
+HOARD_CHAMFER :: f32(0.2)
 // A handle, body-local: at its +X end (the other at -X), a little above its centre, so the chest carried by both
 // hangs level under its handles instead of turning over.
 HOARD_HANDLE :: [3]f32{0.8, 0.15, 0}

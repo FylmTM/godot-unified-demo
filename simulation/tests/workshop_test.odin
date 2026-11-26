@@ -1,8 +1,9 @@
 // The mechanisms' shared test support and the workshop's own suite: the workshop (game/levels/workshop.tscn) is a hall
-// holding one of each mechanism, and a hoard in a vault and a lift (a whole haul to the descent in a small room), which every mechanism test plays on (plates_test.odin, gates_test.odin,
-// barricades_test.odin, traps_test.odin), sync-tested as every rule test is, so each also rolls back over what it
-// checks: a plate pressed, a gate moving, a barricade's break, the spikes rising. Its pieces are found by their marker
-// order in the floor's Places, never by numbers copied out of the level.
+// holding one of each mechanism, and a hoard in a vault and a lift (a whole haul to the descent in a small room), which
+// every mechanism test plays on (plates_test.odin, gates_test.odin, barricades_test.odin, traps_test.odin), sync-tested
+// as every rule test is, so each also rolls back over what it checks: a plate pressed, a gate moving, a barricade's
+// break, the spikes rising. Its pieces are found by their marker order in the floor's Places, never by numbers copied
+// out of the level.
 package test_crypt_crew
 
 import "core:testing"
@@ -115,11 +116,11 @@ WORKSHOP_REFERENCE :: scenarios.Reference {
 	ticks         = 1200,
 	snapshot_tick = 600,
 	setup         = "floor=workshop",
-	checkpoints   = {0x93ec1e28cb309c5e, 0xfe0a37e8e292b2ca, 0x09b63c6c842844ba, 0x60bb5b797d3ae567},
-	trace         = 0x93d110bbfebaf1ba,
-	snapshot      = 0xdecdd9b5f455e4e7,
-	log           = 0x624db00fab36911d,
-	compat        = 0xa3a25368275272ac,
+	checkpoints   = {0x93ec1e28cb309c5e, 0xfe0a37e8e292b2ca, 0x09b63c6c842844ba, 0xb73deb71a6de516b},
+	trace         = 0xcbdb994ec4ce5f7f,
+	snapshot      = 0x267df097d92c9568,
+	log           = 0x6ba29ca18b77c98b,
+	compat        = 0x16eb0bb96805c88a,
 }
 
 @(test)

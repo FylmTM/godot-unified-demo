@@ -15,10 +15,10 @@
 // A hauler does nothing else (Action.Haul: no attack, no ability, no revive) until it lets go: Interact again, going
 // down, leaving, a level change (all through release_hold), or its hold stretched past HOARD_SLIP (the chest caught on
 // something, its hauler gone on: hold_hauls). Unheld and settled, the chest weighs HOARD_REST_MASS (settle_hoard), so
-// heroes can't shove it to the lift: it goes where it is hauled (or where a fireball's blast skids it, at HOARD_MASS
-// until it settles: fireballs.odin). A hand is taken only while the lift waits at the top.
-// The first grab on a floor wakes the crypt: the surges come every HAUL_SURGE_S from then on (surge_every). Minions are
-// pushed out of it (obstacles_of).
+// heroes can't shove it to the lift: it goes where it is hauled (a fireball's blast leaves it be). Its box's bottom
+// edges are chamfered (HOARD_CHAMFER), so a dragged end slides over the floor tiles' seams. A hand is taken only while
+// the lift waits at the top. The first grab on a floor wakes the crypt: the surges come every HAUL_SURGE_S from then on
+// (surge_every). Minions are pushed out of it (obstacles_of).
 package crypt_crew
 
 import "unified:dmath"
@@ -64,18 +64,38 @@ Event_Hoard_Dropped :: struct {
 	slipped: bool,
 }
 
-// The hoard's body at its marker, resting, unheld (enter_level, after the props).
+// The hoard's box, HOARD_HALF about its centre, its four bottom edges chamfered by HOARD_CHAMFER: twelve points, the
+// top's corners and each bottom corner cut back along both faces that meet there (and the bottom edge's ends).
+hoard_points :: proc() -> (points: [12][3]f32) {
+	h, c := HOARD_HALF, HOARD_CHAMFER
+	for k in 0 ..< 4 {
+		x, z := f32(k & 1) * 2 - 1, f32(k >> 1) * 2 - 1
+		points[k] = {x * h.x, h.y, z * h.z} // the top
+		points[4 + k] = {x * h.x, -h.y + c, z * h.z} // where the sides' chamfer begins
+		points[8 + k] = {x * (h.x - c), -h.y, z * (h.z - c)} // the bottom face, cut back
+	}
+	return
+}
+
+// The density that weighs the hoard's hull `mass`.
+hoard_density :: proc(t: ^Tick, mass: f32) -> f32 {
+	return mass / t.world.hoard_volume
+}
+
+// The hoard's body at its marker, resting, unheld (enter_level, after the props): its chamfered hull
+// (World.hoard_hull).
 spawn_hoard :: proc(t: ^Tick) {
 	def := &floor_of(t).places.hoard
 	if !def.placed do return
 	hoard := &t.state.hoard
 	shape_def := physics.shape_def(CAT_HOARD)
 	shape_def.base_material.friction = HOARD_FRICTION
-	shape_def.density = physics.box_density(HOARD_REST_MASS, HOARD_HALF)
+	shape_def.density = hoard_density(t, HOARD_REST_MASS)
 	shape_def.enable_sensor_events = true // the lift's sensor sees it aboard
 	body_def := physics.body_def(.Dynamic, def.pos + {0, HOARD_HALF.y, 0}, def.rot)
 	body_def.angular_damping = HOARD_ANGULAR_DAMPING
-	hoard.body, hoard.shape = physics.create_box(t.world.phys, body_def, shape_def, HOARD_HALF)
+	hoard.body = physics.create_body(t.world.phys, body_def)
+	hoard.shape = physics.create_hull_shape(t.world.phys, hoard.body, shape_def, t.world.hoard_hull)
 	hoard.resting = true
 }
 
@@ -133,7 +153,7 @@ grab_haul :: proc(t: ^Tick, player: sim.Player, handle: Haul_Handle) {
 		physics.link(hoard.body),
 		joint_def,
 	)
-	unrest_hoard(t.world.phys, hoard)
+	unrest_hoard(t, hoard)
 	hoard.haulers[int(handle) - 1] = player
 	hero.handle = handle
 	hero.action, hero.action_started = .Haul, t.time
@@ -147,11 +167,11 @@ grab_haul :: proc(t: ^Tick, player: sim.Player, handle: Haul_Handle) {
 	sim.emit(t, Event_Hoard_Grabbed{player = player, handle = handle})
 }
 
-// The hoard, if it rests (weighing HOARD_REST_MASS), weighs HOARD_MASS again: a hand takes it, or a blast moves it
-// (fireballs.odin).
-unrest_hoard :: proc(phys: ^physics.World, hoard: ^Hoard) {
+// The hoard, if it rests (weighing HOARD_REST_MASS), weighs HOARD_MASS again: a hand takes it.
+@(private = "file")
+unrest_hoard :: proc(t: ^Tick, hoard: ^Hoard) {
 	if !hoard.resting do return
-	physics.shape_set_density(phys, hoard.shape, physics.box_density(HOARD_MASS, HOARD_HALF))
+	physics.shape_set_density(t.world.phys, hoard.shape, hoard_density(t, HOARD_MASS))
 	hoard.resting = false
 }
 
@@ -170,9 +190,10 @@ release_haul :: proc(t: ^Tick, player: sim.Player, slipped: bool) {
 	sim.emit(t, Event_Hoard_Dropped{player = player, handle = handle, slipped = slipped})
 }
 
-// Where `hero`'s hold has its `handle`, in its body's frame (its rotation is locked: the world's axes): HOARD_HOLD_HEIGHT
-// above its feet, and on the floor plan where the handle is, kept between HOARD_HOLD_NEAR and HOARD_HOLD_FAR off its
-// capsule. So a hold lifts, and pulls only a handle that strays out of its reach: set before every step (update_holds).
+// Where `hero`'s hold has its `handle`, in its body's frame (its rotation is locked: the world's axes):
+// HOARD_HOLD_HEIGHT above its feet, and on the floor plan where the handle is, kept between HOARD_HOLD_NEAR and
+// HOARD_HOLD_FAR off its capsule. So a hold lifts, and pulls only a handle that strays out of its reach: set before
+// every step (update_holds).
 haul_frame :: proc(phys: ^physics.World, hoard: ^Hoard, hero: ^Hero, handle: Haul_Handle) -> physics.Transform {
 	offset := handle_point(phys, hoard, handle).xz - hero.pos.xz
 	apart := dmath.length(offset)
@@ -190,7 +211,7 @@ settle_hoard :: proc(t: ^Tick) {
 	speed := dmath.length(physics.body_linear_velocity(t.world.phys, hoard.body))
 	spin := dmath.length(physics.body_angular_velocity(t.world.phys, hoard.body))
 	if speed >= HOARD_SETTLE_SPEED || spin >= HOARD_SETTLE_SPIN do return
-	physics.shape_set_density(t.world.phys, hoard.shape, physics.box_density(HOARD_REST_MASS, HOARD_HALF))
+	physics.shape_set_density(t.world.phys, hoard.shape, hoard_density(t, HOARD_REST_MASS))
 	hoard.resting = true
 }
 

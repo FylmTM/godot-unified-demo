@@ -51,7 +51,8 @@ BOT_STUCK_SPEED :: f32(0.3) // a hauler walking slower than this is caught on so
 BOT_UNSTICK :: u32(48) // ... and works round it to each side in turn, this many ticks each
 BOT_TRAP_STEP :: f32(0.9) // a bot looks this far ahead along its way for a trap (m) ...
 BOT_SPIKES_AHEAD :: u32(48) // ... and waits for spikes that rise within this many ticks (a crossing's time and more)
-BOT_ROLLER_BERTH :: f32(0.8) // ... and for a roller whose sides are this near (m)
+BOT_ROLLER_BERTH :: f32(0.3) // ... and for a roller whose sides are this near (m)
+BOT_FENCE_BERTH :: f32(1.5) // a standing barricade is in the way of a line crossing this far past its ends too (m)
 
 // The World whose props' bodies the bot looks at (the state holds only their refs): the test's sim's.
 @(thread_local)
@@ -172,16 +173,7 @@ bot_duty :: proc(input: ^g.Input, state: ^g.State, slot: int, hero: ^g.Hero, tic
 	if gate, _, found := sim.item_at(&state.gates, 0); found && !gate.open {
 		for plate_slot, k in BOT_PLATE_SLOTS {
 			if slot == plate_slot && k < int(places.plates.count) {
-				plate := sim.slice(&places.plates)[k].pos
-				if front, gated := gate_front(state, hero.pos); gated {
-					// by way of the gate's front, never into the barricade standing across the passage (the
-					// navigation knows nothing of it)
-					if dmath.length(hero.pos.xz - plate.xz) > dmath.length(front.xz - plate.xz) + BOT_ON_SPOT {
-						go(input, state, hero, front)
-						return true
-					}
-				}
-				if go(input, state, hero, plate) do fight_in_place(input, state, hero)
+				if go(input, state, hero, sim.slice(&places.plates)[k].pos) do fight_in_place(input, state, hero)
 				return true
 			}
 		}
@@ -294,11 +286,33 @@ fight_in_place :: proc(input: ^g.Input, state: ^g.State, hero: ^g.Hero) {
 }
 
 // Walks the bot toward `to` along the floor's way, or stands still once within BOT_ON_SPOT of it: whether it is there.
+// While the floor's barricade stands across the straight line there, by way of the vault gate's front on the bot's
+// side (gate_front): the navigation knows nothing of a standing barricade, and would walk the bot into it.
 @(private = "file")
 go :: proc(input: ^g.Input, state: ^g.State, hero: ^g.Hero, to: [3]f32) -> bool {
 	if dmath.length(to.xz - hero.pos.xz) < BOT_ON_SPOT do return true
-	walk(input, way(state, hero.pos, to))
+	target := to
+	if barricade_between(state, hero.pos, to) {
+		if front, gated := gate_front(state, hero.pos); gated do target = front
+	}
+	walk(input, way(state, hero.pos, target))
 	return false
+}
+
+// Whether the floor's barricade stands across the straight line from `from` to `to`: the line crosses its fence's line
+// within the fence's length and BOT_FENCE_BERTH past either end (the navigation's way there runs through the gap, so
+// a line crossing just past the fence's end is in its way too).
+@(private = "file")
+barricade_between :: proc(state: ^g.State, from, to: [3]f32) -> bool {
+	barricade, _, found := sim.item_at(&state.barricades, 0)
+	if !found || barricade.broken do return false
+	def := sim.slice(&bot_world.floors[state.level.id].places.barricades)[0]
+	normal := dmath.quat_rotate(def.rot, {0, 0, 1})
+	along := dmath.quat_rotate(def.rot, {1, 0, 0})
+	here, there := dmath.dot(from - def.pos, normal), dmath.dot(to - def.pos, normal)
+	if here * there >= 0 do return false
+	crossing := from + (to - from) * (here / (here - there))
+	return abs(dmath.dot(crossing - def.pos, along)) < g.BARRICADE_HALF.x + BOT_FENCE_BERTH
 }
 
 // The way along the floor from `from` to `to` (on the floor plan, unit): the floor's navigation steered toward `to`

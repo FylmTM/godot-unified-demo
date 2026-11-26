@@ -191,11 +191,12 @@ a_fireball_stops_at_walls_and_moves_props :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// The blast reaches every body no wall shields, not the props and elites alone: a fireball landing at Floor 1's
-// barricade breaks it (its caster's break) and blows its fence away, skids the hoard off its rest (HOARD_MASS until
-// it settles), and knocks a downed hero's ragdoll away; a ragdoll as near but behind the gallery's wall stays put.
+// The blast reaches the downed heroes' ragdolls and the barricades too, where no wall shields them: a fireball landing
+// at Floor 1's barricade breaks it (its caster's break) and blows its fence away, and knocks a downed hero's ragdoll
+// away; a ragdoll as near but behind the gallery's wall stays put, and so does the hoard as near (it goes where it is
+// hauled, never blown), still at its rest. The fence's debris then lets the hoard through.
 @(test)
-a_fireball_blasts_the_hoard_ragdolls_and_barricades :: proc(t: ^testing.T) {
+a_fireball_blasts_ragdolls_and_barricades :: proc(t: ^testing.T) {
 	run := ability_hero(.Mage, seated = 3)
 	defer headless.run_end(&run)
 	clear_elites(&run)
@@ -232,12 +233,21 @@ a_fireball_blasts_the_hoard_ragdolls_and_barricades :: proc(t: ^testing.T) {
 	fence_speed := dmath.length(physics.body_linear_velocity(phys, barricade.body))
 	testing.expectf(t, fence_speed > 1, "its fence is blown away at %v m/s", fence_speed)
 	hold(&run, {}, int(g.TICK_HZ / 2))
-	skid := physics.body_position(phys, state.hoard.body) - hoard_from
-	testing.expectf(t, skid.z > 0.3, "the hoard skids away from the burst: %v", skid)
+	skid := dmath.length(physics.body_position(phys, state.hoard.body) - hoard_from)
+	testing.expectf(t, skid < 0.01 && state.hoard.resting, "the hoard stays at its rest: moved %v m", skid)
 	knocked := near.pos - near_from
 	testing.expectf(t, dmath.length(knocked.xz) > 0.5 && knocked.z < 0, "the ragdoll is knocked away: %v", knocked)
 	still := dmath.length(shielded.pos - shielded_from)
 	testing.expectf(t, still < 0.01, "the ragdoll behind the wall moved %v m", still)
+	// the fence's debris lets the hoard through (DEBRIS_FILTER): let down onto it, the hoard comes to rest on the floor
+	hold(&run, {}, int(g.TICK_HZ))
+	debris := physics.body_position(phys, barricade.body)
+	physics.body_teleport(phys, state.hoard.body, debris + {0, g.HOARD_HALF.y + 0.6, 0})
+	physics.body_set_awake(phys, state.hoard.body, true) // a teleport leaves a sleeper asleep in the air
+	headless.run_pin(&run)
+	hold(&run, {}, int(g.TICK_HZ))
+	bottom := physics.body_position(phys, state.hoard.body).y - g.HOARD_HALF.y
+	testing.expectf(t, abs(bottom) < 0.05, "the hoard rests on the floor through the debris, its bottom at %v", bottom)
 	scenarios.expect_synced(t, &run)
 }
 
@@ -525,5 +535,114 @@ the_roll_clears_elite_blows_and_bone_bolts :: proc(t: ^testing.T) {
 			if bolt do testing.expect_value(t, headless.run_events(&run, g.Event_Bolt_Burst), 1)
 			scenarios.expect_synced(t, &run)
 		}
+	}
+}
+
+// A blast moves a ragdoll whole: every bone takes its share of the impulse by its mass, so each moves off at the
+// impulse over RAGDOLL_MASS (FIREBALL_IMPULSE with its lift, at full strength this near), no bone flung alone and none
+// left lying.
+@(test)
+a_blast_moves_a_ragdoll_whole :: proc(t: ^testing.T) {
+	run := ability_hero(.Mage, seated = 2)
+	defer headless.run_end(&run)
+	clear_elites(&run)
+	phys := run.simulation.world.phys
+	place_hero(&run, 0, {6, 0, -3}, {1, 0})
+	place_hero(&run, 1, {9, 0, -3})
+	hurt(&run, 1, g.HERO_HP)
+	settle(&run)
+	ally := sim.slot_data(run.simulation, 1)
+	aim := g.Input {
+		aim   = dmath.dir2({1, 0}),
+		reach = g.reach_steps(2.5),
+	}
+	cast_on(&run, aim)
+	hold(&run, {}, int(g.FIREBALL_FLIGHT_TICKS) - 1)
+	hold(&run, {}, 1) // the burst: its impulse set after the step, read before the next
+	testing.expect_value(t, headless.run_events(&run, g.Event_Fireball_Burst), 1)
+	want := g.FIREBALL_IMPULSE * dmath.length([2]f32{1, g.FIREBALL_LIFT}) / g.RAGDOLL_MASS
+	for body, bone in ally.ragdoll.bones {
+		speed := dmath.length(physics.body_linear_velocity(phys, body))
+		testing.expectf(
+			t,
+			speed > 0.7 * want && speed < 1.3 * want,
+			"the %v moves at %v m/s, not %v",
+			bone,
+			speed,
+			want,
+		)
+	}
+	scenarios.expect_synced(t, &run)
+}
+
+// A ragdoll a Barbarian holds up takes no blast: the hold keeps it (a fireball bursting beside it moves no bone off).
+@(test)
+a_blast_leaves_a_held_ragdoll_be :: proc(t: ^testing.T) {
+	run := ability_hero(.Mage, seated = 3)
+	defer headless.run_end(&run)
+	clear_elites(&run)
+	phys := run.simulation.world.phys
+	headless.run_command(&run, 1, g.Command_Dev_Set_Class{.Barbarian})
+	place_hero(&run, 0, {6, 0, -3}, {1, 0})
+	place_hero(&run, 1, {10, 0, -3}, {1, 0})
+	place_hero(&run, 2, {11.3, 0, -3})
+	hurt(&run, 2, g.HERO_HP)
+	press(&run, 1, .Ability)
+	held := sim.slot_data(run.simulation, 2)
+	testing.expect_value(t, held.heave, g.Heave_Phase.Held)
+	aim := g.Input {
+		aim   = dmath.dir2({1, 0}),
+		reach = g.reach_steps(5),
+	}
+	cast_on(&run, aim)
+	hold(&run, {}, int(g.FIREBALL_FLIGHT_TICKS) - 1)
+	before: [physics.Ragdoll_Bone][3]f32
+	for body, bone in held.ragdoll.bones do before[bone] = physics.body_linear_velocity(phys, body)
+	hold(&run, {}, 1)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Fireball_Burst), 1)
+	testing.expect_value(t, held.heave, g.Heave_Phase.Held)
+	for body, bone in held.ragdoll.bones {
+		change := dmath.length(physics.body_linear_velocity(phys, body) - before[bone])
+		testing.expectf(t, change < 1.5, "the held %v took %v m/s from the blast", bone, change)
+	}
+	scenarios.expect_synced(t, &run)
+}
+
+// A blast breaks only a barricade it reaches: the workshop's stands to a fireball bursting behind the vault's wall from
+// it (as near as its reach), and to one bursting out of its reach in the open hall.
+@(test)
+a_blast_breaks_only_a_barricade_it_reaches :: proc(t: ^testing.T) {
+	Case :: struct {
+		mage, burst: [3]f32,
+		what:        string,
+	}
+	for c in ([]Case {
+			{{-9, 0, -6}, {-2.9, 0, -4.75}, "behind the vault's wall"},
+			{{2, 0, 5}, {2, 0, 1.6}, "out of its reach"},
+		}) {
+		run := headless.run_begin(&g.GAME, 1, WORKSHOP, seated = 1)
+		defer headless.run_end(&run)
+		headless.run_command(&run, 0, g.Command_Dev_Set_Class{.Mage})
+		clear_minions(&run)
+		offset := c.burst.xz - c.mage.xz
+		place_hero(&run, 0, c.mage, dmath.normalize(offset))
+		fence := sim.slice(&floor_of(&run).places.barricades)[0].pos
+		reach := g.FIREBALL_RADIUS + g.FIREBALL_FALLOFF
+		testing.expectf(
+			t,
+			(dmath.length(c.burst.xz - fence.xz) < reach) == (c.what != "out of its reach"),
+			"%s",
+			c.what,
+		)
+		fireball, _ := cast_on(
+			&run,
+			{aim = dmath.dir2(dmath.normalize(offset)), reach = g.reach_steps(dmath.length(offset))},
+		)
+		testing.expectf(t, dmath.length(fireball.to.xz - c.burst.xz) < 0.2, "%s: lands at %v", c.what, fireball.to)
+		hold(&run, {}, int(g.FIREBALL_FLIGHT_TICKS) + 4)
+		testing.expect_value(t, headless.run_events(&run, g.Event_Fireball_Burst), 1)
+		barricade, _, _ := sim.item_at(&run.simulation.state.barricades, 0)
+		testing.expectf(t, !barricade.broken, "a burst %s breaks the barricade", c.what)
+		scenarios.expect_synced(t, &run)
 	}
 }

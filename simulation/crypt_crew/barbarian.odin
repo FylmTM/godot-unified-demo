@@ -117,7 +117,7 @@ in_grab :: proc(t: ^Tick, hero: ^Hero, feet: [3]f32, radius: f32) -> (gap: f32, 
 // goes limp, weighs HEAVE_MASS and feels no gravity (the hold bears it: its spring's capped force all goes to carrying
 // it round with the hero, which a 900 N weight would otherwise drag to the floor on a quick turn), and the elite stops
 // what it was doing (a sleeper wakes first: rouse_elite makes its dormant character a body a hold can carry). A downed
-// ally is Held: the hold takes its ragdoll's chest bone, woken, and the rest of the ragdoll hangs from it (its bones
+// ally is Held: the hold takes its ragdoll's chest bone, and the rest of the ragdoll hangs from it (its bones
 // keep their gravity: the hold's cap, HOLD_LIFT times the body's weight, carries it round a turn). The hero heaves
 // (Action.Heave).
 @(private = "file")
@@ -137,8 +137,7 @@ heave :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, target: Heaved) {
 		held := sim.player_data(t, target.hero)
 		held.heave, held.heave_since, held.heaved_by = .Held, t.time, player
 		held.still = 0
-		held_body = held.ragdoll.bones[.Chest]
-		physics.body_set_awake(phys, held_body, true) // a ragdoll asleep on the floor wakes, its island with it
+		held_body = held.ragdoll.bones[.Chest] // asleep on the floor, the hold's joint wakes it with its island
 	}
 	hero.hold = create_hold(t, hero, held_body, heave_frame(hero), HEAVE_MASS)
 	hero.heaved = target
@@ -252,9 +251,10 @@ pass_heroes :: proc(t: ^Tick, body: physics.Body_Ref, through: bool) {
 	}
 }
 
-// After the physics step: each thrown body that has landed (heave_landed, ragdoll_landed) is let down, its thrower's
-// cooldown starts (thrower_lands), and its landing is a blast at its feet, its thrower's (land_blast). A thrown elite takes the
-// landing's blow itself as well, from no side (no shield takes it), and staggers.
+// After the physics step: each thrown body that has landed (heave_landed, ragdoll_landed) is let down (a ragdoll
+// stopped short, stop_landed), its thrower's cooldown starts (thrower_lands), and its landing is a blast at its feet,
+// its thrower's (land_blast). A thrown elite takes the landing's blow itself as well, from no side (no shield takes
+// it), and staggers.
 land_heaves :: proc(t: ^Tick) {
 	elites := sim.iterate(&t.state.elites)
 	for elite, handle in sim.next(&elites) {
@@ -271,8 +271,19 @@ land_heaves :: proc(t: ^Tick) {
 		if hero.heave != .Thrown || !ragdoll_landed(t, hero) do continue
 		thrower := hero.heaved_by
 		let_down(t, {hero = player})
+		stop_landed(t.world.phys, &hero.ragdoll)
 		thrower_lands(t, thrower)
 		land_blast(t, hero.pos, thrower, {})
+	}
+}
+
+// A thrown ragdoll has landed: every bone keeps RAGDOLL_LAND_KEEP of its velocity and its spin, so the body comes to
+// rest about where it came down, as a thrown elite's drive stops it, rather than skid on metres at a throw's speed.
+@(private = "file")
+stop_landed :: proc(phys: ^physics.World, ragdoll: ^physics.Ragdoll) {
+	for bone in ragdoll.bones {
+		physics.body_set_linear_velocity(phys, bone, physics.body_linear_velocity(phys, bone) * RAGDOLL_LAND_KEEP)
+		physics.body_set_angular_velocity(phys, bone, physics.body_angular_velocity(phys, bone) * RAGDOLL_LAND_KEEP)
 	}
 }
 
@@ -298,8 +309,8 @@ heave_landed :: proc(t: ^Tick, body: ^physics.Character, half_height: f32, since
 	return ground
 }
 
-// Whether a thrown downed hero's ragdoll has landed: its pelvis (the hero's `pos` and `vel`) falling, with what a thrown
-// body lands on within RAGDOLL_LAND_REACH under it; or HEAVE_FLIGHT_MAX_S after the throw, wherever it is.
+// Whether a thrown downed hero's ragdoll has landed: its pelvis (the hero's `pos` and `vel`) falling, with what a
+// thrown body lands on within RAGDOLL_LAND_REACH under it; or HEAVE_FLIGHT_MAX_S after the throw, wherever it is.
 @(private = "file")
 ragdoll_landed :: proc(t: ^Tick, hero: ^Hero) -> bool {
 	if u32(t.time - hero.heave_since) >= HEAVE_FLIGHT_MAX_TICKS do return true

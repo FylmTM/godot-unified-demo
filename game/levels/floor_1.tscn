@@ -58,6 +58,18 @@ _data = {
 }
 point_count = 2
 
+[sub_resource type="BoxShape3D" id="BoxShape3D_RimWestRoom"]
+size = Vector3(12, 2.9, 0.5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_RimCorridor"]
+size = Vector3(8, 2.9, 0.5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_RimHall"]
+size = Vector3(16, 2.9, 0.5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_RimGallery"]
+size = Vector3(8, 2.9, 0.5)
+
 [node name="Floor1" type="Node3D" unique_id=186047905]
 
 [node name="Nav" type="NavigationRegion3D" parent="." unique_id=1026362477]
@@ -643,7 +655,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 0, -15.5)
 script = ExtResource("33_402cn")
 
 [node name="Grave6" type="Marker3D" parent="Markers" unique_id=1657998689]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22.8, 0, 2.8)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.2, 0, 0)
 script = ExtResource("33_402cn")
 
 [node name="Grave7" type="Marker3D" parent="Markers" unique_id=1460183078]
@@ -720,7 +732,7 @@ script = ExtResource("36_elite")
 kind = "mage"
 
 [node name="Hoard" type="Marker3D" parent="Markers" unique_id=14405294]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29, 0, -2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, -2)
 script = ExtResource("38_hoard")
 
 [node name="Lift" type="Marker3D" parent="Markers" unique_id=919164589]
@@ -734,7 +746,7 @@ need = 2
 latch = true
 
 [node name="PlateVaultNorth" type="Marker3D" parent="Markers" unique_id=1899424445]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, -6.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22.5, 0, -6)
 script = ExtResource("42_2162b97")
 target = NodePath("../GateVault")
 
@@ -764,3 +776,37 @@ curve = SubResource("Curve3D_roller")
 [node name="Barricade" type="Marker3D" parent="Markers" unique_id=963678410]
 transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 15.7, 0, -6)
 script = ExtResource("44_2a60d55")
+
+[node name="Rims" type="Node3D" parent="." unique_id=1709342855]
+
+[node name="RimWestRoom" type="StaticBody3D" parent="Rims" unique_id=896109507]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 0, 4)
+metadata/unified_category = 2
+
+[node name="Shape" type="CollisionShape3D" parent="Rims/RimWestRoom" unique_id=2095378329]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.55, 0)
+shape = SubResource("BoxShape3D_RimWestRoom")
+
+[node name="RimCorridor" type="StaticBody3D" parent="Rims" unique_id=1120236277]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 0)
+metadata/unified_category = 2
+
+[node name="Shape" type="CollisionShape3D" parent="Rims/RimCorridor" unique_id=1840274353]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.55, 0)
+shape = SubResource("BoxShape3D_RimCorridor")
+
+[node name="RimHall" type="StaticBody3D" parent="Rims" unique_id=1421978276]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 4)
+metadata/unified_category = 2
+
+[node name="Shape" type="CollisionShape3D" parent="Rims/RimHall" unique_id=407562639]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.55, 0)
+shape = SubResource("BoxShape3D_RimHall")
+
+[node name="RimGallery" type="StaticBody3D" parent="Rims" unique_id=2137318431]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 4)
+metadata/unified_category = 2
+
+[node name="Shape" type="CollisionShape3D" parent="Rims/RimGallery" unique_id=153068157]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.55, 0)
+shape = SubResource("BoxShape3D_RimGallery")

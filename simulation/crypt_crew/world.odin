@@ -109,6 +109,8 @@ World :: struct {
 	elite_defs:     [Elite_Kind]physics.Character_Def, // each elite kind's controller (elite_def)
 	barrel_hull:    ^physics.Hull_Data, // the barrel's cylinder (Box3D copies it into each body's shape)
 	barrel_density: f32, // what gives the barrel's hull its PROP_SPECS mass
+	hoard_hull:     ^physics.Hull_Data, // the hoard's box, its bottom edges chamfered (hoard_points)
+	hoard_volume:   f32, // its hull's volume (its mass at unit density): what a density for a mass is taken from
 	contacts:       [dynamic]physics.Contact_Event, // scratch: the step's contact events (prop_impacts)
 	shapes:         [dynamic]physics.Shape_Ref, // scratch: a body's shapes (pass_heroes)
 	grid:           Minion_Grid, // scratch: the live minions by cell, rebuilt by move_minions and before the strikes
@@ -159,6 +161,9 @@ world_create :: proc(seed: u64, levels: []sim.Level_File, _: Setup) -> ^World {
 	height := 2 * barrel.half.y
 	world.barrel_hull = physics.create_cylinder(height, barrel.half.x, -barrel.half.y, PROP_CYLINDER_SIDES)
 	world.barrel_density = barrel.mass / physics.compute_hull_mass(world.barrel_hull, 1).mass
+	points := hoard_points()
+	world.hoard_hull = physics.create_hull(points[:])
+	world.hoard_volume = physics.compute_hull_mass(world.hoard_hull, 1).mass
 	return world
 }
 
@@ -383,6 +388,7 @@ floor_spot :: proc(floor: ^Floor, near: [3]f32, reach: f32) -> (spot: Nav_Point,
 world_destroy :: proc(world: ^World) {
 	physics.destroy(world.phys)
 	physics.destroy_hull(world.barrel_hull)
+	physics.destroy_hull(world.hoard_hull)
 	delete(world.contacts)
 	delete(world.shapes)
 	delete(world.joints)

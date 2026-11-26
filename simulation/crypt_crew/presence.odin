@@ -111,7 +111,7 @@ arrival_spot :: proc(t: ^Tick, player: sim.Player) -> (feet: [3]f32, beside: boo
 
 // Whether an arrival may stand at `point`: walkable from `from` in a straight line over no wall or low cover (tested
 // ARRIVAL_RAY_HEIGHT above the floor), no live minion or elite within ARRIVAL_CLEAR, and ARRIVAL_ROOM clear of every
-// hero's capsule and every prop's footprint.
+// hero's capsule, every prop's footprint and the hoard's (HOARD_FOOTPRINT).
 @(private = "file")
 arrival_clear :: proc(t: ^Tick, from, point: [3]f32) -> bool {
 	ray_from, ray_to := from + {0, ARRIVAL_RAY_HEIGHT, 0}, point + {0, ARRIVAL_RAY_HEIGHT, 0}
@@ -128,6 +128,10 @@ arrival_clear :: proc(t: ^Tick, from, point: [3]f32) -> bool {
 		centre := physics.body_position(t.world.phys, prop.body)
 		room := HERO_RADIUS + PROP_SPECS[prop.kind].footprint + ARRIVAL_ROOM
 		if dmath.length(centre.xz - point.xz) < room do return false
+	}
+	if hoard := &t.state.hoard; hoard.body != {} {
+		centre := physics.body_position(t.world.phys, hoard.body)
+		if dmath.length(centre.xz - point.xz) < HERO_RADIUS + HOARD_FOOTPRINT + ARRIVAL_ROOM do return false
 	}
 	return true
 }

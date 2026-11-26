@@ -6,8 +6,8 @@
 // later goes down, LIFT_DROP in LIFT_RIDE_S; anyone stepping off while it boards puts it back to waiting. Going down,
 // nobody takes damage and the party can't wipe: the floor is won. At the bottom the heroes pick their boons
 // (boons.odin), and once every present hero has picked, or BOON_TIMEOUT_S has run, the party descends: the depth goes
-// up, the hoard's HOARD_GOLD goes in the purse, the next floor is entered (FLOOR_ORDER) with everyone present on it, the
-// downed up at REVIVE_HP, and the save point is marked there. A hero arriving while the lift is busy appears on its
+// up, the hoard's HOARD_GOLD goes in the purse, the next floor is entered (FLOOR_ORDER) with everyone present on it,
+// the downed up at REVIVE_HP, and the save point is marked there. A hero arriving while the lift is busy appears on its
 // deck (lift_arrival) and is offered its boons too.
 //
 // The deck's height is a pure function of its phase and how long it has been in it (lift_target: the marker's Path at
@@ -137,9 +137,9 @@ on_deck :: proc(phys: ^physics.World, lift: ^Lift, point: [3]f32) -> bool {
 }
 
 // Where the hoard is against the deck: `seen`, the sensor over the deck sees it (a part of it is on the lift), and
-// `wholly`, its whole box is over the deck as well (each corner of its bottom). Seen but not wholly aboard, the HUD says
-// so ("the hoard must be wholly on the lift"): a chest hanging over the edge doesn't go. Pure (on the step's sensor
-// data, into the World's scratch `overlaps`): what the tick and the HUD both ask.
+// `wholly`, its whole box is over the deck as well (each corner of its bottom). Seen but not wholly aboard, the HUD
+// says so ("the hoard must be wholly on the lift"): a chest hanging over the edge doesn't go. Pure (on the step's
+// sensor data, into the World's scratch `overlaps`): what the tick and the HUD both ask.
 hoard_on_deck :: proc(
 	phys: ^physics.World,
 	hoard: ^Hoard,
@@ -210,8 +210,8 @@ lift_gone :: proc(t: ^Tick) -> bool {
 	return t.state.lift.phase >= .Descending
 }
 
-// Whether the party is picking its boons at the lift's bottom: the heroes take no input but the pick (the tick skips the
-// systems that read it, and the drive stands every hero still).
+// Whether the party is picking its boons at the lift's bottom: the heroes take no input but the pick (the tick skips
+// the systems that read it, and the drive stands every hero still).
 choosing :: proc(t: ^Tick) -> bool {
 	return t.state.lift.phase == .Choosing
 }
@@ -267,14 +267,15 @@ lift_arrival :: proc(t: ^Tick, player: sim.Player) -> (feet: [3]f32, aboard: boo
 	return physics.body_world_point(t.world.phys, lift.body, corner(slot) + {0, LIFT_HALF.y, 0}), true
 }
 
-// Dev (Command_Dev_Board): while the lift waits, every hold on the hoard lets go, the hoard is put on the middle of the
-// deck, turned as the deck is, and every present hero on the deck at its slot's corner (lift_arrival's places; a downed
-// one's ragdoll laid there anew), so the lift boards as the rules say (nothing is skipped: it still needs the party
-// aboard and one up).
+// Dev (Command_Dev_Board): while the lift waits, every hold lets go (the hoard's, a prop's, a heave's), the hoard is
+// put on the middle of the deck, turned as the deck is, and every present hero on the deck at its slot's corner
+// (lift_arrival's places; a downed one's ragdoll laid there anew), so the lift boards as the rules say (nothing is
+// skipped: it still needs the party aboard and one up).
 board_lift :: proc(t: ^Tick) {
 	lift, hoard := &t.state.lift, &t.state.hoard
 	if lift.body == {} || hoard.body == {} || lift.phase != .Waiting do return
-	for hauler in hoard.haulers do if hauler != {} do release_haul(t, hauler, slipped = false)
+	holding := sim.iterate_present(t)
+	for _, player in sim.next(&holding) do release_hold(t, player) // every hold first: a heave's joint on a body that goes
 	centre := physics.body_world_point(t.world.phys, lift.body, {0, LIFT_HALF.y + HOARD_HALF.y, 0})
 	physics.body_teleport(t.world.phys, hoard.body, centre, physics.body_rotation(t.world.phys, lift.body))
 	heroes := sim.iterate_present(t)
@@ -283,7 +284,9 @@ board_lift :: proc(t: ^Tick) {
 		corner := [3]f32{f32(slot & 1) * 2 - 1, 0, f32(slot >> 1) * 2 - 1} * LIFT_SLOT_SPREAD
 		hero.pos = physics.body_world_point(t.world.phys, lift.body, corner + {0, LIFT_HALF.y, 0})
 		if ragdolled(hero) {
-			// A downed hero's body is laid down again there, at rest (its capsule stays out of the world where it fell)
+			// A downed hero's body is laid down again there, at rest (its capsule stays out of the world where it
+			// fell), no longer flying from a throw
+			end_hero_heave(t, player)
 			physics.ragdoll_destroy(t.world.phys, &hero.ragdoll)
 			hero.vel = {}
 			ragdoll_hero(t, player, {})

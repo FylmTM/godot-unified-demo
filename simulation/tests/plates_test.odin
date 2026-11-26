@@ -179,7 +179,8 @@ the_hoard_presses_a_plate :: proc(t: ^testing.T) {
 }
 
 // Every plate on every level rests released with nothing on it: no wall, pillar or prop the level stands against its
-// slab sinks it (a slab overlapping a pillar is pressed for good, and its gate needs one plate fewer).
+// slab sinks it (a slab overlapping a pillar is pressed for good, and its gate needs one plate fewer); and no grave's
+// risers (SURGE_SPREAD round it) come up on one.
 @(test)
 every_plate_rests_released :: proc(t: ^testing.T) {
 	for id in g.Level_Id {
@@ -191,6 +192,17 @@ every_plate_rests_released :: proc(t: ^testing.T) {
 		for plate, handle in sim.next(&plates) {
 			at := sim.slice(&floor_of(&run).places.plates)[handle.index].pos
 			testing.expectf(t, !plate.pressed, "%v's plate at %v is pressed with nothing on it", id, at)
+			for grave in sim.slice(&floor_of(&run).places.graves) {
+				near := g.within_square(at, {0, 0, 0, 1}, g.PLATE_HALF.x + g.SURGE_SPREAD, grave.point)
+				testing.expectf(
+					t,
+					!near,
+					"%v's grave at %v rises its surges onto the plate at %v",
+					id,
+					grave.point,
+					at,
+				)
+			}
 		}
 	}
 }
