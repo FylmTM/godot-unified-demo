@@ -242,6 +242,16 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
     one purse (two at once: the lower slot); a coin nobody takes goes after LOOT_LIFE_S. The save carries the purse as
     it stood at the last surge; a wipe takes the coins lying on the floor and keeps the purse.
 
+**Mechanisms**, a floor's Box3D pieces (plates.odin, gates.odin, barricades.odin, traps.odin): before the step each gate's
+motor is set from its plates and each roller driven along its path; after it, plates, barricades and traps are read.
+A plate is pressed once its slab sinks past PLATE_ON under anything weighing more than PLATE_LOAD, and released above
+PLATE_OFF. A gate lifts GATE_RISE while `need` of its plates are pressed (a latched one stays up), and closes pressing at
+most GATE_CLOSE_FORCE; below GATE_PASS it keeps minions back. A barricade breaks to a blow (a thrown prop, a charge, a
+hurled body) touching it as its weld strains past BARRICADE_BREAK_N: the blow decides, and the threshold is its floor,
+since a hero walking into the fence strains it harder than a thrown crate. Spikes are up SPIKES_UP_S of every
+SPIKES_PERIOD_S on the game clock from their phase, or while their plate is pressed, striking SPIKES_DAMAGE as they rise
+and every SPIKES_HIT_TICKS; the roller, on the clock too, strikes ROLLER_DAMAGE what touches it every ROLLER_HIT_TICKS.
+
 ## The crowd
 
 The skeleton minions are one MultiMesh (the play scene's `Minions`), however many are up: hundreds cost one draw call
