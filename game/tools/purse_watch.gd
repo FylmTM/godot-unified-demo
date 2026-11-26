@@ -1,9 +1,9 @@
 class_name PurseWatch
 extends RefCounted
-## Watches the HUD's purse (game/play/purse.gd) through a session, for the walks: it may change only in a frame in
-## which a pickup's CONFIRMED event arrived, and never go down, whatever the prediction did meanwhile. It counts the
-## pickups' event states too, so a walk on a bad link can say a misprediction happened (a CANCELLED pickup: one a
-## rollback took back) and the purse held through it.
+## Watches the HUD's purse (game/play/purse.gd) through a session, for the walks: it may change only in a frame in which
+## a pickup's CONFIRMED event arrived (or a descent's, which brings the hoard's gold), and never go down, whatever the
+## prediction did meanwhile. It counts the pickups' event states too, so a walk on a bad link can say a misprediction
+## happened (a CANCELLED pickup: one a rollback took back) and the purse held through it.
 ##
 ## The check runs at the start of each frame (SceneTree.process_frame), before the session delivers that frame's
 ## events, so it judges the change since the last check against the events delivered since then. The purse is read
@@ -52,6 +52,8 @@ static func gold_of(purse: Control) -> int:
 
 
 func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
+	if event is EventDescended and state == UnifiedSession.EVENT_CONFIRMED:
+		_confirmed_since = true  # the hoard's gold, carried by the descent's total
 	if not event is EventLootCollected:
 		return
 	match state:
@@ -73,6 +75,6 @@ func _check() -> void:
 		if gold < _shown:
 			problems.append("the purse went down, from %d to %d" % [_shown, gold])
 		if not _confirmed_since:
-			problems.append("the purse changed from %d to %d with no confirmed pickup" % [_shown, gold])
+			problems.append("the purse changed from %d to %d with no confirmed pickup or descent" % [_shown, gold])
 	_shown = gold
 	_confirmed_since = false

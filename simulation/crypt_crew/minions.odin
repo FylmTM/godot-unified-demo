@@ -143,7 +143,7 @@ minions_alive :: proc(minions: ^sim.Table(Minion, MAX_MINIONS)) -> int {
 	return alive
 }
 
-// `minion` takes `damage` (> 0) from `player` ({}: nobody) by `source`, knocked along `knock_dir` (unit, x and z) at
+// `minion` takes `damage` (> 0; Keen_Edge's more, from a hero: edged_damage) from `player` ({}: nobody) by `source`, knocked along `knock_dir` (unit, x and z) at
 // `knock` metres per second (added to its knockback, at most KNOCK_MAX); asleep, it wakes, and its pack with it; at
 // 0 it dies (Dying). A dying minion takes nothing. The only way a minion takes damage or dies.
 damage_minion :: proc(
@@ -157,14 +157,15 @@ damage_minion :: proc(
 ) {
 	minion := sim.get(&t.state.minions, handle)
 	if minion == nil || minion.phase == .Dying || damage <= 0 do return
+	dealt := edged_damage(t, player, damage) // the blamed hero's Keen_Edge (boons.odin)
 	if minion.phase == .Idle do wake(t, minion)
-	minion.hp -= damage
+	minion.hp -= dealt
 	minion.struck = t.time
 	minion.knock = dmath.clamp_length(minion.knock + knock_dir * knock, KNOCK_MAX)
 	hit := Event_Minion_Hit {
 		minion   = handle,
 		position = sim.Position(minion.pos),
-		damage   = damage,
+		damage   = dealt,
 		player   = player,
 		source   = source,
 	}
@@ -341,10 +342,10 @@ next_within :: proc(walk: ^Minions_Within) -> (minion: ^Minion, handle: sim.Hand
 	}
 }
 
-// What minions are pushed out of this tick: every present hero's capsule, every prop held or at rest, and every live
-// elite's capsule.
+// What minions are pushed out of this tick: every present hero's capsule, every prop held or at rest, every live
+// elite's capsule, and the hoard.
 @(private = "file")
-obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, PLAYERS + MAX_PROPS + MAX_ELITES)) {
+obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, PLAYERS + MAX_PROPS + MAX_ELITES + 1)) {
 	heroes := sim.iterate_present(t)
 	for hero in sim.next(&heroes) do sim.append(&obstacles, Obstacle{hero.pos.xz, HERO_RADIUS})
 	props := sim.iterate(&t.state.props)
@@ -356,6 +357,10 @@ obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, PLAYERS + MAX_P
 	elites := sim.iterate(&t.state.elites)
 	for elite in sim.next(&elites) {
 		if elite.phase != .Dying do sim.append(&obstacles, Obstacle{elite.pos.xz, ELITE_RADIUS})
+	}
+	// ---- the hoard (hoard.odin)
+	if hoard := &t.state.hoard; hoard.body != {} {
+		sim.append(&obstacles, Obstacle{physics.body_position(t.world.phys, hoard.body).xz, HOARD_FOOTPRINT})
 	}
 	return
 }

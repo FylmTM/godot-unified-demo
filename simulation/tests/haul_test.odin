@@ -1,0 +1,419 @@
+// The hoard's and the lift's rule tests (hoard.odin, lift.odin): taking a handle, one hauler dragging and two carrying
+// from the same rule, every way a hold lets go, the lift boarding only with the hoard at rest and everyone aboard (the
+// downed too), stepping off, the ride, a late joiner on the deck, a leaver, and the descent with its save. Each on a
+// sync-tested run (headless.Run) that ends synced, so the holds, the deck and the level change also roll back. The
+// hoard and the lift are Floor 1's markers; heroes are put beside them (place_hero), the party aboard by dev_board.
+package test_crypt_crew
+
+import "core:testing"
+import "unified:dmath"
+import "unified:headless"
+import "unified:headless/scenarios"
+import "unified:physics"
+import "unified:sim"
+
+import g "../crypt_crew"
+
+// How far out from a handle a hauler stands to take it (feet to handle, on the floor plan): in reach of its capsule.
+HANDLE_STAND :: f32(0.7)
+
+// A run of `seated` heroes on Floor 1 with no minion and no elite (nothing to hurt them).
+@(private = "file")
+quiet_run :: proc(seated: int) -> headless.Run(g.Game) {
+	run := headless.run_begin(&g.GAME, 1, seated = seated)
+	clear_minions(&run)
+	clear_elites(&run)
+	return run
+}
+
+// Puts slot `slot`'s hero beside the hoard's `handle`, out along the hoard's long side, facing it.
+@(private = "file")
+beside_handle :: proc(run: ^headless.Run(g.Game), slot: int, handle: g.Haul_Handle) {
+	state := &run.simulation.state
+	phys := run.simulation.world.phys
+	point := g.handle_point(phys, &state.hoard, handle)
+	out := dmath.normalize(point.xz - physics.body_position(phys, state.hoard.body).xz)
+	place_hero(run, slot, {point.x + out.x * HANDLE_STAND, 0, point.z + out.y * HANDLE_STAND}, -out)
+}
+
+// Every slot in `slots` presses Interact in one tick (the others idle), then lets go.
+@(private = "file")
+press_all :: proc(run: ^headless.Run(g.Game), slots: []int) {
+	inputs: [g.PLAYERS]g.Input
+	for slot in slots do inputs[slot].buttons = {.Interact}
+	headless.run_step(run, inputs)
+	headless.run_step(run)
+}
+
+// `seconds` of the slots in `slots` walking along `move` (a full stick), the others idle.
+@(private = "file")
+walk :: proc(run: ^headless.Run(g.Game), slots: []int, move: [2]i8, seconds: f32) {
+	inputs: [g.PLAYERS]g.Input
+	for slot in slots do inputs[slot].move_x, inputs[slot].move_z = move.x, move.y
+	play(run, inputs, seconds)
+}
+
+// dev_board (the hoard and everyone on the deck), then a step, so the deck's sensor has seen the hoard.
+@(private = "file")
+board :: proc(run: ^headless.Run(g.Game)) {
+	headless.run_command(run, 0, g.Command_Dev_Board{})
+	headless.run_step(run)
+}
+
+// Steps until the lift is in `phase`, at most `seconds`; whether it got there.
+@(private = "file")
+until_lift :: proc(run: ^headless.Run(g.Game), phase: g.Lift_Phase, seconds: f32 = 10) -> bool {
+	for _ in 0 ..< int(seconds * g.TICK_HZ) {
+		if run.simulation.state.lift.phase == phase do return true
+		headless.run_step(run)
+	}
+	return run.simulation.state.lift.phase == phase
+}
+
+// The floor's hoard and lift are made from its markers, at rest: the hoard where its marker stands, weighing
+// HOARD_REST_MASS (no hero shoves it), the deck at floor level, waiting.
+@(test)
+the_hoard_and_the_lift_stand_at_their_markers :: proc(t: ^testing.T) {
+	run := quiet_run(1)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	phys := run.simulation.world.phys
+	places := &floor_of(&run).places
+	testing.expect(t, places.hoard.placed && places.lift.placed, "Floor 1 has a hoard and a lift")
+	at := physics.body_position(phys, state.hoard.body)
+	testing.expectf(t, dmath.length(at - (places.hoard.pos + {0, g.HOARD_HALF.y, 0})) < 0.02, "the hoard at %v", at)
+	testing.expectf(t, abs(physics.body_mass(phys, state.hoard.body) - g.HOARD_REST_MASS) < 1, "it weighs its rest")
+	deck := physics.body_position(phys, state.lift.body)
+	testing.expectf(t, abs(deck.y + g.LIFT_HALF.y) < 1e-3, "the deck's top at the floor (%v)", deck)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Waiting)
+	scenarios.expect_synced(t, &run)
+}
+
+// Interact beside a handle takes it (Action.Haul, the hoard at HOARD_MASS), and the press grabs no prop though one is
+// in reach; Interact again lets go, and grabs nothing either. A hauler neither attacks nor uses its ability.
+@(test)
+a_hero_takes_a_handle_and_lets_go :: proc(t: ^testing.T) {
+	run := quiet_run(1)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	phys := run.simulation.world.phys
+	hero := sim.slot_data(run.simulation, 0)
+	beside_handle(&run, 0, .Left)
+	place_prop(&run, CRATE, hero.pos + {-0.2, 0, 1.4}) // a crate in reach too
+	testing.expect_value(t, g.haul_target(phys, &state.hoard, &state.lift, hero), g.Haul_Handle.Left)
+	press(&run, 0, .Interact)
+	testing.expect_value(t, hero.handle, g.Haul_Handle.Left)
+	testing.expect_value(t, hero.action, g.Action.Haul)
+	testing.expect_value(t, hero.held, sim.Handle(g.Prop){})
+	testing.expect_value(t, state.hoard.haulers[0], sim.player_in_slot(run.simulation, 0))
+	testing.expectf(t, abs(physics.body_mass(phys, state.hoard.body) - g.HOARD_MASS) < 1, "held, it weighs HOARD_MASS")
+	testing.expect_value(t, headless.run_events(&run, g.Event_Hoard_Grabbed), 1)
+	inputs: [g.PLAYERS]g.Input
+	inputs[0].buttons = {.Attack, .Ability}
+	play(&run, inputs, 0.5)
+	testing.expect_value(t, hero.action, g.Action.Haul) // no swing, no ability
+	testing.expect_value(t, headless.run_events(&run, g.Event_Hero_Attacked), 0)
+	press(&run, 0, .Interact)
+	testing.expect_value(t, hero.handle, g.Haul_Handle.None)
+	testing.expect_value(t, hero.action, g.Action.None)
+	testing.expect_value(t, hero.held, sim.Handle(g.Prop){})
+	testing.expect_value(t, state.hoard.haulers, [2]sim.Player{})
+	dropped, _ := headless.run_last_event(&run, g.Event_Hoard_Dropped)
+	testing.expect(t, !dropped.slipped, "let go, not slipped")
+	testing.expectf(t, abs(physics.body_mass(phys, state.hoard.body) - g.HOARD_REST_MASS) < 1, "unheld, its rest")
+	scenarios.expect_synced(t, &run)
+}
+
+// The same rule, one hauler or two: alone, a hold lifts one end and the hauler drags the hoard at HOARD_DRAG_SPEED;
+// with a hauler at each handle the hoard is carried clear at HOARD_CARRY_SPEED, nearly twice as fast. Physics tells
+// them apart: the hold's cap lifts half the weight, never all of it.
+@(test)
+one_hauler_drags_and_two_carry :: proc(t: ^testing.T) {
+	speeds: [2]f32 // the hoard's speed along the walk, with one hauler and with two
+	for haulers in 1 ..= 2 {
+		run := quiet_run(2)
+		defer headless.run_end(&run)
+		phys := run.simulation.world.phys
+		hoard := &run.simulation.state.hoard
+		beside_handle(&run, 0, .Left)
+		if haulers == 2 do beside_handle(&run, 1, .Right)
+		both := []int{0, 1}
+		slots := both[:haulers]
+		press_all(&run, slots)
+		play(&run, {}, 0.5) // lifted
+		lowest := physics.body_position(phys, hoard.body).y - g.HOARD_HALF.y
+		if haulers == 2 do testing.expectf(t, lowest > 0.1, "two lift it clear (its bottom at %v)", lowest)
+		walk(&run, slots, {0, 127}, 1) // getting going
+		from := physics.body_position(phys, hoard.body)
+		walk(&run, slots, {0, 127}, 0.75)
+		speeds[haulers - 1] = (physics.body_position(phys, hoard.body).z - from.z) / 0.75
+		hero := sim.slot_data(run.simulation, 0)
+		testing.expect_value(t, hero.handle, g.Haul_Handle.Left) // held all the way
+		want := (g.HOARD_DRAG_SPEED if haulers == 1 else g.HOARD_CARRY_SPEED) * g.CLASS_SPECS[hero.class].max_speed
+		walking := dmath.length(hero.vel.xz)
+		testing.expectf(t, abs(walking - want) < 0.1, "%d hauler(s) walk at %v m/s, not %v", haulers, walking, want)
+		scenarios.expect_synced(t, &run)
+	}
+	testing.expectf(
+		t,
+		speeds[1] > 1.5 * speeds[0],
+		"two (%v m/s) carry faster than one drags (%v)",
+		speeds[1],
+		speeds[0],
+	)
+}
+
+// A hold stretched past HOARD_SLIP lets go (slipped): the hauler gone on, the hoard caught.
+@(test)
+a_stretched_hold_slips :: proc(t: ^testing.T) {
+	run := quiet_run(1)
+	defer headless.run_end(&run)
+	hero := sim.slot_data(run.simulation, 0)
+	beside_handle(&run, 0, .Left)
+	press(&run, 0, .Interact)
+	play(&run, {}, 0.25)
+	testing.expect_value(t, hero.handle, g.Haul_Handle.Left)
+	place_hero(&run, 0, hero.pos + {-2 * g.HOARD_SLIP, 0, 0}, {-1, 0}) // the hold now stretched past HOARD_SLIP
+	headless.run_step(&run)
+	testing.expect_value(t, hero.handle, g.Haul_Handle.None)
+	testing.expect_value(t, run.simulation.state.hoard.haulers, [2]sim.Player{})
+	dropped, _ := headless.run_last_event(&run, g.Event_Hoard_Dropped)
+	testing.expect(t, dropped.slipped, "it slipped")
+	scenarios.expect_synced(t, &run)
+}
+
+// A hauler going down lets go (and so does one leaving): the handle is free for another.
+@(test)
+a_downed_or_leaving_hauler_lets_go :: proc(t: ^testing.T) {
+	run := quiet_run(2)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	beside_handle(&run, 0, .Left)
+	beside_handle(&run, 1, .Right)
+	press_all(&run, {0, 1})
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).handle, g.Haul_Handle.Left)
+	hurt(&run, 0, g.HERO_HP)
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).action, g.Action.Down)
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).handle, g.Haul_Handle.None)
+	testing.expect_value(t, state.hoard.haulers[0], sim.Player{})
+	testing.expect_value(t, state.hoard.haulers[1], sim.player_in_slot(run.simulation, 1))
+	leaver := sim.player_in_slot(run.simulation, 1)
+	headless.run_seat(&run, 1, 0)
+	headless.run_step(&run)
+	testing.expect_value(t, state.hoard.haulers, [2]sim.Player{})
+	dropped, _ := headless.run_last_event(&run, g.Event_Hoard_Dropped)
+	testing.expect_value(t, dropped.player, leaver)
+	scenarios.expect_synced(t, &run)
+}
+
+// The first grab on a floor starts the haul: the next surge comes within HAUL_SURGE_S, and the ones after every
+// HAUL_SURGE_S.
+@(test)
+the_haul_wakes_the_crypt :: proc(t: ^testing.T) {
+	run := quiet_run(1)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	play(&run, {}, g.SURGE_FIRST_S + 0.5) // the first surge rose: the next SURGE_EVERY_S on
+	testing.expect_value(t, state.surges, 1)
+	beside_handle(&run, 0, .Left)
+	press(&run, 0, .Interact)
+	testing.expect(t, state.hoard.hauled, "the haul began")
+	testing.expect_value(t, u32(state.surge.target - state.clock.time), g.HAUL_SURGE_TICKS - 1)
+	for _ in 0 ..< g.HAUL_SURGE_TICKS - 1 do headless.run_step(&run) // to the surge's tick: its clock starts again
+	testing.expect_value(t, u32(state.surge.target - state.clock.time), g.HAUL_SURGE_TICKS)
+	scenarios.expect_synced(t, &run)
+}
+
+// The lift boards once the hoard rests on the deck, nobody holding it, and everyone is aboard; anyone stepping off
+// while it boards puts it back to waiting; LIFT_HOLD_S of everyone aboard and it goes down.
+@(test)
+the_lift_boards_and_stepping_off_cancels :: proc(t: ^testing.T) {
+	run := quiet_run(2)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	board(&run)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Boarding)
+	play(&run, {}, g.LIFT_HOLD_S / 2)
+	place_hero(&run, 1, spawn_of(&run, 1)) // off the deck, before the hold runs out
+	headless.run_step(&run)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Waiting)
+	board(&run)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Boarding)
+	play(&run, {}, g.LIFT_HOLD_S - 2.0 / g.TICK_HZ) // boarding since the command's tick, a tick before board's step
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Boarding)
+	headless.run_step(&run)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Descending)
+	scenarios.expect_synced(t, &run)
+}
+
+// The lift won't board with a hero off the deck, nor with a hand on the hoard; a downed hero off the deck holds it
+// too, and one aboard counts as aboard (nobody is left behind, the downed ride down as they lie).
+@(test)
+the_lift_waits_for_everyone_and_the_hoard_at_rest :: proc(t: ^testing.T) {
+	run := quiet_run(3)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	board(&run)
+	place_hero(&run, 2, spawn_of(&run, 2)) // off the deck
+	play(&run, {}, 0.25)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Waiting)
+	hurt(&run, 2, g.HERO_HP) // down, off the deck: still waited for
+	play(&run, {}, 0.25)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Waiting)
+	board(&run) // the downed one carried aboard with the others
+	testing.expect_value(t, sim.slot_data(run.simulation, 2).action, g.Action.Down)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Boarding)
+	beside_handle(&run, 0, .Right) // a hand on the hoard (its hauler still aboard): it isn't at rest
+	press(&run, 0, .Interact)
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).handle, g.Haul_Handle.Right)
+	play(&run, {}, 0.25)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Waiting)
+	scenarios.expect_synced(t, &run)
+}
+
+// A party all down on the deck with the hoard doesn't ride: a wipe is a wipe.
+@(test)
+a_party_all_down_doesnt_ride :: proc(t: ^testing.T) {
+	run := quiet_run(1)
+	defer headless.run_end(&run)
+	board(&run)
+	testing.expect_value(t, run.simulation.state.lift.phase, g.Lift_Phase.Boarding)
+	hurt(&run, 0, g.HERO_HP)
+	headless.run_step(&run)
+	testing.expect_value(t, run.simulation.state.lift.phase, g.Lift_Phase.Waiting)
+	scenarios.expect_synced(t, &run)
+}
+
+// Going down: LIFT_DROP in LIFT_RIDE_S, the riders and the hoard carried with the deck, nobody hurt meanwhile (a dev
+// hurt does nothing) and no wipe; at the bottom the heroes choose.
+@(test)
+the_lift_carries_its_riders_down :: proc(t: ^testing.T) {
+	run := quiet_run(2)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	phys := run.simulation.world.phys
+	hurt(&run, 1, g.HERO_HP) // one rides down, down
+	board(&run)
+	testing.expect(t, until_lift(&run, .Descending), "it goes down")
+	top := physics.body_position(phys, state.lift.body).y
+	hurt(&run, 0, 10)
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).hp, g.HERO_HP) // nobody is hurt going down
+	testing.expect(t, until_lift(&run, .Choosing, g.LIFT_RIDE_S + 0.1), "it reaches the bottom")
+	play(&run, {}, 0.5) // the riders settle
+	bottom := physics.body_position(phys, state.lift.body).y
+	testing.expectf(t, abs(top - bottom - g.LIFT_DROP) < 1e-3, "it went down %v", top - bottom)
+	for slot in 0 ..< 2 {
+		hero := sim.slot_data(run.simulation, slot)
+		testing.expectf(t, g.on_deck(phys, &state.lift, hero.pos), "slot %d rode down (at %v)", slot, hero.pos)
+	}
+	hoard_at := physics.body_position(phys, state.hoard.body).y
+	testing.expectf(t, abs(hoard_at - (bottom + g.LIFT_HALF.y + g.HOARD_HALF.y)) < 0.05, "the hoard rode down")
+	testing.expect_value(t, state.wipe, sim.Timer{}) // one down, one up: and the lift's ride never wipes
+	scenarios.expect_synced(t, &run)
+}
+
+// A hero arriving while the lift is busy appears on its deck (and is waited for: boons_test.odin); one arriving
+// while it waits arrives beside the party, as always.
+@(test)
+a_late_joiner_mid_ride_lands_on_the_deck :: proc(t: ^testing.T) {
+	run := quiet_run(1)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	phys := run.simulation.world.phys
+	board(&run)
+	testing.expect(t, until_lift(&run, .Descending), "it goes down")
+	play(&run, {}, g.LIFT_RIDE_S / 2)
+	headless.run_seat(&run, 1, 2)
+	headless.run_step(&run)
+	joiner := sim.slot_data(run.simulation, 1)
+	testing.expectf(t, g.on_deck(phys, &state.lift, joiner.pos), "it lands on the deck (at %v)", joiner.pos)
+	testing.expect(t, until_lift(&run, .Choosing, g.LIFT_RIDE_S), "it reaches the bottom")
+	play(&run, {}, 0.5)
+	testing.expectf(t, g.on_deck(phys, &state.lift, joiner.pos), "it rode down (at %v)", joiner.pos)
+	scenarios.expect_synced(t, &run)
+}
+
+// Once everyone has picked, the party descends: the depth up, the hoard's gold in the purse, the next floor entered
+// with everyone up (the downed at REVIVE_HP, the others at their health), and the save made there.
+@(test)
+the_party_descends_with_the_hoard :: proc(t: ^testing.T) {
+	run := quiet_run(2)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	saved := run.simulation.setup
+	hurt(&run, 0, 30)
+	hurt(&run, 1, g.HERO_HP)
+	gold := state.gold
+	board(&run)
+	testing.expect(t, until_lift(&run, .Choosing), "it reaches the bottom")
+	headless.run_command(&run, 0, g.Command_Pick_Boon{0})
+	headless.run_command(&run, 1, g.Command_Pick_Boon{0})
+	testing.expect_value(t, state.depth, 1)
+	testing.expect_value(t, state.gold, gold + g.HOARD_GOLD)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Waiting) // the next floor's
+	descended, _ := headless.run_last_event(&run, g.Event_Descended)
+	testing.expect_value(t, descended, g.Event_Descended{depth = 1, gold = gold + g.HOARD_GOLD})
+	first, second := sim.slot_data(run.simulation, 0), sim.slot_data(run.simulation, 1)
+	testing.expect_value(t, first.hp, g.HERO_HP - 30 + g.hero_max_hp(first) - g.HERO_HP) // a Thick_Hide pick heals
+	testing.expect_value(t, second.action, g.Action.None)
+	testing.expect_value(t, second.hp, g.REVIVE_HP)
+	testing.expect(t, sim.save_changed(run.simulation, run.simulation.tick, &saved), "the descent saves")
+	testing.expect_value(t, saved.depth, 1)
+	testing.expect_value(t, saved.floor, g.FLOOR_ORDER[1 % len(g.FLOOR_ORDER)])
+	testing.expect_value(t, saved.gold, gold + g.HOARD_GOLD)
+	scenarios.expect_synced(t, &run)
+}
+
+// A Continue starts at the save's depth (and a save of an older build, without one, at none).
+@(test)
+a_continue_starts_at_its_depth :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{version = g.SAVE_VERSION, floor = .Floor_1, depth = 2}, seated = 1)
+	defer headless.run_end(&run)
+	testing.expect_value(t, run.simulation.state.depth, 2)
+	scenarios.expect_synced(t, &run)
+}
+
+// A hoard dropped over the deck's edge doesn't board: part of its box hangs past the deck (each corner of its bottom
+// must be over it), though the sensor over the deck sees it.
+@(test)
+a_hoard_over_the_edge_doesnt_board :: proc(t: ^testing.T) {
+	run := quiet_run(1)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	phys := run.simulation.world.phys
+	board(&run)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Boarding)
+	edge := physics.body_world_point(phys, state.lift.body, {g.LIFT_HALF.x, g.LIFT_HALF.y + g.HOARD_HALF.y, 0})
+	physics.body_teleport(phys, state.hoard.body, edge + {-0.4, 0, 0}) // its +X end 0.4 m past the edge
+	headless.run_pin(&run)
+	play(&run, {}, 0.25)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Waiting)
+	scenarios.expect_synced(t, &run)
+}
+
+// A wipe during the haul starts the floor over: the holds let go, the hoard back at its marker at rest, the haul's
+// surges off, the lift waiting at the top.
+@(test)
+a_wipe_mid_haul_starts_the_haul_over :: proc(t: ^testing.T) {
+	run := quiet_run(1)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	phys := run.simulation.world.phys
+	beside_handle(&run, 0, .Left)
+	press(&run, 0, .Interact)
+	walk(&run, {0}, {0, 127}, 1)
+	testing.expect(t, state.hoard.hauled, "the haul began")
+	hurt(&run, 0, g.HERO_HP)
+	for _ in 0 ..< 2 * g.WIPE_TICKS {
+		if headless.run_events(&run, g.Event_Floor_Restarted) > 0 do break
+		headless.run_step(&run)
+	}
+	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 1)
+	testing.expect_value(t, state.hoard.haulers, [2]sim.Player{})
+	testing.expect(t, !state.hoard.hauled, "the haul's surges are off")
+	marker := floor_of(&run).places.hoard.pos + {0, g.HOARD_HALF.y, 0}
+	at := physics.body_position(phys, state.hoard.body)
+	testing.expectf(t, dmath.length(at - marker) < 0.02, "the hoard back at its marker (%v)", at)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Waiting)
+	scenarios.expect_synced(t, &run)
+}

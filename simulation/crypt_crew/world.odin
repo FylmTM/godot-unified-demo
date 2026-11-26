@@ -22,6 +22,9 @@ CAT_LOW :: u64(1 << 2) // low cover: blocks walking only, shots fly over it
 CAT_HERO :: u64(1 << 3)
 CAT_PROP :: u64(1 << 4)
 CAT_ELITE :: u64(1 << 5) // an elite's capsule (elites.odin)
+// ---- the hoard and the lift (hoard.odin, lift.odin)
+CAT_HOARD :: u64(1 << 8) // the hoard's box
+CAT_LIFT :: u64(1 << 9) // the lift's deck, and the sensor over it
 
 // The game's levels, in GAME.levels' order (the State's `level` says which is active).
 Level_Id :: enum u8 {
@@ -63,6 +66,9 @@ Places :: struct {
 	packs:       sim.List(Pack_Def, MAX_PACKS),
 	props:       sim.List(Prop_Def, MAX_PROPS),
 	elites:      sim.List(Elite_Def, MAX_ELITE_MARKERS), // asleep at their markers on entering (elites.odin)
+	// ---- the hoard and the lift (hoard.odin, lift.odin): one of each at most, a floor's exit and what it is for
+	hoard:       Hoard_Def,
+	lift:        Lift_Def,
 }
 
 // A level's floor as the sim reads it, built once in world_create.
@@ -103,6 +109,8 @@ World :: struct {
 	in_way:         [MINION_GRID_CELLS]bool,
 	// scratch: the grid holds the minions where the physics step left them (strike_grid; cleared as the strikes begin)
 	strike_grid:    bool,
+	overlaps:       [dynamic]physics.Overlap, // scratch: what the lift's sensor sees (hoard_aboard)
+	contacts_of:    [dynamic]physics.Contact_Data, // scratch: what the hoard touches (haul_speed)
 }
 
 // Builds the world from the levels (unified/src/level/README.md): their static geometry, and each level's floor
@@ -298,6 +306,21 @@ read_places :: proc(places: ^Places, floor: ^level.Level) {
 			facing := dmath.normalize(dmath.quat_rotate(marker.rot, {0, 0, 1}).xz) // the marker's +Z, as a model's front
 			added := sim.append(&places.elites, Elite_Def{pos = marker.pos, facing = facing, kind = kind})
 			assert(added && facing != {}, "crypt_crew: more elites than MAX_ELITE_MARKERS, or one facing straight up")
+		// ---- the hoard and the lift (hoard.odin, lift.odin)
+		case "hoard":
+			assert(!places.hoard.placed, "crypt_crew: a floor holds one hoard at most")
+			places.hoard = {
+				pos    = marker.pos,
+				rot    = marker.rot,
+				placed = true,
+			}
+		case "lift":
+			assert(!places.lift.placed, "crypt_crew: a floor holds one lift at most")
+			places.lift = {
+				path   = lift_path(marker.pos),
+				rot    = marker.rot,
+				placed = true,
+			}
 		case:
 			assert(false, "crypt_crew: a marker of a kind the sim doesn't know (game/levels/markers/)")
 		}
@@ -319,6 +342,8 @@ world_destroy :: proc(world: ^World) {
 	physics.destroy_hull(world.barrel_hull)
 	delete(world.contacts)
 	delete(world.shapes)
+	delete(world.overlaps)
+	delete(world.contacts_of)
 	for &floor in world.floors {
 		nav.fields_destroy(&floor.fields)
 		nav.destroy(&floor.mesh)
@@ -340,12 +365,13 @@ init :: proc(t: ^Tick) {
 	if t.setup.crowd != .None do place_crowd(t, floor_of(t).minion_cap)
 }
 
-// Takes the party to level `to` (init, the wipe's floor restart; the next floor later): every hero lets go and its body
-// goes, the props, the minions, the bolts and fireballs in flight and the elites (their bodies with them) go, a wipe
-// ends, the static geometry is swapped (physics.level_change), then the new level's props are made in marker order, its
-// packs and its elite markers' elites put to sleep (neither under a held crowd), its surge clock started, and every
-// present hero gets a body at its slot's spawn. The coins on the floor go too. What the block keeps across it (the
-// heroes' classes, the clock, the session's counts, the purse) stays.
+// Takes the party to level `to` (init, the wipe's floor restart, the lift's descent): every hero lets go and its body
+// goes, the props, the minions, the bolts and fireballs in flight, the elites (their bodies with them), the hoard and
+// the lift go, a wipe ends, the static geometry is swapped (physics.level_change), then the new level's props are made
+// in marker order, then its hoard and its lift, its packs and its elite markers' elites put to sleep (neither under a
+// held crowd), its surge clock started, and every present hero gets a body at its slot's spawn. The coins on the floor
+// go too. What the block keeps across it (the heroes' classes and boons, the clock, the session's counts, the purse,
+// the depth) stays.
 enter_level :: proc(t: ^Tick, to: Level_Id) {
 	holding := sim.iterate_present(t)
 	for _, player in sim.next(&holding) do release_hold(t, player) // every hold, before any body it holds goes
@@ -359,8 +385,14 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 	forget_leavers(t) // and whoever comes back later, whole
 	physics.despawn_all(t.world.phys, &t.state.elites)
 	sim.despawn_all(&t.state.loot) // the purse is kept: its gold, like the tally, outlives the floor
+	// ---- the hoard and the lift (hoard.odin, lift.odin): their bodies go, every hold on the hoard let go above
+	despawn_hoard(t)
+	despawn_lift(t)
 	physics.level_change(t, t.world.phys, to)
 	spawn_props(t)
+	// ---- the hoard and the lift (hoard.odin, lift.odin), after the props
+	spawn_hoard(t)
+	spawn_lift(t)
 	if t.setup.crowd == .None do spawn_packs(t) // a held crowd is the floor's whole population
 	if t.setup.crowd == .None do spawn_marker_elites(t) // and none under a held crowd
 	sim.timer_start_ticks(t, &t.state.surge, SURGE_FIRST_TICKS)

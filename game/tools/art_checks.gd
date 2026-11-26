@@ -17,7 +17,8 @@ const CATEGORY_WALL: int = 2
 const CATEGORY_LOW: int = 4
 ## What flies over what (tuning.odin's FLIGHT_HEIGHT): low cover's colliders reach no higher than LOW_COVER_TOP
 ## (tuning.odin's), so a bolt's orb flies over them with room to spare, and its model no higher than LOW_COVER_HEIGHT;
-## a wall's collider stands at least WALL_TOP high (the flight height and its clearance), so every shot meets it.
+## a wall's collider stands at least WALL_TOP high (the flight height and its clearance), so every shot meets it, unless
+## the whole part is under the floor (a shaft's lining, where nothing flies).
 const LOW_COVER_TOP: float = 1.1
 const LOW_COVER_HEIGHT: float = 1.5
 const WALL_TOP: float = 1.4
@@ -353,7 +354,8 @@ func _check_body(body: StaticBody3D, path: String) -> void:
 			if top > LOW_COVER_TOP + SHAPE_TOLERANCE:
 				_problem("low cover's collider %.2f m high: shots fly over at most %.1f m" % [top, LOW_COVER_TOP], path)
 		CATEGORY_WALL:
-			if top < WALL_TOP - SHAPE_TOLERANCE:
+			# a wall's lining of a shaft, all of it under the floor, stands where no shot flies
+			if top < WALL_TOP - SHAPE_TOLERANCE and bounds.end.y > SHAPE_TOLERANCE:
 				_problem("a wall's collider %.2f m high: shots meet one from %.1f m" % [top, WALL_TOP], path)
 		_:
 			_problem("unified_category %d is none of the game's (floor, wall, low)" % category, path)

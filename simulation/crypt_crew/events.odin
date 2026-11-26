@@ -40,4 +40,10 @@ Event :: union {
 	// loot (loot.odin)
 	Event_Loot_Dropped,
 	Event_Loot_Collected,
+	// The hoard, the lift and boons (hoard.odin, lift.odin, boons.odin)
+	Event_Hoard_Grabbed,
+	Event_Hoard_Dropped,
+	Event_Lift,
+	Event_Boon_Picked,
+	Event_Descended,
 }

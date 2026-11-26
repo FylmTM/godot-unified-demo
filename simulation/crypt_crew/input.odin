@@ -110,6 +110,16 @@ Command_Dev_Drop_Loot :: struct {
 	count: u8,
 }
 
+// `pick_boon` (GDScript: CommandPickBoon): the sender's hero picks the boon at `index` of its offer at the lift
+// (boon_offer; boons.odin), while the lift waits on picks.
+Command_Pick_Boon :: struct {
+	index: u8,
+}
+
+// `dev_board` (dev builds): the hoard and every present hero are put on the lift's deck, the hoard let go of first,
+// so the lift boards (a look at the descent and the boons, and the walks' way to them).
+Command_Dev_Board :: struct {}
+
 // Every command a player can send.
 Command :: union {
 	Command_Set_Paused,
@@ -123,4 +133,7 @@ Command :: union {
 	Command_Dev_Hurt_Elites,
 	Command_Dev_Break_Guards,
 	Command_Dev_Drop_Loot,
+	// The lift and boons (lift.odin, boons.odin)
+	Command_Pick_Boon,
+	Command_Dev_Board,
 }

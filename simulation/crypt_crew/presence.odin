@@ -45,6 +45,8 @@ update_presence :: proc(t: ^Tick) {
 			class         = hero.class,
 			action        = .Down if hero.action == .Down else .None,
 			warp          = hero.warp,
+			picked        = hero.picked,
+			boons         = hero.boons,
 		}
 	}
 	for player in t.player_changes.arrived {
@@ -60,13 +62,15 @@ update_presence :: proc(t: ^Tick) {
 }
 
 // The floor changes (enter_level): every absent member's hero forgets what it would have brought back to the old one
-// (its hit points, its cooldown, being down), so it comes back whole.
+// (its hit points, its cooldown, being down), so it comes back whole, its boons kept.
 forget_leavers :: proc(t: ^Tick) {
 	known := sim.iterate_known(t)
 	for hero, player in sim.next(&known) {
 		if !sim.player_present(t, player) do hero^ = {
-			class = hero.class,
-			warp  = hero.warp,
+			class  = hero.class,
+			warp   = hero.warp,
+			picked = hero.picked,
+			boons  = hero.boons, // a hero's boons outlive the floor (boons.odin)
 		}
 	}
 }
@@ -77,8 +81,9 @@ forget_leavers :: proc(t: ^Tick) {
 // depends on the arriver's slot (ARRIVAL_SLOT_TURN): the first that is on the walkable floor (within ARRIVAL_SNAP),
 // joined to the anchor's, reachable from the anchor in a straight line over no wall or low cover, with no live minion
 // or elite within ARRIVAL_CLEAR, and clear of every hero and every prop. With no such spot, or nobody up: the slot's
-// hero_spawn.
+// hero_spawn. While the lift is busy, on its deck instead (lift_arrival), so the party waits for nobody left behind.
 arrival_spot :: proc(t: ^Tick, player: sim.Player) -> (feet: [3]f32, beside: bool) {
+	if deck, aboard := lift_arrival(t, player); aboard do return deck, true
 	slot := sim.player_slot(t, player)
 	floor := floor_of(t)
 	spawn := floor.places.hero_spawns[slot]
@@ -160,8 +165,8 @@ arrival_anchor :: proc(t: ^Tick, player: sim.Player) -> (anchor: ^Hero, ok: bool
 	return nil, false
 }
 
-// A fresh body for `player`'s hero standing at `feet` (`beside` the party, or at its spawn), at full health, facing up
-// the screen (-Z); its view snaps there.
+// A fresh body for `player`'s hero standing at `feet` (`beside` the party, or at its spawn), at full health (its boons'
+// included: hero_max_hp), facing up the screen (-Z), its boons kept; its view snaps there.
 spawn_hero :: proc(t: ^Tick, player: sim.Player, feet: [3]f32, beside: bool) {
 	hero := sim.player_data(t, player)
 	destroy_hero_body(t.world.phys, hero)
@@ -170,10 +175,12 @@ spawn_hero :: proc(t: ^Tick, player: sim.Player, feet: [3]f32, beside: bool) {
 		pos            = feet,
 		facing         = {0, -1},
 		action_started = t.time,
-		hp             = HERO_HP,
 		class          = hero.class,
 		warp           = warp,
+		picked         = hero.picked,
+		boons          = hero.boons,
 	}
+	hero.hp = hero_max_hp(hero)
 	physics.character_create(
 		t.world.phys,
 		&hero.body,

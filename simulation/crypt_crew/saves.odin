@@ -1,7 +1,8 @@
 // The save (unified/src/sim/README.md, Saves): the Setup that continues a crypt in a new session. The party's progress
 // today is its tally: the floor it is on, the surges it has faced, the skeletons it has felled and the gold in its
-// purse, taken when each surge rises (the floor's one beat), so a Continue starts that floor from its start with the
-// tally carried on (the coins left lying go with the floor). The
+// purse, taken when each surge rises (the floor's beat), and the depth the lift has taken it to, taken as it descends
+// (a new floor's start), so a Continue starts that floor from its start with the tally carried on (the coins left lying
+// go with the floor; boons aren't kept yet: a Continue starts without them, until the run's save moves to the lift). The
 // app keeps it as JSON (UnifiedSetup.to_json) in one slot, written by the host or the single player.
 //
 // Seam for the run (milestone 7): the Setup grows the run's floor, layout picks, boons and difficulty; a save reads over
@@ -23,20 +24,26 @@ Setup :: struct {
 	surges:  u32, // the surges it had faced by the save
 	kills:   u32, // the skeletons it had felled when the last surge rose
 	gold:    u32, // the gold in its purse when the last surge rose (loot.odin; added by name: an older save reads 0)
+	depth:   u32, // the floors it had gone down (lift.odin; added by name: an older save reads 0)
 }
 
-// The save from a tick's state (sim.Game.save): the floor and the tally as they stood at the last surge's rise.
-// Nothing while no surge has risen this session (the surges a save it continues held, else none): the Setup it started
-// from is still the save. So a save is made at each surge and never between (unified keeps a save only when its bytes
-// change), whatever happens on the floor between two surges.
+// The save from a tick's state (sim.Game.save): the floor and the tally as they stood at the last save point (a surge's
+// rise, or the lift's descent). Nothing while no surge has risen and the party hasn't gone down this session (the surges
+// and depth a save it continues held, else none): the Setup it started from is still the save. So a save is made at
+// each surge and each descent and never between (unified keeps a save only when its bytes change), whatever happens on
+// the floor between them.
 save :: proc(state: ^State, setup: ^Setup) -> bool {
-	if state.surges == (setup.surges if setup.version == SAVE_VERSION else 0) do return false
+	continued := setup.version == SAVE_VERSION
+	if state.surges == (setup.surges if continued else 0) && state.depth == (setup.depth if continued else 0) {
+		return false
+	}
 	setup^ = {
 		version = SAVE_VERSION,
 		floor   = state.saved_floor,
 		surges  = state.surges,
 		kills   = state.saved_kills,
 		gold    = state.saved_gold,
+		depth   = state.depth,
 	}
 	return true
 }
@@ -50,10 +57,12 @@ start_from_setup :: proc(t: ^Tick) -> Level_Id {
 	t.state.saved_kills = t.setup.kills
 	t.state.gold = t.setup.gold
 	t.state.saved_gold = t.setup.gold
+	t.state.depth = t.setup.depth
 	return t.setup.floor
 }
 
-// A surge rose: the floor and the tally the next save holds are this tick's (raise_surges).
+// A surge rose (raise_surges), or the party went down to a new floor (lift.odin): the floor and the tally the next save
+// holds are this tick's.
 mark_save_point :: proc(t: ^Tick) {
 	t.state.saved_kills = t.state.kills
 	t.state.saved_floor = t.state.level.id

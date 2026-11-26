@@ -1,0 +1,135 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/play/boon_panel.gd" id="boon_panel"]
+[ext_resource type="PackedScene" path="res://game/ui/widgets/action_prompt.tscn" id="action_prompt"]
+
+[node name="BoonPanel" type="VBoxContainer"]
+mouse_filter = 2
+theme_override_constants/separation = 10
+script = ExtResource("boon_panel")
+
+[node name="Title" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+horizontal_alignment = 1
+
+[node name="Cards" type="HBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 14
+
+[node name="Card0" type="PanelContainer" parent="Cards"]
+custom_minimum_size = Vector2(250, 190)
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"Card"
+
+[node name="Rows" type="VBoxContainer" parent="Cards/Card0"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="Name" type="Label" parent="Cards/Card0/Rows"]
+layout_mode = 2
+theme_type_variation = &"InkHeading"
+horizontal_alignment = 1
+
+[node name="Rank" type="Label" parent="Cards/Card0/Rows"]
+layout_mode = 2
+theme_type_variation = &"InkDim"
+horizontal_alignment = 1
+
+[node name="Text" type="Label" parent="Cards/Card0/Rows"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"Ink"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Card1" type="PanelContainer" parent="Cards"]
+custom_minimum_size = Vector2(250, 190)
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"Card"
+
+[node name="Rows" type="VBoxContainer" parent="Cards/Card1"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="Name" type="Label" parent="Cards/Card1/Rows"]
+layout_mode = 2
+theme_type_variation = &"InkHeading"
+horizontal_alignment = 1
+
+[node name="Rank" type="Label" parent="Cards/Card1/Rows"]
+layout_mode = 2
+theme_type_variation = &"InkDim"
+horizontal_alignment = 1
+
+[node name="Text" type="Label" parent="Cards/Card1/Rows"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"Ink"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Card2" type="PanelContainer" parent="Cards"]
+custom_minimum_size = Vector2(250, 190)
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"Card"
+
+[node name="Rows" type="VBoxContainer" parent="Cards/Card2"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="Name" type="Label" parent="Cards/Card2/Rows"]
+layout_mode = 2
+theme_type_variation = &"InkHeading"
+horizontal_alignment = 1
+
+[node name="Rank" type="Label" parent="Cards/Card2/Rows"]
+layout_mode = 2
+theme_type_variation = &"InkDim"
+horizontal_alignment = 1
+
+[node name="Text" type="Label" parent="Cards/Card2/Rows"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"Ink"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Party" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HudText"
+horizontal_alignment = 1
+
+[node name="Prompts" type="HBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 24
+
+[node name="Choose" parent="Prompts" instance=ExtResource("action_prompt")]
+layout_mode = 2
+actions = Array[StringName]([&"move_left", &"move_right"])
+text = "Choose"
+
+[node name="Take" parent="Prompts" instance=ExtResource("action_prompt")]
+layout_mode = 2
+actions = Array[StringName]([&"interact"])
+text = "Take"

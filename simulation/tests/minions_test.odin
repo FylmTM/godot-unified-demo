@@ -227,6 +227,7 @@ minions_are_pushed_out_at_a_props_edge :: proc(t: ^testing.T) {
 		run := headless.run_begin(&g.GAME, 1, seated = 1)
 		defer headless.run_end(&run)
 		clear_minions(&run)
+		place_prop(&run, CRATE, spawn_of(&run, 0) + {3, 0, 0}) // on open floor, nothing else in a minion's way
 		crate, _ := prop_at(&run, CRATE)
 		at := physics.body_position(run.simulation.world.phys, crate.body)
 		reach := g.PROP_SPECS[crate.kind].footprint + g.MINION_RADIUS

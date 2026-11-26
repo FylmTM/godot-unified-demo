@@ -215,7 +215,11 @@ BARBARIAN_THROW :: f32(1.3) // the Barbarian throws a prop this much faster alon
 REVIVE_RANGE :: f32(1.5) // an ally up holding Interact this close (feet to feet, on the floor plan) revives a hero down
 REVIVE_S :: f32(2.5) // one ally's revive takes this long; each more beside it adds as much a tick
 REVIVE_TICKS :: u16(REVIVE_S * TICK_HZ)
-REVIVE_DECAY :: u16(2) // what a revive nobody tends loses a tick
+// A revive's progress (Hero.revive) counts in these per tick of one ally's tending, so a Field_Medic's tending can count
+// a share more (revive_rate); it is up at REVIVE_FULL.
+REVIVE_UNIT :: u16(10)
+REVIVE_FULL :: REVIVE_TICKS * REVIVE_UNIT
+REVIVE_DECAY :: u16(2) * REVIVE_UNIT // what a revive nobody tends loses a tick: two ticks of tending
 REVIVE_SPEED :: f32(0.3) // a hero reviving moves at this fraction of its speed
 REVIVE_HP :: i16(40) // the revived rise with this, in their grace (SPAWN_GRACE_S)
 WIPE_S :: f32(2.5) // every hero present down this long: the floor starts over
@@ -499,3 +503,65 @@ ELITE_GOLD := [Elite_Kind]int {
 	.Rogue   = 20,
 	.Mage    = 25,
 }
+
+// ---- the hoard, the lift and boons (hoard.odin, lift.odin, boons.odin)
+
+// The hoard: the vault's gold chest, a dynamic body two heroes carry by its handles and one alone drags.
+HOARD_MASS :: f32(120) // kilograms: one hold lifts one end of it, two lift it clear (HOARD_LIFT)
+// What it weighs at rest, nobody holding a handle: more than four heroes' drives can slide (its floor friction over 4
+// HERO_GROUND_FORCE), so it goes where it is hauled, never shoved.
+HOARD_REST_MASS :: f32(12000)
+#assert(HOARD_FRICTION * HOARD_REST_MASS * GRAVITY > PLAYERS * HERO_GROUND_FORCE)
+HOARD_HALF :: [3]f32{0.8, 0.5, 0.6} // its box's half extents, measured from its model (chest_gold)
+// A handle, body-local: at its +X end (the other at -X), a little above its centre, so the chest carried by both
+// hangs level under its handles instead of turning over.
+HOARD_HANDLE :: [3]f32{0.8, 0.15, 0}
+HOARD_FRICTION :: f32(0.15) // on the floor: a dragged end slides
+HOARD_ANGULAR_DAMPING :: f32(3) // a carried chest's swing under its handles dies down, so it hangs steady
+HOARD_FOOTPRINT :: f32(0.9) // the circle minions are pushed out of (metres)
+HOARD_HOLD_HEIGHT :: f32(0.9) // a hold lifts its handle this high above the hauler's feet
+// A hold has its handle between these gaps off the hauler's capsule on the floor plan, and pulls it only when it strays
+// out of them: two haulers never fight over where the rigid chest is (two holds each pinning their handle to a spot
+// would spend their force pulling it apart, not lifting it), and one walking off drags its end along.
+HOARD_HOLD_NEAR :: f32(0.05)
+HOARD_HOLD_FAR :: f32(0.3)
+// A hold's force cap, in multiples of the hoard's weight: over half (one end up, the other on the floor), under all of
+// it (one hauler never lifts it clear), so whether it is carried or dragged is physics' answer, not a rule's.
+HOARD_LIFT :: f32(0.6)
+#assert(HOARD_LIFT > 0.5 && HOARD_LIFT < 1)
+HOARD_DRAG_SPEED :: f32(0.45) // a hauler moves at this fraction of its speed while the hoard drags on the floor ...
+HOARD_CARRY_SPEED :: f32(0.8) // ... and at this while it is carried clear
+// A hauler's drive pushes with at most this (newtons; HERO_GROUND_FORCE's): the hold pulling back on it slows it as it
+// gets the chest going, so the hold doesn't stretch ahead of the chest and spend on pulling what it should on lifting.
+HOARD_GROUND_FORCE :: f32(1200)
+HOARD_SLIP :: f32(1.2) // a hold stretched further than this (its hauler gone ahead, the hoard caught) lets go
+HAUL_SURGE_S :: f32(12) // from the first grab on, the surges rise this often: the crypt wakes behind the haul
+HAUL_SURGE_TICKS :: u32(HAUL_SURGE_S * TICK_HZ)
+#assert(HAUL_SURGE_TICKS < SURGE_EVERY_TICKS)
+HOARD_GOLD :: 100 // the gold the hoard puts in the purse when the party descends with it
+
+// The lift: a kinematic deck in a shaft, the floor's exit.
+LIFT_HALF :: [3]f32{1.95, 0.25, 1.95} // the deck's half extents: a large floor tile's top, a hand short of the shaft
+LIFT_SENSOR_HEIGHT :: f32(2.5) // the volume above the deck that counts as aboard
+LIFT_HOLD_S :: f32(1.5) // everyone aboard with the hoard this long: it goes down
+LIFT_HOLD_TICKS :: u32(LIFT_HOLD_S * TICK_HZ)
+LIFT_DROP :: f32(6) // how far down the shaft it goes ...
+LIFT_RIDE_S :: f32(3) // ... in this long (smoothstepped: it starts and stops gently, so riders keep their feet)
+LIFT_RIDE_TICKS :: u32(LIFT_RIDE_S * TICK_HZ)
+// An arrival while the lift is busy (and dev_board's heroes) stands on its deck this far out along x and z, toward its
+// slot's corner: clear of the hoard in the middle.
+LIFT_SLOT_SPREAD :: f32(1.05)
+#assert(LIFT_SLOT_SPREAD + HERO_RADIUS < LIFT_HALF.x)
+
+// Boons: each hero picks one of three at the lift, ranked up to BOON_RANK_MAX each (boons.odin).
+BOON_RANK_MAX :: 3
+BOON_OFFER :: 3 // the boons offered
+BOON_TIMEOUT_S :: f32(30) // a hero who hasn't picked by then gets its first offer
+BOON_TIMEOUT_TICKS :: u32(BOON_TIMEOUT_S * TICK_HZ)
+THICK_HIDE_HP :: i16(20) // Thick_Hide: this much more health a rank (its pick heals what it adds)
+SWIFT_BOOTS :: f32(0.06) // Swift_Boots: this much faster a rank
+KEEN_EDGE :: f32(0.15) // Keen_Edge: this much more damage a rank, on minions and elites
+QUICK_HANDS :: f32(0.12) // Quick_Hands: this much shorter an ability cooldown a rank
+STRONG_BACK :: f32(0.6) // Strong_Back: what a rank leaves of the slowdown from carrying a prop or hauling the hoard
+FIELD_MEDIC :: f32(0.3) // Field_Medic: this much faster a revive a rank (REVIVE_UNIT: in tenths of a tick of tending)
+#assert(QUICK_HANDS * BOON_RANK_MAX < 1)

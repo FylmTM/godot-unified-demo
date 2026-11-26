@@ -10,7 +10,8 @@
 // held crowds and the benchmarks' populations), elites (Box3D skeletons: the shared rules) and a file per kind
 // (elite_warrior, elite_rogue, elite_mage), health (damage, down, the wipe), revive (allies tending the downed), pause
 // (the co-op pause), saves (the Setup a save is, and the tally it carries), dev (the dev commands) and script (the
-// scripted player); loot (coins dropped and the party's purse).
+// scripted player); loot (coins dropped and the party's purse); hoard (the gold chest hauled by its handles), lift (the
+// floor's exit) and boons (picked at the lift).
 package crypt_crew
 
 import "unified:physics"
@@ -21,7 +22,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "22"
+VERSION :: "23"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -94,6 +95,7 @@ Zone :: enum u8 {
 	Health,
 	Elites,
 	Loot,
+	Lift, // the hoard's holds and the lift (hoard.odin, lift.odin)
 }
 
 // One tick: the systems in their order, each group a timing zone.
@@ -102,6 +104,7 @@ tick :: proc(t: ^Tick) {
 		sim.zone(t, Zone.Presence)
 		update_presence(t) // first: people come and go while paused
 		apply_pause(t) // the pause's own command is read on paused ticks too
+		pick_boons(t) // and so are the boons' picks: a pick sent during a pause counts (boons.odin)
 	}
 	if t.paused do return // the co-op pause: no system runs, physics.step included
 	{
@@ -136,9 +139,15 @@ tick :: proc(t: ^Tick) {
 	}
 	{
 		sim.zone(t, Zone.Physics)
+		drive_lift(t) // the deck's velocity for this step (lift.odin)
 		physics.step(t.world.phys)
 		read_back_heroes(t)
 		read_back_elites(t)
+	}
+	{
+		sim.zone(t, Zone.Lift)
+		hold_hauls(t) // a hold stretched too far lets go (hoard.odin)
+		update_lift(t) // the lift's phase moves on, and the party may descend (lift.odin)
 	}
 	{
 		sim.zone(t, Zone.Strikes)

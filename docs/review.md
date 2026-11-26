@@ -853,3 +853,36 @@ Tests and tools:
   Barbarian to heave. `uni coop`'s beats, both sides: an ability (a Barbarian's is its heave of the ally it then
   revives), a coin, a revive given and one received, each waited on as CONFIRMED. `replays/lan_pair` was recorded
   again with VERSION 21; its play needed no change.
+
+## Milestone 6: physics set pieces
+
+Step 3, the hoard, the lift and boons (beyond the design's decided calls):
+
+- The hoard's hold is set where the handle is (on the floor plan, kept between HOARD_HOLD_NEAR and HOARD_HOLD_FAR of
+  the capsule) rather than pinned in front of the facing: two holds each pinning its handle to a spot fought over the
+  rigid chest and spent their capped force pulling it apart, so two haulers never lifted it. A hauler's drive pushes
+  with at most HOARD_GROUND_FORCE (1200 N), so the chest it pulls holds it back as it gets going; at full drive the hold
+  stretched ahead and dragged instead of lifting. One hauler: 2.25 m/s (a Knight), two: 4 m/s.
+- "Carried clear" is physics' answer: the chest touches nothing but heroes after the step (its contacts).
+- Unheld, the hoard weighs HOARD_REST_MASS 12000 kg (its density switched as the first hand takes it and the last
+  lets go): at 120 kg a hero simply shoved it to the lift faster than hauling it. HOARD_FRICTION 0.15 (one end drags),
+  angular damping 3 (a carried chest stops swinging). The hauler and the chest still collide (left free to walk into
+  it, a hauler stood on it, wedged).
+- The lift needs one hero up to board: a party all down on the deck is a wipe, not a ride. Going down, check_wipe
+  stops too (the one up leaving the ride wipes nobody).
+- The descent's order: depth and purse, enter_level, then mark_save_point, so the save holds the new floor (the
+  design's mark_save_point first would have saved the old one with the new depth). Heroes up keep their health; Thick
+  Hide's pick heals the 20 it adds.
+- Picks are read on paused ticks too (pick_boons beside apply_pause): a pick sent during a co-op pause counts, and the
+  lift leaves once the game runs again.
+- Field Medic's 30 % needed a revive in finer units: Hero.revive counts REVIVE_UNIT (10) a tick of one ally's tending
+  (REVIVE_FULL, REVIVE_DECAY in them); the revive tests read the units.
+- Command_Dev_Board puts the hoard and the party on the deck (tests, the walks' and coop's way to the boons).
+- Floor 1: the shaft is the west room's north-west tile (a LiftShaft part: kit walls lining it underground, a wall
+  under the floor needing no WALL_TOP height in the art checks); the crate and heavy crate there moved to (-14.4,
+  -6.4) and (-12.2, -3.6) (the funnel and steering tests pass with them there), the stacked crates dropped; the hoard
+  marker replaces the ChestGold decor. One minion test places its crate on open floor.
+- The boon panel: three parchment cards per local player at the bottom, the countdown and "Waiting for X" over them;
+  plate pips are "Keen Edge ++" lines; the level fade follows the session's level_changing/level_changed.
+- Sounds: RPG Audio's creak1 (the lift going down, every 0.9 s) and handleCoins (a pick, CONFIRMED), Impact Sounds'
+  impactPlank_medium_000 (the hoard put down, the deck's stop).

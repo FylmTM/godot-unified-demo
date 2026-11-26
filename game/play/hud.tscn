@@ -9,6 +9,8 @@
 [ext_resource type="Script" path="res://game/ui/widgets/name_label.gd" id="name_label"]
 [ext_resource type="Script" path="res://game/ui/widgets/fit_to_view.gd" id="fit_to_view"]
 [ext_resource type="Script" path="res://game/play/purse.gd" id="purse"]
+[ext_resource type="Script" path="res://game/play/boon_panels.gd" id="boon_panels"]
+[ext_resource type="PackedScene" path="res://game/play/boon_panel.tscn" id="boon_panel"]
 
 [node name="Hud" type="Control"]
 layout_mode = 3
@@ -19,6 +21,17 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("hud")
+
+[node name="Fade" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0)
 
 [node name="Heroes" type="VBoxContainer" parent="."]
 unique_name_in_owner = true
@@ -271,3 +284,68 @@ card_scene = ExtResource("seat_card")
 [node name="FitToView" type="Node" parent="Heroes"]
 script = ExtResource("fit_to_view")
 pivot = Vector2(0, 0)
+
+[node name="HaulPrompts" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="HaulPrompt1" parent="HaulPrompts" instance=ExtResource("action_prompt")]
+visible = false
+layout_mode = 0
+actions = Array[StringName]([&"interact"])
+text = "Haul"
+
+[node name="HaulPrompt2" parent="HaulPrompts" instance=ExtResource("action_prompt")]
+visible = false
+layout_mode = 0
+actions = Array[StringName]([&"interact"])
+text = "Haul"
+
+[node name="HaulPrompt3" parent="HaulPrompts" instance=ExtResource("action_prompt")]
+visible = false
+layout_mode = 0
+actions = Array[StringName]([&"interact"])
+text = "Haul"
+
+[node name="HaulPrompt4" parent="HaulPrompts" instance=ExtResource("action_prompt")]
+visible = false
+layout_mode = 0
+actions = Array[StringName]([&"interact"])
+text = "Haul"
+
+[node name="BoonPanels" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_top = -60.0
+offset_bottom = -60.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 12
+script = ExtResource("boon_panels")
+panel_scene = ExtResource("boon_panel")
+
+[node name="Status" type="Label" parent="BoonPanels"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+horizontal_alignment = 1
+
+[node name="Panels" type="HBoxContainer" parent="BoonPanels"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 40

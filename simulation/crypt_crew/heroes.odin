@@ -46,14 +46,17 @@ locate_heroes :: proc(t: ^Tick) {
 }
 
 // Each present hero's controller is driven toward its stick at its class's max_speed, slowed by what it carries
-// (carry_speed) and by what it does (attacking, blocking, reviving), or along its facing in a dash; a hero down is
-// driven to a stop (action_drive). Heroes never jump.
+// (carry_speed) and by what it does (attacking, blocking, reviving, hauling), or along its facing in a dash; a hero
+// down is driven to a stop (action_drive). A hauler's drive pushes with at most HOARD_GROUND_FORCE, so the hoard its
+// hold pulls holds it back as it gets going and the hold stays on lifting (hoard.odin). Heroes never jump.
 move_heroes :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
 		input := sim.input(t, player)
 		move, scale := action_drive(t, hero, dmath.stick(input.move_x, input.move_z))
-		physics.character_update(t.world.phys, &hero.body, t.world.hero_defs[hero.class], move, false, scale)
+		def := t.world.hero_defs[hero.class]
+		if hero.action == .Haul do def.max_ground_force = HOARD_GROUND_FORCE
+		physics.character_update(t.world.phys, &hero.body, def, move, false, scale)
 	}
 }
 

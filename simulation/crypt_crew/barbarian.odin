@@ -49,10 +49,11 @@ Event_Heave_Landed :: struct {
 	position: sim.Position,
 }
 
-// What a thrown body lands on: the floor, walls, low cover and props (never another body: it rolls off a hero's head).
+// What a thrown body lands on: the floor, walls, low cover, props, the hoard and the lift's deck (never another body:
+// it rolls off a hero's head).
 LAND_FILTER :: physics.Filter {
 	category = CAT_HERO,
-	mask     = CAT_FLOOR | CAT_WALL | CAT_LOW | CAT_PROP,
+	mask     = CAT_FLOOR | CAT_WALL | CAT_LOW | CAT_PROP | CAT_HOARD | CAT_LIFT,
 }
 
 // The Barbarian's blow lands: its axe's cleave.
@@ -184,12 +185,12 @@ release_heave :: proc(t: ^Tick, player: sim.Player, thrown: bool) {
 	physics.body_apply_mass_from_shapes(t.world.phys, body.body)
 	physics.body_set_gravity_scale(t.world.phys, body.body, physics.CHARACTER_DEFAULT.gravity_scale)
 	if !thrown {
-		sim.timer_start_ticks(t, &hero.ability_ready, HEAVE_COOLDOWN_TICKS)
+		sim.timer_start_ticks(t, &hero.ability_ready, hands_cooldown(hero, HEAVE_COOLDOWN_TICKS))
 		let_down(t, target)
 		return
 	}
 	// The cooldown runs from the landing (land_heaves); until then, as long as the longest flight and the cooldown.
-	sim.timer_start_ticks(t, &hero.ability_ready, HEAVE_FLIGHT_MAX_TICKS + HEAVE_COOLDOWN_TICKS)
+	sim.timer_start_ticks(t, &hero.ability_ready, HEAVE_FLIGHT_MAX_TICKS + hands_cooldown(hero, HEAVE_COOLDOWN_TICKS))
 	pass_heroes(t, body.body, true)
 	velocity := [3]f32{hero.facing.x * THROW_SPEED, THROW_LIFT, hero.facing.y * THROW_SPEED}
 	physics.body_set_linear_velocity(t.world.phys, body.body, velocity)
@@ -273,7 +274,8 @@ land_heaves :: proc(t: ^Tick) {
 @(private = "file")
 thrower_lands :: proc(t: ^Tick, thrower: sim.Player) {
 	if sim.player_present(t, thrower) {
-		sim.timer_start_ticks(t, &sim.player_data(t, thrower).ability_ready, HEAVE_COOLDOWN_TICKS)
+		hero := sim.player_data(t, thrower)
+		sim.timer_start_ticks(t, &hero.ability_ready, hands_cooldown(hero, HEAVE_COOLDOWN_TICKS))
 	}
 }
 
