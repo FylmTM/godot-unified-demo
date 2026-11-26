@@ -23,4 +23,9 @@ Event :: union {
 	Event_Hero_Attacked,
 	Event_Bolt_Burst,
 	Event_Crossbow_Shot,
+	// Elites (elites.odin)
+	Event_Elite_Hit,
+	Event_Elite_Died,
+	Event_Guard_Broken,
+	Event_Elite_Cast,
 }

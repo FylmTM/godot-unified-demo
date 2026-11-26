@@ -7,6 +7,7 @@
 // (facing, movement, read back), hands (grab, carry, drop, throw), attacks (the shared machinery) and a file per class
 // (knight, barbarian, mage, rogue), bolts (the Mage's), props (their bodies, hits, impacts and throws' ends), minions
 // (targets, steering, swings, dying), director (sleeping packs, surges, held crowds and the benchmarks' populations),
+// elites (Box3D skeletons: the shared rules) and a file per kind (elite_warrior, elite_rogue, elite_mage),
 // health (damage, down, rising, the wipe), pause (the co-op pause), saves (the Setup a save is, and the tally it
 // carries), dev (the dev commands) and script (the scripted player).
 package crypt_crew
@@ -19,7 +20,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "15"
+VERSION :: "16"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -90,6 +91,7 @@ Zone :: enum u8 {
 	Strikes,
 	Props,
 	Health,
+	Elites,
 }
 
 // One tick: the systems in their order, each group a timing zone.
@@ -125,9 +127,15 @@ tick :: proc(t: ^Tick) {
 		move_minions(t)
 	}
 	{
+		sim.zone(t, Zone.Elites)
+		wake_elites(t)
+		move_elites(t) // after the minions: their pass read the elites where the last step left them
+	}
+	{
 		sim.zone(t, Zone.Physics)
 		physics.step(t.world.phys)
 		read_back_heroes(t)
+		read_back_elites(t)
 	}
 	{
 		sim.zone(t, Zone.Strikes)
@@ -139,11 +147,13 @@ tick :: proc(t: ^Tick) {
 	{
 		sim.zone(t, Zone.Props)
 		prop_impacts(t)
+		elite_impacts(t) // after the impacts: it reads the contacts they gathered
 		age_throws(t)
 	}
 	{
 		sim.zone(t, Zone.Health)
 		age_minions(t) // after the step: a swing lands on where the hero is now
+		age_elites(t)
 		check_wipe(t)
 	}
 }

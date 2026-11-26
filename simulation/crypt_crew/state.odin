@@ -28,6 +28,8 @@ State :: struct {
 	floor_surges: u32,
 	saved_floor:  Level_Id, // the floor the party was on when the last surge rose: what the save holds
 	_pad:         [7]u8,
+	// Elites (elites.odin): the skeleton Warriors, Rogues and Mages, each a Box3D character.
+	elites:       sim.Table(Elite, MAX_ELITES),
 }
 
 // What a hero is doing, for the view to pose (a one-shot clip at its age).

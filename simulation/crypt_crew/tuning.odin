@@ -287,3 +287,98 @@ ARRIVAL_SNAP :: f32(1) // a spot counts when the navigation mesh is this close t
 ARRIVAL_CLEAR :: f32(2) // and no live minion is this close
 ARRIVAL_ROOM :: f32(0.1) // and it clears every hero's capsule and every prop's footprint by this
 ARRIVAL_RAY_HEIGHT :: f32(0.5) // the way from the anchor is tested this high above the floor (under low cover's top)
+
+// ---- elites: skeleton Warriors, Rogues and Mages, Box3D characters with rules of their own (elites.odin)
+
+MAX_ELITES :: 16 // elite rows, the dying included
+MAX_ELITE_MARKERS :: 8 // the most elite markers a level holds
+// A surge or a dev spawn raises no elite while this many are alive (a floor's markers place theirs whatever).
+ELITES_ALIVE_MAX :: 6
+ELITE_SURGE_EVERY :: 3 // every this many surges on a floor, the surge brings an elite too
+// A surge's or a dev spawn's elite rises on this ring round its place when the place itself is taken.
+ELITE_RISE_RING :: f32(1.5)
+ELITE_RADIUS :: f32(0.45)
+ELITE_HEIGHT :: f32(2.1) // the capsule, end to end: a KayKit skeleton is about 2 m to the top of its helmet or hood
+ELITE_HALF_HEIGHT :: ELITE_HEIGHT / 2 - ELITE_RADIUS
+ELITE_CENTRE_ABOVE_FEET :: ELITE_HALF_HEIGHT + HERO_POGO_REST // it floats on the heroes' pogo
+// What a skeleton's reach and its swing's arc are, past its circle and the hero's capsule (as a minion's).
+ELITE_REACH :: f32(0.9)
+ELITE_STAND :: f32(0.4) // a chaser this far inside its reach stands to swing, as a minion does
+ELITE_STRIKE_COS :: f32(0.5) // a swing starts, and lands, only on a hero within 60° of its facing (cos 60°)
+// An elite turns at most this much a tick (4°, 256° a second; its cosine and sine: no trig in the sim), so a hero can
+// get round it: a Warrior's shield isn't always toward the blow.
+ELITE_TURN_COS :: f32(0.9975641)
+ELITE_TURN_SIN :: f32(0.06975647)
+ELITE_FACE_NEAR :: f32(4) // a chaser this close to its target faces it, farther its way along the path
+// An elite backing off (a Mage too near its target, a Rogue after its lunge) looks this far along the floor (metres)
+// for an open way, and takes one it would get OPEN_GOT of the way along (open_heading).
+OPEN_LOOK :: f32(1.5)
+OPEN_GOT :: f32(0.8)
+// A knock moves an elite less than a minion (it is a Box3D body, about a hero's weight): this share of the blow's
+// knock, as a velocity change, the sum at most ELITE_KNOCK_MAX; its drive's friction stops it.
+ELITE_KNOCK_TAKE :: f32(0.5)
+ELITE_KNOCK_MAX :: f32(6)
+// A blow whose knock is at least this staggers an elite for ELITE_STAGGER_S: it walks at nothing, its attack or its
+// summoning is cut off, and a Warrior's shield is down. A cleave (9) and a thrown prop (7) do; a sword (5), a bolt (3)
+// or a shot (3) don't.
+ELITE_STAGGER_KNOCK :: f32(6)
+ELITE_STAGGER_S :: f32(0.5)
+ELITE_STAGGER_TICKS :: u32(ELITE_STAGGER_S * TICK_HZ)
+
+// What a kind of elite is (ELITE_SPECS).
+Elite_Spec :: struct {
+	hp:        i16,
+	max_speed: f32, // metres per second
+	damage:    i16, // what its attack takes from a hero (a Mage's: its bone bolt's)
+	// Its attack: it starts at once and lands `windup` ticks later (a Rogue's lunge, a Mage's bolt leaving its
+	// hands); the attack lasts `duration`.
+	windup:    u32,
+	duration:  u32,
+}
+
+// Each kind's numbers: the Warrior slow and shielded, the Rogue quick and fragile, the Mage frail and far off.
+@(rodata)
+ELITE_SPECS := [Elite_Kind]Elite_Spec {
+	.Warrior = {hp = 150, max_speed = 2.8, damage = 25, windup = u32(0.75 * TICK_HZ), duration = u32(1.5 * TICK_HZ)},
+	.Rogue = {hp = 70, max_speed = 5.5, damage = 20, windup = u32(0.375 * TICK_HZ), duration = u32(0.625 * TICK_HZ)},
+	.Mage = {hp = 60, max_speed = 3, damage = 12, windup = u32(0.5 * TICK_HZ), duration = u32(0.875 * TICK_HZ)},
+}
+
+// The Warrior's shield (elite_warrior.odin): a blow from its front takes ELITE_GUARD_TAKE of its damage and neither
+// knocks nor staggers it, unless it is staggered or its guard is broken (a charge, a fireball, a thrown prop).
+ELITE_GUARD_COS :: f32(0.5) // its front: within 60° of its facing (cos 60°)
+ELITE_GUARD_TAKE :: f32(0.25)
+GUARD_BREAK_S :: f32(2)
+GUARD_BREAK_TICKS :: u32(GUARD_BREAK_S * TICK_HZ)
+
+// The Rogue, a flanker (elite_rogue.odin): it circles to FLANK_BEHIND behind its target's facing, lunges, and backs
+// off for FLANK_RETREAT_S.
+FLANK_BEHIND :: f32(2.5)
+FLANK_NEAR :: f32(6) // it circles once this close to its target and in sight of it; farther, it walks the path
+FLANK_ARRIVE :: f32(0.75) // it lunges once this close to its spot behind the target ...
+FLANK_GIVE_UP_S :: f32(3) // ... or, after circling this long (a target that keeps facing it), from FLANK_LUNGE
+FLANK_GIVE_UP_TICKS :: u32(FLANK_GIVE_UP_S * TICK_HZ)
+FLANK_LUNGE :: f32(3)
+FLANK_PULL :: f32(1.5) // how hard it pulls back onto its circle round the target (per metre off it)
+LUNGE_SPEED :: f32(7) // metres per second along its facing during the lunge's windup: FLANK_BEHIND in 0.36 s
+FLANK_RETREAT_S :: f32(1.5)
+FLANK_RETREAT_TICKS :: u32(FLANK_RETREAT_S * TICK_HZ)
+
+// The Mage, a caster and summoner (elite_mage.odin): it keeps MAGE_NEAR to MAGE_FAR from its target, casts a bone
+// bolt every BONE_BOLT_EVERY_S and raises SUMMON_COUNT minions every SUMMON_EVERY_S.
+MAGE_NEAR :: f32(8)
+MAGE_FAR :: f32(12)
+BONE_BOLT_FIRST_S :: f32(1) // its first bolt, this long after it wakes or rises
+BONE_BOLT_FIRST_TICKS :: u32(BONE_BOLT_FIRST_S * TICK_HZ)
+BONE_BOLT_EVERY_S :: f32(3)
+BONE_BOLT_EVERY_TICKS :: u32(BONE_BOLT_EVERY_S * TICK_HZ)
+BONE_BOLT_SPEED :: f32(10) // flying at FLIGHT_HEIGHT, as a hero's bolt, and hitting heroes, never skeletons
+BONE_BOLT_LIFE_S :: f32(1.5) // 15 m
+BONE_BOLT_LIFE_TICKS :: u32(BONE_BOLT_LIFE_S * TICK_HZ)
+BONE_BOLT_RANGE :: f32(14) // it casts at a target in sight this close
+SUMMON_EVERY_S :: f32(12)
+SUMMON_EVERY_TICKS :: u32(SUMMON_EVERY_S * TICK_HZ)
+SUMMON_CAST_S :: f32(1)
+SUMMON_CAST_TICKS :: u32(SUMMON_CAST_S * TICK_HZ)
+SUMMON_COUNT :: 3 // at most up to the floor's cap alive, and into the minion table's free rows
+SUMMON_RING :: f32(1.5) // its minions rise on this ring round it

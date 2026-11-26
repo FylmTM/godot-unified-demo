@@ -3,14 +3,16 @@
 // left is the input delay, which the input's sim.Seen measures. So the shot looks back sim.seen_rewind (capped at
 // MAX_REWIND_S): the shooter's eye moved back by its own velocity, each minion tested where it was (its position less
 // its velocity, which is its real displacement per second), the bodies by world_cast_ray_closest_rewound. The nearest
-// hit wins: a minion takes the bolt; a prop it meets is shoved; a wall stops it; it flies over low cover and resting
-// light props (FLIGHT_HEIGHT). It never pierces. The view draws a tracer.
+// hit wins: a minion or an elite (a body: the rewound ray meets it where it was) takes the bolt; a prop it meets is
+// shoved; a wall stops it; it flies over low cover and resting light props (FLIGHT_HEIGHT). It never pierces. The view
+// draws a tracer.
 package crypt_crew
 
 import "unified:physics"
 import "unified:sim"
 
-// `player`'s crossbow shot from `from` to `to` (where it stopped, or its range's end), `hit` when it struck a minion.
+// `player`'s crossbow shot from `from` to `to` (where it stopped, or its range's end), `hit` when it struck a minion or
+// an elite.
 Event_Crossbow_Shot :: struct {
 	player: sim.Player,
 	from:   sim.Position,
@@ -44,8 +46,12 @@ rogue_strike :: proc(t: ^Tick, hero: ^Hero, player: sim.Player) {
 			victim, reach = handle, fraction
 		}
 	}
+	elite: sim.Handle(Elite) // the elite it struck, when no minion stood first
+	if victim == {} && struck && hit.category & CAT_ELITE != 0 do elite = sim.handle_of_key(Elite, hit.tag)
 	if victim != {} {
 		damage_minion(t, victim, spec.damage, hero.facing, spec.knock, player, .Crossbow)
+	} else if elite != {} {
+		damage_elite(t, elite, spec.damage, hero.facing, spec.knock, player, .Crossbow, eye.xz)
 	} else if struck && hit.category & CAT_PROP != 0 {
 		if prop := sim.get(&t.state.props, sim.handle_of_key(Prop, hit.tag)); prop != nil {
 			shove_prop(t, prop, hero.facing, spec.prop_knock)
@@ -55,7 +61,7 @@ rogue_strike :: proc(t: ^Tick, hero: ^Hero, player: sim.Player) {
 		player = player,
 		from   = sim.Position(eye),
 		to     = sim.Position(eye + shot * reach),
-		hit    = victim != {},
+		hit    = victim != {} || elite != {},
 	}
 	sim.emit(t, shot_event)
 }

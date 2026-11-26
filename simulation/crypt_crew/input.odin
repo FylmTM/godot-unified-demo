@@ -83,6 +83,21 @@ Command_Dev_Hurt :: struct {
 // from its hero.
 Command_Dev_Kill_Minions :: struct {}
 
+// `dev_spawn_elite` (dev builds): an elite of `kind` rises DEV_SPAWN_RING ahead of the sender's hero (none while
+// ELITES_ALIVE_MAX are alive or a population is held).
+Command_Dev_Spawn_Elite :: struct {
+	kind: Elite_Kind,
+}
+
+// `dev_hurt_elites` (dev builds): every live elite takes `damage` from the sender, from no side (no shield takes it)
+// and with no knock.
+Command_Dev_Hurt_Elites :: struct {
+	damage: i16,
+}
+
+// `dev_break_guards` (dev builds): every live Warrior's guard breaks (break_guard), as a thrown prop's hit breaks it.
+Command_Dev_Break_Guards :: struct {}
+
 // Every command a player can send.
 Command :: union {
 	Command_Set_Paused,
@@ -90,4 +105,8 @@ Command :: union {
 	Command_Dev_Spawn_Minions,
 	Command_Dev_Hurt,
 	Command_Dev_Kill_Minions,
+	// Elites (elites.odin)
+	Command_Dev_Spawn_Elite,
+	Command_Dev_Hurt_Elites,
+	Command_Dev_Break_Guards,
 }

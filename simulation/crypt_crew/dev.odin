@@ -8,7 +8,9 @@ import "unified:sim"
 
 // Each present player's dev commands: `Command_Dev_Set_Class` turns their hero into another class (ending an attack
 // of the old one), `Command_Dev_Spawn_Minions` raises minions around it, `Command_Dev_Hurt` hurts a hero,
-// `Command_Dev_Kill_Minions` kills every minion (through damage_minion, as the attacks do).
+// `Command_Dev_Kill_Minions` kills every minion (through damage_minion, as the attacks do). The elites' (elites.odin):
+// `Command_Dev_Spawn_Elite` raises one ahead of the hero, `Command_Dev_Hurt_Elites` hurts every one (damage_elite),
+// `Command_Dev_Break_Guards` breaks every Warrior's guard (break_guard).
 apply_dev_commands :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
@@ -29,6 +31,18 @@ apply_dev_commands :: proc(t: ^Tick) {
 					away := dmath.normalize(minion.pos.xz - hero.pos.xz)
 					damage_minion(t, handle, MINION_HP, away, DEV_KILL_KNOCK, player, .Dev)
 				}
+			// Elites
+			case Command_Dev_Spawn_Elite:
+				ahead := hero.pos + [3]f32{hero.facing.x, 0, hero.facing.y} * DEV_SPAWN_RING
+				raise_elite(t, command.kind, ahead, -hero.facing)
+			case Command_Dev_Hurt_Elites:
+				elites := sim.iterate(&t.state.elites)
+				for elite, handle in sim.next(&elites) {
+					damage_elite(t, handle, command.damage, {}, 0, player, .Dev, elite.pos.xz)
+				}
+			case Command_Dev_Break_Guards:
+				elites := sim.iterate(&t.state.elites)
+				for _, handle in sim.next(&elites) do break_guard(t, handle, player)
 			}
 		}
 	}

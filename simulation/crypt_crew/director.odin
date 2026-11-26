@@ -128,7 +128,7 @@ wake_packs :: proc(t: ^Tick) {
 // When the surge clock runs out (and a grave is eligible), a surge is owed (State.rising): SURGE_BASE, SURGE_PER_HERO
 // for each hero present and SURGE_GROWTH for each surge faced on this floor, at most up to the floor's cap alive and
 // into the table's free rows, less what earlier surges still owe. Every tick the owed rise (rise_owed) at
-// surge_graves', up to the cap alive. A held population is refilled instead (refill_held).
+// surge_graves', up to the cap alive. A held population is refilled instead (refill_held), and gets no elite.
 raise_surges :: proc(t: ^Tick) {
 	if t.state.held > 0 {
 		refill_held(t)
@@ -148,6 +148,7 @@ raise_surges :: proc(t: ^Tick) {
 			t.state.rising += u32(count)
 			mark_save_point(t)
 			sim.emit(t, Event_Surge{count = i32(count), surge = t.state.surges})
+			raise_surge_elite(t, sim.slice(&graves)) // every ELITE_SURGE_EVERY-th brings an elite (elites.odin)
 		}
 	}
 	if t.state.rising == 0 do return
