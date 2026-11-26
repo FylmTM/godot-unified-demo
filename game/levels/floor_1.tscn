@@ -732,7 +732,7 @@ script = ExtResource("36_elite")
 kind = "mage"
 
 [node name="Hoard" type="Marker3D" parent="Markers" unique_id=14405294]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, -2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29, 0, -2)
 script = ExtResource("38_hoard")
 
 [node name="Lift" type="Marker3D" parent="Markers" unique_id=919164589]

@@ -952,13 +952,14 @@ Step 4, the joins (beyond the design's decided calls):
   keeps). Decided in review: the hoard takes none (it goes where it is hauled), and the fence's debris lets the hoard
   through (DEBRIS_FILTER: a prop to all but CAT_HOARD), so a broken fence never blocks the passage's haul.
 - A thrown ragdoll breaks a barricade as a thrown elite does (CAT_RAGDOLL contact).
-- Floor 1's east wing: the corridor widened to an 8 m spike gallery (a roller needs a hero's width each side, and a
-  4 m corridor's walls leave 0.75 m beside a 1.5 m pillar), spikes on its west column (phases 0 and 1.5 s), the roller
+- Floor 1's east wing: the corridor widened to an 8 m spike gallery (a roller needs a hero's width each side, and a 4 m
+  corridor's walls leave 0.75 m beside a 1.5 m pillar), spikes on its west column (phases 0 and 1.5 s), the roller
   across its middle, the vault (x 24 to 32) behind the gate where the WallGated stood, and a passage north of the
-  gallery closed at the hall by the barricade: the way round the traps. Plates: one against the passage's east wall,
-  one in the gallery's south-east corner, both off the hoard's lanes. The hoard mid-tile in the vault, Pack2 beside
-  it; Grave6 between the spike tiles (off the plate); the corridor's crate in the passage; the pillars at the pieces'
-  ends gone (a dynamic piece overlapping one is pushed for good: a plate under a pillar stood pressed).
+  gallery closed at the hall by the barricade: the way round the traps. Plates: one against the passage's east wall, one
+  in the gallery's south-east corner, both off the hoard's lanes. The hoard a metre past the vault's tile seam
+  (mid-tile, two haulers don't fit between its end and a wall; the hull rides the seam), Pack2 beside it; Grave6 between
+  the spike tiles (off the plate); the corridor's crate in the passage; the pillars at the pieces' ends gone (a dynamic
+  piece overlapping one is pushed for good: a plate under a pillar stood pressed).
 - A plate's slab rests 13 cm up and a dragged hoard catches on its edge, so a level keeps plates off the hoard's
   lanes; every_haul_lane_is_clear sweeps a hoard's box along each level's lanes (the workshop's vault plates moved
   apart for it). Decided in review: the hoard is a hull with chamfered bottom edges (HOARD_CHAMFER 0.2 m): a box's

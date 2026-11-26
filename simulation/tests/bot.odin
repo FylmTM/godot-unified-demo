@@ -232,7 +232,8 @@ bot_haul :: proc(input: ^g.Input, state: ^g.State, hero: ^g.Hero, tick: u32) -> 
 		ahead := dmath.normalize(deck.xz - chest.xz) * (g.LIFT_HALF.x - g.HERO_RADIUS)
 		go(input, state, hero, deck + {ahead.x, 0, ahead.y})
 	} else {
-		toward := way(state, hero.pos, haul_waypoint(state, hero.pos, deck))
+		// along the chest's own way, not the hauler's: a hauler cutting a doorway's corner drags the chest onto it
+		toward := way(state, chest, haul_waypoint(state, hero.pos, deck))
 		// caught on something (a prop, the fence's debris, a wall's end) and not waiting on a trap: work round it, to
 		// one side then the other, a window of BOT_UNSTICK ticks each
 		if toward != {} && dmath.length(hero.vel.xz) < BOT_STUCK_SPEED {
