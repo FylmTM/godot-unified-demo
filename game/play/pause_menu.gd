@@ -97,6 +97,12 @@ func _settle_pause() -> void:
 	_show_mode(replay, _session.mode != UnifiedSession.MODE_SINGLE and not replay)
 	if replay:
 		return
+	if _session.mode != UnifiedSession.MODE_SINGLE:
+		# Open to others, the pause never takes: the session refuses it once it has a link. Asked here, it isn't read
+		# back: a game paused alone and just opened to friends still reads paused for a step of the session thread
+		# (until it lifts the pause), which would take the menu for one alone.
+		_alone = false
+		return
 	for i: int in PAUSE_TAKES_FRAMES:
 		if _session.paused or not is_inside_tree():
 			break
