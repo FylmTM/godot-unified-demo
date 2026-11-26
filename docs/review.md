@@ -814,6 +814,9 @@ Calls made building the elites (docs/plan.md's design, section B), one line each
   weight (ELITE_DENSITY) with a 24,000 N drive (ELITE_GROUND_FORCE), so a hero walking into one moves it under 0.3 m in
   2 s (at a hero's weight a Knight shoved a Warrior 7 m in 3 s, and sleepers slid while shown asleep). An elite turns
   at most 4° a tick (256°/s), so a hero can get round a Warrior's shield.
+- A sleeping elite's capsule is kinematic and may sleep in Box3D until it wakes (rouse_elite makes it a character):
+  a character never sleeps and is driven every tick, so Floor 1's two sleepers cost a sixth of its step (bench, A/B);
+  nothing shoves a sleeper now, where a hero moved one under 0.3 m in 2 s.
 - An elite's capsule reports no hits of its own (`hit_events` off): a prop's shape reports the prop's hits, which is
   all elite_impacts reads. Probed: an elite knocked into a wall made a stray hit event with it on, none with it off,
   and the thrown-prop tests pass either way.

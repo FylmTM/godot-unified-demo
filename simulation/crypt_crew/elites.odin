@@ -150,6 +150,13 @@ spawn_elite :: proc(
 		feet + {0, ELITE_CENTRE_ABOVE_FEET, 0},
 		tag = sim.handle_key(handle),
 	)
+	// A sleeper's capsule is kinematic and may sleep until rouse_elite makes it a character: a character never sleeps
+	// in Box3D and is driven every tick, which made each sleeper cost what a fighting elite does. It stands where its
+	// pogo would hold it, and nothing shoves it.
+	if phase == .Idle {
+		physics.body_set_type(world.phys, elite.body.body, .Kinematic)
+		physics.body_enable_sleep(world.phys, elite.body.body, true)
+	}
 	return handle, true
 }
 
@@ -223,8 +230,13 @@ raise_surge_elite :: proc(t: ^Tick, graves: []int) {
 	raise_elite(t, Elite_Kind(turn % len(Elite_Kind)), grave.point, {0, 1})
 }
 
-// An elite's first chase (it woke, or rose): a Mage's clocks start (start_mage_clocks).
+// An elite's first chase (it woke, or rose): a sleeper's capsule becomes a character again (spawn_elite), which
+// move_elites then drives; a Mage's clocks start (start_mage_clocks).
 rouse_elite :: proc(t: ^Tick, elite: ^Elite) {
+	if elite.phase == .Idle {
+		physics.body_set_type(t.world.phys, elite.body.body, .Dynamic)
+		physics.body_enable_sleep(t.world.phys, elite.body.body, false)
+	}
 	elite.phase, elite.since = .Chase, t.time
 	start_mage_clocks(elite, t.time)
 }
@@ -267,13 +279,14 @@ elite_sees :: proc(t: ^Tick, elite: ^Elite, player: sim.Player, reach: f32) -> b
 	return !walled
 }
 
-// Each live elite picks its target (retarget_elite), then its drive (its kind's way, or none while asleep, rising,
-// summoning, staggered or swinging) and its facing, and its controller is driven: before the physics step.
+// Each live elite awake picks its target (retarget_elite), then its drive (its kind's way, or none while rising,
+// summoning, staggered or swinging) and its facing, and its controller is driven: before the physics step. A sleeper
+// has no controller to drive (spawn_elite).
 move_elites :: proc(t: ^Tick) {
 	floor := floor_of(t)
 	elites := sim.iterate(&t.state.elites)
 	for elite, handle in sim.next(&elites) {
-		if elite.phase == .Dying do continue
+		if elite.phase == .Dying || elite.phase == .Idle do continue
 		spot, on_floor := floor_spot(floor, elite.pos, HERO_NAV_REACH)
 		if !on_floor do spot.poly = nav.NO_POLY // on a crate's top, say: it stands until it is down
 		retarget_elite(t, floor, elite, handle, spot)
