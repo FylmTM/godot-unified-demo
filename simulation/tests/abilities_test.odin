@@ -233,15 +233,34 @@ no_ability_from_a_paused_press :: proc(t: ^testing.T) {
 }
 
 // The scripted players (script.odin) use every ability the rules have, so the standard scenarios and the reference run
-// roll back over each: in the reference run's length, each class's ability starts (a Knight's block and a charge among
-// them), a fireball bursts, a Barbarian's heave is thrown and lands, and a downed hero is revived.
+// roll back over each. What the script itself does, whatever the floor holds: in the reference run's length, each
+// class's hero, up with its hands free, gets an Ability press, and a blocking Knight an Attack press (a charge). What the
+// rules make of the presses that need nothing round the hero: the Knight's block and charge, the Rogue's roll and the
+// Mage's fireball start, a fireball bursts, and a downed hero is revived (slot 3's dev revive). A Barbarian's press
+// heaves only what its cone holds, which the floor decides: heave_test.odin holds the heave on its own set-ups.
 @(test)
 the_script_uses_every_ability :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, REFERENCE.seed)
 	defer headless.run_end(&run)
+	pressed: [g.Class]int // Ability presses the script gave a hero up and free, by its class
 	used: [g.Class]int
-	charges, bursts, landings, revives := 0, 0, 0, 0
+	held: [g.PLAYERS]g.Buttons
+	charge_presses, charges, bursts, revives := 0, 0, 0, 0
 	for _ in 0 ..< REFERENCE.ticks {
+		tick := run.simulation.tick + 1
+		for slot in 0 ..< REFERENCE.players {
+			hero := sim.slot_data(run.simulation, slot)
+			if hero == nil do continue
+			input := g.scripted_input(run.simulation.seed, slot, tick, &run.simulation.state, run.simulation.setup)
+			if .Ability in input.buttons &&
+			   .Ability not_in held[slot] &&
+			   hero.action != .Down &&
+			   g.can_start_ability(hero) {
+				pressed[hero.class] += 1
+			}
+			if .Attack in input.buttons && .Attack not_in held[slot] && hero.action == .Block do charge_presses += 1
+			held[slot] = input.buttons
+		}
 		headless.run_scripted(&run, REFERENCE.players)
 		for &raw in sim.events_at(run.simulation, run.simulation.tick) {
 			#partial switch event in sim.event_value(&raw, g.Event) {
@@ -250,21 +269,20 @@ the_script_uses_every_ability :: proc(t: ^testing.T) {
 				if sim.player_data(&run.simulation.state.players, event.player).action == .Charge do charges += 1
 			case g.Event_Fireball_Burst:
 				bursts += 1
-			case g.Event_Heave_Landed:
-				landings += 1
 			case g.Event_Hero_Revived:
 				revives += 1
 			}
 		}
 	}
-	for class in g.Class do testing.expectf(t, class == .Any || used[class] > 0, "no %v ability: %v", class, used)
+	for class in g.Class do testing.expectf(t, class == .Any || pressed[class] > 0, "no %v Ability press: %v", class, pressed)
+	testing.expectf(t, charge_presses > 0, "no Attack press while a Knight blocks")
+	for class in ([]g.Class{.Knight, .Rogue, .Mage}) do testing.expectf(t, used[class] > 0, "no %v ability: %v", class, used)
 	testing.expectf(
 		t,
-		charges > 0 && bursts > 0 && landings > 0 && revives > 0,
-		"charges %d, bursts %d, heaves landed %d, revives %d",
+		charges > 0 && bursts > 0 && revives > 0,
+		"charges %d, bursts %d, revives %d",
 		charges,
 		bursts,
-		landings,
 		revives,
 	)
 	scenarios.expect_synced(t, &run)
