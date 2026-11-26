@@ -1,0 +1,14 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/views/hoard.gd" id="hoard"]
+[ext_resource type="Material" path="res://game/fx/highlight.tres" id="highlight"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/chest_gold.gltf" id="chest"]
+
+[node name="Hoard" type="Node3D"]
+script = ExtResource("hoard")
+highlight = ExtResource("highlight")
+
+[node name="UnifiedView" type="UnifiedView" parent="."]
+kind = "hoard"
+
+[node name="Chest" parent="." instance=ExtResource("chest")]

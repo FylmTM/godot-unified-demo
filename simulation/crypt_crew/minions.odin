@@ -144,7 +144,7 @@ minions_alive :: proc(minions: ^sim.Table(Minion, MAX_MINIONS)) -> int {
 	return alive
 }
 
-// `minion` takes `damage` (> 0) from `player` ({}: nobody) by `source`, knocked along `knock_dir` (unit, x and z) at
+// `minion` takes `damage` (> 0; Keen_Edge's more, from a hero: edged_damage) from `player` ({}: nobody) by `source`, knocked along `knock_dir` (unit, x and z) at
 // `knock` metres per second (added to its knockback, at most KNOCK_MAX); asleep, it wakes, and its pack with it; at
 // 0 it dies (Dying). A dying minion takes nothing. The only way a minion takes damage or dies.
 damage_minion :: proc(
@@ -158,14 +158,15 @@ damage_minion :: proc(
 ) {
 	minion := sim.get(&t.state.minions, handle)
 	if minion == nil || minion.phase == .Dying || damage <= 0 do return
+	dealt := edged_damage(t, player, damage) // the blamed hero's Keen_Edge (boons.odin)
 	if minion.phase == .Idle do wake(t, minion)
-	minion.hp -= damage
+	minion.hp -= dealt
 	minion.struck = t.time
 	minion.knock = dmath.clamp_length(minion.knock + knock_dir * knock, KNOCK_MAX)
 	hit := Event_Minion_Hit {
 		minion   = handle,
 		position = sim.Position(minion.pos),
-		damage   = damage,
+		damage   = dealt,
 		player   = player,
 		source   = source,
 	}
@@ -343,11 +344,13 @@ next_within :: proc(walk: ^Minions_Within) -> (minion: ^Minion, handle: sim.Hand
 	}
 }
 
-// The most obstacles a tick holds: every hero, prop and elite, three circles for each gate and barricade, a roller each.
-MAX_OBSTACLES :: PLAYERS + MAX_PROPS + MAX_ELITES + 3 * (MAX_GATES + MAX_BARRICADES) + MAX_TRAPS
+// The most obstacles a tick holds: every hero, prop and elite, three circles for each gate and barricade, a roller
+// each, the hoard and the lift's shaft.
+MAX_OBSTACLES :: PLAYERS + MAX_PROPS + MAX_ELITES + 3 * (MAX_GATES + MAX_BARRICADES) + MAX_TRAPS + 2
 
 // What minions are pushed out of this tick: every present hero's capsule, every prop held or at rest, every live
-// elite's capsule, and the mechanisms in the way: a gate not lifted past GATE_PASS, a barricade standing, a roller.
+// elite's capsule, the mechanisms in the way (a gate not lifted past GATE_PASS, a barricade standing, a roller), the
+// hoard, and the lift's shaft once the deck has gone down.
 @(private = "file")
 obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, MAX_OBSTACLES)) {
 	heroes := sim.iterate_present(t)
@@ -365,6 +368,14 @@ obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, MAX_OBSTACLES))
 	gate_obstacles(t, &obstacles) // gates.odin
 	barricade_obstacles(t, &obstacles) // barricades.odin
 	roller_obstacles(t, &obstacles) // traps.odin
+	// ---- the hoard and the lift (hoard.odin, lift.odin): the deck's walkable while it is up; gone down, its shaft
+	// is kept clear (the navigation still has the deck's floor)
+	if hoard := &t.state.hoard; hoard.body != {} {
+		sim.append(&obstacles, Obstacle{physics.body_position(t.world.phys, hoard.body).xz, HOARD_FOOTPRINT})
+	}
+	if lift := &t.state.lift; lift.body != {} && lift_gone(t) {
+		sim.append(&obstacles, Obstacle{floor_of(t).places.lift.path.points[0].xz, LIFT_SHAFT_REACH})
+	}
 	return
 }
 

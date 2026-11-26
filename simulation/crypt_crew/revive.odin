@@ -3,11 +3,12 @@
 // press grabs nothing (use_hands skips a reviver); it tends for as long as it holds Interact and stays in range,
 // moving at REVIVE_SPEED meanwhile, Attack held or not (no attack starts while it tends: start_attacks waits for it).
 // Letting go, walking off or a blow taken (damage_hero) breaks it off, and only a new press starts it again. Each tick
-// a downed hero's revive gains one for each ally tending them, so two revive twice as fast, and loses REVIVE_DECAY
-// untended; at REVIVE_TICKS it rises where it lies (from a ragdoll, on the floor by its pelvis: ragdolls.odin), at
-// REVIVE_HP, in its grace, and an ally still holding Interact carries on to the next hero down in its range, if there
-// is one, without a new press. revive_target is both what the tick tends and what the view's "[E] Revive" prompt asks,
-// so the prompt shows exactly when a press would revive.
+// a downed hero's revive gains each tending ally's revive_rate (REVIVE_UNIT, a Field_Medic's a share more), so two
+// revive twice as fast, and loses REVIVE_DECAY untended; at REVIVE_FULL (REVIVE_TICKS of one ally) it rises where it
+// lies (from a ragdoll, on the floor by its pelvis: ragdolls.odin), at REVIVE_HP, in its grace, and an ally still
+// holding Interact carries on to the next hero down in its range, if there is one, without a new press. revive_target
+// is both what the tick tends and what the view's "[E] Revive" prompt asks, so the prompt shows exactly when a press
+// would revive.
 package crypt_crew
 
 import "unified:dmath"
@@ -44,10 +45,10 @@ revive_target :: proc(players: ^Heroes, player: sim.Player) -> (target: sim.Play
 
 // Each present hero's revive, then each downed hero's progress. A hero doing nothing or attacking that presses
 // Interact with a revive_target starts tending it (Attack held or not); one tending keeps on while it holds Interact
-// and still has a target, and stops otherwise. Then each hero down gains a tick for each ally tending it, rising at
-// REVIVE_TICKS (revive_hero, the first of them its reviver), or loses REVIVE_DECAY with nobody tending.
+// and still has a target, and stops otherwise. Then each hero down gains each tending ally's revive_rate, rising at
+// REVIVE_FULL (revive_hero, the first of them its reviver), or loses REVIVE_DECAY with nobody tending.
 revive_heroes :: proc(t: ^Tick) {
-	tending: [PLAYERS]u16 // by the downed hero's slot: how many tend it this tick ...
+	tending: [PLAYERS]u16 // by the downed hero's slot: its revive's gain this tick (each ally's revive_rate) ...
 	first: [PLAYERS]sim.Player // ... and the first of them (in slot order)
 	revivers := sim.iterate_present(t)
 	for hero, player in sim.next(&revivers) {
@@ -63,7 +64,7 @@ revive_heroes :: proc(t: ^Tick) {
 		if hero.action != .Revive do hero.action, hero.action_started = .Revive, t.time
 		slot, _ := sim.player_slot(t, target)
 		if tending[slot] == 0 do first[slot] = player
-		tending[slot] += 1
+		tending[slot] += revive_rate(hero)
 	}
 	downed := sim.iterate_present(t)
 	for hero, player in sim.next(&downed) {
@@ -74,7 +75,7 @@ revive_heroes :: proc(t: ^Tick) {
 			continue
 		}
 		hero.revive += tending[slot]
-		if hero.revive >= REVIVE_TICKS do revive_hero(t, player, first[slot])
+		if hero.revive >= REVIVE_FULL do revive_hero(t, player, first[slot])
 	}
 }
 

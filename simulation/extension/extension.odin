@@ -39,6 +39,7 @@ Data_Constants :: struct {
 	save_version:    u8, // the save this build writes and continues (Setup.version): the app reads a save by it
 	_pad:            [3]u8,
 	loot_life:       f32, // how long a coin lies before it goes, in seconds (LOOT_LIFE_S: the coins blink before)
+	boon_timeout:    f32, // how long the lift waits on picks, in seconds (BOON_TIMEOUT_S: the boon panel's countdown)
 }
 
 // godot.init calls it once: the numbers from the sim's tuning.
@@ -58,6 +59,7 @@ constants :: proc() -> (constants: Data_Constants) {
 	for kind in g.Elite_Kind do constants.elite_windups[kind] = f32(g.ELITE_SPECS[kind].windup) / g.TICK_HZ
 	constants.save_version = g.SAVE_VERSION
 	constants.loot_life = g.LOOT_LIFE_S
+	constants.boon_timeout = g.BOON_TIMEOUT_S
 	return
 }
 

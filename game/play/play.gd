@@ -8,10 +8,12 @@ extends Node3D
 ## bone bolt's; and dust where a guard breaks), a bolt's burst, a crossbow's tracer (from the crossbow as drawn to where
 ## the sim's shot ended), dust where a prop lands hard, and a shake when a local hero is hurt; a shield's clang and
 ## sparks, a fireball's blast (with a shake), dust and a smaller shake where a heaved body lands, a hero going down; a
-## plate's click, a gate's creak as it opens and latch as it shuts, a barricade's crack and dust, a trap's slice.
-## What must be certain shows once CONFIRMED: a revive's chime and its toast ("X revived Y"), and the wipe's banner (the
-## HUD). A coin picked up glints as predicted too (its coin gone with it, as the state has it); the purse counts it once
-## confirmed (the HUD's Purse).
+## plate's click, a gate's creak as it opens and latch as it shuts, a barricade's crack and dust, a trap's slice; the
+## hoard's thud as it is put down, and the deck's as it stops at the shaft's bottom. What must be certain shows once
+## CONFIRMED: a revive's chime and its toast ("X revived Y"), the wipe's banner (the HUD), the descent's toast. A coin
+## picked up glints as predicted too (its coin gone with it, as the state has it); the purse counts it once confirmed
+## (the HUD's Purse), and the hoard's gold once the descent is. The crypt fades to black and back as the verified level
+## changes (the HUD's fade).
 ##
 ## The mouse's aim reaches the sim through it, as only a script knows it: just before the session samples (its
 ## input_wanted, so this frame's sample takes it), the cursor's ray meets a plane at chest height, and the direction
@@ -62,6 +64,7 @@ func _ready() -> void:
 	_session.level_root = _level
 	_session.view_root = _views
 	_session.level_changed.connect(_on_level_changed)
+	_session.level_changing.connect(func(_to: int) -> void: _hud.fade_out())
 	Game.listen(self, _session.input_wanted, _set_aims)
 	_session.sim_event.connect(_on_sim_event)
 	_couch.idle_pad_changed.connect(_hud.show_join_hint)
@@ -77,6 +80,8 @@ func _ready() -> void:
 	cards.join_given_up.connect(_couch.give_up)
 	cards.drop_chosen.connect(_couch.drop)
 	Game.pause_wanted.connect(open_pause_menu)
+	var panels: Control = _hud.boon_panels()
+	panels.visibility_changed.connect(func() -> void: _camera_rig.bottom_covered = panels.visible)
 	if not _session.running and Game.flow == Game.Flow.MENU:
 		Game.start_single()  # the scene run on its own (the editor's Run Current Scene)
 
@@ -149,8 +154,9 @@ func _remembered_pick() -> int:
 	return pick
 
 
-## The floor is on screen: the camera frames its hero spawns until a local hero is there.
+## The floor is on screen: the crypt fades back in, and the camera frames its hero spawns until a local hero is there.
 func _on_level_changed(_level_id: int) -> void:
+	_hud.fade_in()
 	var sum := Vector3.ZERO
 	var count: int = 0
 	for marker: Node in Unified.level_markers(_level):
@@ -221,6 +227,11 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 		Sfx.play(&"barricade")
 	elif event is EventTrapHit:
 		Sfx.play(&"trap")
+	# The hoard and the lift: the chest put down, the deck's stop at the bottom
+	elif event is EventHoardDropped:
+		Sfx.play(&"thud")
+	elif event is EventLift and (event as EventLift).phase == EnumLiftPhase.CHOOSING:
+		Sfx.play(&"thud")
 
 
 ## What must not be taken back once shown, on its CONFIRMED showing: a revive's chime and its toast, and the wipe's
@@ -232,3 +243,5 @@ func _on_sim_event_confirmed(event: UnifiedEvent) -> void:
 		Game.toast("%s revived %s" % [_session.get_player_name(revived.by), _session.get_player_name(revived.player)])
 	elif event is EventPartyWiped:
 		_hud.show_wipe()
+	elif event is EventDescended:
+		Game.toast("Down to depth %d with the hoard" % (event as EventDescended).depth)

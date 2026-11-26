@@ -1,0 +1,46 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/wall.gltf" id="model"]
+
+[sub_resource type="BoxShape3D" id="shape_side"]
+size = Vector3(5, 3.5, 0.5)
+
+[sub_resource type="BoxShape3D" id="shape_end"]
+size = Vector3(0.5, 3.5, 4)
+
+[node name="LiftShaft" type="StaticBody3D"]
+metadata/unified_category = 2
+
+[node name="North" parent="." instance=ExtResource("model")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4, -2.5)
+
+[node name="South" parent="." instance=ExtResource("model")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, -4, 2.5)
+
+[node name="West" parent="." instance=ExtResource("model")]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -2.5, -4, 0)
+
+[node name="East" parent="." instance=ExtResource("model")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 2.5, -4, 0)
+
+[node name="ShapeNorth" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2.25, -2.25)
+shape = SubResource("shape_side")
+
+[node name="ShapeSouth" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2.25, 2.25)
+shape = SubResource("shape_side")
+
+[node name="ShapeWest" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.25, -2.25, 0)
+shape = SubResource("shape_end")
+
+[node name="ShapeEast" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.25, -2.25, 0)
+shape = SubResource("shape_end")
+
+[node name="DeckForNavigation" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+visible = false
+use_collision = true
+size = Vector3(4, 0.5, 4)

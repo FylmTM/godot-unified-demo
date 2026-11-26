@@ -16,6 +16,6 @@ beside them (and Godot's `.import` file beside each, ours); only the files the g
 | [UI Pack: Adventure](https://kenney.nl/assets/ui-pack-adventure) | Kenney | 1.1 | `assets/kenney/ui/` | the interface's panels, buttons, banners, health bars and portrait frames (its Double size) |
 | [Kenney Fonts](https://kenney.nl/assets/kenney-fonts) | Kenney | free | `assets/kenney/fonts/` | the interface's lettering: Kenney Mini Square, and Kenney Future for the title |
 | [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | 1.0 | `assets/kenney/interface_sounds/` | the menus' clicks, focus and confirmations, and the toasts' |
-| [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | 1.0 | `assets/kenney/rpg_audio/` | a coin's chime when its pickup is confirmed; a plate's click, a gate's creak and latch, a trap's slice |
+| [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | 1.0 | `assets/kenney/rpg_audio/` | a coin's chime when its pickup is confirmed, a boon's when its pick is; a plate's click, a gate's creak and latch, a trap's slice; the lift's creak |
 | [Input Prompts](https://kenney.nl/assets/input-prompts) | Kenney | 1.5A | `assets/kenney/input_prompts/` | the control prompts: the keyboard and mouse, Xbox, PlayStation and Switch fonts with their glyph maps |
-| [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | 1.0 | `assets/kenney/impact_sounds/` | the fights' sounds: a shield's clang, a fireball's blast, a hero going down and being revived, a barricade breaking |
+| [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | 1.0 | `assets/kenney/impact_sounds/` | the fights' sounds: a shield's clang, a fireball's blast, a hero going down and being revived, a barricade breaking; the hoard put down |

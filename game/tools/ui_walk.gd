@@ -19,7 +19,8 @@ extends TogetherWalk
 ##     a key held while a guest leaves and released while the first player is free walks nobody once the guest is
 ##     back; the window in the background pauses;
 ##   - a surge's save, leaving from the pause menu (it asks), the title's Continue, New game over a save (it asks), the
-##     continued game (SessionWalk); a settings file that didn't read is told once; the pause menu online (a LAN host
+##     continued game (SessionWalk), the lift down with the hoard (dev_board) and the boon panel (a pick shows on
+##     CONFIRMED only); a settings file that didn't read is told once; the pause menu online (a LAN host
 ##     alone: Pause and Resume for everyone, input under it moving nobody); the pause menu over a replay;
 ##   - Play together (TogetherWalk): online greyed with the library's sentence (or offered), the code field and a join
 ##     by code that fails, a LAN host from the menus on the saved crypt (the session panel, Invite friends, Copy, Stop
@@ -438,6 +439,89 @@ func _walk_purse_states() -> void:
 	step("the purse's rule: EMITTED and CANCELLED nothing, CONFIRMED its total, the data no driver")
 
 
+## The lift and the boons (lift.odin, boons.odin; game/play/boon_panel.gd): dev_board puts the hoard and the hero
+## aboard, the deck goes down, and at the bottom the boon panel opens on the confirmed Choosing, three cards. Its rule,
+## driven with made-up picks (BoonPanel.on_pick; alone, a real pick is confirmed in the frame it is emitted, so only
+## this tells the states apart): the hero's own pick EMITTED or CANCELLED locks no card and plays nothing, nor does it
+## tick the party's row; another player's CONFIRMED ticks the row; the row follows the party as it changes (one set,
+## then the HUD data's). Then the real pick: the cursor stepped right with D,
+## taken with E, chimes once confirmed (the panel's lock: alone, the lift leaves on the same tick, so the panel closes
+## at once), and the party descends: the panel closes, the crypt fades out and back in on the next floor at depth 1, the
+## purse taking the hoard's gold.
+func _walk_boons() -> void:
+	var hud: Control = find(current_scene, ^"Hud") as Control
+	var boons: Control = hud.call(&"boon_panels")
+	var gold: int = Unified.data.hud.gold
+	session.send_command(CommandDevBoard.new())
+	await wait_for(func() -> bool: return Unified.data.hud.lift == EnumLiftPhase.BOARDING, 5.0, "the lift boards")
+	await frames(10)
+	await shot("02_lift_boarding")
+	await wait_for(func() -> bool: return Unified.data.hud.lift == EnumLiftPhase.DESCENDING, 5.0, "the lift goes down")
+	await seconds(1.2)
+	await shot("02_lift_descending")
+	await wait_for(func() -> bool: return not _boon_panels_open(boons).is_empty(), 8.0, "the boon panel opens")
+	if failed():
+		return
+	var listed: Array = _boon_panels_open(boons)
+	var panel: Control = listed[0]
+	var me: int = session.get_local_player_key(0)
+	var mark: int = sounds.size()
+	var unconfirmed: Dictionary[String, int] = {
+		"EMITTED": UnifiedSession.EVENT_EMITTED,
+		"CANCELLED": UnifiedSession.EVENT_CANCELLED,
+	}
+	for state: String in unconfirmed:
+		panel.call(&"on_pick", unconfirmed[state], me, EnumBoon.KEEN_EDGE)
+		await frames(1)
+		var locked: bool = panel.call(&"taken")
+		var ticked: bool = panel.call(&"ticked", me)
+		expect(not locked and not ticked and played(&"boon", mark) == 0,
+			"a pick %s locks no card, ticks nobody and plays nothing" % state)
+	panel.call(&"on_pick", UnifiedSession.EVENT_CONFIRMED, me + 1000, EnumBoon.THICK_HIDE)  # someone else's
+	var other_ticked: bool = panel.call(&"ticked", me + 1000)
+	var mine_locked: bool = panel.call(&"taken")
+	expect(other_ticked and not mine_locked and played(&"boon", mark) == 0,
+		"another's CONFIRMED pick ticks the party's row, and locks nothing of ours")
+	var joiner: int = me + 2000  # a player who joins the party while it chooses, then leaves
+	panel.call(&"set_party", [me, joiner] as Array[int])
+	var waits: Array = panel.call(&"waiting_for")
+	expect(waits == [me, joiner], "the row lists who joined: %s" % [waits])
+	boons.call(&"_on_data_changed")  # the HUD data's party (this player alone): the row follows it
+	waits = panel.call(&"waiting_for")
+	expect(waits == [me], "the row follows the data's party as it changes: %s" % [waits])
+	await seconds(0.6)  # the camera eased up, the party clear of the panel
+	await shot("02_boon_panel")
+	var hero: DataHudHero = null
+	for each: DataHudHero in Unified.data.hud.heroes:
+		if each.player == me:
+			hero = each
+	var picks: Array[int] = []  # the boons this player's confirmed picks took
+	var watch: Callable = func(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
+		if event is EventBoonPicked and state == UnifiedSession.EVENT_CONFIRMED and (event as EventBoonPicked).player == me:
+			picks.append((event as EventBoonPicked).boon)
+	session.sim_event.connect(watch)
+	await press_key(KEY_D)
+	await press_key(KEY_E)
+	await wait_for(func() -> bool: return Unified.data.hud.depth == 1, 3.0, "the party descends")
+	session.sim_event.disconnect(watch)
+	var second: int = hero.offer[1]
+	expect(picks == [second] and played(&"boon", mark) == 1,
+		"D and E took the second card, its panel chiming once on CONFIRMED (%s, offer %s)" % [picks, hero.offer])
+	await wait_for(func() -> bool: return _boon_panels_open(boons).is_empty(), 3.0, "the panel closes")
+	await wait_for(func() -> bool: return local_hero() != null and Unified.data.hud.lift == EnumLiftPhase.WAITING, 5.0,
+		"the next floor shows")
+	var purse: int = PurseWatch.gold_of(find(hud, ^"%Purse") as Control)
+	expect(purse >= gold + 100, "the purse takes the hoard's gold (%d, was %d)" % [purse, gold])
+	await shot("02_next_floor")
+	step("the lift down with the hoard, a boon picked on CONFIRMED only, depth %d" % Unified.data.hud.depth)
+
+
+## The boon panels open on the HUD (BoonPanels.panels).
+func _boon_panels_open(boons: Control) -> Array:
+	var open: Array = boons.call(&"panels")
+	return open
+
+
 ## A replay of the first game (recorded as it ended; every tick of a replay is final): its purse is the State's gold
 ## wherever a seek takes it, forward to the end (the coin picked up), back to the start (none yet), and forward again.
 func _walk_replay_purse() -> void:
@@ -539,6 +623,9 @@ func _walk_leave() -> void:
 ## title, a settings file and a save that didn't read are told once each, the save's when the settings' closes.
 func _walk_new_game_again() -> void:
 	await _walk_continue()
+	# in the continued game, so the first game's replay (the purse's walk seeks it) stays on one floor: a seek across
+	# a level change leaks a RefCounted at exit (unified's, to be filed)
+	await _walk_boons()
 	if failed():
 		return
 	root.get_node(^"Settings").set(&"read_problem", "Expected key, line 1")

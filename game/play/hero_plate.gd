@@ -2,9 +2,9 @@ class_name HeroPlate
 extends PanelContainer
 ## One local hero on the HUD: its portrait, its player's name, its class and its ability's pip (filling as the cooldown
 ## runs, full and bright when ready) above its health, which leads (a bar of hp of hp_max, the number on it, "Down"
-## while it is down), and the controls of its player's device under them: the keyboard's for the keyboard player, a
-## guest's own pad's, the ability's named for what it does in the hero's class. Every plate's bar is one length,
-## whatever its names say.
+## while it is down), its boons under it (each it holds, with a + per rank: Hud_Hero.boons), and the controls of its
+## player's device under them: the keyboard's for the keyboard player, a guest's own pad's, the ability's named for what
+## it does in the hero's class. Every plate's bar is one length, whatever its names say.
 ##
 ## The hints show as Settings.hints says: Briefly (the default) shows them for HINTS_S after the plate's player joins or
 ## turns to another kind of device (a pad's family, or the keyboard), so four players' plates don't cover the crypt;
@@ -36,6 +36,7 @@ var _local: int = 0
 @onready var _hints: GridContainer = %Hints
 @onready var _ability_pip: ProgressBar = %AbilityPip
 @onready var _ability_hint: ActionPrompt = %Ability
+@onready var _boons: Label = %Boons
 
 
 func _ready() -> void:
@@ -58,6 +59,7 @@ func show_hero(hero: DataHudHero, local: int) -> void:
 	_health.value = hero.hp
 	_amount.text = "Down" if hero.down else str(hero.hp)
 	modulate = DOWN_TINT if hero.down else Color.WHITE
+	_show_boons(hero.boons)
 	_ability_pip.value = hero.ability
 	_ability_pip.modulate = Color.WHITE if hero.ability >= 255 else PIP_COOLING
 	var ability_name: String = ABILITY_NAMES.get(hero.class, "Ability")
@@ -85,6 +87,17 @@ func _note_device() -> void:
 		_family = family
 		_hints_until = Time.get_ticks_msec() + roundi(HINTS_S * 1000.0)
 		_show_hints()
+
+
+## Each boon the hero holds, named, a + a rank ("Keen Edge ++"); none: the line hides.
+func _show_boons(ranks: Array) -> void:
+	var held: PackedStringArray = []
+	for boon: int in ranks.size():
+		var rank: int = ranks[boon]
+		if rank > 0:
+			held.append("%s %s" % [BoonPanel.NAMES.get(boon, "?"), "+".repeat(rank)])
+	_boons.text = "   ".join(held)
+	_boons.visible = not held.is_empty()
 
 
 ## Whether the hints show now (Settings.hints): the walk asks.

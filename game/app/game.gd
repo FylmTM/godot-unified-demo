@@ -556,7 +556,7 @@ func _show_ending(ending: Ending, then: Callable = Callable()) -> void:
 	Sfx.play(&"error")
 	if ending.save != null:
 		var save: UnifiedSetup = ending.save
-		ask(ending.heading, ending.reason + " You can carry on from the last surge on your own.",
+		ask(ending.heading, ending.reason + " You can carry on from the last save on your own.",
 			"Continue on your own", "Back to the title", func(confirmed: bool) -> void:
 				if confirmed:
 					_continue_alone(save), ending.detail)

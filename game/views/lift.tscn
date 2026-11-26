@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/views/lift.gd" id="lift"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/floor_wood_large.gltf" id="deck"]
+
+[node name="Lift" type="Node3D"]
+script = ExtResource("lift")
+
+[node name="UnifiedView" type="UnifiedView" parent="."]
+kind = "lift"
+
+[node name="Deck" parent="." instance=ExtResource("deck")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
+
+[node name="Creaks" type="Timer" parent="."]

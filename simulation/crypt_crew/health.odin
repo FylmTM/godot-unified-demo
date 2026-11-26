@@ -37,10 +37,11 @@ hero_up :: proc(t: ^Tick, player: sim.Player) -> bool {
 }
 
 // `player`'s hero takes `damage` from something at `from`, unless it is down or in its grace, or a crowd is held (a
-// wipe would restart the floor and empty it: director.odin, Crowd); a roll's safe start lets it all by, a shield takes
-// its share (guarded_damage). A hurt hero tending an ally breaks off the revive. At 0 HP it goes down.
+// wipe would restart the floor and empty it: director.odin, Crowd), or the lift has gone down (lift_gone: the floor is
+// won); a roll's safe start lets it all by, a shield takes its share (guarded_damage). A hurt hero tending an ally
+// breaks off the revive. At 0 HP it goes down.
 damage_hero :: proc(t: ^Tick, player: sim.Player, damage: i16, from: [3]f32) {
-	if damage <= 0 || !hero_up(t, player) || t.setup.crowd != .None do return
+	if damage <= 0 || !hero_up(t, player) || t.setup.crowd != .None || lift_gone(t) do return
 	hero := sim.player_data(t, player)
 	if sim.timer_running(t, hero.grace) || rolled_clear(t, hero) do return
 	taken := guarded_damage(t, hero, player, damage, from)
@@ -58,9 +59,10 @@ damage_hero :: proc(t: ^Tick, player: sim.Player, damage: i16, from: [3]f32) {
 }
 
 // Every hero present down (the wipe): WIPE_S after the last one fell, the floor starts over. A hero up again, by a
-// revive or a joiner's arrival, stops the wipe; so does nobody being present.
+// revive or a joiner's arrival, stops the wipe; so does nobody being present, and the lift going down (lift_gone: the
+// party left with its downed aboard, and the one up leaving the ride wipes nobody).
 check_wipe :: proc(t: ^Tick) {
-	if sim.present_count(t) == 0 {
+	if sim.present_count(t) == 0 || lift_gone(t) {
 		sim.timer_stop(&t.state.wipe)
 		return
 	}

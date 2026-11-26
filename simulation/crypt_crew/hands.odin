@@ -4,8 +4,8 @@
 // carrier slows by the prop's carry_speed. A throw is an action: the hands let go THROW_WINDUP_S into it, at a fixed
 // velocity along the facing, so every mass flies alike, and the prop then passes through its thrower until it is clear
 // of them (props.odin, age_throws); a Barbarian throws BARBARIAN_THROW faster. The same hold carries what a Barbarian
-// heaves (barbarian.odin). Every path that lets go (a drop, a throw, a leave, going down, a level change) goes through
-// release_hold.
+// heaves (barbarian.odin) and a hauler's handle of the hoard (hoard.odin). Every path that lets go (a drop, a throw, a
+// leave, going down, a level change) goes through release_hold.
 package crypt_crew
 
 import "unified:dmath"
@@ -76,7 +76,8 @@ hands_target :: proc(
 
 // Per present hero, in slot order: a throw winding up lets go at THROW_WINDUP_S and ends at THROW_S, reading no other
 // input meanwhile; a pick-up ends at PICK_UP_S; a hero down, attacking, in an ability or reviving reads none (so the
-// press that starts a revive grabs nothing: revive_heroes runs first). Interact's press drops the prop held (ending a
+// press that starts a revive grabs nothing: revive_heroes runs first). Interact's press lets go of the hoard's handle
+// held, or takes the handle haul_target names (before any prop: hoard.odin), or drops the prop held (ending a
 // pick-up), or grabs hands_target's; Attack's press while holding starts a throw.
 use_hands :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
@@ -91,11 +92,16 @@ use_hands :: proc(t: ^Tick) {
 			if age >= PICK_UP_TICKS do hero.action = .None
 		case .Down, .Attack, .Block, .Charge, .Roll, .Cast, .Revive, .Heave, .Hurl:
 			continue
+		case .Haul:
+			if .Interact in sim.buttons(t, player).pressed do release_haul(t, player, slipped = false)
+			continue // its press let go, and grabs nothing
 		case .None:
 		}
 		pressed := sim.buttons(t, player).pressed
 		if .Interact in pressed {
-			if hero.held != {} {
+			if handle := haul_target(t.world.phys, &t.state.hoard, &t.state.lift, hero); handle != .None {
+				grab_haul(t, player, handle)
+			} else if hero.held != {} {
 				drop_prop(t, player)
 				hero.action = .None
 			} else if target := hands_target(t.world.phys, &t.state.props, hero, hero.facing); target != {} {
@@ -107,7 +113,8 @@ use_hands :: proc(t: ^Tick) {
 	}
 }
 
-// Every hero holding a prop, or heaving a body, holds it where its facing now puts the hold (hold_frame, heave_frame).
+// Every hero holding a prop, or heaving a body, holds it where its facing now puts the hold (hold_frame, heave_frame);
+// a hauler holds its handle of the hoard where the handle now is, within its reach (haul_frame).
 // A hold's joint is live while `held` or `heaved` is set: every way a prop or a body goes lets go first (release_hold:
 // a leave and going down drop what is held, a level change releases every hold before the props and bodies go; a held
 // body's own end lets go of it, release_heave), and the physics joint calls assert it.
@@ -120,6 +127,8 @@ update_holds :: proc(t: ^Tick) {
 			frame = hold_frame(hero, sim.get(&t.state.props, hero.held).kind)
 		case hero.heaved != {}:
 			frame = heave_frame(hero)
+		case hero.handle != .None:
+			frame = haul_frame(t.world.phys, &t.state.hoard, hero, hero.handle)
 		case:
 			continue
 		}
@@ -127,10 +136,10 @@ update_holds :: proc(t: ^Tick) {
 	}
 }
 
-// What a hero's carrying leaves of its speed (1: carrying nothing).
+// What a hero's carrying leaves of its speed (1: carrying nothing; Strong_Back takes off some of it: back_speed).
 carry_speed :: proc(t: ^Tick, hero: ^Hero) -> f32 {
 	if hero.held == {} do return 1
-	return PROP_SPECS[sim.get(&t.state.props, hero.held).kind].carry_speed
+	return back_speed(hero, PROP_SPECS[sim.get(&t.state.props, hero.held).kind].carry_speed)
 }
 
 // Where a prop of `kind` is held, in the hero's body frame (its rotation is locked: the world's axes): in front along
@@ -181,11 +190,12 @@ grab_prop :: proc(t: ^Tick, player: sim.Player, handle: sim.Handle(Prop)) {
 }
 
 // `player`'s hero lets go of what it holds, if anything: the hold's joint goes and the prop is nobody's, or a heaved
-// body is let down where it hangs (release_heave). The one way a hold ends; returns the prop it held (the null handle:
-// none, or a body).
+// body is let down where it hangs (release_heave), or the hoard's handle is let go of (release_haul). The one way a
+// hold ends; returns the prop it held (the null handle: none, a body or the hoard).
 release_hold :: proc(t: ^Tick, player: sim.Player) -> sim.Handle(Prop) {
 	hero := sim.player_data(t, player)
 	if hero.heaved != {} do release_heave(t, player, thrown = false)
+	if hero.handle != .None do release_haul(t, player, slipped = false)
 	held := hero.held
 	if held == {} do return {}
 	physics.destroy_joint(t.world.phys, &hero.hold)

@@ -69,11 +69,11 @@ can_start_ability :: proc(hero: ^Hero) -> bool {
 	return hero.held == {} && (hero.action == .None || hero.action == .Attack)
 }
 
-// Starts `action` (an ability of `player`'s hero) now, its cooldown `cooldown` ticks from now (0: none, a block), and
-// tells the views.
+// Starts `action` (an ability of `player`'s hero) now, its cooldown `cooldown` ticks from now (0: none, a block;
+// Quick_Hands shortens it: hands_cooldown), and tells the views.
 start_ability :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, action: Action, cooldown: u32) {
 	hero.action, hero.action_started = action, t.time
-	if cooldown > 0 do sim.timer_start_ticks(t, &hero.ability_ready, cooldown)
+	if cooldown > 0 do sim.timer_start_ticks(t, &hero.ability_ready, hands_cooldown(hero, cooldown))
 	sim.emit(t, Event_Ability{player = player, class = hero.class})
 }
 
@@ -85,8 +85,8 @@ dash :: proc(t: ^Tick, hero: ^Hero, speed: f32) {
 }
 
 // What a hero's drive does during its action: its stick, and the share of its class's speed (with what it carries,
-// carry_speed); a hero down is held still (a heaved one hangs limp, its drive off), and a dash (a charge, a roll) runs
-// along its facing at its own speed.
+// carry_speed, or how it hauls the hoard, haul_speed), all of it Swift_Boots' faster (boots_scale); a hero down is held
+// still (a heaved one hangs limp, its drive off), and a dash (a charge, a roll) runs along its facing at its own speed.
 action_drive :: proc(t: ^Tick, hero: ^Hero, stick: [2]f32) -> (move: [2]f32, scale: f32) {
 	max_speed := t.world.hero_defs[hero.class].max_speed
 	#partial switch hero.action {
@@ -97,15 +97,17 @@ action_drive :: proc(t: ^Tick, hero: ^Hero, stick: [2]f32) -> (move: [2]f32, sca
 	case .Roll:
 		return hero.facing, ROLL_SPEED / max_speed
 	case .Attack, .Cast:
-		return stick, carry_speed(t, hero) * ATTACK_SPEED
+		return stick, carry_speed(t, hero) * ATTACK_SPEED * boots_scale(hero)
 	case .Block:
-		return stick, BLOCK_SPEED
+		return stick, BLOCK_SPEED * boots_scale(hero)
 	case .Revive:
-		return stick, REVIVE_SPEED
+		return stick, REVIVE_SPEED * boots_scale(hero)
 	case .Heave, .Hurl:
-		return stick, HEAVE_SPEED
+		return stick, HEAVE_SPEED * boots_scale(hero)
+	case .Haul:
+		return stick, haul_speed(t, hero) * boots_scale(hero)
 	}
-	return stick, carry_speed(t, hero)
+	return stick, carry_speed(t, hero) * boots_scale(hero)
 }
 
 // What reaches `player`'s hero of a blow of `damage` from something at `from`: a blow from the front (within

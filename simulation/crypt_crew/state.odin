@@ -44,6 +44,12 @@ State :: struct {
 	gates:        sim.Table(Gate, MAX_GATES),
 	barricades:   sim.Table(Barricade, MAX_BARRICADES),
 	traps:        sim.Table(Trap, MAX_TRAPS),
+	// ---- the hoard, the lift and boons (hoard.odin, lift.odin, boons.odin)
+	hoard:        Hoard, // the floor's gold chest
+	lift:         Lift, // the floor's exit
+	depth:        u32, // the floors the party has gone down this run, a save's included
+	saved_depth:  u32, // `depth` at the last save point (a surge's rise, the descent): what the save holds
+	_pad_depth:   u32,
 }
 
 // What a hero is doing, for the view to pose (a one-shot clip at its age).
@@ -62,6 +68,8 @@ Action :: enum u8 {
 	// The Barbarian's heave (barbarian.odin): an elite or a downed ally held on its hold, then thrown.
 	Heave, // holding a body up, for at most HEAVE_MAX_S
 	Hurl, // throwing it, for THROW_S: it leaves the hands THROW_WINDUP_S into it
+	// The hoard (hoard.odin)
+	Haul, // holding a handle of the hoard (Hero.handle), until it lets go
 }
 
 // A player's hero (the State's sim.Players, by member): zeroed for someone new, kept while they are away. A leave
@@ -82,7 +90,7 @@ Hero :: struct {
 	action_started: sim.Game_Time, // when `action` began (t.time): the view's clip time
 	heave_since:    sim.Game_Time, // when `heave` began: a thrown body lands at the latest HEAVE_FLIGHT_MAX_S after it
 	hp:             i16,
-	// While down: how far its revive has come, in reviver-ticks (REVIVE_TICKS: up again; revive.odin).
+	// While down: how far its revive has come, in REVIVE_UNITs (REVIVE_FULL: up again; revive.odin).
 	revive:         u16,
 	class:          Class, // Any only before its first arrival
 	action:         Action,
@@ -95,4 +103,9 @@ Hero :: struct {
 	// While down: the ragdoll it lies as (zero: none, and always none while up), its capsule dormant and out of the
 	// world meanwhile. Freed on every path that frees the body (destroy_hero_body: a leave, a level change).
 	ragdoll:        physics.Ragdoll,
+	// ---- the hoard and boons (hoard.odin, boons.odin)
+	picked:         u32, // the depth it last picked a boon at, plus one (0: never): a pick counts once a depth
+	boons:          Boons, // its rank in each boon, kept through a leave and a wipe
+	handle:         Haul_Handle, // the hoard's handle it holds, on `hold` (None: none)
+	_pad:           u8,
 }

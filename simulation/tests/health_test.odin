@@ -238,14 +238,14 @@ a_leaver_comes_back_as_it_left :: proc(t: ^testing.T) {
 		0 = {buttons = {.Interact}},
 	}
 	for _ in 0 ..< 30 do headless.run_step(&run, inputs)
-	testing.expect_value(t, hero.revive, 30)
+	testing.expect_value(t, hero.revive, 30 * g.REVIVE_UNIT)
 	headless.run_seat(&run, 1, 0)
 	headless.run_step(&run)
 	headless.run_seat(&run, 1, 2)
 	headless.run_step(&run)
 	testing.expect_value(t, hero.action, g.Action.Down)
 	testing.expect_value(t, hero.hp, 0)
-	testing.expect_value(t, hero.revive, 30 - g.REVIVE_DECAY) // its arrival tick, untended
+	testing.expect_value(t, hero.revive, 30 * g.REVIVE_UNIT - g.REVIVE_DECAY) // its arrival tick, untended
 	spawned, _ := headless.run_last_event(&run, g.Event_Hero_Spawned)
 	testing.expect(t, spawned.beside, "it arrives beside the party, down")
 	scenarios.expect_synced(t, &run)

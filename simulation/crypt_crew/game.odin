@@ -11,7 +11,8 @@
 // (elite_warrior, elite_rogue, elite_mage), health (damage, down, the wipe), revive (allies tending the downed), pause
 // (the co-op pause), saves (the Setup a save is, and the tally it carries), dev (the dev commands) and script (the
 // scripted player); loot (coins dropped and the party's purse); the mechanisms: plates, gates, barricades and traps
-// (spikes and the roller); ragdolls (a downed hero falls as one, and gets up).
+// (spikes and the roller); ragdolls (a downed hero falls as one, and gets up); hoard (the gold chest hauled by its
+// handles), lift (the floor's exit) and boons (picked at the lift).
 package crypt_crew
 
 import "unified:physics"
@@ -22,7 +23,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "25"
+VERSION :: "26"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -97,6 +98,7 @@ Zone :: enum u8 {
 	Elites,
 	Loot,
 	Pieces, // the mechanisms: plates, gates, barricades, traps
+	Lift, // the hoard's holds and the lift (hoard.odin, lift.odin)
 }
 
 // One tick: the systems in their order, each group a timing zone.
@@ -105,6 +107,7 @@ tick :: proc(t: ^Tick) {
 		sim.zone(t, Zone.Presence)
 		update_presence(t) // first: people come and go while paused
 		apply_pause(t) // the pause's own command is read on paused ticks too
+		pick_boons(t) // and so are the boons' picks: a pick sent during a pause counts (boons.odin)
 	}
 	if t.paused do return // the co-op pause: no system runs, physics.step included
 	{
@@ -113,11 +116,13 @@ tick :: proc(t: ^Tick) {
 	}
 	{
 		sim.zone(t, Zone.Heroes)
-		revive_heroes(t) // first: the press that starts a revive grabs nothing
-		face_heroes(t)
-		use_hands(t) // after facing: a grab takes what the hero now faces
-		use_abilities(t) // after the hands: hands full start none
-		start_attacks(t) // after the hands and abilities: a throw's or a charge's Attack press starts no attack
+		if !choosing(t) { 	// at the lift's bottom a hero's input is its boon panel's: it only picks (lift.odin)
+			revive_heroes(t) // first: the press that starts a revive grabs nothing
+			face_heroes(t)
+			use_hands(t) // after facing: a grab takes what the hero now faces
+			use_abilities(t) // after the hands: hands full start none
+			start_attacks(t) // after the hands and abilities: a throw's or a charge's Attack press starts no attack
+		}
 		update_holds(t)
 		move_heroes(t)
 	}
@@ -144,6 +149,7 @@ tick :: proc(t: ^Tick) {
 	}
 	{
 		sim.zone(t, Zone.Physics)
+		drive_lift(t) // the deck's velocity for this step (lift.odin)
 		physics.step(t.world.phys)
 		read_back_heroes(t)
 		read_back_elites(t)
@@ -155,6 +161,12 @@ tick :: proc(t: ^Tick) {
 		read_plates(t) // after the step: what it pressed, broke and carried onto the spikes
 		break_barricades(t) // before anything destroys a body: the step's joint events name the joints it reported
 		spring_traps(t)
+	}
+	{
+		sim.zone(t, Zone.Lift)
+		hold_hauls(t) // a hold stretched too far lets go (hoard.odin)
+		settle_hoard(t) // a let-go hoard come to rest weighs its rest again (hoard.odin)
+		update_lift(t) // the lift's phase moves on, and the party may descend (lift.odin)
 	}
 	{
 		sim.zone(t, Zone.Strikes)

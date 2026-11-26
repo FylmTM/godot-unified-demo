@@ -40,6 +40,12 @@ extends UnifiedCoop
 ## friend and throws it, then goes to where it landed); then the joiner does the same for the host. Every beat waits on
 ## what the shared sim confirmed, never on the clock.
 ##
+## The boons' beat, on both sides once their combat beats are done: the host puts the party and the hoard aboard the
+## lift (dev_board), the deck goes down, and each side's boon panel opens on the confirmed Choosing; each takes a card
+## with Interact. A panel locks its card only once its pick is CONFIRMED: from the press until then it never shows the
+## pick taken, and on a bad link (`--lag 150 --verified-players`) the joiner must see its own pick predicted (EMITTED)
+## frames before it is confirmed, the panel holding through the gap. Both then see the party descend to depth 1.
+##
 ## With `-- --play=lan_pair`, each side plays the script the replay regression replays/lan_pair records instead
 ## (CoopLanPair; `./uni coop --rerecord lan_pair` runs it with the folder's coop.args and keeps the host's recording).
 
@@ -74,6 +80,7 @@ const WALK_OUT_S: float = 0.8
 ## block), and how long a beat may take (seconds).
 const JOINER_COINS: int = 6
 const COIN_WITHIN: float = 0.6
+const SPAWN_WITHIN: float = 0.5  # how near its spawn the host dances
 const REVIVE_WITHIN: float = 1.0
 const HEAVE_WITHIN: float = 1.4
 const ABILITY_S: float = 0.5
@@ -189,6 +196,7 @@ func _host_play() -> void:
 	step("played together: %d hits, %d skeletons" % [_hits, Unified.data.hud.minions])
 	await _coin_dance()
 	await _host_beats(friend)
+	await _boon_beat(true)
 	if failed():
 		return
 	await wait_for(func() -> bool: return Unified.data.hud.surges > 0, SURGE_WITHIN_S, "a surge (a save) before leaving")
@@ -235,6 +243,7 @@ func _join_play() -> void:
 	await seconds(STILL_S)
 	await _couch_guest()
 	await _join_beats()
+	await _boon_beat(false)
 	if failed():
 		return
 	Input.action_press(&"move_down")  # keeps moving while the host plays on
@@ -264,14 +273,16 @@ func _join_play() -> void:
 	step("resumed it for everyone, from its pause menu")
 
 
-## The host lays COINS round its hero and dances among them for DANCE_S, strokes of STROKE_S left and right that
-## never reach one (the joiner, predicting each stroke on, picks some up that a rollback gives back), then walks out
-## right through the ring and picks one up for real. The skeletons are felled first (a dev kill), so nobody is hurt or
-## downed meanwhile and no wipe takes the coins; the strokes turn about, and head back once past DANCE_DRIFT, so a
-## hitch in the frames never walks it off. The host picks none of the ring's coins up while it dances (the felled
-## skeletons' own coins may lie near), and the walk out's pickup is one confirmed after it began.
+## The host lays COINS round its hero and dances among them for DANCE_S, strokes of STROKE_S left and right that never
+## reach one (the joiner, predicting each stroke on, picks some up that a rollback gives back), then walks out right
+## through the ring and picks one up for real. It dances at its spawn, where every spot of the ring is on the floor (one
+## off it, over the lift's shaft say, would be moved onto the floor nearer the host). The skeletons are felled first (a
+## dev kill), so nobody is hurt or downed meanwhile and no wipe takes the coins; the strokes turn about, and head back
+## once past DANCE_DRIFT, so a hitch in the frames never walks it off. The host picks none of the ring's coins up while
+## it dances (the felled skeletons' own coins may lie near), and the walk out's pickup is one confirmed after it began.
 func _coin_dance() -> void:
 	session.send_command(CommandDevKillMinions.new())
+	await _walk_to(_host_spawn, SPAWN_WITHIN, "open floor: the host's spawn")  # no ring spot off the floor
 	await seconds(1.0)
 	var ring: Dictionary[int, bool] = {}  # the ring's coins, by their keys (their events' `loot`)
 	var on_ring: Array[int] = [0]  # the host's own pickups of them as it predicts them (EMITTED), while it dances
@@ -302,6 +313,60 @@ func _coin_dance() -> void:
 	await hold(&"move_right", WALK_OUT_S)
 	await wait_for(func() -> bool: return _purse_watch.confirmed > mark, 5.0, "the walk out picks a coin up")
 	step("danced among the coins and walked out: %s" % _purse_watch.summary())
+
+
+## The boons' beat (the header's): the host (`hosting`) boards the lift; each side waits for its panel, presses
+## Interact, and watches its panel frame by frame until its pick is confirmed, then waits for the descent.
+func _boon_beat(hosting: bool) -> void:
+	if failed():
+		return
+	var me: int = session.local_player
+	if hosting:
+		session.send_command(CommandDevBoard.new())
+	var boons: Control = find(current_scene, ^"Hud/%BoonPanels") as Control
+	await wait_for(func() -> bool: return not _open_boon_panels(boons).is_empty(), BEAT_S * 2.0,
+		"this side's boon panel opens")
+	if failed():
+		return
+	var listed: Array = _open_boon_panels(boons)
+	var panel: Control = listed[0]
+	await shot("c05_boon_panel_" + ("host" if hosting else "joiner"))
+	var seen: Array[int] = [0, 0]  # this side's pick: EMITTED seen, CONFIRMED seen
+	var watch: Callable = func(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
+		if event is EventBoonPicked and (event as EventBoonPicked).player == me:
+			seen[0] += int(state == UnifiedSession.EVENT_EMITTED)
+			seen[1] += int(state == UnifiedSession.EVENT_CONFIRMED)
+	session.sim_event.connect(watch)
+	await press_action(&"interact")
+	var early: int = 0  # frames the pick was predicted and not yet confirmed
+	var locked_early: int = 0  # frames the panel showed the pick taken before its CONFIRMED
+	var until: int = Time.get_ticks_msec() + int(BEAT_S * 1000.0)
+	while seen[1] == 0 and Time.get_ticks_msec() < until:
+		var locked: bool = is_instance_valid(panel) and panel.call(&"taken")
+		locked_early += int(locked)
+		early += int(seen[0] > 0)
+		await frames(1)
+	session.sim_event.disconnect(watch)
+	expect(seen[1] > 0, "this side's pick is confirmed")
+	expect(locked_early == 0, "the panel showed no pick taken before it was confirmed (%d frames did)" % locked_early)
+	if not hosting and arg("lag") != "":
+		expect(early > 0, "on a bad link the pick was predicted %d frames before it was confirmed" % early)
+	await wait_for(func() -> bool: return Unified.data.hud.depth >= 1, BEAT_S, "the party descends")
+	step("took a boon, shown once confirmed (%d frames predicted first); the party went down" % early)
+
+
+## The boon panels open on this side's HUD (BoonPanels.panels).
+func _open_boon_panels(boons: Control) -> Array:
+	var open: Array = boons.call(&"panels")
+	return open
+
+
+## Where the host's hero started the floor: slot 0's hero_spawn marker.
+func _host_spawn() -> Vector3:
+	for marker: Node in Unified.level_markers(find(current_scene, ^"Level") as Node3D):
+		if marker is HeroSpawn and (marker as HeroSpawn).slot == 0:
+			return (marker as HeroSpawn).global_position
+	return _hero(session.local_player).global_position
 
 
 ## The host's beats, once its dance picked a coin up: it waits for the joiner's coin and ability, uses its own ability

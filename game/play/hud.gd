@@ -8,7 +8,12 @@ extends Control
 ## when Settings.hints says. Over the crypt, a "[E] Revive" prompt hangs above a downed ally for each local hero whose
 ## Interact would revive them now (Hud_Hero.revive: the rules' revive_target), in that player's glyphs; and when the
 ## whole party has fallen (a CONFIRMED Event_Party_Wiped: show_wipe), a banner says so until a hero is up again (the
-## floor's restart, a revive, a joiner). Nothing on it takes a click or the focus: Space and a pad's A stay the game's.
+## floor's restart, a revive, a joiner). A "[E] Haul" prompt hangs over the hoard's handle a local hero's Interact would
+## take (Hud_Hero.haul: the rules' haul_target), and a line at the bottom says "The hoard must be wholly on the lift"
+## while it rests hanging over the deck's edge (Data_Hud.overhang). At the lift's bottom the boon panels show
+## (BoonPanels). As the verified
+## level changes (a descent, a wipe's restart) the crypt fades to black and back (fade_out, fade_in: play.gd). Nothing
+## on it takes a click or the focus: Space and a pad's A stay the game's.
 ##
 ## What it shows is session data (Unified.data.hud), the newest prediction, which a rollback may change and the next
 ## frame puts right. The felled are a count, which must never take one back: it shows the most the data has said this
@@ -19,6 +24,11 @@ extends Control
 ## How high above a downed ally's feet its revive prompt hangs (metres: over the head of the hero who would revive it,
 ## standing beside it).
 const REVIVE_PROMPT_HEIGHT: float = 2.6
+## How far above a hoard's handle its haul prompt hangs (metres).
+const HAUL_PROMPT_HEIGHT: float = 1.0
+## How long the fade to black takes as the verified level changes, and back once the new one shows (seconds).
+const FADE_OUT_S: float = 0.25
+const FADE_IN_S: float = 0.6
 
 var _kills: int = 0
 ## The party's fall was confirmed and no hero is up since (the banner shows).
@@ -42,6 +52,10 @@ var _banner_width: float = 0.0
 @onready var _wiped_banner: Control = %Wiped
 @onready var _wiped_text: Label = %WipedText
 @onready var _revive_prompts: Control = %RevivePrompts
+@onready var _haul_prompts: Control = %HaulPrompts
+@onready var _fade: ColorRect = %Fade
+@onready var _boon_panels: BoonPanels = %BoonPanels
+@onready var _overhang: Control = %Overhang
 
 
 func _ready() -> void:
@@ -97,10 +111,62 @@ func _show_data() -> void:
 		if hero.player != 0 and not hero.down:
 			_wiped = false  # a hero up: the floor restarted, or a revive or a joiner stopped the wipe
 	_wiped_banner.visible = _wiped and not _paused.visible and not _menu_open
+	_overhang.visible = Unified.data.hud.overhang and not _menu_open
 
 
 func _process(_delta: float) -> void:
 	_place_revive_prompts()
+	_place_haul_prompts()
+
+
+## The verified level is changing (the session's level_changing): the crypt fades to black.
+func fade_out() -> void:
+	_fade_to(1.0, FADE_OUT_S)
+
+
+## The new level shows (level_changed): the crypt fades back in, from however dark the fade got.
+func fade_in() -> void:
+	_fade_to(0.0, FADE_IN_S)
+
+
+## The boon panels (the walks drive them).
+func boon_panels() -> BoonPanels:
+	return _boon_panels
+
+
+func _fade_to(alpha: float, seconds: float) -> void:
+	var fade: Tween = _fade.create_tween()
+	fade.tween_property(_fade, ^"color:a", alpha, seconds)
+
+
+## Each local hero's "[E] Haul" over the hoard's handle its Interact would take (Hud_Hero.haul), in that player's
+## glyphs; two at one handle stack. Placed every frame, as the camera and the chest move between the data's changes.
+func _place_haul_prompts() -> void:
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	var hoard := Unified.session.get_view(EnumView.HOARD, 0) as HoardView
+	var prompts: Array[Node] = _haul_prompts.get_children()
+	var shown: int = 0
+	var stacked: Dictionary[int, int] = {}
+	for hero: DataHudHero in Unified.data.hud.heroes:
+		if hero.player == 0 or not hero.local or hero.haul == EnumHaulHandle.NONE or hoard == null or camera == null:
+			continue
+		var above: Vector3 = hoard.handle_position(hero.haul) + Vector3.UP * HAUL_PROMPT_HEIGHT
+		if camera.is_position_behind(above) or shown >= prompts.size():
+			continue
+		var prompt := prompts[shown] as ActionPrompt
+		shown += 1
+		var local: int = Unified.session.get_local_index(hero.player)
+		if prompt.local != local:
+			prompt.local = local
+			prompt.refresh()
+		prompt.visible = true
+		prompt.size = prompt.get_combined_minimum_size()
+		var on_screen: Vector2 = get_global_transform_with_canvas().affine_inverse() * camera.unproject_position(above)
+		var row: int = stacked.get(hero.haul, 0)
+		stacked[hero.haul] = row + 1
+		prompt.position = on_screen - Vector2(prompt.size.x / 2.0, prompt.size.y * (row + 1))
+	for i: int in range(shown, prompts.size()):
+		(prompts[i] as Control).visible = false
 
 
 ## The whole party has fallen (a CONFIRMED Event_Party_Wiped): the banner shows until the HUD's data has a hero up.

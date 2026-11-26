@@ -883,3 +883,58 @@ capsule dormant; the revive at the floor by the pelvis; the heave of a ragdoll i
 - Box3D's deep hash keeps every body name ever given, across a restore: the bones' names are given to the World's
   anchor before the first save (plan.md, Needed from unified). `replays/lan_pair` no longer loads (the Hero's layout):
   recorded again at the merge.
+## Milestone 6: physics set pieces
+
+Step 3, the hoard, the lift and boons (beyond the design's decided calls):
+
+- The hoard's hold is set where the handle is (on the floor plan, kept between HOARD_HOLD_NEAR and HOARD_HOLD_FAR of
+  the capsule) rather than pinned in front of the facing: two holds each pinning its handle to a spot fought over the
+  rigid chest and spent their capped force pulling it apart, so two haulers never lifted it. A hauler's drive pushes
+  with at most HOARD_GROUND_FORCE (1200 N), so the chest it pulls holds it back as it gets going; at full drive the hold
+  stretched ahead and dragged instead of lifting. One hauler: 2.25 m/s (a Knight), two: 4 m/s.
+- "Carried clear" is physics' answer: the chest touches nothing but heroes after the step (its contacts).
+- Unheld, the hoard weighs HOARD_REST_MASS 12000 kg (its density switched as the first hand takes it and the last
+  lets go): at 120 kg a hero simply shoved it to the lift faster than hauling it. HOARD_FRICTION 0.15 (one end drags),
+  angular damping 3 (a carried chest stops swinging). The hauler and the chest still collide (left free to walk into
+  it, a hauler stood on it, wedged).
+- The lift needs one hero up to board: a party all down on the deck is a wipe, not a ride. Going down, check_wipe
+  stops too (the one up leaving the ride wipes nobody).
+- The descent's order: depth and purse, enter_level, then mark_save_point, so the save holds the new floor (the
+  design's mark_save_point first would have saved the old one with the new depth). Heroes up keep their health; Thick
+  Hide's pick heals the 20 it adds.
+- Picks are read on paused ticks too (pick_boons beside apply_pause): a pick sent during a co-op pause counts, and the
+  lift leaves once the game runs again.
+- Field Medic's 30 % needed a revive in finer units: Hero.revive counts REVIVE_UNIT (10) a tick of one ally's tending
+  (REVIVE_FULL, REVIVE_DECAY in them); the revive tests read the units.
+- Command_Dev_Board puts the hoard and the party on the deck (tests, the walks' and coop's way to the boons).
+- Floor 1: the shaft is the west room's north-west tile (a LiftShaft part: kit walls lining it underground, a wall
+  under the floor needing no WALL_TOP height in the art checks); the crate and heavy crate there moved to (-14.4,
+  -6.4) and (-12.2, -3.6) (the funnel and steering tests pass with them there), the stacked crates dropped; the hoard
+  marker replaces the ChestGold decor. One minion test places its crate on open floor.
+- The boon panel: three parchment cards per local player at the bottom, the countdown and "Waiting for X" over them;
+  plate pips are "Keen Edge ++" lines; the level fade follows the session's level_changing/level_changed.
+- Sounds: RPG Audio's creak1 (the lift going down, every 0.9 s) and handleCoins (a pick, CONFIRMED), Impact Sounds'
+  impactPlank_medium_000 (the hoard put down, the deck's stop).
+
+Step 3, the reviews (Opus, Fable) and the calls decided on them:
+
+- The deck is floor while the lift is up: the LiftShaft part holds a hidden CSGBox3D with collision over the hole,
+  which Godot's navigation bake parses as a static collider and the level exporter (StaticBody3D only) skips, so the
+  navigation keeps the deck's tile and minions reach a hero on it. Gone down, minions are kept LIFT_SHAFT_REACH off
+  the shaft (an obstacle).
+- The shaft moved to the west room's middle-west (centre (-16, -4)): clear of every wall by 1.5 m; the four large tiles
+  round it became twelve small ones; the heavy crate moved to (-9.6, -3) (the one spot that kept the scripted
+  abilities, the funnel and the bot's tests as they were), the crate back at its first place.
+- The party stays in sight: LIFT_DROP 2.5 m in LIFT_RIDE_S 2.5 (was 6 in 3); the camera's focus never sinks below the
+  walking surface and pitches toward 75° as the heroes go below it; with the boon panels up it looks 4 m past the
+  heroes so they show above the panels (camera_rig.gd).
+- An arrival on a busy lift tries its slot's corner, the next slots' corners, then the middle, clear of CAT_HOARD and
+  CAT_HERO (an overlap of its capsule).
+- A let-go hoard weighs HOARD_REST_MASS only once it has settled (under 0.2 m/s and 0.3 rad/s): Hoard.resting.
+- No hand on the hoard from boarding on ("[E] Haul" with it); "The hoard must be wholly on the lift" while it rests
+  hanging over the deck's edge (Data_Hud.overhang: what the sensor adds over the corners alone).
+- At the bottom a hero takes no input but its pick: the input systems skip, the drive stands it still.
+- The save's depth is State.saved_depth, taken at each save point, so the save order shows in the save (with one floor
+  in FLOOR_ORDER, the floor itself can't tell the old from the new).
+- The boon panel's party row follows the HUD data's players; the joiner's "carry on from the last save".
+

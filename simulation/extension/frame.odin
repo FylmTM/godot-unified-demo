@@ -30,11 +30,14 @@ View :: union {
 	View_Trap,
 	// ---- ragdolls
 	View_Ragdoll, // a downed hero's ragdoll, keyed by its player
+	// The floor's hoard and lift, one of each: alone of their kinds (hoard.odin, lift.odin)
+	View_Hoard,
+	View_Lift,
 }
 
 // The MultiMesh views (a MultiMeshInstance3D with a UnifiedMultiView each), keyed by their handles: the Mage's bolts
-// and the skeleton Mages' bone bolts, the minions, the crowd (game/crowd/: the baked minion, its shader posing each instance from minion_instance), and
-// the coins on the floor (game/views/coins.gd: its shader pops and spins each from loot_instance).
+// and the skeleton Mages' bone bolts, the minions, the crowd (game/crowd/: the baked minion, its shader posing each
+// instance from minion_instance), and the coins on the floor (game/views/coins.gd: its shader pops and spins each from loot_instance).
 MultiView :: enum u8 {
 	Bolt,
 	Minion,
@@ -186,7 +189,7 @@ loot_instance :: proc(coin: ^g.Loot, handle: sim.Handle(g.Loot)) -> godot.Multi_
 }
 
 // Every present hero, every prop, every bolt, every fireball and where a local Mage's would land, every minion, every
-// elite, every mechanism, every downed hero's ragdoll, every coin, then the HUD's data.
+// elite, every mechanism, every downed hero's ragdoll, the hoard and the lift, every coin, then the HUD's data.
 fill_frame :: proc(f: ^Frame) {
 	fill_heroes(f)
 	fill_props(f)
@@ -203,6 +206,7 @@ fill_frame :: proc(f: ^Frame) {
 	fill_elites(f)
 	fill_pieces(f)
 	fill_ragdolls(f)
+	fill_hoard_and_lift(f)
 	coins := sim.iterate(&f.state.loot)
 	for coin, handle in sim.next(&coins) do godot.push_multi_view(f, loot_instance(coin, handle))
 	fill_hud(f)
@@ -226,7 +230,7 @@ fill_heroes :: proc(f: ^Frame) {
 			class          = hero.class,
 			action         = hero.action,
 			grace          = sim.timer_running(f.time, hero.grace),
-			revive         = u8(dmath.min(u32(hero.revive), u32(g.REVIVE_TICKS)) * 255 / u32(g.REVIVE_TICKS)),
+			revive         = u8(dmath.min(u32(hero.revive), u32(g.REVIVE_FULL)) * 255 / u32(g.REVIVE_FULL)),
 			heave          = hero.heave,
 			ragdoll        = ragdoll,
 		})
@@ -426,4 +430,45 @@ fill_ragdolls :: proc(f: ^Frame) {
 @(private = "file")
 conjugate :: proc(quat: [4]f32) -> [4]f32 {
 	return {-quat.x, -quat.y, -quat.z, quat.w}
+}
+
+// ---- the hoard and the lift (hoard.odin, lift.odin)
+
+// The floor's hoard, posed at the bottom of its box (its model's origin) and turned as its body is
+// (game/views/hoard.gd).
+View_Hoard :: struct {
+	aimed: bool, // a local hero's Interact would take one of its handles now (the rules' haul_target): it glows
+	held:  bool, // a hand is on it: carried or dragged (the creak of its weight)
+	_pad:  [2]u8,
+}
+
+// The floor's lift, posed at the middle of its deck's top and turned as the deck is (game/views/lift.gd): the deck
+// creaks while it goes down.
+View_Lift :: struct {
+	phase: g.Lift_Phase, // EnumLiftPhase
+	_pad:  [3]u8,
+}
+
+// The hoard and the lift, where the floor has them; the hoard highlighted while a local hero's Interact would take a
+// handle (haul_target, on the state, as the press asks it).
+fill_hoard_and_lift :: proc(f: ^Frame) {
+	if hoard := &f.state.hoard; hoard.body != {} {
+		aimed := false
+		for player in f.local_players {
+			hero := sim.player_data(&f.state.players, player)
+			if hero == nil || !sim.player_present(&f.state.players, player) do continue
+			aimed ||= g.haul_target(f.world.phys, hoard, &f.state.lift, hero) != .None
+		}
+		godot.push_view(f, {
+			pos  = sim.Position(physics.body_world_point(f.world.phys, hoard.body, {0, -g.HOARD_HALF.y, 0})),
+			rot  = physics.body_rotation(f.world.phys, hoard.body),
+			warp = physics.body_warp(f.world.phys, hoard.body),
+		}, View_Hoard{aimed = aimed, held = hoard.haulers != {}})
+	}
+	if lift := &f.state.lift; lift.body != {} {
+		godot.push_view(f, {
+			pos = sim.Position(physics.body_world_point(f.world.phys, lift.body, {0, g.LIFT_HALF.y, 0})),
+			rot = physics.body_rotation(f.world.phys, lift.body),
+		}, View_Lift{phase = lift.phase})
+	}
 }

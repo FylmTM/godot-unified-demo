@@ -470,7 +470,7 @@ elite_swing_lands :: proc(t: ^Tick, elite: ^Elite) {
 	damage_hero(t, elite.target, ELITE_SPECS[elite.kind].damage, elite.pos)
 }
 
-// `elite` takes `damage` (> 0) from `player` ({}: nobody) by `source`, the blow coming from `from` (on the floor
+// `elite` takes `damage` (> 0; Keen_Edge's more, from a hero: edged_damage) from `player` ({}: nobody) by `source`, the blow coming from `from` (on the floor
 // plan: what a Warrior's shield judges), knocked along `knock_dir` (unit) by `knock` metres per second; asleep, it
 // wakes (a sleeper doesn't guard: that blow lands whole). A Warrior's guard (warrior_guards) takes all but
 // ELITE_GUARD_TAKE of a blow from its front, which then neither knocks nor staggers it; otherwise the knock moves it
@@ -488,9 +488,10 @@ damage_elite :: proc(
 ) {
 	elite := sim.get(&t.state.elites, handle)
 	if elite == nil || elite.phase == .Dying || damage <= 0 do return
+	dealt := edged_damage(t, player, damage) // the blamed hero's Keen_Edge (boons.odin)
 	guarded := warrior_guards(t, elite, from) // before it wakes: a sleeper's shield is down
 	if elite.phase == .Idle do rouse_elite(t.world.phys, elite, t.time)
-	taken := guard_take(damage) if guarded else damage
+	taken := guard_take(dealt) if guarded else dealt
 	elite.hp -= taken
 	elite.struck = t.time
 	if !guarded do knock_elite(t, elite, knock_dir, knock)

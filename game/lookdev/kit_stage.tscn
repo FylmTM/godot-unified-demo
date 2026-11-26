@@ -66,6 +66,7 @@
 [ext_resource type="PackedScene" path="res://game/levels/parts/hub/tree_dead_large.tscn" id="63_qet2b"]
 [ext_resource type="PackedScene" path="res://game/levels/parts/hub/tree_dead_medium.tscn" id="64_vawbl"]
 [ext_resource type="PackedScene" path="res://game/levels/parts/hub/tree_dead_small.tscn" id="65_0ldae"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/lift_shaft.tscn" id="66_shaft"]
 
 [node name="KitStage" type="Node3D" unique_id=2031937310]
 
@@ -265,3 +266,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 200, 0, 14)
 
 [node name="FloorTileBigSpikes" parent="." instance=ExtResource("66_spikes")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 440, 0, 0)
+
+[node name="LiftShaft" parent="." instance=ExtResource("66_shaft")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 450, 0, 0)

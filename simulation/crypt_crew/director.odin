@@ -26,6 +26,7 @@ Roll :: enum u8 {
 	Rise_Distance, // its distance from the grave
 	Crowd_Place, // where a held crowd's minions stand (a stream: place_crowd's at key 0, a sleeping refill's after)
 	Drop, // a felled minion's drop: whether it drops (index 0) and its value (1), keyed by State.drops (loot.odin)
+	Boon, // a hero's boons offered at the lift, keyed by its player and indexed by the depth (boons.odin)
 }
 
 // A held crowd (Setup.crowd, which the rules and the scripted player read): what the population does while it is held.
@@ -139,7 +140,7 @@ raise_surges :: proc(t: ^Tick) {
 	if !due && t.state.rising == 0 do return
 	graves := surge_graves(t)
 	if due {
-		sim.timer_start_ticks(t, &t.state.surge, SURGE_EVERY_TICKS)
+		sim.timer_start_ticks(t, &t.state.surge, surge_every(t)) // SURGE_EVERY_S, HAUL_SURGE_S once hauling (hoard.odin)
 		owed := int(t.state.rising)
 		room := dmath.min(floor_of(t).minion_cap - minions_alive(&t.state.minions), free_rows(&t.state.minions))
 		wanted := SURGE_BASE + SURGE_PER_HERO * sim.present_count(t) + SURGE_GROWTH * int(t.state.floor_surges)

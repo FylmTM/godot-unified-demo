@@ -101,6 +101,13 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
   (`character_set_dormant`, `elites.odin`), and a body the Barbarian heaves goes limp on the same hold, then flies
   through every hero, its filter's mask changed until it lands (`character_set_limp`, `shape_set_filter`:
   `barbarian.odin`).
+- **Physics set pieces under rollback**: the hoard is hauled by two players' holds on one body, motor joints whose
+  force cap lets one hauler drag it and two carry it clear (`hoard.odin`); the lift is a kinematic deck driven along a
+  path (`physics.Path`, `drive_kinematic`) that carries the characters standing on it, with a sensor that sees the hoard
+  aboard, and its descent changes the level as a sim decision (`lift.odin`).
+- **A choice confirmed for all**: the boons offered at the lift are a keyed roll the tick and the HUD both make
+  (`boons.odin`), and the boon panel locks a pick only once it is CONFIRMED (`game/play/boon_panel.gd`; `uni coop --lan
+  -- --lag 150 --verified-players` shows it holding through a pick predicted frames ahead).
 - **Shots resolved where the shooter saw them**: the Rogue's crossbow looks back by its input's `sim.Seen`
   (`rogue.odin`).
 - **Navigation**: minions walk the floor's navigation mesh along memoized distance fields, kept apart over a
@@ -210,8 +217,10 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    backs off for FLANK_RETREAT_S; the Mage keeps MAGE_NEAR to MAGE_FAR from its target, casts a bone bolt every
    BONE_BOLT_EVERY_S at one in sight within BONE_BOLT_RANGE, and raises SUMMON_COUNT minions every SUMMON_EVERY_S. A
    heaved elite's rules stand still until it lands or is let down.
-8. **Physics.** Box3D steps; the heroes' and elites' feet and velocities are read back into the state (a downed
-   hero's are its ragdoll's pelvis's).
+8. **Physics.** The lift's deck is driven to where its phase puts it; Box3D steps; the heroes' and elites' feet and
+   velocities are read back into the state (a downed hero's are its ragdoll's pelvis's). Then the hoard and the lift: a
+   hold on the hoard stretched past HOARD_SLIP lets go, and the lift moves through its phases (below, The hoard, the
+   lift and boons).
 9. **Strikes.** A blow lands at its windup on the minions and elites in its reach and arc, or touching the hero
    (`CLASS_SPECS`, STRIKE_TOUCH), and shoves the props there. Bolts fly at BOLT_SPEED for BOLT_LIFE_S and burst at the
    first thing they meet (BURST_RADIUS, BURST_DAMAGE; a blast, its knock falling off to BLAST_RIM of it at the rim:
@@ -258,6 +267,25 @@ hurled body) touching it as its weld strains past BARRICADE_BREAK_N: the blow de
 since a hero walking into the fence strains it harder than a thrown crate. Spikes are up SPIKES_UP_S of every
 SPIKES_PERIOD_S on the game clock from their phase, or while their plate is pressed, striking SPIKES_DAMAGE as they rise
 and every SPIKES_HIT_TICKS; the roller, on the clock too, strikes ROLLER_DAMAGE what touches it every ROLLER_HIT_TICKS.
+
+## The hoard, the lift and boons
+
+The floor's hoard (its `hoard` marker: Floor 1's in the great hall) is hauled to its lift (its `lift` marker: a deck
+over a shaft by the spawns). Interact beside one of the hoard's two handles takes it (before any prop; the "[E] Haul"
+prompt says when): the hero's hold lifts the handle to HOARD_HOLD_HEIGHT with at most HOARD_LIFT of the hoard's weight,
+so one hauler lifts an end and drags it at HOARD_DRAG_SPEED, and two carry it clear at HOARD_CARRY_SPEED. A hauler does
+nothing else; Interact again, going down, leaving, or the hold stretched past HOARD_SLIP lets go. Unheld and settled, it
+weighs HOARD_REST_MASS: it goes where it is hauled, never shoved, and presses a plate it rests on. A hand takes it only while the lift waits at the top;
+the deck is floor like any until it goes (minions walk onto it), and the HUD says when the hoard rests hanging over its
+edge. The first grab on a floor brings the surges every HAUL_SURGE_S. Once the hoard rests on the deck with nobody
+holding it and every present hero is aboard (the downed too), at least one up, the lift goes down LIFT_HOLD_S later
+(anyone stepping off waits it again): LIFT_DROP in LIFT_RIDE_S, nobody taking damage and no wipe from then. At the
+bottom each present hero picks one of three boons (Thick Hide, Swift Boots, Keen Edge, Quick Hands, Strong Back, Field
+Medic, each up to BOON_RANK_MAX ranks), offered by a keyed roll of the seed, the depth and the player, its input driving
+the boon panel alone; once all have picked, or at BOON_TIMEOUT_S (the first offer for whoever hasn't), the party goes
+down to the next floor: the depth up, HOARD_GOLD in the purse, the downed up at REVIVE_HP, and the save made there. A
+hero arriving while the lift is busy lands on its deck, clear of the hoard and the others, and is waited for. Boons are
+kept through a leave and a wipe; the save holds the depth, not yet the boons.
 
 ## The crowd
 
