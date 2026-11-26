@@ -13,7 +13,8 @@ extends TogetherWalk
 ##     the name field (PartyWalk);
 ##   - pad A on New game: hero select on pads (PartyWalk), the party in the crypt, the guest dropping out, F attacks,
 ##     the hints follow the device and the setting, coins dropped and one picked up (the purse counting it once
-##     confirmed), the pause menu alone (SessionWalk), the reconnecting plate takes nothing;
+##     confirmed), the floor's elites (PartyWalk), the pause menu alone (SessionWalk), the reconnecting plate takes
+##     nothing;
 ##   - the couch's join cards (PartyWalk), with the toasts and the guests' own glyphs; the Players list drops a guest;
 ##     a key held while a guest leaves and released while the first player is free walks nobody once the guest is
 ##     back; the window in the background pauses;
@@ -343,8 +344,9 @@ func _walk_new_game() -> void:
 	expect(hints.visible, "Briefly: a change of device shows them again")
 	set_setting(&"hints", setting_value(&"Hints", &"ALWAYS"))  # the couch's glyph checks read them
 	step("in the crypt: F attacks, the hints follow, tick %d" % session.tick)
-	await _walk_loot()
+	await _walk_loot()  # first: its pickup must come before the floor's first surge, which saves it
 	await _walk_purse_states()
+	await _walk_elites()
 	await _walk_single_pause()
 	await _walk_link_status()
 

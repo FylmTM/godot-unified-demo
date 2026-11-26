@@ -153,7 +153,6 @@ func _walk_hero_select() -> void:
 		"the picks remembered by place, Any as Any: %s" % [picks])
 	step("the party in the crypt: a Knight and a Barbarian")
 	_walk_crowd()
-	await _walk_elites()
 
 
 ## The seats at 130 % interface size: inside the view, clear of the banner and the buttons.
