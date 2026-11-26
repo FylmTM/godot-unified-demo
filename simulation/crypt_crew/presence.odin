@@ -74,7 +74,8 @@ forget_leavers :: proc(t: ^Tick) {
 // spawn). Around it, eight spots ARRIVAL_RING away, then eight twice as far, each ring starting from a spot that
 // depends on the arriver's slot (ARRIVAL_SLOT_TURN): the first that is on the walkable floor (within ARRIVAL_SNAP),
 // joined to the anchor's, reachable from the anchor in a straight line over no wall or low cover, with no live minion
-// within ARRIVAL_CLEAR, and clear of every hero and every prop. With no such spot, or nobody up: the slot's hero_spawn.
+// or elite within ARRIVAL_CLEAR, and clear of every hero and every prop. With no such spot, or nobody up: the slot's
+// hero_spawn.
 arrival_spot :: proc(t: ^Tick, player: sim.Player) -> (feet: [3]f32, beside: bool) {
 	slot := sim.player_slot(t, player)
 	floor := floor_of(t)
@@ -98,15 +99,15 @@ arrival_spot :: proc(t: ^Tick, player: sim.Player) -> (feet: [3]f32, beside: boo
 }
 
 // Whether an arrival may stand at `point`: walkable from `from` in a straight line over no wall or low cover (tested
-// ARRIVAL_RAY_HEIGHT above the floor), no live minion within ARRIVAL_CLEAR, and ARRIVAL_ROOM clear of every hero's
-// capsule and every prop's footprint.
+// ARRIVAL_RAY_HEIGHT above the floor), no live minion or elite within ARRIVAL_CLEAR, and ARRIVAL_ROOM clear of every
+// hero's capsule and every prop's footprint.
 @(private = "file")
 arrival_clear :: proc(t: ^Tick, from, point: [3]f32) -> bool {
 	ray_from, ray_to := from + {0, ARRIVAL_RAY_HEIGHT, 0}, point + {0, ARRIVAL_RAY_HEIGHT, 0}
 	if _, walled := physics.world_cast_ray_closest(t.world.phys, ray_from, ray_to - ray_from, ARRIVAL_FILTER); walled {
 		return false
 	}
-	if minion_near(t, point, ARRIVAL_CLEAR) do return false
+	if minion_near(t, point, ARRIVAL_CLEAR) || elite_near(t, point, ARRIVAL_CLEAR) do return false
 	heroes := sim.iterate_present(t)
 	for hero in sim.next(&heroes) {
 		if hero.body != {} && dmath.length(hero.pos.xz - point.xz) < 2 * HERO_RADIUS + ARRIVAL_ROOM do return false

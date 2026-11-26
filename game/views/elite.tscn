@@ -1,0 +1,33 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/views/elite.gd" id="elite"]
+[ext_resource type="PackedScene" path="res://game/characters/skeletons/warrior.tscn" id="warrior"]
+[ext_resource type="PackedScene" path="res://game/characters/skeletons/rogue.tscn" id="rogue"]
+[ext_resource type="PackedScene" path="res://game/characters/skeletons/mage.tscn" id="mage"]
+[ext_resource type="Material" path="res://game/fx/hit_flash.tres" id="flash"]
+[ext_resource type="Material" path="res://game/fx/guard_glint.tres" id="glint"]
+[ext_resource type="Shader" path="res://game/views/elite_bar.gdshader" id="bar_shader"]
+
+[sub_resource type="ShaderMaterial" id="bar"]
+shader = ExtResource("bar_shader")
+
+[sub_resource type="QuadMesh" id="bar_quad"]
+material = SubResource("bar")
+size = Vector2(1, 0.14)
+
+[node name="Elite" type="Node3D"]
+script = ExtResource("elite")
+warrior = ExtResource("warrior")
+rogue = ExtResource("rogue")
+mage = ExtResource("mage")
+flash = ExtResource("flash")
+glint = ExtResource("glint")
+
+[node name="UnifiedView" type="UnifiedView" parent="."]
+kind = "elite"
+pool = true
+
+[node name="Bar" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.6, 0)
+cast_shadow = 0
+mesh = SubResource("bar_quad")

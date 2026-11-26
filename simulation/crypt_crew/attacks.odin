@@ -17,10 +17,11 @@ Event_Hero_Attacked :: struct {
 }
 
 // What a bolt and a shot stop at: walls, low cover and props, met where they stand above FLIGHT_HEIGHT (low cover
-// and a resting light prop never do, so they are flown over).
+// and a resting light prop never do, so they are flown over), and elites' capsules (a minion has no body: it is swept
+// on the floor plan).
 SHOT_FILTER :: physics.Filter {
 	category = CAT_HERO,
-	mask     = CAT_WALL | CAT_LOW | CAT_PROP,
+	mask     = CAT_WALL | CAT_LOW | CAT_PROP | CAT_ELITE,
 }
 
 // Each present hero's attack that ran its class's duration ends; then each that holds Attack starts its class's attack
@@ -63,7 +64,8 @@ resolve_strikes :: proc(t: ^Tick) {
 // A melee blow of `spec`: every live minion within `spec.reach` of the hero's centre (its circle's edge) and inside the
 // arc either side of the hero's facing (or touching the hero), with no wall between their chests, takes the blow's
 // damage and knock, away from the hero; every free prop in the arc, within the height a blow sweeps and with no wall
-// between, is shoved likewise. Dot products, no trig; minions in the grid's order (minions_within: a melee reach
+// between, is shoved likewise, and every live elite in it so placed takes the blow from the hero's side (damage_elite:
+// a Warrior's shield judges it). Dot products, no trig; minions in the grid's order (minions_within: a melee reach
 // covers the touch, HERO_RADIUS + STRIKE_TOUCH, so the reach's circle holds every minion the blow can land on).
 strike_arc :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, spec: ^Class_Spec) {
 	walk := minions_within(t, hero.pos.xz, spec.reach + MINION_RADIUS)
@@ -71,6 +73,13 @@ strike_arc :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, spec: ^Class_Spec)
 		away, inside := in_arc(hero, minion.pos.xz, MINION_RADIUS, spec)
 		if !inside || walled_off(t, hero, minion.pos.xz) do continue
 		damage_minion(t, handle, spec.damage, away, spec.knock, player, .Blow)
+	}
+	elites := sim.iterate(&t.state.elites)
+	for elite, handle in sim.next(&elites) {
+		if elite.phase == .Dying do continue
+		away, inside := in_arc(hero, elite.pos.xz, ELITE_RADIUS, spec)
+		if !inside || walled_off(t, hero, elite.pos.xz) do continue
+		damage_elite(t, handle, spec.damage, away, spec.knock, player, .Blow, hero.pos.xz)
 	}
 	props := sim.iterate(&t.state.props)
 	for prop in sim.next(&props) {

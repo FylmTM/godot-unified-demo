@@ -37,6 +37,9 @@ SCRIPT_REVIVE_AFTER :: 256
 SCRIPT_PAUSE_EVERY :: 512 // ticks between the scripted co-op pauses (slot 0's)
 SCRIPT_PAUSE_AT :: 300 // the tick in each SCRIPT_PAUSE_EVERY a pause starts
 SCRIPT_PAUSE_TICKS :: 40 // how long one lasts
+SCRIPT_ELITE_EVERY :: 192 // ticks between slot 3's dev elite spawns (the kinds in turn) ...
+SCRIPT_ELITE_AT :: 48 // ... the tick in each one is sent ...
+SCRIPT_BREAK_AT :: 160 // ... and the tick in each it breaks every Warrior's guard
 
 // The player in `slot` walks one of 8 directions or stands (a draw every SCRIPT_PERIOD ticks), aims one of 8
 // directions at a reach, or none (other draws), holds Attack in bursts and Ability in holds of their own (a block, a
@@ -71,9 +74,10 @@ scripted_input :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup)
 // Every slot changes its hero's class once every SCRIPT_CLASS_EVERY ticks (`Any` among the classes, which leaves it),
 // slot 1 raises minions around its hero and slot 2 kills every minion now and then (so the scenarios cross spawns and
 // mass deaths whatever the attacks reach), one slot downs its own hero every SCRIPT_HURT_EVERY (every slot every third
-// time: a wipe and the floor's restart) and slot 3 revives the downed SCRIPT_REVIVE_AFTER later, and slot 0 pauses the
-// game for SCRIPT_PAUSE_TICKS of every SCRIPT_PAUSE_EVERY, so the standard scenarios roll back over all of it. Under a
-// held crowd, nothing: the population stays what was asked.
+// time: a wipe and the floor's restart) and slot 3 revives the downed SCRIPT_REVIVE_AFTER later, slot 3 also raises an
+// elite of each kind in turn ahead of its hero and later breaks every Warrior's guard, and slot 0 pauses the game for
+// SCRIPT_PAUSE_TICKS of every SCRIPT_PAUSE_EVERY, so the standard scenarios roll back over all of it. Under a held
+// crowd, nothing: the population stays what was asked.
 scripted_commands :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup, out: ^sim.Command_Out(Command)) {
 	if setup.crowd != .None do return
 	if (tick + u32(slot) * SCRIPT_SLOT_OFFSET) % SCRIPT_CLASS_EVERY == SCRIPT_CLASS_AT {
@@ -88,6 +92,14 @@ scripted_commands :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Set
 	}
 	if slot == 3 && tick % SCRIPT_HURT_EVERY == SCRIPT_HURT_AT + SCRIPT_REVIVE_AFTER {
 		sim.send_command(out, Command_Dev_Revive{})
+	}
+	if slot == 3 {
+		switch tick % SCRIPT_ELITE_EVERY {
+		case SCRIPT_ELITE_AT:
+			sim.send_command(out, Command_Dev_Spawn_Elite{Elite_Kind(tick / SCRIPT_ELITE_EVERY % len(Elite_Kind))})
+		case SCRIPT_BREAK_AT:
+			sim.send_command(out, Command_Dev_Break_Guards{})
+		}
 	}
 	if slot != 0 do return
 	switch tick % SCRIPT_PAUSE_EVERY {

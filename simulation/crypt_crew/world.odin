@@ -15,12 +15,13 @@ import "unified:sim"
 
 // Shape categories (filter bits): every query, contact and sensor reports the category of the shape it names, and a
 // body's tag says whose it is (a hero's sim.player_key). The level's are the kit parts' `unified_category`
-// (docs/ART.md, Kit parts); 32 is kept for the elites.
+// (docs/ART.md, Kit parts).
 CAT_FLOOR :: u64(1 << 0)
 CAT_WALL :: u64(1 << 1) // blocks walking, sight and shots
 CAT_LOW :: u64(1 << 2) // low cover: blocks walking only, shots fly over it
 CAT_HERO :: u64(1 << 3)
 CAT_PROP :: u64(1 << 4)
+CAT_ELITE :: u64(1 << 5) // an elite's capsule (elites.odin)
 
 // The game's levels, in GAME.levels' order (the State's `level` says which is active).
 Level_Id :: enum u8 {
@@ -61,6 +62,7 @@ Places :: struct {
 	graves:      sim.List(Nav_Point, MAX_GRAVES), // where surges rise, on the walkable floor
 	packs:       sim.List(Pack_Def, MAX_PACKS),
 	props:       sim.List(Prop_Def, MAX_PROPS),
+	elites:      sim.List(Elite_Def, MAX_ELITE_MARKERS), // asleep at their markers on entering (elites.odin)
 }
 
 // A level's floor as the sim reads it, built once in world_create.
@@ -88,6 +90,7 @@ World :: struct {
 	phys:           ^physics.World,
 	floors:         [Level_Id]Floor, // each level's (floor_of: the active one's)
 	hero_defs:      [Class]physics.Character_Def, // each class's controller (its own max_speed); Any's is never used
+	elite_defs:     [Elite_Kind]physics.Character_Def, // each elite kind's controller (elite_def)
 	barrel_hull:    ^physics.Hull_Data, // the barrel's cylinder (Box3D copies it into each body's shape)
 	barrel_density: f32, // what gives the barrel's hull its PROP_SPECS mass
 	contacts:       [dynamic]physics.Contact_Event, // scratch: the step's contact events (prop_impacts)
@@ -127,6 +130,7 @@ world_create :: proc(seed: u64, levels: []sim.Level_File, _: Setup) -> ^World {
 		def.max_speed = CLASS_SPECS[class].max_speed
 		world.hero_defs[class] = def
 	}
+	for kind in Elite_Kind do world.elite_defs[kind] = elite_def(kind)
 	barrel := &PROP_SPECS[.Barrel]
 	height := 2 * barrel.half.y
 	world.barrel_hull = physics.create_cylinder(height, barrel.half.x, -barrel.half.y, PROP_CYLINDER_SIDES)
@@ -163,6 +167,11 @@ build_floor :: proc(floor: ^Floor, data: ^level.Level, seed: u64) {
 		on_floor: bool
 		grave, on_floor = floor_spot(floor, grave.point, SURGE_SPREAD)
 		assert(on_floor, "crypt_crew: a grave is off the walkable floor")
+	}
+	for &elite in sim.slice(&floor.places.elites) {
+		spot, on_floor := floor_spot(floor, elite.pos, HERO_NAV_REACH)
+		assert(on_floor, "crypt_crew: an elite marker is off the walkable floor")
+		elite.pos = spot.point
 	}
 	pack_places(floor, seed)
 }
@@ -282,6 +291,12 @@ read_places :: proc(places: ^Places, floor: ^level.Level) {
 			assert(known, "crypt_crew: a prop's kind is no Prop_Kind")
 			added := sim.append(&places.props, Prop_Def{pos = marker.pos, rot = marker.rot, kind = kind})
 			assert(added, "crypt_crew: more props than MAX_PROPS")
+		case "elite":
+			kind, known := level.prop_enum(&marker, "kind", Elite_Kind.Warrior) // elite.gd's export_enum
+			assert(known, "crypt_crew: an elite's kind is no Elite_Kind")
+			facing := dmath.normalize(dmath.quat_rotate(marker.rot, {0, 0, 1}).xz) // the marker's +Z, as a model's front
+			added := sim.append(&places.elites, Elite_Def{pos = marker.pos, facing = facing, kind = kind})
+			assert(added && facing != {}, "crypt_crew: more elites than MAX_ELITE_MARKERS, or one facing straight up")
 		case:
 			assert(false, "crypt_crew: a marker of a kind the sim doesn't know (game/levels/markers/)")
 		}
@@ -324,10 +339,11 @@ init :: proc(t: ^Tick) {
 }
 
 // Takes the party to level `to` (init, the wipe's floor restart; the next floor later): every hero lets go and its body
-// goes, the props, the minions and the bolts and fireballs in flight go, a wipe ends, the static geometry is swapped
-// (physics.level_change), then the new level's props are made in marker order, its packs put to sleep (none under a
-// held crowd), its surge clock started, and every present hero gets a body at its slot's spawn. What the block keeps
-// across it (the heroes' classes, the clock, the session's counts) stays.
+// goes, the props, the minions, the bolts and fireballs in flight and the elites (their bodies with them) go, a wipe
+// ends, the static geometry is swapped (physics.level_change), then the new level's props are made in marker order, its
+// packs and its elite markers' elites put to sleep (neither under a held crowd), its surge clock started, and every
+// present hero gets a body at its slot's spawn. What the block keeps across it (the heroes' classes, the clock, the
+// session's counts) stays.
 enter_level :: proc(t: ^Tick, to: Level_Id) {
 	leaving := sim.iterate_present(t)
 	for hero, player in sim.next(&leaving) {
@@ -340,9 +356,11 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 	sim.despawn_all(&t.state.fireballs) // in flight: they burst on no floor
 	sim.timer_stop(&t.state.wipe) // every hero gets up at its spawn
 	forget_leavers(t) // and whoever comes back later, whole
+	physics.despawn_all(t.world.phys, &t.state.elites)
 	physics.level_change(t, t.world.phys, to)
 	spawn_props(t)
 	if t.setup.crowd == .None do spawn_packs(t) // a held crowd is the floor's whole population
+	if t.setup.crowd == .None do spawn_marker_elites(t) // and none under a held crowd
 	sim.timer_start_ticks(t, &t.state.surge, SURGE_FIRST_TICKS)
 	t.state.rising, t.state.floor_surges = 0, 0 // a surge owed on the old floor, or before the wipe, is gone with it
 	entering := sim.iterate_present(t)

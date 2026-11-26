@@ -800,3 +800,60 @@ Calls made in step 6's review (two reviewers' findings, the developer's decision
   - Saved bindings (decided in review): a new action's default yields to a player's saved binding of another action
     (Left Shift saved to Attack, B to Grab), so nothing fires twice; Ability then keeps its other default on that
     device, or none.
+## Milestone 5, step 2: the elites
+
+Calls made building the elites (docs/plan.md's design, section B), one line each:
+
+- Floor 1's two elite markers: a Warrior asleep in the great hall (10, -8) facing the west corridor, and a Mage asleep
+  in the north room (8, -18.6) behind its pack. A marker's elite sleeps (Idle) and wakes as a pack's sleepers do: a
+  hero in sight within AGGRO_RADIUS, or a hit. No Rogue marker: Rogues come from surges and the dev command.
+- The surge's elite kind is `(floor_surges / ELITE_SURGE_EVERY - 1) % 3` (Warrior, Rogue, Mage in turn): the design's
+  `floor_surges % 3` is always 0 on every third surge. It rises at the surge's graves in turn, in Rise, as a minion.
+- Every elite is a `physics.Character` capsule (radius 0.45, 2.1 m), category CAT_ELITE (32), four times a hero's
+  weight (ELITE_DENSITY) with a 24,000 N drive (ELITE_GROUND_FORCE), so a hero walking into one moves it under 0.3 m in
+  2 s (at a hero's weight a Knight shoved a Warrior 7 m in 3 s, and sleepers slid while shown asleep). An elite turns
+  at most 4° a tick (256°/s), so a hero can get round a Warrior's shield.
+- An elite's capsule reports no hits of its own (`hit_events` off): a prop's shape reports the prop's hits, which is
+  all elite_impacts reads. Probed: an elite knocked into a wall made a stray hit event with it on, none with it off,
+  and the thrown-prop tests pass either way.
+- Elites steer as the nav fields say, so they walk round props only by their capsule sliding off them (the fields
+  know nothing of props): accepted.
+- A guarded blow (from within 60° of a Warrior's facing, its shield up) takes 25 % of the damage, rounded, at least 1,
+  and neither knocks nor staggers it: a stagger lowers the shield, so a guarded blow that staggered would leave none.
+  A sleeping Warrior doesn't guard (nor shows the guard pose or the glint): the blow that wakes it lands whole.
+- Knocks: an elite takes half a blow's knock (ELITE_KNOCK_TAKE) as a velocity change, at most 6 m/s, which its drive's
+  friction stops; a knock of 6 m/s or more (a cleave, a thrown prop; a charge and a fireball later) staggers it 0.5 s,
+  which cuts off its attack or its summoning (a summoning cut off is tried again 6 s on, SUMMON_RETRY_S). A sword, a
+  bolt or a shot doesn't stagger.
+- A thrown prop hits an elite through Box3D's own hit event (elite_impacts, after prop_impacts), not prop_hits' walk:
+  the elite is a body the prop bounces off, and a footprint test would race the solver. It breaks the guard first, so
+  the hit lands whole (PROP_HIT_DAMAGE, PROP_HIT_KNOCK). A throw hurts each elite once, as each minion
+  (Prop.elites_hit, cleared by the next throw).
+- An elite's body goes at its death (heroes walk over the fallen); its row lingers DEATH_S for the fall and the sink.
+  An elite counts as a skeleton felled (`kills`).
+- The Rogue circles at FLANK_BEHIND round its target (a tangent and a pull back onto the circle) once within 6 m and
+  in sight, lunges from within 0.75 m of the spot behind it (or once its patience ran out, 3 s of circling counted
+  from when it began to circle, from 3 m), never without sight of its target, at 7 m/s through its 0.375 s windup,
+  homing at the elites' turn rate (a lunge locked at its start missed a target it had been circling), then backs off
+  1.5 s.
+- The Mage's bolt: a 0.5 s cast facing its target, then a bone bolt along that facing at 10 m/s for 1.5 s (dodged by
+  moving), 12 damage through damage_hero from where it flew (step 4's block judges that). Its first bolt 1 s after it
+  wakes; its summoning every 12 s (the first 12 s after it wakes), a 1 s cast, three minions rising on a 1.5 m ring.
+  It casts either only with its target in sight within its bolt's range (14 m). An elite raised already chasing (a
+  test's) starts its clocks as one that just woke.
+  Backing off, a Mage (and a retreating Rogue) turns off a wall along the floor (open_heading: an eighth, then a
+  quarter of a turn either way) instead of pressing into it.
+- `Elite` has no `held_by` and `thrown` yet: step 4's heave adds what it needs (the design listed them; unused fields
+  would be dead code until then). The Mage keeps two timers, `next_bolt` and `next_summon` (`cast` is an Odin keyword).
+- Dev commands: `dev_spawn_elite` (a kind, 5 m ahead of the sender's hero), `dev_hurt_elites` (from no side: never
+  guarded, no knock) and `dev_break_guards` (break_guard, the entry step 4's charge and fireball call). The script's
+  slot 3 raises an elite every 3 s (the kinds in turn) and breaks the guards 1.75 s after each, so the scenarios roll
+  back over elites, their bodies, bone bolts, summons, deaths and breaks.
+- None under a held crowd (no marker elites, no surge's, no dev spawn); Floor 1's benchmark row (no crowd) has its two
+  sleeping marker elites, as it has its sleeping packs.
+- Views: `View_Elite`, a pooled scene kind appearing on verified (game/views/elite.tscn: the kind's skeleton rig, a
+  billboard health bar whose per-instance fill is hp of hp_max, a hit's flash, a warm glint over a guarding Warrior's
+  shield pulsing on the shown time, the dead sinking 1 m over their last 0.6 s). Clips: the skeleton rise, walk, idle,
+  death and the 1H chop (Warrior), Melee_Blocking while a Warrior stands guarding, the dual-wield stab (Rogue; its
+  blow guessed at 0.5 s in), the magic shoot and spellcasting (Mage), Hit_A while staggered. Bone bolts are a second
+  MultiView kind, a bone-white orb; their bursts and an elite's hits throw sparks, a broken guard sparks and dust.

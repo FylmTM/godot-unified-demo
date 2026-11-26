@@ -45,6 +45,10 @@ const SKELETON_DEATH: StringName = &"Special/Skeletons_Death"
 const SKELETON_TAUNT: StringName = &"Special/Skeletons_Taunt"
 const SKELETON_ATTACK: StringName = &"CombatMelee/Melee_1H_Attack_Chop"
 
+# Skeleton elites (the Warrior swings SKELETON_ATTACK and guards in KNIGHT_BLOCK, the Mage casts MAGE_BOLT and summons
+# in MAGE_CAST).
+const ELITE_ROGUE_STAB: StringName = &"CombatMelee/Melee_Dualwield_Attack_Stab"
+
 ## The clips that loop: a stance or a gait, shown for as long as it lasts, each ending in the pose it starts with (the
 ## checks prove it). Every other clip is a one-shot: the Rogue's aim raises the crossbow and holds it raised.
 const LOOPING: Array[StringName] = [

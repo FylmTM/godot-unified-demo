@@ -339,9 +339,10 @@ next_within :: proc(walk: ^Minions_Within) -> (minion: ^Minion, handle: sim.Hand
 	}
 }
 
-// What minions are pushed out of this tick: every present hero's capsule, and every prop held or at rest.
+// What minions are pushed out of this tick: every present hero's capsule, every prop held or at rest, and every live
+// elite's capsule.
 @(private = "file")
-obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, PLAYERS + MAX_PROPS)) {
+obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, PLAYERS + MAX_PROPS + MAX_ELITES)) {
 	heroes := sim.iterate_present(t)
 	for hero in sim.next(&heroes) do sim.append(&obstacles, Obstacle{hero.pos.xz, HERO_RADIUS})
 	props := sim.iterate(&t.state.props)
@@ -349,6 +350,10 @@ obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, PLAYERS + MAX_P
 		if !prop_in_the_way(t.world.phys, prop) do continue
 		centre := physics.body_position(t.world.phys, prop.body)
 		sim.append(&obstacles, Obstacle{centre.xz, PROP_SPECS[prop.kind].footprint})
+	}
+	elites := sim.iterate(&t.state.elites)
+	for elite in sim.next(&elites) {
+		if elite.phase != .Dying do sim.append(&obstacles, Obstacle{elite.pos.xz, ELITE_RADIUS})
 	}
 	return
 }
@@ -522,7 +527,7 @@ staggered :: proc(minion: ^Minion) -> bool {
 // the floor plan that no wall shields (a ray from `at` to its chest) other than `skip` takes `damage` and is knocked
 // away from `at`, at `knock` at the centre falling off to BLAST_RIM of it at the rim (dot products and one sqrt a
 // minion, no trig), in the strikes' order (minions_within). Through damage_minion, so a pile of blasts knocks no faster
-// than KNOCK_MAX.
+// than KNOCK_MAX. The elites in it take the same, other than `skip_elite` (knock_elites).
 knock_area :: proc(
 	t: ^Tick,
 	at: [3]f32,
@@ -532,6 +537,7 @@ knock_area :: proc(
 	player: sim.Player,
 	source: Hit_Source,
 	skip: sim.Handle(Minion) = {},
+	skip_elite: sim.Handle(Elite) = {},
 ) {
 	walk := minions_within(t, at.xz, radius)
 	for minion, handle in next_within(&walk) {
@@ -543,6 +549,7 @@ knock_area :: proc(
 		away := offset / distance if distance > 0 else [2]f32{1, 0}
 		damage_minion(t, handle, damage, away, knock * (1 - (1 - BLAST_RIM) * distance / radius), player, source)
 	}
+	knock_elites(t, at, radius, damage, knock, player, source, skip_elite)
 }
 
 // Whether a minion's target is close enough to swing at: its capsule within MINION_REACH of the minion's circle (less
