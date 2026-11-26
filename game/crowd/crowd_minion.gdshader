@@ -4,8 +4,8 @@
 // minion; the eyes (the bake's glow mask, UV2's x) glow as skeleton_glow.tres does. MinionCrowd.material() sets every
 // uniform from where it lives.
 //
-// INSTANCE_CUSTOM, the contract a crowd's view keeps (step 5 writes it through View_Policy.ages, which turns a
-// game-time stamp into seconds since it at the shown time):
+// INSTANCE_CUSTOM, the contract a crowd's view keeps (simulation/extension/frame.odin's minion_instance writes game-time
+// stamps, which the minion kind's policy, MULTI_POLICY's ages, turns into seconds since them at the shown time):
 // - x: the clip, MinionCrowd.Clip (clamped to the table).
 // - y: the seconds into the clip. A one-shot's stamp is the tick its action began. A loop's is minus the minion's phase
 //   (a far-past, per-minion stamp), so the crowd's gaits don't walk in lockstep and a walk doesn't restart when a
@@ -35,7 +35,7 @@ uniform float roughness = 0.7;
 uniform vec3 eye_color : source_color = vec3(1.0, 1.0, 0.19);
 uniform vec3 eye_emission : source_color = vec3(1.0, 1.0, 0.19);
 uniform float eye_energy = 4.0;
-// A hit's flash: hit_flash.tres's colour, added for flash_s after the blow (the scene minion's FLASH_TICKS).
+// A hit's flash: hit_flash.tres's colour, added for flash_s after the blow (MinionCrowd.FLASH_TICKS).
 uniform vec3 flash_color : source_color = vec3(0.9, 0.75, 0.55);
 uniform float flash_s = 0.125;
 // The dying sink into the floor over their last moments, out of sight before their row is freed: the death clip, from

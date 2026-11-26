@@ -7,7 +7,8 @@ extends RefCounted
 ##
 ## Each problem is reported through the validate run's log capture, named by the file it is in. The characters and the
 ## look-dev scene are run, not only loaded: every clip is posed on every character, and every shot is shown. The
-## crowd's bake (MinionCrowd) is held fresh and true: made from today's inputs, and posing as the minion scene does.
+## crowd's bake (MinionCrowd) is held fresh and true: made from today's inputs, posing as the minion scene does, and
+## timed as the sim is.
 
 ## The collision categories a kit part's `unified_category` may hold (the level exporter writes them into the sim's
 ## filters): the floor, walls (block walking, sight and shots), and low cover (blocks walking; shots fly over it).
@@ -50,6 +51,16 @@ const CROWD_FRESH: float = 0.00001
 const CROWD_NORMALS: float = 0.01
 ## The crowd's shader: its MAX_CLIPS must be CrowdClips'.
 const CROWD_SHADER_CLIPS: String = "const int MAX_CLIPS = %d;"
+## The crowd's clip numbers (MinionCrowd.Clip), the shader's index into the clip table: simulation/extension/frame.odin's
+## Minion_Clip writes them, and its test (view_test.odin's the_clips_are_the_crowds_numbers) pins these same numbers.
+const CROWD_CLIPS: Dictionary[String, int] = {"IDLE": 0, "WALK": 1, "ATTACK": 2, "RISE": 3, "DEATH": 4}
+## The script on the play scene's crowd: the art's timing, where in a clip an action starts (its clip offsets).
+const CROWD_VIEW: String = "res://game/crowd/minion_crowd_view.gd"
+## The shader's sink, the line under its death clip that lowers a vertex: its expression is evaluated, the shader's
+## terms its inputs.
+const CROWD_SINK: String = "if \\(clip == death_clip\\) \\{\\s*VERTEX\\.y -= ([^;]+);"
+## How near two times (seconds) or depths (metres) must be: float noise.
+const CROWD_TIME: float = 0.0001
 
 ## How many problems the checks found.
 var problems: int = 0
@@ -434,10 +445,10 @@ func _check_lookdev() -> void:
 
 
 ## The crowd's bake (MinionCrowd) holds its sizes (_crowd_sizes: else nothing more is read), is fresh, holds its
-## mesh's rules, sinks its dead out of sight, and poses as the minion scene does (_check_crowd_parity). Fresh: its
-## inputs' hash is today's, its mesh is the scene merged and lightened as the bake does it now (bit for bit, but the
-## normals within CROWD_NORMALS: a mesh stores them compressed), and a bake now gives its matrices, bounds and tops
-## (within CROWD_FRESH), the mesh's custom_aabb its bounds.
+## mesh's rules and poses as the minion scene does (_check_crowd_parity); its material's timing is the sim's
+## (_check_crowd_timing). Fresh: its inputs' hash is today's, its mesh is the scene merged and lightened as the bake
+## does it now (bit for bit, but the normals within CROWD_NORMALS: a mesh stores them compressed), and a bake now gives
+## its matrices, bounds and tops (within CROWD_FRESH), the mesh's custom_aabb its bounds.
 func _check_crowd() -> void:
 	var clips: CrowdClips = load(MinionCrowd.TABLE)
 	var mesh: ArrayMesh = load(MinionCrowd.MESH)
@@ -468,12 +479,76 @@ func _check_crowd() -> void:
 				_problem("%s: its last pose's top is %f, a bake now %f" % [clips.clips[clip], clips.tops[clip],
 					fresh.tops[clip]], MinionCrowd.TABLE)
 		_check_crowd_parity(rig, merged, lightened.source, arrays, clips)
-	var depth: float = MinionCrowd.material().get_shader_parameter("sink_depth")
-	if depth < clips.tops[MinionCrowd.Clip.DEATH]:
-		_problem("the dead sink %.2f m, less than their last pose's %.2f m top" % [depth, clips.tops[MinionCrowd.Clip.DEATH]],
-			MinionCrowd.SHADER)
 	_tree_root.remove_child(rig)
 	rig.free()
+	_check_crowd_timing(clips)
+
+
+## The crowd's material as the play scene draws it (CROWD_VIEW's) lands the sim's moments on the art's: its clip
+## numbers are the extension's (CROWD_CLIPS); a riser plays the rise clip's last minion_rise seconds, from RISE_FROM, so
+## it stands at the clip's end when it starts to chase; the swing's blow (BLOW_AT into the clip) lands at the sim's
+## windup; a hit flashes FLASH_TICKS ticks; and the shader's sink, evaluated (CROWD_SINK), leaves the fall whole until
+## SINK_S before the dying's row is freed, and has them under the floor, deeper than their last pose's top, by then.
+func _check_crowd_timing(clips: CrowdClips) -> void:
+	var numbers: Dictionary[String, int] = {}
+	for clip: Variant in MinionCrowd.Clip:
+		numbers[str(clip)] = MinionCrowd.Clip[clip]
+	if numbers != CROWD_CLIPS:
+		_problem("MinionCrowd.Clip is %s, not Minion_Clip's numbers %s" % [numbers, CROWD_CLIPS],
+			(MinionCrowd as Script).resource_path)
+		return
+	var script: GDScript = load(CROWD_VIEW)
+	var view: MultiMeshInstance3D = script.new()
+	_tree_root.add_child(view)
+	var crowd: ShaderMaterial = view.material_override as ShaderMaterial
+	_tree_root.remove_child(view)
+	view.free()
+	var offsets: PackedFloat32Array = crowd.get_shader_parameter("clip_offset")
+	var timing: Dictionary = script.get_script_constant_map()
+	var rise: int = MinionCrowd.Clip.RISE
+	var rise_from: float = timing["RISE_FROM"]
+	var rise_s: float = Unified.constants.minion_rise
+	if absf(offsets[rise] - rise_from) > CROWD_TIME or absf(offsets[rise] + rise_s - clips.length(rise)) > CROWD_TIME:
+		_problem("a riser plays the rise clip from %.3f s (RISE_FROM %.3f) for the sim's %.3f s, not its last of %.3f" % [
+			offsets[rise], rise_from, rise_s, clips.length(rise)], CROWD_VIEW)
+	var attack: int = MinionCrowd.Clip.ATTACK
+	var blow_at: float = timing["BLOW_AT"]
+	var blow: float = offsets[attack] + Unified.constants.minion_windup
+	if absf(blow - blow_at) > CROWD_TIME or blow_at <= 0.0 or blow_at >= clips.length(attack):
+		_problem("the sim's blow lands %.3f s into the attack clip, not at BLOW_AT's %.3f (of %.3f)" % [blow, blow_at,
+			clips.length(attack)], CROWD_VIEW)
+	var flash_s: float = crowd.get_shader_parameter("flash_s")
+	if absf(flash_s * Unified.tick_hz - MinionCrowd.FLASH_TICKS) > CROWD_TIME:
+		_problem("a hit flashes %.3f s, not FLASH_TICKS' %d ticks" % [flash_s, MinionCrowd.FLASH_TICKS],
+			(MinionCrowd as Script).resource_path)
+	_check_crowd_sink(crowd, offsets, clips)
+
+
+## The shader's sink (CROWD_SINK's expression, evaluated with the material's uniforms) at the fall's start, at SINK_S
+## before the row is freed (nothing yet), and as it is freed (deeper than the last pose's top: out of sight).
+func _check_crowd_sink(crowd: ShaderMaterial, offsets: PackedFloat32Array, clips: CrowdClips) -> void:
+	var death: int = MinionCrowd.Clip.DEATH
+	var code: String = (load(MinionCrowd.SHADER) as Shader).code
+	var found: RegExMatch = RegEx.create_from_string(CROWD_SINK).search(code)
+	var sink := Expression.new()
+	var terms: PackedStringArray = ["age", "sink_from", "sink_until", "sink_depth"]
+	if found == null or sink.parse(found.get_string(1), terms) != OK or crowd.get_shader_parameter("death_clip") != death:
+		_problem("the shader's sink is not `VERTEX.y -= <expression of %s>;` under its death clip" % ", ".join(terms),
+			MinionCrowd.SHADER)
+		return
+	var freed: float = Unified.constants.minion_death
+	var moments: PackedFloat32Array = [0.0, freed - MinionCrowd.SINK_S, freed]
+	var depths: PackedFloat32Array = []
+	for moment: float in moments:
+		var value: Variant = sink.execute([moment + offsets[death], crowd.get_shader_parameter("sink_from"),
+			crowd.get_shader_parameter("sink_until"), crowd.get_shader_parameter("sink_depth")])
+		var depth: float = NAN
+		if value is float:
+			depth = value
+		depths.append(depth)
+	if not (absf(depths[0]) <= CROWD_TIME and absf(depths[1]) <= CROWD_TIME and depths[2] >= clips.tops[death]):
+		_problem("the dying sink %s m at %s s into their fall, not 0, 0 and past their last pose's %.2f m top" % [depths,
+			moments, clips.tops[death]], MinionCrowd.SHADER)
 
 
 ## Whether the bake's parts have the sizes the rest of the check reads by: MinionCrowd's clips in MinionCrowd.Clip's

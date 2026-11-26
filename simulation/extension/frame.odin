@@ -56,7 +56,8 @@ View_Prop :: struct {
 }
 
 // A crowd minion's clip, its custom channel 0: the crowd's clips in MinionCrowd.Clip's order
-// (game/crowd/minion_crowd.gd, which names the baked clips; the two lists change together).
+// (game/crowd/minion_crowd.gd, which names the baked clips). The two lists change together: view_test.odin and the art
+// checks pin both to the same numbers.
 Minion_Clip :: enum u8 {
 	Idle,
 	Walk,

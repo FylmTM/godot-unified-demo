@@ -1,10 +1,10 @@
 // The extension's views as functions of the state: a minion's crowd instance (minion_instance), the contract the
-// crowd's shader reads (game/crowd/crowd_minion.gdshader's header).
+// crowd's shader reads (game/crowd/crowd_minion.gdshader's header). An instance is a function of its minion and handle
+// alone, so what a view shows after a rollback is the re-simulated state's: the sim's own rollback tests hold that.
 package test_crypt_crew
 
 import "core:testing"
 import "unified:dmath"
-import "unified:godot"
 import "unified:headless"
 import "unified:sim"
 
@@ -55,34 +55,19 @@ a_minion_instance_is_its_state :: proc(t: ^testing.T) {
 	}
 }
 
-// Every instance of a crowd the arena holds, fought by four scripted heroes, is the same whether each tick was
-// re-simulated over a window of 8 ticks (a rollback every tick) or of 1: an instance is a function of the state, so
-// what a view shows right after a rollback is what the re-simulated state says.
+// A clip's number is the shader's index into the clip table: MinionCrowd.Clip's numbers in game/crowd/minion_crowd.gd,
+// which the art checks pin to these same numbers (game/tools/art_checks.gd's CROWD_CLIPS), so neither list can reorder
+// alone.
 @(test)
-the_crowd_after_a_rollback_is_the_states :: proc(t: ^testing.T) {
-	runs: [2]headless.Run(g.Game)
-	for &run, i in runs {
-		run = headless.run_begin(&g.GAME, 7, g.Setup{floor = .Arena, crowd = .Fight}, window = 8 if i == 0 else 1)
+the_clips_are_the_crowds_numbers :: proc(t: ^testing.T) {
+	numbers := [ext.Minion_Clip]int {
+		.Idle   = 0,
+		.Walk   = 1,
+		.Attack = 2,
+		.Rise   = 3,
+		.Death  = 4,
 	}
-	defer for &run in runs do headless.run_end(&run)
-	compared := 0
-	for tick in 0 ..< 6 * g.TICK_HZ {
-		for &run in runs do headless.run_scripted(&run, g.PLAYERS)
-		if tick % 32 != 31 do continue
-		items: [2][dynamic]godot.Multi_View_Item(ext.MultiView)
-		defer for list in items do delete(list)
-		for &run, i in runs {
-			minions := sim.iterate(&run.simulation.state.minions)
-			for minion, handle in sim.next(&minions) do append(&items[i], ext.minion_instance(minion, handle))
-		}
-		testing.expect_value(t, len(items[1]), len(items[0]))
-		for item, index in items[0] {
-			if index < len(items[1]) && items[1][index] != item {
-				testing.expectf(t, false, "tick %d: instance %d differs: %v, %v", tick, index, item, items[1][index])
-				return
-			}
-		}
-		compared += len(items[0])
+	for number, clip in numbers {
+		testing.expectf(t, int(clip) == number, "%v is %d, not the crowd's %d", clip, int(clip), number)
 	}
-	testing.expectf(t, compared > 1000, "only %d instances compared", compared)
 }

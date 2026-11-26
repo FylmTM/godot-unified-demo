@@ -3,9 +3,9 @@ extends MultiMeshInstance3D
 ## extension's minion_instance (simulation/extension/frame.odin), each instance posed by crowd_minion.gdshader from its
 ## custom data: its clip, its clip's age and its last hit's age, which the host writes at the shown time.
 ##
-## What the scene minion's view did is the shader's now: the rise, the walk and the stance, the swing, the fall and the
-## sink, the eyes, a hit's flash. What stays here is the art's timing: where in a clip an action starts, so that the
-## sim's moments land on the clip's (the swing's blow on the windup's end).
+## The shader draws all a minion does: the rise, the walk and the stance, the swing, the fall and the sink, the eyes, a
+## hit's flash. What is set here is the art's timing: where in a clip an action starts, so that the sim's moments land
+## on the clip's (the swing's blow on the windup's end; the art checks hold both offsets to the sim's numbers).
 
 ## Where in the rise clip a minion starts: its last RISE_S (1.5 s) of 2.3, from the hand breaking the floor.
 const RISE_FROM: float = 0.8

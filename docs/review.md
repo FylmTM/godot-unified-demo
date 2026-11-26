@@ -697,12 +697,20 @@ Calls made in step 5 (the minions a MultiMesh):
   `minion.tscn` are gone; `game/characters/skeletons/minion.tscn` stays, the bake's source and the look-dev's cast.
   Minion events reach the effects by position as before (`play.gd`); the HUD's counts are the session data's.
 - Tests: `view_test.odin`: an instance is its state in every phase (the clip, the stamps, the key, the pose; a mutant
-  stamping loops like one-shots fails it), and a crowd's instances are the same re-simulated over 8 ticks every tick as
-  over 1 (a fight on the arena, 6 s, every half second: an instance shown right after a rollback is the re-simulated
-  state's). The godot suite's walk checks the live crowd on entering Floor 1: one MultiMesh with its material, as
-  many instances as the HUD's minions (its 8 sleepers), each in the stance, its gait aged, its hit far past (read from
-  the buffer: `get_instance_custom_data` reads nothing the host's `set_buffer` wrote); the policy without `ages` fails
-  it. A rollback in a Godot session can't be forced single-player: the Odin test is the rollback check.
+  stamping loops like one-shots fails it), and the clips' numbers, which the art checks pin to `MinionCrowd.Clip`'s too
+  (Attack and Rise swapped in either list fails). No crowd rollback test: an instance is a function of its minion and
+  handle alone, so after a rollback it is the re-simulated state's, which the sim's own rollback tests hold. The art
+  checks hold the crowd material's timing to the sim's, from the play scene's view script: the rise clip's offset
+  RISE_FROM with the sim's rise ending at the clip's end (RISE_S, a new view constant), the swing's blow at BLOW_AT
+  after the windup, the flash FLASH_TICKS ticks, and the shader's sink line evaluated (an Expression of its terms):
+  none at the fall's start or SINK_S before the row is freed, past the last pose's top by then. The godot suite's walk
+  checks the live crowd on entering Floor 1: one MultiMesh with its material, as many instances as the HUD's minions
+  (its 8 sleepers), each in the stance, its gait aged, its hit far past (read from the buffer:
+  `get_instance_custom_data` reads nothing the host's `set_buffer` wrote); the policy without `ages` fails it.
+- No OpenGL fallback (`rendering_device/fallback_to_opengl3=false`): the Compatibility renderer would pack the crowd's
+  custom data to half floats, where a loop's age (hundreds of seconds, growing with the session) steps by whole
+  seconds and the gaits freeze; the art, the lighting and 500 skinned minions are Forward+'s anyway. A GPU without
+  Vulkan or D3D12 gets Godot's error instead of a crowd that stutters.
 - Frame cost on the arena with 500 (this machine, quiet; `./uni tool --window crowd_frames -- --autostart --setup
   floor=arena,crowd=chase`, `crowd=fight --scripted`; vsync off): before, the pooled scene views ran chase at 20.7 fps
   (48 ms mean, 54 p99; 14,067 draw calls, 9.3 M primitives, GPU 10.6 ms) and fight at 19.5 (51 ms, 78 p99), bound by
