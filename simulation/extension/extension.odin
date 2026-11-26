@@ -28,6 +28,13 @@ Data_Constants :: struct {
 	minion_rise:     f32, // how long a risen minion climbs out of the floor in seconds (RISE_S: the rise clip's last)
 	minion_death:    f32, // how long a dead minion's row lingers in seconds (DEATH_S: the crowd sinks it by then)
 	arrival_ring:    f32, // how far from the party an arrival's first ring of spots is (metres; the second, twice)
+	// The abilities' and the revive's numbers the views pose by: a roll's length in seconds (its clip fits it), a
+	// fireball's flight in seconds (its orb's parabola) and its burst's reach in metres (the landing ring's size), and
+	// how near an ally stands to revive, in metres (the downed hero's ring's size).
+	roll:            f32,
+	fireball_flight: f32,
+	fireball_radius: f32,
+	revive_range:    f32,
 	save_version:    u8, // the save this build writes and continues (Setup.version): the app reads a save by it
 	_pad:            [3]u8,
 }
@@ -42,6 +49,10 @@ constants :: proc() -> (constants: Data_Constants) {
 	constants.minion_rise = g.RISE_S
 	constants.minion_death = g.DEATH_S
 	constants.arrival_ring = g.ARRIVAL_RING
+	constants.roll = g.ROLL_S
+	constants.fireball_flight = g.FIREBALL_FLIGHT_S
+	constants.fireball_radius = g.FIREBALL_RADIUS
+	constants.revive_range = g.REVIVE_RANGE
 	constants.save_version = g.SAVE_VERSION
 	return
 }

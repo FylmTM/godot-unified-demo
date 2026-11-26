@@ -7,8 +7,9 @@ import "unified:dmath"
 import "unified:sim"
 
 // Each present player's dev commands: `Command_Dev_Set_Class` turns their hero into another class (ending an attack
-// of the old one), `Command_Dev_Spawn_Minions` raises minions around it, `Command_Dev_Hurt` hurts a hero,
-// `Command_Dev_Kill_Minions` kills every minion (through damage_minion, as the attacks do).
+// or an ability of the old one, and that ability's cooldown), `Command_Dev_Spawn_Minions` raises minions around it,
+// `Command_Dev_Hurt` hurts a hero, `Command_Dev_Kill_Minions` kills every minion (through damage_minion, as the
+// attacks do), `Command_Dev_Revive` revives a hero down (through revive_hero, as an ally's revive does), or every one.
 apply_dev_commands :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
@@ -17,7 +18,8 @@ apply_dev_commands :: proc(t: ^Tick) {
 			case Command_Dev_Set_Class:
 				if command.class == .Any || command.class == hero.class do break
 				hero.class = command.class
-				if hero.action == .Attack do hero.action = .None // the old class's attack ends with it
+				if hero.action in CLASS_ACTIONS do hero.action = .None // the old class's ends with it ...
+				sim.timer_stop(&hero.ability_ready) // ... and so does its ability's cooldown
 			case Command_Dev_Spawn_Minions:
 				spawn_around(t, hero.pos, int(command.count))
 			case Command_Dev_Hurt:
@@ -28,6 +30,12 @@ apply_dev_commands :: proc(t: ^Tick) {
 				for minion, handle in sim.next(&minions) {
 					away := dmath.normalize(minion.pos.xz - hero.pos.xz)
 					damage_minion(t, handle, MINION_HP, away, DEV_KILL_KNOCK, player, .Dev)
+				}
+			case Command_Dev_Revive:
+				downed := sim.iterate_present(t)
+				for other, other_player in sim.next(&downed) {
+					if other.action != .Down do continue
+					if command.player == {} || command.player == other_player do revive_hero(t, other_player, player)
 				}
 			}
 		}

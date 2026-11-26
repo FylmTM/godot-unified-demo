@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" path="res://game/fx/bolt_burst.tscn" id="bolt_burst"]
 [ext_resource type="PackedScene" path="res://game/fx/dust.tscn" id="dust"]
 [ext_resource type="PackedScene" path="res://game/fx/tracer.tscn" id="tracer"]
+[ext_resource type="PackedScene" path="res://game/fx/fireball_burst.tscn" id="fireball_burst"]
 [ext_resource type="Script" path="res://game/crowd/minion_crowd_view.gd" id="crowd"]
 [ext_resource type="ArrayMesh" path="res://game/crowd/minion_mesh.res" id="minion_mesh"]
 
@@ -67,6 +68,7 @@ sparks_scene = ExtResource("sparks")
 burst_scene = ExtResource("bolt_burst")
 dust_scene = ExtResource("dust")
 tracer_scene = ExtResource("tracer")
+fireball_scene = ExtResource("fireball_burst")
 
 [node name="CameraRig" type="Node3D" parent="."]
 script = ExtResource("camera_rig")

@@ -17,3 +17,4 @@ beside them (and Godot's `.import` file beside each, ours); only the files the g
 | [Kenney Fonts](https://kenney.nl/assets/kenney-fonts) | Kenney | free | `assets/kenney/fonts/` | the interface's lettering: Kenney Mini Square, and Kenney Future for the title |
 | [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | 1.0 | `assets/kenney/interface_sounds/` | the menus' clicks, focus and confirmations, and the toasts' |
 | [Input Prompts](https://kenney.nl/assets/input-prompts) | Kenney | 1.5A | `assets/kenney/input_prompts/` | the control prompts: the keyboard and mouse, Xbox, PlayStation and Switch fonts with their glyph maps |
+| [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | 1.0 | `assets/kenney/impact_sounds/` | the fights' sounds: a shield's clang, a fireball's blast, a hero going down and being revived |

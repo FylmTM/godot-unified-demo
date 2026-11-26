@@ -183,6 +183,12 @@ func _check_bindings() -> void:
 	Bindings.apply({"attack": {"keyboard": []}})
 	if not _tokens(&"attack", keyboard).is_empty():
 		_problem("an empty list in the file is taken for the defaults", AT)
+	# A saved binding a newer action's default names keeps it: Ability (Left Shift; LT or B) yields, not doubles.
+	Bindings.apply({"attack": {"keyboard": ["key:Shift", "mouse:1"]}, "interact": {"pad": ["button:1"]}})
+	if not _tokens(&"ability", keyboard).is_empty() or _tokens(&"attack", keyboard) != ["key:Shift", "mouse:1"]:
+		_problem("Shift saved to attack is also Ability's: %s" % [_tokens(&"ability", keyboard)], AT)
+	if _tokens(&"ability", pad) != ["axis:4+"]:
+		_problem("B saved to Grab is also Ability's: %s, want its LT only" % [_tokens(&"ability", pad)], AT)
 	if not Bindings.reset({"attack": {"keyboard": ["key:G"]}}, keyboard).is_empty():
 		_problem("resetting the keyboard doesn't drop its changes", AT)
 	var live: Dictionary = _tree_root.get_node(^"Settings").get(&"bindings")

@@ -36,9 +36,10 @@ REACH_FILTER :: physics.Filter {
 	mask     = CAT_WALL,
 }
 
-// Whether a hero's hands are free to grab: up, not throwing or attacking, holding nothing.
+// Whether a hero's hands are free to grab: up and doing nothing else (no throw, attack, ability or revive), holding
+// nothing.
 can_grab :: proc(hero: ^Hero) -> bool {
-	return hero.action != .Down && hero.action != .Throw && hero.action != .Attack && hero.held == {}
+	return (hero.action == .None || hero.action == .Pick_Up) && hero.held == {}
 }
 
 // The prop `hero`, facing `facing`, would grab now (the null handle: none): nothing unless its hands are free
@@ -73,7 +74,8 @@ hands_target :: proc(
 }
 
 // Per present hero, in slot order: a throw winding up lets go at THROW_WINDUP_S and ends at THROW_S, reading no other
-// input meanwhile; a pick-up ends at PICK_UP_S; a hero down reads none. Interact's press drops the prop held (ending a
+// input meanwhile; a pick-up ends at PICK_UP_S; a hero down, attacking, in an ability or reviving reads none (so the
+// press that starts a revive grabs nothing: revive_heroes runs first). Interact's press drops the prop held (ending a
 // pick-up), or grabs hands_target's; Attack's press while holding starts a throw.
 use_hands :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
@@ -86,7 +88,7 @@ use_hands :: proc(t: ^Tick) {
 			continue
 		case .Pick_Up:
 			if age >= PICK_UP_TICKS do hero.action = .None
-		case .Down, .Attack:
+		case .Down, .Attack, .Block, .Charge, .Roll, .Cast, .Revive:
 			continue
 		case .None:
 		}

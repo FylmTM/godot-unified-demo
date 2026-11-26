@@ -11,7 +11,8 @@ REACH_STEP :: f32(0.25) // metres per step of Input.reach
 // A button a player holds.
 Button :: enum u8 {
 	Attack, // held: the hero's class attacks; its press throws what the hero carries instead
-	Interact, // its press grabs a prop, or drops the one carried
+	Interact, // its press grabs a prop, or drops the one carried; held beside a downed ally, it revives them
+	Ability, // the hero's class ability: held, the Knight blocks; pressed, the Rogue rolls and the Mage casts a fireball
 }
 
 // The buttons a player holds (sim.buttons derives the presses from the tick before).
@@ -25,8 +26,8 @@ Input :: struct {
 	buttons: Buttons,
 	seen:    sim.Seen, // how late the picture the player acted on was (the host stamps it): where a crossbow looks back to
 	aim:     dmath.Dir2, // where the hero looks, (x, z); none: it faces its move
-	// How far from the hero the aim points, in REACH_STEPs (reach_steps; 0: no point): where a throw or a ground-targeted
-	// cast lands. No rule reads it yet; it is in the Input now so the layout stays put when one does.
+	// How far from the hero the aim points, in REACH_STEPs (reach_steps; 0: no point): where a ground-targeted cast
+	// lands (the Mage's fireball: fireball_target).
 	reach:   u8,
 	_pad:    u8,
 }
@@ -83,6 +84,11 @@ Command_Dev_Hurt :: struct {
 // from its hero.
 Command_Dev_Kill_Minions :: struct {}
 
+// `dev_revive` (dev builds): `player`'s hero (0: every hero down) is revived by the sender, as an ally's revive ends.
+Command_Dev_Revive :: struct {
+	player: sim.Player,
+}
+
 // Every command a player can send.
 Command :: union {
 	Command_Set_Paused,
@@ -90,4 +96,5 @@ Command :: union {
 	Command_Dev_Spawn_Minions,
 	Command_Dev_Hurt,
 	Command_Dev_Kill_Minions,
+	Command_Dev_Revive,
 }

@@ -1,8 +1,10 @@
-// A hero's health: damage_hero is the only way a hero takes damage and goes down (a spawn and a rise set its hit
-// points whole). A hero at 0 HP goes down: it lets go of what it carries, stops where it is (its drive holds it there,
-// so it neither slides nor sinks), and minions stop chasing it, for RESPAWN_TICKS; then it rises beside the party
-// (arrival_spot) with SPAWN_GRACE_TICKS in which nothing hurts it. When every hero present is down at once, the floor
-// starts over (restart_floor).
+// A hero's health: damage_hero is the only way a hero takes damage and goes down (a spawn sets its hit points whole, a
+// revive to REVIVE_HP). A blow first meets what the hero is doing: the early part of a Rogue's roll lets nothing
+// through, and a Knight's raised shield (or its charge) takes a blow from the front (abilities.odin). A hero at 0 HP
+// goes down: it lets go of what it carries, stops where it is (its drive holds it there, so it neither slides nor
+// sinks), and minions stop chasing it. It stays down until an ally revives it (revive.odin): there is no bleeding out
+// and no rising on its own. When every hero present is down, the wipe's WIPE_S runs (a hero up again, a joiner
+// arriving, stops it), and then the floor starts over (restart_floor).
 package crypt_crew
 
 import "unified:dmath"
@@ -23,7 +25,10 @@ Event_Hero_Downed :: struct {
 	position: sim.Position,
 }
 
-// The whole party was down: the floor started over.
+// Every hero present went down: the floor starts over in WIPE_S unless one is up again first.
+Event_Party_Wiped :: struct {}
+
+// The whole party stayed down: the floor started over.
 Event_Floor_Restarted :: struct {}
 
 // Whether `player` is present with a hero that is up (not down).
@@ -33,45 +38,44 @@ hero_up :: proc(t: ^Tick, player: sim.Player) -> bool {
 }
 
 // `player`'s hero takes `damage` from something at `from`, unless it is down or in its grace, or a crowd is held (a
-// wipe would restart the floor and empty it: director.odin, Crowd); at 0 HP it goes down.
+// wipe would restart the floor and empty it: director.odin, Crowd); a roll's safe start lets it all by, a shield takes
+// its share (guarded_damage). A hurt hero tending an ally breaks off the revive. At 0 HP it goes down.
 damage_hero :: proc(t: ^Tick, player: sim.Player, damage: i16, from: [3]f32) {
 	if damage <= 0 || !hero_up(t, player) || t.setup.crowd != .None do return
 	hero := sim.player_data(t, player)
-	if sim.timer_running(t, hero.grace) do return
-	hero.hp = dmath.max(hero.hp - damage, 0)
-	sim.emit(t, Event_Hero_Hurt{player = player, position = sim.Position(from), damage = damage, hp = hero.hp})
+	if sim.timer_running(t, hero.grace) || rolled_clear(t, hero) do return
+	taken := guarded_damage(t, hero, player, damage, from)
+	if taken <= 0 do return
+	if hero.action == .Revive do hero.action = .None // and a new press of Interact is needed to tend again
+	hero.hp = dmath.max(hero.hp - taken, 0)
+	sim.emit(t, Event_Hero_Hurt{player = player, position = sim.Position(from), damage = taken, hp = hero.hp})
 	if hero.hp > 0 do return
 	drop_prop(t, player)
 	physics.body_set_linear_velocity(t.world.phys, hero.body.body, {})
 	hero.vel = {}
 	hero.action, hero.action_started = .Down, t.time
-	sim.timer_start_ticks(t, &hero.respawn, RESPAWN_TICKS)
+	hero.revive = 0
 	sim.emit(t, Event_Hero_Downed{player = player, position = sim.Position(hero.pos)})
 }
 
-// Each hero down whose RESPAWN_TICKS ran out rises beside the party (arrival_spot): its body moved there (its view
-// snaps), up again at full health, in its grace.
-rise_heroes :: proc(t: ^Tick) {
-	heroes := sim.iterate_present(t)
-	for hero, player in sim.next(&heroes) {
-		if hero.action != .Down || sim.timer_running(t, hero.respawn) do continue
-		feet, beside := arrival_spot(t, player)
-		physics.character_teleport(t.world.phys, &hero.body, feet + {0, HERO_CENTRE_ABOVE_FEET, 0})
-		hero.pos, hero.vel = feet, {}
-		hero.hp = HERO_HP
-		hero.action, hero.action_started = .None, t.time
-		sim.timer_stop(&hero.respawn)
-		sim.timer_start_ticks(t, &hero.grace, SPAWN_GRACE_TICKS)
-		sim.emit(t, Event_Hero_Spawned{player = player, position = sim.Position(feet), beside = beside})
-	}
-}
-
-// Every hero present down at once: the floor starts over.
+// Every hero present down (the wipe): WIPE_S after the last one fell, the floor starts over. A hero up again, by a
+// revive or a joiner's arrival, stops the wipe; so does nobody being present.
 check_wipe :: proc(t: ^Tick) {
-	if sim.present_count(t) == 0 do return
+	if sim.present_count(t) == 0 {
+		sim.timer_stop(&t.state.wipe)
+		return
+	}
 	heroes := sim.iterate_present(t)
 	for _, player in sim.next(&heroes) {
-		if hero_up(t, player) do return
+		if hero_up(t, player) {
+			sim.timer_stop(&t.state.wipe)
+			return
+		}
 	}
-	restart_floor(t)
+	if t.state.wipe == {} { 	// stopped (the zero timer): the wipe begins
+		sim.timer_start_ticks(t, &t.state.wipe, WIPE_TICKS)
+		sim.emit(t, Event_Party_Wiped{})
+	} else if !sim.timer_running(t, t.state.wipe) {
+		restart_floor(t) // enter_level stops the wipe
+	}
 }

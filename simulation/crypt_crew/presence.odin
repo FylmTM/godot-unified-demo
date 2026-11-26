@@ -1,8 +1,10 @@
 // Arrivals and leaves, handled before every other system (people come and go while paused too). A hero is owned by
 // its sim.Player, never a slot: whoever leaves and comes back gets their hero's data back in whatever slot is free
 // (unified/src/sim/README.md, Players). A leaver's body is destroyed at the leave, since the table may forget an absent
-// member before any tick runs, and made again on the return. A joiner, a rejoiner and a respawn all arrive beside the
-// party (arrival_spot), so a shared camera keeps everyone on screen.
+// member before any tick runs, and made again on the return. A joiner and a rejoiner arrive beside the party
+// (arrival_spot), so a shared camera keeps everyone on screen. Within a floor, a leaver comes back as it left: its hit
+// points, its ability's cooldown, and down (with its revive's progress) if it was, so leaving is no way up and a
+// rejoiner who is down doesn't stop a wipe; a level change forgets it (forget_leavers), and it comes back whole.
 package crypt_crew
 
 import "unified:dmath"
@@ -10,7 +12,7 @@ import "unified:nav"
 import "unified:physics"
 import "unified:sim"
 
-// `player`'s hero appeared at `position`: beside the party (`beside`: a join, a rejoin or a respawn mid-floor), or at
+// `player`'s hero appeared at `position`: beside the party (`beside`: a join or a rejoin mid-floor), or at
 // its slot's hero_spawn (a floor's start, nobody up).
 Event_Hero_Spawned :: struct {
 	player:   sim.Player,
@@ -25,7 +27,9 @@ ARRIVAL_FILTER :: physics.Filter {
 }
 
 // Leaves, then arrivals in slot order: a leaver drops what it carries, ends its throws' ignores (end_throws_by), its
-// body goes and its class stays; an arrival gets a class (arrival_class) and a body at its arrival_spot.
+// body goes, and its class stays with what it brings back within the floor (its hit points, its ability's cooldown,
+// down and its revive's progress); an arrival gets a class (arrival_class) and a body at its arrival_spot, whole if it
+// is new (or the floor changed since it left), else as it left.
 update_presence :: proc(t: ^Tick) {
 	for player in t.player_changes.left {
 		drop_prop(t, player)
@@ -33,15 +37,35 @@ update_presence :: proc(t: ^Tick) {
 		hero := sim.player_data(t, player)
 		destroy_hero_body(t.world.phys, hero)
 		hero^ = {
-			class = hero.class,
-			warp  = hero.warp,
+			ability_ready = hero.ability_ready,
+			hp            = hero.hp,
+			revive        = hero.revive,
+			class         = hero.class,
+			action        = .Down if hero.action == .Down else .None,
+			warp          = hero.warp,
 		}
 	}
 	for player in t.player_changes.arrived {
 		hero := sim.player_data(t, player)
+		kept := hero^
 		hero.class = arrival_class(t, hero.class, sim.player_profile(t, player).class)
 		feet, beside := arrival_spot(t, player)
 		spawn_hero(t, player, feet, beside)
+		if kept.hp == 0 && kept.action != .Down do continue // new, or forgotten: whole
+		hero.hp, hero.revive, hero.ability_ready = kept.hp, kept.revive, kept.ability_ready
+		if kept.action == .Down do hero.action = .Down // it lies where it arrives, as it fell (action_started: now)
+	}
+}
+
+// The floor changes (enter_level): every absent member's hero forgets what it would have brought back to the old one
+// (its hit points, its cooldown, being down), so it comes back whole.
+forget_leavers :: proc(t: ^Tick) {
+	known := sim.iterate_known(t)
+	for hero, player in sim.next(&known) {
+		if !sim.player_present(t, player) do hero^ = {
+			class = hero.class,
+			warp  = hero.warp,
+		}
 	}
 }
 

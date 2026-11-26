@@ -1,8 +1,10 @@
 class_name HeroPlate
 extends PanelContainer
-## One local hero on the HUD: its portrait, its player's name and its class above its health, which leads (a bar of hp
-## of hp_max, the number on it, "Down" while it is down), and the controls of its player's device under them: the
-## keyboard's for the keyboard player, a guest's own pad's. Every plate's bar is one length, whatever its names say.
+## One local hero on the HUD: its portrait, its player's name, its class and its ability's pip (filling as the cooldown
+## runs, full and bright when ready) above its health, which leads (a bar of hp of hp_max, the number on it, "Down"
+## while it is down), and the controls of its player's device under them: the keyboard's for the keyboard player, a
+## guest's own pad's, the ability's named for what it does in the hero's class. Every plate's bar is one length,
+## whatever its names say.
 ##
 ## The hints show as Settings.hints says: Briefly (the default) shows them for HINTS_S after the plate's player joins or
 ## turns to another kind of device (a pad's family, or the keyboard), so four players' plates don't cover the crypt;
@@ -12,6 +14,12 @@ extends PanelContainer
 const HINTS_S: float = 6.0
 ## How a downed hero's plate is tinted: still readable, plainly out of the fight.
 const DOWN_TINT: Color = Color(1, 1, 1, 0.55)
+## How the ability's pip is tinted while its cooldown runs: the fill dimmer than a ready one's.
+const PIP_COOLING: Color = Color(0.6, 0.6, 0.6, 0.8)
+## What each class's ability does, as its hint says (EnumClass; the Barbarian's heave comes later: "Ability").
+const ABILITY_NAMES: Dictionary[int, String] = {
+	EnumClass.KNIGHT: "Block", EnumClass.MAGE: "Fireball", EnumClass.ROGUE: "Roll",
+}
 
 ## The player and the device family the hints last showed for (-1: none yet), and until when they show (msec).
 var _player: int = -1
@@ -26,6 +34,8 @@ var _local: int = 0
 @onready var _health: ProgressBar = %Health
 @onready var _amount: Label = %Amount
 @onready var _hints: GridContainer = %Hints
+@onready var _ability_pip: ProgressBar = %AbilityPip
+@onready var _ability_hint: ActionPrompt = %Ability
 
 
 func _ready() -> void:
@@ -44,11 +54,16 @@ func show_hero(hero: DataHudHero, local: int) -> void:
 	_portrait.texture = Heroes.portrait(hero.class)
 	_who.player_name = Unified.session.get_player_name(hero.player)
 	_class.text = Heroes.name_of(hero.class)
-	var down: bool = hero.hp <= 0
 	_health.max_value = maxi(hero.hp_max, 1)
 	_health.value = hero.hp
-	_amount.text = "Down" if down else str(hero.hp)
-	modulate = DOWN_TINT if down else Color.WHITE
+	_amount.text = "Down" if hero.down else str(hero.hp)
+	modulate = DOWN_TINT if hero.down else Color.WHITE
+	_ability_pip.value = hero.ability
+	_ability_pip.modulate = Color.WHITE if hero.ability >= 255 else PIP_COOLING
+	var ability_name: String = ABILITY_NAMES.get(hero.class, "Ability")
+	if _ability_hint.text != ability_name:
+		_ability_hint.text = ability_name
+		_ability_hint.refresh()
 	_local = local
 	if hero.player != _player:
 		_player = hero.player

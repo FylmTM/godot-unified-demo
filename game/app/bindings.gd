@@ -12,7 +12,8 @@ extends RefCounted
 ## One rule keeps the controls whole: every action keeps at least one binding in each scheme. Clearing an action's
 ## last binding is refused, and so is binding a key that is another action's only one; a key another action holds
 ## beside a second one swaps (that action takes the key it replaced, so binding slot one to slot two's key and the
-## reverse come out alike).
+## reverse come out alike). The one exception is a new action's default that a player's saved bindings already give
+## another action: the saved binding stays, and the default goes (_tokens).
 ##
 ## project.godot's `[input]` is the one home of the defaults. The player's changes are `Settings.bindings`: for each
 ## action and kind it changed, that kind's whole binding list as text tokens (`key:E`, `mouse:1`, `button:2`,
@@ -26,11 +27,12 @@ extends RefCounted
 enum Kind { KEYBOARD, PAD }
 
 ## Every rebindable action, in the order the controls screen lists them. (`interact` is the player's Grab.)
-const ACTIONS: Array[StringName] = [&"move_up", &"move_down", &"move_left", &"move_right", &"attack", &"interact"]
+const ACTIONS: Array[StringName] = [&"move_up", &"move_down", &"move_left", &"move_right", &"attack", &"interact",
+	&"ability"]
 ## Each rebindable action as the player reads it (the controls screen, a refusal's reason).
 const NAMES: Dictionary[StringName, String] = {
 	&"move_up": "Move up", &"move_down": "Move down", &"move_left": "Move left", &"move_right": "Move right",
-	&"attack": "Attack", &"interact": "Grab",
+	&"attack": "Attack", &"interact": "Grab", &"ability": "Ability",
 }
 ## The move actions (the pad's are its stick and D-pad, never rebound).
 const MOVE_ACTIONS: Array[StringName] = [&"move_up", &"move_down", &"move_left", &"move_right"]
@@ -236,14 +238,36 @@ static func key_of(event: InputEventKey) -> Key:
 	return event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
 
 
-## `action`'s tokens of `kind` under `bindings`: the file's, each held to can_bind, when the file has that scheme for
-## the action (even empty); project.godot's when it hasn't.
+## `action`'s tokens of `kind` under `bindings`: the file's, when the file has that scheme for the action (even empty);
+## else project.godot's, less any another action holds in the file. A default yields to a saved binding: a player who
+## bound Left Shift to attack before Ability existed keeps it there, and Ability goes without it (with its other
+## default on that device, or none) rather than both firing on one key.
 static func _tokens(bindings: Dictionary, action: StringName, kind: Kind) -> Array[String]:
+	var saved: Variant = _saved(bindings, action, kind)
+	if saved != null:
+		var list: Array[String] = saved
+		return list
+	var taken: Array[String] = []
+	for other: StringName in ACTIONS:
+		var theirs: Variant = _saved(bindings, other, kind) if other != action else null
+		if theirs != null:
+			var list: Array[String] = theirs
+			taken.append_array(list)
+	var out: Array[String] = []
+	for token: String in _defaults(action, kind):
+		if token not in taken:
+			out.append(token)
+	return out
+
+
+## `action`'s tokens of `kind` in the file `bindings`, each held to can_bind (null: the file hasn't that scheme for the
+## action, or the action isn't rebindable there).
+static func _saved(bindings: Dictionary, action: StringName, kind: Kind) -> Variant:
 	var changed: Variant = bindings.get(String(action))
 	var kinds: Dictionary = changed if changed is Dictionary else {}
 	var tokens: Variant = kinds.get(KIND_NAMES[kind])
 	if not tokens is Array or not rebindable(action, kind):
-		return _defaults(action, kind)
+		return null
 	var out: Array[String] = []
 	var list: Array = tokens
 	for token: Variant in list:

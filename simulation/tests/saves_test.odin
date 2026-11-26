@@ -144,7 +144,7 @@ the_tally_outlives_a_wipe :: proc(t: ^testing.T) {
 	until_surges(&run, &saves, 1)
 	felled := run.simulation.state.kills
 	for slot in 0 ..< 2 do hurt(&run, slot, g.HERO_HP)
-	for _ in 0 ..< g.TICK_HZ / 4 do step_saving(&run, &saves)
+	for _ in 0 ..< g.WIPE_TICKS do step_saving(&run, &saves)
 	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 1)
 	testing.expect_value(t, run.simulation.state.surges, 1)
 	testing.expect_value(t, run.simulation.state.kills, felled)

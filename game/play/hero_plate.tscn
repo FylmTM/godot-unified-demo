@@ -4,6 +4,25 @@
 [ext_resource type="Script" path="res://game/ui/widgets/name_label.gd" id="name_label"]
 [ext_resource type="PackedScene" path="res://game/ui/widgets/action_prompt.tscn" id="action_prompt"]
 
+[sub_resource type="StyleBoxFlat" id="pip_track"]
+bg_color = Color(0.08, 0.06, 0.05, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.45, 0.36, 0.22, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="pip_fill"]
+bg_color = Color(0.95, 0.75, 0.3, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
 [node name="HeroPlate" type="PanelContainer"]
 size_flags_horizontal = 0
 mouse_filter = 2
@@ -57,6 +76,19 @@ theme_type_variation = &"Dim"
 text = "Knight"
 horizontal_alignment = 2
 
+[node name="AbilityPip" type="ProgressBar" parent="Row/Info/Top"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(72, 16)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_styles/background = SubResource("pip_track")
+theme_override_styles/fill = SubResource("pip_fill")
+max_value = 255.0
+step = 1.0
+value = 255.0
+show_percentage = false
+
 [node name="Health" type="ProgressBar" parent="Row/Info"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(440, 32)
@@ -109,4 +141,11 @@ text_variation = &"HudSmall"
 layout_mode = 2
 actions = Array[StringName]([&"interact"])
 text = "Grab"
+text_variation = &"HudSmall"
+
+[node name="Ability" parent="Row/Info/Hints" instance=ExtResource("action_prompt")]
+unique_name_in_owner = true
+layout_mode = 2
+actions = Array[StringName]([&"ability"])
+text = "Ability"
 text_variation = &"HudSmall"

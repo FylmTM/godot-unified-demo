@@ -30,9 +30,7 @@ HERO_GROUND_FORCE :: f32(4000) // newtons: the most the drive pushes with
 HERO_ACCELERATE :: f32(20) // how fast the drive's target velocity closes on the stick's, in max speeds per second
 HERO_HP :: i16(100)
 HERO_NAV_REACH :: f32(1.5) // a hero's place on the navigation mesh is the mesh's nearest point within this
-RESPAWN_S :: f32(4) // a hero at 0 HP stays down this long, then rises beside the party
-RESPAWN_TICKS :: u32(RESPAWN_S * TICK_HZ)
-SPAWN_GRACE_S :: f32(2) // a hero who rises takes no damage this long
+SPAWN_GRACE_S :: f32(2) // a hero who is revived takes no damage this long
 SPAWN_GRACE_TICKS :: u32(SPAWN_GRACE_S * TICK_HZ)
 TURN_STICK :: f32(0.1) // a hero without an aim turns to its move once the stick is pushed further than this
 
@@ -131,6 +129,70 @@ PROP_HIT_DAMAGE :: i16(25)
 PROP_HIT_KNOCK :: f32(7)
 PROP_HIT_KEEP :: f32(0.7) // what a hit leaves of the prop's velocity
 PROP_HITS_MAX :: 6 // the most minions one throw hurts
+
+// ---- abilities: Ability's press or hold, each class its own (abilities.odin)
+
+// The Knight's block (knight.odin): Ability held raises the shield.
+BLOCK_ARC_COS :: f32(0.5) // a blow from within 60° of the facing meets the shield (cos 60°)
+BLOCK_TAKE :: f32(0.2) // what a blow the shield meets still takes, as a share of its damage
+BLOCK_SPEED :: f32(0.5) // a hero blocking moves at this fraction of its speed
+// The Knight's shield charge: Attack pressed while blocking drives the hero along its facing, the shield ahead, which
+// knocks what is in front aside every CHARGE_HIT_TICKS (a blast from the shield's face: knock_area) and takes every
+// blow from the front.
+CHARGE_SPEED :: f32(12) // metres per second
+CHARGE_S :: f32(0.5)
+CHARGE_TICKS :: u32(CHARGE_S * TICK_HZ)
+CHARGE_RADIUS :: f32(1.2) // the blast's reach from the shield's face
+CHARGE_DAMAGE :: i16(6)
+CHARGE_KNOCK :: f32(9)
+CHARGE_HIT_TICKS :: u32(8)
+CHARGE_COOLDOWN_S :: f32(5) // from one charge's start to the next
+CHARGE_COOLDOWN_TICKS :: u32(CHARGE_COOLDOWN_S * TICK_HZ)
+#assert(CHARGE_KNOCK * BLAST_RIM > KNOCK_STAGGER) // all of a charge's reach staggers
+
+// The Rogue's dodge roll (rogue.odin): Ability's press rolls along the stick (else the facing); nothing hurts it in the
+// roll's first ROLL_SAFE_S, judged by the roll's age.
+ROLL_SPEED :: f32(11) // metres per second
+ROLL_S :: f32(0.40625)
+ROLL_TICKS :: u32(ROLL_S * TICK_HZ)
+ROLL_SAFE_S :: f32(0.3125)
+ROLL_SAFE_TICKS :: u32(ROLL_SAFE_S * TICK_HZ)
+ROLL_COOLDOWN_S :: f32(2.5)
+ROLL_COOLDOWN_TICKS :: u32(ROLL_COOLDOWN_S * TICK_HZ)
+#assert(ROLL_SAFE_TICKS < ROLL_TICKS)
+
+// The Mage's fireball (mage.odin, fireballs.odin): Ability's press winds up a cast that leaves at its windup's end, lobbed
+// to where the Mage then aims (fireball_target), and bursts there FIREBALL_FLIGHT_S later.
+MAX_FIREBALLS :: 8
+FIREBALL_RANGE :: f32(12) // the farthest it lands (metres along the aim)
+FIREBALL_NO_AIM :: f32(6) // with no aim's reach it lands this far along the facing
+FIREBALL_WALL_GAP :: f32(0.3) // a wall on its way: it lands this far short of where the wall meets the flight
+FIREBALL_WINDUP_S :: f32(0.5)
+FIREBALL_WINDUP_TICKS :: u32(FIREBALL_WINDUP_S * TICK_HZ)
+FIREBALL_FLIGHT_S :: f32(0.625)
+FIREBALL_FLIGHT_TICKS :: u32(FIREBALL_FLIGHT_S * TICK_HZ)
+FIREBALL_RADIUS :: f32(3.5) // its burst hurts every minion this close that no wall shields ...
+FIREBALL_DAMAGE :: i16(25) // ... this much
+FIREBALL_KNOCK :: f32(9) // ... knocked away at this, falling off to BLAST_RIM of it at the rim
+// Its blast on the props (fireballs.odin, blast_props): each within FIREBALL_RADIUS that no wall shields takes this
+// impulse (N·s: a barrel leaves at 8 m/s) along the floor away from it, FIREBALL_LIFT of that upward, fading to none
+// over FIREBALL_FALLOFF beyond. A crate, the lightest, rises at most about 0.9 m: no prop is blown over a wall.
+FIREBALL_IMPULSE :: f32(240)
+FIREBALL_LIFT :: f32(0.35)
+FIREBALL_FALLOFF :: f32(1.5)
+FIREBALL_COOLDOWN_S :: f32(8) // from one cast's start to the next
+FIREBALL_COOLDOWN_TICKS :: u32(FIREBALL_COOLDOWN_S * TICK_HZ)
+
+// ---- downed and revive (revive.odin)
+
+REVIVE_RANGE :: f32(1.5) // an ally up holding Interact this close (feet to feet, on the floor plan) revives a hero down
+REVIVE_S :: f32(2.5) // one ally's revive takes this long; each more beside it adds as much a tick
+REVIVE_TICKS :: u16(REVIVE_S * TICK_HZ)
+REVIVE_DECAY :: u16(2) // what a revive nobody tends loses a tick
+REVIVE_SPEED :: f32(0.3) // a hero reviving moves at this fraction of its speed
+REVIVE_HP :: i16(40) // the revived rise with this, in their grace (SPAWN_GRACE_S)
+WIPE_S :: f32(2.5) // every hero present down this long: the floor starts over
+WIPE_TICKS :: u32(WIPE_S * TICK_HZ)
 
 // ---- the world
 

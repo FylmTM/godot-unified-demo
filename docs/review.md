@@ -761,3 +761,42 @@ Calls made in step 6's review (two reviewers' findings, the developer's decision
   as before, so no view moves.
 - The sink reads the death clip's last pose's bounds (`last_bounds`, the API's generalisation of `tops`); the eyes are
   mask 1 in UV2 (a masked material's index plus one).
+
+## Milestone 5: combat depth
+
+- Step 1 (downed and revive, the Knight's, Rogue's and Mage's abilities):
+  - A revive is an action of the reviver (`Action.Revive`, its Interact clip): a press within REVIVE_RANGE starts it,
+    holding keeps it; a blow taken or walking out of range ends it, and only a new press starts it again. Decided in
+    review: the press starts it through a held Attack too (it cuts a swing short, and no attack starts while it
+    tends), so "[E] Revive" shows exactly when a press revives, and such a press never grabs. When the ally rises, a
+    reviver still holding Interact carries on to another downed ally in range without a new press (kept as good UX).
+  - An ability cuts its hero's attack short (Block, Roll, Cast start from an attack too): a held Attack keeps a hero
+    attacking back to back, which would otherwise lock the Knight out of blocking.
+  - The fireball's landing is read when its windup ends, so the Mage aims through the windup and the ring follows the
+    aim until then. Added tuning: FIREBALL_NO_AIM (6 m along the facing without an aim's reach), FIREBALL_WALL_GAP
+    (0.3 m short of a wall), FIREBALL_FALLOFF (1.5 m, the blast's fade past FIREBALL_RADIUS).
+  - The blast on the props (decided in review): `physics.world_explode` pushed props through walls, so the fireball
+    applies its own impulse per prop, only where the wall ray from the blast's heart is clear (knock_area's rule):
+    FIREBALL_IMPULSE 240 N·s along the floor (a barrel at 8 m/s), FIREBALL_LIFT 0.35 of it up, so the lightest crate
+    rises under 1 m and none clears a 2.4 m wall. An occlusion option for world_explode is in plan.md's "Needed from
+    unified".
+  - The charge's blast is centred on the shield's face (HERO_RADIUS ahead, chest-high), so what is ahead is knocked
+    forward and what is beside it aside.
+  - A dev class change also clears the ability cooldown (the old class's ability's).
+  - The Barbarian's Ability does nothing until the heave (step 4); its pip shows full and its hint says "Ability".
+  - Leaving is no way up (decided in review): within a floor a leaver keeps its hit points, its ability's cooldown,
+    and being down with its revive's progress; a downed rejoiner arrives down (beside the party, or at its spawn) and
+    doesn't stop a wipe. A level change forgets it: whoever comes back after it comes back whole.
+  - Sounds (Kenney's Impact Sounds; the packs have no explosion): `impactMetal_heavy_000` for the block's clang,
+    `impactPunch_heavy_000` for the fireball's blast, `impactSoft_heavy_000` for going down, `impactBell_heavy_000` for
+    a revive (on CONFIRMED). All on the Interface bus until milestone 8's mix.
+  - The downed hero's ring is as wide as REVIVE_RANGE (stand inside it to revive) and fills clockwise from the top;
+    the fireball's ring is as wide as its blast. "[E] Revive" hangs over the downed ally, one per local hero who would
+    revive them, in that player's glyphs.
+  - The wipe's banner shows on the CONFIRMED Event_Party_Wiped and hides as soon as the HUD's data has a hero up (the
+    restart, a revive, a joiner), so a wipe a joiner stopped doesn't hang on.
+  - A pad's B is Ability in play and also `ui_cancel` in the menus and on a guest's drop card (as the design chose),
+    the way its A is Grab and the card's accept.
+  - Saved bindings (decided in review): a new action's default yields to a player's saved binding of another action
+    (Left Shift saved to Attack, B to Grab), so nothing fires twice; Ability then keeps its other default on that
+    device, or none.

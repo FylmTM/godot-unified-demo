@@ -23,11 +23,12 @@ hero_warp :: proc(phys: ^physics.World, hero: ^Hero) -> u8 {
 	return hero.warp + physics.body_warp(phys, hero.body.body)
 }
 
-// Each present hero that is up faces its input (hero_facing).
+// Each present hero that is up faces its input (hero_facing), unless it dashes: a charge and a roll keep their line.
 face_heroes :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
-		if hero.action != .Down do hero.facing = hero_facing(sim.input(t, player), hero.facing)
+		if hero.action == .Down || hero.action == .Charge || hero.action == .Roll do continue
+		hero.facing = hero_facing(sim.input(t, player), hero.facing)
 	}
 }
 
@@ -45,15 +46,14 @@ locate_heroes :: proc(t: ^Tick) {
 }
 
 // Each present hero's controller is driven toward its stick at its class's max_speed, slowed by what it carries
-// (carry_speed) and by attacking (ATTACK_SPEED); a hero down is driven to a stop. Heroes never jump.
+// (carry_speed) and by what it does (attacking, blocking, reviving), or along its facing in a dash; a hero down is
+// driven to a stop (action_drive). Heroes never jump.
 move_heroes :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
 		input := sim.input(t, player)
-		move := dmath.stick(input.move_x, input.move_z) if hero.action != .Down else {} // down: the drive holds it still
-		def := t.world.hero_defs[hero.class]
-		scale := carry_speed(t, hero) * (ATTACK_SPEED if hero.action == .Attack else 1)
-		physics.character_update(t.world.phys, &hero.body, def, move, false, scale)
+		move, scale := action_drive(t, hero, dmath.stick(input.move_x, input.move_z))
+		physics.character_update(t.world.phys, &hero.body, t.world.hero_defs[hero.class], move, false, scale)
 	}
 }
 

@@ -26,7 +26,7 @@ const SEAT_FRAMES: int = 60
 const PLAY_ACTIONS: Array[StringName] = [
 	&"move_left", &"move_right", &"move_up", &"move_down",
 	&"aim_left", &"aim_right", &"aim_up", &"aim_down",
-	&"attack", &"interact",
+	&"attack", &"interact", &"ability",
 ]
 
 ## The device the first player last played with: DEVICE_KEYBOARD or a pad's id. It starts as the menus' last.

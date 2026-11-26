@@ -14,8 +14,11 @@ extends Node3D
 ## comes at the class's windup (Unified.constants.class_windups), its lead-in stretched over the windup when the blow
 ## comes later in the clip than that, and its last frame held until the cooldown lets the next attack start (a held
 ## Attack then shows one swing after another, no gait between). A hero carrying walks with plain gaits: no clip
-## holds a load. A hero down falls where its body stands (the death clip, held on its last frame), and one that just
-## rose blinks while its grace lasts.
+## holds a load. An ability is a clip at its age too: the Knight's shield held up (blocking or charging), the Rogue's
+## dodge stretched over the roll, the Mage's spellcasting through the windup; a hero tending a downed ally reaches out
+## to them. A hero down falls where its body stands (the death clip, held on its last frame) with a ring on the floor
+## round it as wide as the reach an ally revives from (Unified.constants.revive_range), which fills as its revive comes
+## on (ground_ring.gdshader, turned with the world, not the hero); one just revived blinks while its grace lasts.
 
 ## A standing hero walks from this speed, and a walking one stands below the lower (metres per second).
 const WALK_FROM: float = 0.5
@@ -63,8 +66,11 @@ var _moving: bool = false
 var _running: bool = false
 ## The action the hero did last (NONE: none yet): an attack's pose holds through its cooldown.
 var _last_action: int = EnumAction.NONE
+## How long the dodge clip runs (seconds): a roll plays it stretched over the roll's own length.
+var _dodge_length: float = 0.0
 
 @onready var _view: UnifiedView = $UnifiedView
+@onready var _revive_ring: MeshInstance3D = $ReviveRing
 
 
 func _ready() -> void:
@@ -82,6 +88,15 @@ func _process(_delta: float) -> void:
 			_rig.pose(Clips.DEATH, (now - data.action_started) / Unified.tick_hz)
 		EnumAction.ATTACK:
 			_pose_attack((now - data.action_started) / Unified.tick_hz)
+		EnumAction.BLOCK, EnumAction.CHARGE:
+			_rig.pose(Clips.KNIGHT_BLOCK, (now - data.action_started) / Unified.tick_hz)
+		EnumAction.ROLL:
+			var stretch: float = _dodge_length / Unified.constants.roll
+			_rig.pose(Clips.DODGE_FORWARD, (now - data.action_started) / Unified.tick_hz * stretch)
+		EnumAction.CAST:
+			_rig.pose(Clips.MAGE_CAST, (now - data.action_started) / Unified.tick_hz)
+		EnumAction.REVIVE:
+			_rig.pose(Clips.INTERACT, (now - data.action_started) / Unified.tick_hz)
 		_:
 			var age: float = (now - data.action_started) / Unified.tick_hz
 			if _last_action == EnumAction.ATTACK and age < Unified.constants.class_cooldowns[data.class]:
@@ -91,6 +106,17 @@ func _process(_delta: float) -> void:
 	var shooting: bool = data.action == EnumAction.ATTACK and data.class == EnumClass.ROGUE
 	_rig.rotation.y = ROGUE_SHOT_TURN if shooting else 0.0
 	_rig.visible = not data.grace or fposmod(now, 2.0 * GRACE_BLINK_TICKS) < GRACE_BLINK_TICKS
+	_show_revive_ring()
+
+
+## While the hero is down: the ring round it, filled as far as its revive has come, its arc starting up the screen
+## whichever way the hero fell facing.
+func _show_revive_ring() -> void:
+	_revive_ring.visible = data.action == EnumAction.DOWN
+	if not _revive_ring.visible:
+		return
+	_revive_ring.global_basis = Basis.from_scale(Vector3.ONE * Unified.constants.revive_range)  # the quad: 2 m across
+	_revive_ring.set_instance_shader_parameter(&"fill", data.revive / 255.0)
 
 
 ## Poses the class's attack `age` seconds in, its blow lined up with the class's windup.
@@ -129,6 +155,7 @@ func _show_class() -> void:
 		_rig.free()
 	_rig = _class_scene().instantiate() as CharacterRig
 	add_child(_rig)
+	_dodge_length = (_rig.get_node(^"AnimationPlayer") as AnimationPlayer).get_animation(Clips.DODGE_FORWARD).length
 
 
 ## The class's character scene (the Knight's for a class no hero plays: `Any`).

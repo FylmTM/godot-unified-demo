@@ -4,11 +4,12 @@
 // One system per file: game (this: the descriptor and the tick, its table of contents), tuning (every rule number),
 // input (the input and the commands), state, events, world (the physics world, each level's floor: its navigation and
 // places; init, entering a level and restarting it), presence (arrivals, leaves, where an arrival appears), heroes
-// (facing, movement, read back), hands (grab, carry, drop, throw), attacks (the shared machinery) and a file per class
-// (knight, barbarian, mage, rogue), bolts (the Mage's), props (their bodies, hits, impacts and throws' ends), minions
-// (targets, steering, swings, dying), director (sleeping packs, surges, held crowds and the benchmarks' populations),
-// health (damage, down, rising, the wipe), pause (the co-op pause), saves (the Setup a save is, and the tally it
-// carries), dev (the dev commands) and script (the scripted player).
+// (facing, movement, read back), hands (grab, carry, drop, throw), attacks and abilities (the shared machinery of each)
+// and a file per class (knight, barbarian, mage, rogue), bolts and fireballs (the Mage's), props (their bodies, hits,
+// impacts and throws' ends), minions (targets, steering, swings, dying), director (sleeping packs, surges, held crowds
+// and the benchmarks' populations), health (damage, down, the wipe), revive (allies tending the downed), pause (the
+// co-op pause), saves (the Setup a save is, and the tally it carries), dev (the dev commands) and script (the scripted
+// player).
 package crypt_crew
 
 import "unified:physics"
@@ -19,7 +20,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "15"
+VERSION :: "17"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -106,10 +107,11 @@ tick :: proc(t: ^Tick) {
 	}
 	{
 		sim.zone(t, Zone.Heroes)
-		rise_heroes(t)
+		revive_heroes(t) // first: the press that starts a revive grabs nothing
 		face_heroes(t)
 		use_hands(t) // after facing: a grab takes what the hero now faces
-		start_attacks(t) // after the hands: a throw's Attack press starts no attack
+		use_abilities(t) // after the hands: hands full start none
+		start_attacks(t) // after the hands and abilities: a throw's or a charge's Attack press starts no attack
 		update_holds(t)
 		move_heroes(t)
 	}
@@ -133,7 +135,9 @@ tick :: proc(t: ^Tick) {
 		sim.zone(t, Zone.Strikes)
 		t.world.strike_grid = false // the first query below builds it (strike_grid): a tick without one builds none
 		resolve_strikes(t) // after the step: a blow lands on where things are now
+		charge_strikes(t)
 		fly_bolts(t)
+		fly_fireballs(t)
 		prop_hits(t)
 	}
 	{

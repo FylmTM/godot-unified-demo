@@ -14,7 +14,9 @@ State :: struct {
 	props:        sim.Table(Prop, MAX_PROPS), // made from the floor's prop markers, in marker order (props.odin)
 	minions:      sim.Table(Minion, MAX_MINIONS), // the skeletons, rows with no body (minions.odin)
 	bolts:        sim.Table(Bolt, MAX_BOLTS), // the Mage's bolts in flight (bolts.odin)
+	fireballs:    sim.Table(Fireball, MAX_FIREBALLS), // the Mage's fireballs in flight (fireballs.odin)
 	surge:        sim.Timer, // the next surge rises when it runs out (director.odin)
+	wipe:         sim.Timer, // every hero present is down: the floor starts over when it runs out (health.odin)
 	surges:       u32, // the surges the party has faced, a save's included (Event_Surge's count)
 	rises:        u32, // the minions the director raised this session: what each one's rolls are named by
 	// The minions a held population keeps alive (a held crowd, a benchmark's; 0: the director's surges, as in play).
@@ -35,8 +37,14 @@ Action :: enum u8 {
 	None, // walking or standing: the view picks its gait from the velocity
 	Pick_Up, // a grab, for PICK_UP_S
 	Throw, // a throw, for THROW_S: the prop leaves the hands THROW_WINDUP_S into it
-	Down, // at 0 HP, held still, until it rises (health.odin)
+	Down, // at 0 HP, held still, until an ally revives it (health.odin, revive.odin)
 	Attack, // its class's attack, for its spec's duration: the blow lands its windup into it (attacks.odin)
+	// The abilities (abilities.odin) and the revive (revive.odin).
+	Block, // the Knight's shield raised, while Ability is held
+	Charge, // the Knight's shield charge, for CHARGE_S
+	Roll, // the Rogue's dodge roll, for ROLL_S
+	Cast, // the Mage's fireball winding up, for FIREBALL_WINDUP_S: it leaves at the end
+	Revive, // tending a downed ally, while Interact is held beside it
 }
 
 // A player's hero (the State's sim.Players, by member): zeroed for someone new, kept while they are away. A leave
@@ -49,16 +57,18 @@ Hero :: struct {
 	facing:         [2]f32, // unit (x, z): where it looks
 	hold:           physics.Motor_Joint_Ref, // the joint holding `held` in front of it (hands.odin)
 	held:           sim.Handle(Prop), // the prop it carries (the null handle: none)
-	respawn:        sim.Timer, // while down: it rises beside the party when this runs out
-	grace:          sim.Timer, // after rising: no damage while it runs
+	ability_ready:  sim.Timer, // no ability starts while it runs (its own cooldown: abilities.odin)
+	grace:          sim.Timer, // after a revive: no damage while it runs
 	attack_ready:   sim.Timer, // no attack starts while it runs (its class's cooldown)
 	action_started: sim.Game_Time, // when `action` began (t.time): the view's clip time
 	hp:             i16,
+	// While down: how far its revive has come, in reviver-ticks (REVIVE_TICKS: up again; revive.odin).
+	revive:         u16,
 	class:          Class, // Any only before its first arrival
 	action:         Action,
 	// The hero's own warp epoch, which outlives its bodies: a body's (physics.body_warp) starts at 0 when it is made
 	// again, so this one takes the old body's count and one more for each new body. The view's epoch is the two added
 	// (hero_warp): a teleport of the body bumps the body's, a new body this one.
 	warp:           u8,
-	_pad:           [7]u8,
+	_pad:           [5]u8,
 }

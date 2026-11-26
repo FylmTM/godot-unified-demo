@@ -48,6 +48,19 @@ hurt :: proc(run: ^headless.Run(g.Game), slot: int, damage: i16) {
 	headless.run_command(run, 0, g.Command_Dev_Hurt{sim.player_in_slot(run.simulation, slot), damage})
 }
 
+// One idle tick, in which slot 0 revives every hero down (Command_Dev_Revive) when one is: for a test whose idle heroes
+// minions fight, which must not see the floor restart (a downed hero stays down until revived, so they would wipe).
+step_up :: proc(run: ^headless.Run(g.Game)) {
+	heroes := sim.iterate_present(&run.simulation.state.players)
+	for hero in sim.next(&heroes) {
+		if hero.action == .Down {
+			headless.run_command(run, 0, g.Command_Dev_Revive{})
+			return
+		}
+	}
+	headless.run_step(run)
+}
+
 // The hero faces `want` (to within a Dir2's quantization).
 expect_facing :: proc(t: ^testing.T, hero: ^g.Hero, want: [2]f32, loc := #caller_location) {
 	testing.expectf(t, dmath.length(hero.facing - want) < 1e-3, "faces %v, not %v", hero.facing, want, loc = loc)

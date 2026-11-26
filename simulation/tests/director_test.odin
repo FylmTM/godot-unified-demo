@@ -119,7 +119,8 @@ the_cap_holds_and_minions_stay_on_the_floor :: proc(t: ^testing.T) {
 }
 
 // A surge is a quota that rises over the next ticks, as the risers watch holds it (each grave's risers RISE_GAP_TICKS
-// apart, each riser clear of every live minion): all of it in the end; and the next surge is SURGE_GROWTH larger.
+// apart, each riser clear of every live minion): all of it in the end; and the next surge is SURGE_GROWTH larger. The
+// idle heroes the surges fall on are revived as they go down (step_up), so no wipe restarts the floor mid-count.
 @(test)
 a_surge_rises_a_few_a_tick :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
@@ -132,7 +133,7 @@ a_surge_rises_a_few_a_tick :: proc(t: ^testing.T) {
 		surges := state.surges
 		risen := 0
 		for state.surges == surges || state.rising > 0 {
-			headless.run_step(&run)
+			step_up(&run)
 			if state.surges != surges && count == 0 {
 				surge, _ := headless.run_last_event(&run, g.Event_Surge) // the surge's own tick
 				count = int(surge.count)
@@ -152,11 +153,14 @@ a_wipe_forgets_what_a_surge_owed :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = g.PLAYERS)
 	defer headless.run_end(&run)
 	state := &run.simulation.state
-	state.floor_surges = 20 // a long floor: a large surge, still rising when the wipe comes
+	state.floor_surges = 60 // a long floor: a surge past the floor's cap, still owing when the wipe ends
 	headless.run_pin(&run)
 	until_the_first_surge(&run)
-	testing.expect(t, state.rising > 0, "the surge still owes")
 	for slot in 0 ..< g.PLAYERS do hurt(&run, slot, g.HERO_HP)
+	for _ in 0 ..< g.WIPE_TICKS - 1 do headless.run_step(&run)
+	testing.expect(t, state.rising > 0, "the surge still owes as the wipe ends")
+	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 0)
+	headless.run_step(&run)
 	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 1)
 	testing.expect_value(t, state.rising, 0)
 	testing.expect_value(t, state.floor_surges, 0)
