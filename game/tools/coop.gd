@@ -96,12 +96,25 @@ const REVIVE_WITHIN: float = 1.0
 const HEAVE_WITHIN: float = 1.4
 const ABILITY_S: float = 0.5
 const BEAT_S: float = 20.0
+## A revive whose ring hasn't filled any further for this long (milliseconds; a round trip on a bad link and more) was
+## broken off: the reviver presses again.
+const RING_STALL_MS: int = 1500
 ## The vault: how near a hero walks to its plate or a point of its way (metres), how often a walk asks the navigation
 ## for its path again (frames), how often the host fells the skeletons and elites from the vault's beat on (seconds),
 ## and the damage that fells every elite at once.
 const PLATE_WITHIN: float = 0.35
 const WAY_WITHIN: float = 0.25
 const REPATH_FRAMES: int = 10
+## A walk's last stretch (_walk, _slow_radius): it slows down within SLOW_LEADS times the distance the fastest class
+## (the Rogue, FASTEST metres per second) covers over the move's lag, at least SLOW_RADII.x and at most .y metres, at
+## no less than SLOWEST of the hero's speed, and lets go once within ARRIVE of its `within` (what it covers after,
+## still slowing down, keeps it there). MOVE_DEADZONE is the move actions' (project.godot).
+const FASTEST: float = 5.5
+const SLOW_LEADS: float = 2.5
+const SLOW_RADII: Vector2 = Vector2(0.75, 4.0)
+const SLOWEST: float = 0.05
+const ARRIVE: float = 0.5
+const MOVE_DEADZONE: float = 0.25
 const QUIET_S: float = 1.0
 const FELL_ELITES: int = 1000
 ## How near the floor's start each walks back to, and waits for the other (metres), before the combat beats.
@@ -114,16 +127,19 @@ const LANE_WAIT: float = 2.5
 ## Where the lane meets the gate (metres west of its marker) and where a hero stands inside the vault (east of it).
 const LANE_GATE: float = 1.7
 const VAULT_IN: float = 1.5
-## The carry: where a hauler stands off the hoard's middle, along its handles (metres: past its 0.8 m half length, a
-## hero's radius and a little), how far north the two carry it (metres, in at most CARRY_S seconds), and what is
+## The carry: where a hauler stands off the hoard's middle, along its handles (metres: its 0.8 m half length, a hero's
+## radius, and midway into the hold's band, HOARD_HOLD_NEAR to _FAR off the capsule, where a hold lifts its handle
+## rather than pulls it; past the band the two holds pull the chest apart instead of lifting it), how far north the two
+## carry it (metres, in at most CARRY_S seconds), and what is
 ## carried clear (the rules' haul_speed: nothing but heroes touches the chest): every corner of its bottom this far off
-## the floor (metres; one hauler lifts only an end, the other's corners drag), its bottom's half extents (HOARD_HALF's
-## x and z), and how many frames of the carry that must hold for.
-const HAUL_STAND: float = 1.6
+## the floor (metres; one hauler lifts only an end, the other's corners drag), its bottom face's half extents
+## (HOARD_HALF's x and z less HOARD_CHAMFER: the hull's bottom edges are cut back), and how many frames of the carry
+## that must hold for.
+const HAUL_STAND: float = 1.4
 const CARRY_M: float = 2.5
 const CARRY_S: float = 6.0
 const CLEAR_Y: float = 0.03
-const HOARD_BOTTOM: Vector2 = Vector2(0.8, 0.6)
+const HOARD_BOTTOM: Vector2 = Vector2(0.6, 0.4)
 const CLEAR_FRAMES: int = 10
 
 ## The host's hits on skeletons, counted once each is confirmed.
@@ -149,6 +165,9 @@ var _gate_open: bool = false
 var _grabbed: Dictionary[int, int] = {}
 var _dropped: Dictionary[int, int] = {}
 var _slipped: int = 0
+## The host's toasts seen since its play began (_watch_toasts), and whether it still watches them.
+var _toasts_seen: Dictionary[String, bool] = {}
+var _toasts_watched: Array[bool] = [true]
 ## From the vault's beat to the descent: the host fells the skeletons and elites the floor raises (_keep_crypt_quiet).
 var _quiet: Array[bool] = [true]
 
@@ -215,6 +234,7 @@ func _host_play() -> void:
 		await CoopLanPair.new(self).host()
 		return
 	var friend: int = _friend_player()
+	_watch_toasts()  # not awaited: from now until _check_friend has its toast
 	await wait_for(func() -> bool: return _hero(friend) != null, 10.0, "the friend's hero appears")
 	if failed():
 		return
@@ -650,11 +670,33 @@ func _rescue(ally: int) -> void:
 		await press_action(&"attack")
 		await wait_for(func() -> bool: return _tally(_landed, me) > 0, 5.0, "the thrown ally lands")
 		step("heaved the downed ally and threw it")
-	await _walk_to(at, REVIVE_WITHIN, "the downed ally, to revive it")
-	Input.action_press(&"interact")
-	await wait_for(func() -> bool: return _tally(_revived_by, me) > 0, BEAT_S, "the revive is confirmed")
+	# A press tends the ally only with the rules' "[E] Revive" prompt up, and tending breaks off for good once the two
+	# come apart (a ragdoll still sliding from its fall, the reviver's own last steps): then only a new press starts it
+	# again. So it walks over until the prompt is up, presses and holds, and walks over and presses again whenever the
+	# ally's revive (its view's ring) stops filling before the revive is confirmed. The ally's view may be late (a bad
+	# link with --verified-players): the prompt is the rules' own word on the range.
+	var until: int = Time.get_ticks_msec() + int(BEAT_S * 1000.0)
+	var presses: int = 0
+	while _tally(_revived_by, me) == 0 and not failed() and Time.get_ticks_msec() < until:
+		Input.action_release(&"interact")
+		await _walk_to(at, REVIVE_WITHIN, "the downed ally, to revive it")
+		await wait_for(func() -> bool: return _hud_hero(me).revive == ally or _tally(_revived_by, me) > 0, BEAT_S,
+			"the [E] Revive prompt names the downed ally")
+		if failed() or _tally(_revived_by, me) > 0:
+			break
+		Input.action_press(&"interact")
+		presses += 1
+		var ring: Array[int] = [-1, Time.get_ticks_msec()]  # the ally's revive as last seen rising, and when
+		await wait_for(func() -> bool:
+			var shown: int = _revive_ring(ally)
+			if shown > ring[0]:
+				ring[0] = shown
+				ring[1] = Time.get_ticks_msec()
+			return _tally(_revived_by, me) > 0 or Time.get_ticks_msec() - ring[1] > RING_STALL_MS, BEAT_S,
+			"the revive fills or stalls")
 	Input.action_release(&"interact")
-	step("revived %s" % session.get_player_name(ally))
+	expect(_tally(_revived_by, me) > 0, "the revive is confirmed")
+	step("revived %s (%d presses)" % [session.get_player_name(ally), presses])
 
 
 ## This side waits to be downed by the other's _rescue, and revived by it.
@@ -668,36 +710,26 @@ func _rescued() -> void:
 
 
 ## Walks this side's hero toward `target()` (it may move: read each frame) on the floor until it is within `within`
-## metres, steering by the eight move directions, then lets go of the moves; failing after BEAT_S.
+## metres (_walk).
 func _walk_to(target: Callable, within: float, what: String) -> void:
-	var until: int = Time.get_ticks_msec() + int(BEAT_S * 1000.0)
-	var gap: Vector2 = Vector2.INF
-	while not failed() and Time.get_ticks_msec() < until:
-		var me: Node3D = _hero(session.local_player)
-		if me == null:  # none for a frame after the floor starts over (a wipe): every view is made anew
-			await process_frame
-			continue
-		var to: Vector3 = target.call()
-		gap = Vector2(to.x - me.global_position.x, to.z - me.global_position.z)
-		if gap.length() < within:
-			break
-		var steer: Vector2 = gap.normalized()
-		_set_move(&"move_right", steer.x > 0.38)
-		_set_move(&"move_left", steer.x < -0.38)
-		_set_move(&"move_down", steer.y > 0.38)
-		_set_move(&"move_up", steer.y < -0.38)
-		await process_frame
-	for move: StringName in DIRS:
-		Input.action_release(move)
-	expect(gap.length() < within, "walked to %s: %.2f m off" % [what, gap.length()])
+	await _walk(target, within, what, false)
 
 
 ## Walks this side's hero toward `target()` along the level's navigation (NavigationServer3D's path on the level's
-## baked mesh, asked again every REPATH_FRAMES frames), steering by the eight move directions at the path's next corner,
-## until it is within `within` metres of the target; failing after BEAT_S.
+## baked mesh, asked again every REPATH_FRAMES frames), steering at the path's next corner (_walk).
 func _nav_walk_to(target: Callable, within: float, what: String) -> void:
-	var level := find(current_scene, ^"Level") as Node3D
-	var map: RID = level.get_world_3d().navigation_map
+	await _walk(target, within, what, true)
+
+
+## Walks this side's hero toward `target()` (read each frame; along the navigation's path with `nav`) until it is
+## within `within` metres, then lets go of the moves; failing after BEAT_S. The moves are a stick's (analog: the
+## session reads them as a vector), so the last stretch slows down in proportion to what is left: on a bad link a move
+## shows on the hero late and stretched (`--lag 150` on both sides is a 600 ms round trip, past the game's ceiling: the
+## view stalls and catches up, and a tap of a seventh of a second moved the hero over two metres), so a hero steered at
+## full speed from where it is shown overshoots and circles the target for good. The stretch scales with the lag
+## (_slow_radius): on a good link the hero walks in at nearly full speed.
+func _walk(target: Callable, within: float, what: String, nav: bool) -> void:
+	var map: RID = (find(current_scene, ^"Level") as Node3D).get_world_3d().navigation_map if nav else RID()
 	var until: int = Time.get_ticks_msec() + int(BEAT_S * 1000.0)
 	var path: PackedVector3Array = []
 	var frame: int = 0
@@ -707,27 +739,42 @@ func _nav_walk_to(target: Callable, within: float, what: String) -> void:
 		if me == null:  # none for a frame after the floor starts over (a wipe): every view is made anew
 			await process_frame
 			continue
+		var at: Vector3 = me.global_position
 		var to: Vector3 = target.call()
-		gap = Vector2(to.x - me.global_position.x, to.z - me.global_position.z).length()
-		if gap < within:
+		gap = Vector2(to.x - at.x, to.z - at.z).length()
+		if gap < within * ARRIVE:
 			break
-		if frame % REPATH_FRAMES == 0:
-			path = NavigationServer3D.map_get_path(map, me.global_position, to, true)
-		frame += 1
 		var next: Vector3 = to
-		for corner: Vector3 in path:
-			if Vector2(corner.x - me.global_position.x, corner.z - me.global_position.z).length() > 0.3:
-				next = corner
-				break
-		var steer: Vector2 = Vector2(next.x - me.global_position.x, next.z - me.global_position.z).normalized()
-		_set_move(&"move_right", steer.x > 0.38)
-		_set_move(&"move_left", steer.x < -0.38)
-		_set_move(&"move_down", steer.y > 0.38)
-		_set_move(&"move_up", steer.y < -0.38)
+		if nav:
+			if frame % REPATH_FRAMES == 0:
+				path = NavigationServer3D.map_get_path(map, at, to, true)
+			for corner: Vector3 in path:
+				if Vector2(corner.x - at.x, corner.z - at.z).length() > 0.3:
+					next = corner
+					break
+		frame += 1
+		_steer(Vector2(next.x - at.x, next.z - at.z), clampf(gap / _slow_radius(), SLOWEST, 1.0))
 		await process_frame
-	for move: StringName in DIRS:
-		Input.action_release(move)
+	_steer(Vector2.ZERO, 0.0)
 	expect(gap < within, "walked to %s: %.2f m off" % [what, gap])
+
+
+## Moves this side's hero toward `toward` (on the floor's x and z) at `fraction` of its speed, as a stick held that
+## far would (past the move actions' deadzone, which the session's vector takes off again); zero lets go of the moves.
+func _steer(toward: Vector2, fraction: float) -> void:
+	var stick: Vector2 = toward.normalized() * (MOVE_DEADZONE + fraction * (1.0 - MOVE_DEADZONE)) if fraction > 0.0 \
+		else Vector2.ZERO
+	_set_move(&"move_right", maxf(stick.x, 0.0))
+	_set_move(&"move_left", maxf(-stick.x, 0.0))
+	_set_move(&"move_down", maxf(stick.y, 0.0))
+	_set_move(&"move_up", maxf(-stick.y, 0.0))
+
+
+## How far from its target a walk starts slowing down (metres): the distance the hero covers at full speed over
+## SLOW_LEADS times the move's lag (the round trip, or the input delay, whichever is longer), within SLOW_RADII.
+func _slow_radius() -> float:
+	var lag_s: float = maxf(session.round_trip_ms / 1000.0, (session.input_delay_ticks + 1.0) / Unified.tick_hz)
+	return clampf(FASTEST * lag_s * SLOW_LEADS, SLOW_RADII.x, SLOW_RADII.y)
 
 
 ## The level's markers of `kind` (their UNIFIED_KIND), in marker order.
@@ -793,24 +840,33 @@ func _lowest_corner(chest: Node3D) -> float:
 
 ## The hoard's handle this side's hero's Interact would take now, as the HUD has it (EnumHaulHandle).
 func _haul_prompt() -> int:
-	for hero: DataHudHero in Unified.data.hud.heroes:
-		if hero.player == session.local_player:
-			return hero.haul
-	return EnumHaulHandle.NONE
+	return _hud_hero(session.local_player).haul
 
 
 ## This side's hero's hit points, as the HUD has them.
 func _hp() -> int:
+	return _hud_hero(session.local_player).hp
+
+
+## How far `ally`'s revive has come as its hero view's ring shows it (0 to 255; -1: no view).
+func _revive_ring(ally: int) -> int:
+	var view: Node3D = _hero(ally)
+	var data: ViewHero = view.get(&"data") if view != null else null
+	return data.revive if data != null else -1
+
+
+## `player`'s hero as the HUD's data has it (an empty one while it has none).
+func _hud_hero(player: int) -> DataHudHero:
 	for hero: DataHudHero in Unified.data.hud.heroes:
-		if hero.player == session.local_player:
-			return hero.hp
-	return 0
+		if hero.player == player:
+			return hero
+	return DataHudHero.new()
 
 
-## Presses or lets go of a move action.
-func _set_move(action: StringName, on: bool) -> void:
-	if on:
-		Input.action_press(action)
+## Presses a move action `strength` far (a stick's), or lets go of it (0).
+func _set_move(action: StringName, strength: float) -> void:
+	if strength > 0.0:
+		Input.action_press(action, strength)
 	else:
 		Input.action_release(action)
 
@@ -935,15 +991,26 @@ func _asked() -> int:
 	return EnumClass.ANY
 
 
-## The friend as the host sees it: its own name, and a toast naming it and its hero.
+## Notes the text of every toast the host shows (_toasts_seen) while `_toasts_watched[0]` holds: the friend's toast
+## comes once its join is certain, which on a bad link with --verified-players is well before its hero shows (on the
+## verified timeline), and may have gone by the time the host looks.
+func _watch_toasts() -> void:
+	var toasts: Node = find(game, ^"Notices/Toasts")
+	while _toasts_watched[0] and not failed():
+		for toast: Node in toasts.get_children():
+			_toasts_seen[(toast.get_node(^"%Text") as Label).text] = true
+		await process_frame
+
+
+## The friend as the host sees it: its own name, and a toast naming it and its hero (_watch_toasts).
 func _check_friend(friend: int) -> void:
 	_check_own_class()
 	var friend_name: String = session.get_player_name(friend)
 	expect(friend_name == FRIEND_NAME, "the friend has its own name: '%s'" % friend_name)
 	var text: String = "%s joined (%s)" % [friend_name, Heroes.name_of(Heroes.class_of(friend))]
-	var toasts: Node = find(game, ^"Notices/Toasts")
-	await wait_for(func() -> bool: return toasts.get_children().any(func(toast: Node) -> bool:
-		return (toast.get_node(^"%Text") as Label).text == text), 5.0, "a toast: " + text)
+	await wait_for(func() -> bool: return _toasts_seen.has(text), 5.0, "a toast: " + text)
+	_toasts_seen.clear()
+	_toasts_watched[0] = false
 	step(text)
 
 
