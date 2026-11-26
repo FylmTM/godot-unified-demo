@@ -677,3 +677,44 @@ clip leaves the feet standing apart from the fallen body, and the eyes read dim 
   step 5 bumps).
 - `ui_walk.gd`'s stuck-key walk read the hero before a 0.3 s wait after a join that can replace its view, and failed
   now and then on a freed node: it reads the local hero at each moment.
+
+Calls made in step 5 (the minions a MultiMesh):
+
+- The minions are `MultiView.Minion`: `fill_frame` pushes `minion_instance` (frame.odin) for each, keyed by its handle,
+  at its feet and facing, its custom data the shader's header's contract: x the clip (Minion_Clip, MinionCrowd.Clip's
+  order; a chaser slower than MINION_STILL_SPEED stands), y the clip's start stamp (a one-shot's phase tick; a loop's
+  minus the minion's gait phase, its key modulo 997 times 0.618 s, as the scene view spread it), z the last hit's stamp
+  (-1e9 ticks: never), w 0. Its policy: `ages = {1, 2}` (the host writes seconds since at the shown time),
+  `Appear.Verified` kept, and `SMOOTHING_DEFAULT`: the pooled scene views had it (a scene view kind's default), and a
+  crowd round a remote hero mispredicts, its corrections a shove the eye follows. It costs a track per instance: the
+  host's whole view work is 0.10 to 0.12 ms a frame with 500 minions (the MultiMeshes' buffers 0.09), a fill 65 to 75
+  us. (One design left it off; the numbers say it is cheap, and the call is the developer's if a crowd's pops are
+  wanted instead.)
+- What the scene minion's view did is the shader's (the rise, the walk and stance, the swing, the fall and its sink,
+  the eyes, a hit's flash); the art's timing, where an action starts in its clip (RISE_FROM, BLOW_AT against the
+  sim's windup), moved with its constants into `game/crowd/minion_crowd_view.gd`, the script on the play scene's
+  `Minions`, which sets the material's clip offsets; FLASH_TICKS into `MinionCrowd`. `game/views/minion.gd` and
+  `minion.tscn` are gone; `game/characters/skeletons/minion.tscn` stays, the bake's source and the look-dev's cast.
+  Minion events reach the effects by position as before (`play.gd`); the HUD's counts are the session data's.
+- Tests: `view_test.odin`: an instance is its state in every phase (the clip, the stamps, the key, the pose; a mutant
+  stamping loops like one-shots fails it), and a crowd's instances are the same re-simulated over 8 ticks every tick as
+  over 1 (a fight on the arena, 6 s, every half second: an instance shown right after a rollback is the re-simulated
+  state's). The godot suite's walk checks the live crowd on entering Floor 1: one MultiMesh with its material, as
+  many instances as the HUD's minions (its 8 sleepers), each in the stance, its gait aged, its hit far past (read from
+  the buffer: `get_instance_custom_data` reads nothing the host's `set_buffer` wrote); the policy without `ages` fails
+  it. A rollback in a Godot session can't be forced single-player: the Odin test is the rollback check.
+- Frame cost on the arena with 500 (this machine, quiet; `./uni tool --window crowd_frames -- --autostart --setup
+  floor=arena,crowd=chase`, `crowd=fight --scripted`; vsync off): before, the pooled scene views ran chase at 20.7 fps
+  (48 ms mean, 54 p99; 14,067 draw calls, 9.3 M primitives, GPU 10.6 ms) and fight at 19.5 (51 ms, 78 p99), bound by
+  500 scripts and AnimationPlayer seeks. After, 65.8 and 64.2 fps (15.2 and 15.6 ms mean, 17.6 and 18.1 p99; 276 draw
+  calls, GPU 3.6 and 4.2 ms). The arena with no crowd runs at the same 65 fps, its main loop's process time the same
+  17 ms: the pace there isn't the crowd's (not looked into further in this step).
+- Shadows, kept. With every shadow on the crowd costs the GPU 0.6 to 1.1 ms over the crowd casting none (3.6 against
+  3.0 ms chase, 4.2 against 3.2 fight) and 30.4 M primitives against 1.3 M: Godot culls a MultiMesh whole, so each of
+  the four shadowed braziers' six cube faces draws all 500 (the pooled meshes were culled one by one). The braziers'
+  shadows off as well: 2.9 ms. The frame's pace doesn't move with any of it, and the crowd grounded in the fires' light
+  is the look (ART.md: the braziers' shadows ground everything near them). If a weaker GPU needs it, a lighter
+  shadow mesh (the bake at a coarser LOD error) is the first step, the crowd casting none the second.
+- Shots: the arena's chase and fight at 500 and Floor 1's first surge (`.out/drive/m4_s5_*.png`) look as the pooled
+  views did; a single minion's flash or fall isn't picked out in a crowd of 500 at the game camera: the look-dev's
+  parity stage (step 4) and the tests carry those.

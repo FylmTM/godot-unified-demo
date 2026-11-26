@@ -56,14 +56,13 @@ About 500 skeletons alive, drawn as one MultiMesh, and the benchmark rows that p
 5. **Bench rows:** today's kept; crowd_idle, crowd_chase and crowd_fight on the arena through the Setup (built);
    target frame p99 at most 3 ms on the developer's machine, half the library's line (after step 3 every row is
    under it: crowd_chase about 2.7 ms, crowd_fight 2.4, the queue's rings keeping the crowd moving round its heroes).
-6. **The bake tool** lives here first and moves into unified's `tools_godot` by the milestone's end. Crowd shadows are
-   decided from shots and frame times on the arena in step 5.
+6. **The bake tool** lives here first and moves into unified's `tools_godot` by the milestone's end. Crowd shadows
+   (built: kept, from the arena's frame times in step 5).
 7. **From unified:** `View_Policy.ages` for the crowd's clip times (step 5), scenarios and reference runs on a Setup
    (the crowd's scale tests: built).
 
-Steps: 1 the arena, held crowds and honest rows, 2 the sim at 500, 3 the crowd's rules and 4 the bake and its
-look-dev shots (done); 5 minions become the MultiMesh (the pooled minion view goes); 6 the tool lifted into unified, the
-README, the reviews.
+Steps: 1 the arena, held crowds and honest rows, 2 the sim at 500, 3 the crowd's rules, 4 the bake and its look-dev
+shots and 5 the minions a MultiMesh (done); 6 the tool lifted into unified, the README, the reviews.
 
 ## How it's tested
 
