@@ -120,8 +120,8 @@ minion_instance :: proc(minion: ^g.Minion, handle: sim.Handle(g.Minion)) -> godo
 }
 
 // A coin's instance: where it lies, keyed by its handle (its events' `loot`); its custom data the contract of
-// game/views/coin.gdshader's header. 0: its value (the shader sizes it); 1: when it fell, a stamp in ticks the host ages
-// into seconds at the shown time; 2 and 3: spare.
+// game/views/coin.gdshader's header. 0: its value (the shader sizes it); 1: when it fell, a stamp in ticks the host
+// ages into seconds at the shown time; 2 and 3: spare.
 loot_instance :: proc(coin: ^g.Loot, handle: sim.Handle(g.Loot)) -> godot.Multi_View_Item(MultiView) {
 	return {
 		key    = sim.handle_key(handle),

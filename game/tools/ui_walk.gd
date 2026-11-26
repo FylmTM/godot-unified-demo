@@ -375,7 +375,8 @@ func _walk_loot() -> void:
 	await shot("02d_coins")
 	var mark: int = sounds.size()
 	await key(KEY_D, true)
-	await wait_for(func() -> bool: return PurseWatch.gold_of(purse) > before, 3.0, "walking out of the ring picks a coin up")
+	await wait_for(func() -> bool: return PurseWatch.gold_of(purse) > before, 3.0,
+		"walking out of the ring picks a coin up")
 	await key(KEY_D, false)
 	var gains: Array[Node] = purse.get_children().filter(_is_gain)
 	expect(gains.size() >= 1, "a \"+1\" rises over the coin")
