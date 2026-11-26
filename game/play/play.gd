@@ -79,6 +79,8 @@ func _ready() -> void:
 	cards.join_given_up.connect(_couch.give_up)
 	cards.drop_chosen.connect(_couch.drop)
 	Game.pause_wanted.connect(open_pause_menu)
+	var panels: Control = _hud.boon_panels()
+	panels.visibility_changed.connect(func() -> void: _camera_rig.bottom_covered = panels.visible)
 	if not _session.running and Game.flow == Game.Flow.MENU:
 		Game.start_single()  # the scene run on its own (the editor's Run Current Scene)
 

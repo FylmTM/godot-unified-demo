@@ -27,7 +27,10 @@ Data_Hud :: struct {
 	heroes:     [g.PLAYERS]Hud_Hero, // by slot
 	// ---- the lift and boons (lift.odin, boons.odin)
 	lift:       g.Lift_Phase, // EnumLiftPhase: Choosing opens the boon panels (a late joiner's too)
-	_pad_lift:  [3]u8,
+	// The hoard rests partly on the deck, unheld, while the lift waits: the HUD says it must be wholly on (the rules'
+	// hoard_on_deck: hoard_hanging)
+	overhang:   bool,
+	_pad_lift:  [2]u8,
 	lift_since: sim.Game_Time, // when the lift's phase began: the choosing's countdown runs from it (constants.boon_timeout)
 	depth:      u32, // the floors the party has gone down
 }
@@ -68,6 +71,7 @@ fill_hud :: proc(f: ^Frame) {
 		kills      = f.state.kills,
 		gold       = f.state.gold,
 		lift       = f.state.lift.phase,
+		overhang   = hoard_hanging(f),
 		lift_since = f.state.lift.since,
 		depth      = f.state.depth,
 	}
@@ -93,4 +97,13 @@ fill_hud :: proc(f: ^Frame) {
 		hud.heroes[slot].offer_count = u8(offer.count)
 	}
 	godot.push_data(f, hud)
+}
+
+// Whether the hoard hangs over the deck's edge: the sensor over the deck sees it, its box isn't wholly over the deck,
+// nobody holds it and the lift waits (the rules' hoard_on_deck, on the World's scratch, as the tick asks it).
+hoard_hanging :: proc(f: ^Frame) -> bool {
+	hoard, lift := &f.state.hoard, &f.state.lift
+	if hoard.haulers != {} || lift.phase != .Waiting do return false
+	seen, wholly := g.hoard_on_deck(f.world.phys, hoard, lift, &f.world.overlaps)
+	return seen && !wholly
 }

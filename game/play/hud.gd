@@ -9,7 +9,9 @@ extends Control
 ## Interact would revive them now (Hud_Hero.revive: the rules' revive_target), in that player's glyphs; and when the
 ## whole party has fallen (a CONFIRMED Event_Party_Wiped: show_wipe), a banner says so until a hero is up again (the
 ## floor's restart, a revive, a joiner). A "[E] Haul" prompt hangs over the hoard's handle a local hero's Interact would
-## take (Hud_Hero.haul: the rules' haul_target). At the lift's bottom the boon panels show (BoonPanels). As the verified
+## take (Hud_Hero.haul: the rules' haul_target), and a line at the bottom says "The hoard must be wholly on the lift"
+## while it rests hanging over the deck's edge (Data_Hud.overhang). At the lift's bottom the boon panels show
+## (BoonPanels). As the verified
 ## level changes (a descent, a wipe's restart) the crypt fades to black and back (fade_out, fade_in: play.gd). Nothing
 ## on it takes a click or the focus: Space and a pad's A stay the game's.
 ##
@@ -53,6 +55,7 @@ var _banner_width: float = 0.0
 @onready var _haul_prompts: Control = %HaulPrompts
 @onready var _fade: ColorRect = %Fade
 @onready var _boon_panels: BoonPanels = %BoonPanels
+@onready var _overhang: Control = %Overhang
 
 
 func _ready() -> void:
@@ -108,6 +111,7 @@ func _show_data() -> void:
 		if hero.player != 0 and not hero.down:
 			_wiped = false  # a hero up: the floor restarted, or a revive or a joiner stopped the wipe
 	_wiped_banner.visible = _wiped and not _paused.visible and not _menu_open
+	_overhang.visible = Unified.data.hud.overhang and not _menu_open
 
 
 func _process(_delta: float) -> void:

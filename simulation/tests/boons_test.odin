@@ -5,6 +5,7 @@
 package test_crypt_crew
 
 import "core:testing"
+import "unified:dmath"
 import "unified:headless"
 import "unified:headless/scenarios"
 import "unified:sim"
@@ -253,4 +254,198 @@ each_boon_does_its_part :: proc(t: ^testing.T) {
 	testing.expect(t, struck, "the blow lands")
 	testing.expect_value(t, hit.damage, 23) // 18 * 1.3, rounded
 	scenarios.expect_synced(t, &run)
+}
+
+// A seed whose depth-0 offers to slots 0 and 1 (members 1 and 2) both hold Thick_Hide, and each one's index of it.
+@(private = "file")
+thick_hide_seed :: proc() -> (seed: u64, index: [2]u8) {
+	search: for candidate in u64(1) ..< 400 {
+		for slot in 0 ..< 2 {
+			player := sim.Player {
+				index = u16(slot),
+				id    = u16(slot + 1),
+			}
+			offer := g.boon_offer(candidate, 0, player, {})
+			found := false
+			for boon, i in offer.boons[:offer.count] {
+				if boon == .Thick_Hide do index[slot], found = u8(i), true
+			}
+			if !found do continue search
+		}
+		return candidate, index
+	}
+	panic("no seed offers Thick_Hide to both")
+}
+
+// Thick_Hide's pick heals what it adds to a hero up, and nothing to a hero down; a hero's next body has the health its
+// boons give it (hero_max_hp, at a wipe's restart).
+@(test)
+thick_hide_heals_the_up_and_shapes_the_next_body :: proc(t: ^testing.T) {
+	seed, index := thick_hide_seed()
+	run := headless.run_begin(&g.GAME, seed, seated = 3)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	clear_elites(&run)
+	testing.expect_value(t, sim.player_in_slot(run.simulation, 1), sim.Player{index = 1, id = 2})
+	hurt(&run, 0, 30)
+	hurt(&run, 1, g.HERO_HP)
+	headless.run_command(&run, 0, g.Command_Dev_Board{})
+	for _ in 0 ..< 10 * g.TICK_HZ {
+		if run.simulation.state.lift.phase == .Choosing do break
+		headless.run_step(&run)
+	}
+	headless.run_command(&run, 0, g.Command_Pick_Boon{index[0]})
+	headless.run_command(&run, 1, g.Command_Pick_Boon{index[1]}) // slot 2 hasn't picked: the lift waits
+	up, down := sim.slot_data(run.simulation, 0), sim.slot_data(run.simulation, 1)
+	testing.expect_value(t, up.boons[.Thick_Hide], 1)
+	testing.expect_value(t, up.hp, g.HERO_HP - 30 + g.THICK_HIDE_HP)
+	testing.expect_value(t, down.boons[.Thick_Hide], 1)
+	testing.expect_value(t, down.hp, 0) // down, it stays down at 0
+	headless.run_command(&run, 2, g.Command_Pick_Boon{0}) // the party descends
+	testing.expect_value(t, run.simulation.state.depth, 1)
+	for slot in 0 ..< 3 do hurt(&run, slot, 999)
+	for _ in 0 ..< 2 * g.WIPE_TICKS {
+		if headless.run_events(&run, g.Event_Floor_Restarted) > 0 do break
+		headless.run_step(&run)
+	}
+	testing.expect_value(t, up.hp, g.HERO_HP + g.THICK_HIDE_HP) // its next body has its boons' health
+	scenarios.expect_synced(t, &run)
+}
+
+// A hero that picked, left and came back at the same depth has had its pick: a second one counts for nothing.
+@(test)
+a_rejoiner_doesnt_pick_twice :: proc(t: ^testing.T) {
+	run := choosing_run(2)
+	defer headless.run_end(&run)
+	headless.run_command(&run, 1, g.Command_Pick_Boon{0})
+	kept := sim.slot_data(run.simulation, 1).boons
+	headless.run_seat(&run, 1, 0)
+	headless.run_step(&run)
+	headless.run_seat(&run, 1, 2) // back, the party still choosing
+	headless.run_step(&run)
+	testing.expect_value(t, run.simulation.state.depth, 0)
+	headless.run_command(&run, 1, g.Command_Pick_Boon{1})
+	testing.expect_value(t, sim.slot_data(run.simulation, 1).boons, kept)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Boon_Picked), 1)
+	scenarios.expect_synced(t, &run)
+}
+
+// A hero with every boon at its top rank has nothing to pick: the lift doesn't wait for it, and a pick of it counts for
+// nothing.
+@(test)
+a_hero_with_every_boon_maxed_isnt_waited_for :: proc(t: ^testing.T) {
+	run := choosing_run(2)
+	defer headless.run_end(&run)
+	maxed := sim.slot_data(run.simulation, 1)
+	for &rank in maxed.boons do rank = g.BOON_RANK_MAX
+	headless.run_pin(&run)
+	testing.expect_value(t, offer_of(&run, 1).count, 0)
+	headless.run_command(&run, 1, g.Command_Pick_Boon{0})
+	testing.expect_value(t, headless.run_events(&run, g.Event_Boon_Picked), 0)
+	headless.run_command(&run, 0, g.Command_Pick_Boon{0})
+	testing.expect_value(t, run.simulation.state.depth, 1)
+	scenarios.expect_synced(t, &run)
+}
+
+// At the lift's bottom the heroes take no input but the pick: a held stick walks nobody, and Interact beside a downed
+// ally starts no revive.
+@(test)
+choosing_heroes_take_no_input :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 2)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	clear_elites(&run)
+	hurt(&run, 1, g.HERO_HP)
+	headless.run_command(&run, 0, g.Command_Dev_Board{})
+	for _ in 0 ..< 10 * g.TICK_HZ {
+		if run.simulation.state.lift.phase == .Choosing do break
+		headless.run_step(&run)
+	}
+	hero := sim.slot_data(run.simulation, 0)
+	downed := sim.slot_data(run.simulation, 1).pos
+	place_hero(&run, 0, downed + {-1, 0, 0}, {1, 0}) // beside the downed ally, in revive's range
+	from := hero.pos
+	held: [g.PLAYERS]g.Input
+	held[0] = {
+		move_x  = 127,
+		buttons = {.Interact},
+	}
+	for _ in 0 ..< g.TICK_HZ / 2 do headless.run_step(&run, held)
+	testing.expectf(t, dmath.length(hero.pos.xz - from.xz) < 0.05, "it walked %v", hero.pos - from)
+	testing.expect_value(t, hero.action, g.Action.None)
+	testing.expect_value(t, sim.slot_data(run.simulation, 1).revive, 0)
+	scenarios.expect_synced(t, &run)
+}
+
+// Each boon in play: Keen_Edge on an elite's damage, Swift_Boots on a hero's walk, Quick_Hands on an ability's
+// cooldown, Strong_Back on a carried prop's and a haul's slowdown, Field_Medic on a revive.
+@(test)
+each_boon_works_in_play :: proc(t: ^testing.T) {
+	{ 	// Keen_Edge: an elite takes the edged blow
+		run := headless.run_begin(&g.GAME, 1, seated = 1)
+		defer headless.run_end(&run)
+		sim.slot_data(run.simulation, 0).boons[.Keen_Edge] = 2
+		headless.run_pin(&run)
+		headless.run_command(&run, 0, g.Command_Dev_Hurt_Elites{20})
+		hit, _ := headless.run_last_event(&run, g.Event_Elite_Hit)
+		testing.expect_value(t, hit.damage, 26)
+		scenarios.expect_synced(t, &run)
+	}
+	{ 	// Swift_Boots and Strong_Back: a hero carrying a crate walks at its speed, the carry's slowdown less
+		run := headless.run_begin(&g.GAME, 1, seated = 1)
+		defer headless.run_end(&run)
+		clear_minions(&run)
+		hero := sim.slot_data(run.simulation, 0)
+		hero.boons[.Swift_Boots], hero.boons[.Strong_Back] = 3, 1
+		place_hero(&run, 0, spawn_of(&run, 0), {1, 0})
+		place_prop(&run, CRATE, spawn_of(&run, 0) + {1.5, 0, 0})
+		press(&run, 0, .Interact)
+		play(&run, {}, 0.7)
+		play(&run, [g.PLAYERS]g.Input{0 = {move_x = 127}}, 0.5)
+		want :=
+			g.CLASS_SPECS[hero.class].max_speed *
+			g.back_speed(hero, g.PROP_SPECS[.Crate].carry_speed) *
+			g.boots_scale(hero)
+		testing.expect(t, hero.held != {}, "it carries the crate")
+		testing.expectf(t, abs(hero.vel.x - want) < 0.05, "it walks at %v, not %v", hero.vel.x, want)
+		scenarios.expect_synced(t, &run)
+	}
+	{ 	// Quick_Hands: a Rogue's roll comes back sooner
+		run := headless.run_begin(&g.GAME, 1, seated = 1)
+		defer headless.run_end(&run)
+		clear_minions(&run)
+		headless.run_command(&run, 0, g.Command_Dev_Set_Class{.Rogue})
+		hero := sim.slot_data(run.simulation, 0)
+		hero.boons[.Quick_Hands] = 2
+		headless.run_pin(&run)
+		press(&run, 0, .Ability)
+		testing.expect_value(
+			t,
+			u32(hero.ability_ready.target - hero.ability_ready.start),
+			g.hands_cooldown(hero, g.ROLL_COOLDOWN_TICKS),
+		)
+		testing.expect(t, g.hands_cooldown(hero, g.ROLL_COOLDOWN_TICKS) < g.ROLL_COOLDOWN_TICKS, "sooner")
+		scenarios.expect_synced(t, &run)
+	}
+	{ 	// Field_Medic: its tending counts a share more
+		run := headless.run_begin(&g.GAME, 1, seated = 2)
+		defer headless.run_end(&run)
+		clear_minions(&run)
+		place_hero(&run, 0, spawn_of(&run, 0))
+		place_hero(&run, 1, spawn_of(&run, 0) + {1, 0, 0}, {-1, 0})
+		hurt(&run, 0, g.HERO_HP)
+		sim.slot_data(run.simulation, 1).boons[.Field_Medic] = 1
+		headless.run_pin(&run)
+		tending := [g.PLAYERS]g.Input {
+			1 = {buttons = {.Interact}},
+		}
+		for _ in 0 ..< 10 do headless.run_step(&run, tending)
+		testing.expect_value(
+			t,
+			sim.slot_data(run.simulation, 0).revive,
+			10 * g.revive_rate(sim.slot_data(run.simulation, 1)),
+		)
+		testing.expect(t, g.revive_rate(sim.slot_data(run.simulation, 1)) > g.REVIVE_UNIT, "a share more")
+		scenarios.expect_synced(t, &run)
+	}
 }

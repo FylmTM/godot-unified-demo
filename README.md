@@ -255,18 +255,20 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 
 The floor's hoard (its `hoard` marker: Floor 1's in the great hall) is hauled to its lift (its `lift` marker: a deck
 over a shaft by the spawns). Interact beside one of the hoard's two handles takes it (before any prop; the "[E] Haul"
-prompt says when): the hero's hold lifts the handle to HOARD_HOLD_HEIGHT with at most HOARD_LIFT of the hoard's
-weight, so one hauler lifts an end and drags it at HOARD_DRAG_SPEED, and two carry it clear at HOARD_CARRY_SPEED. A
-hauler does nothing else; Interact again, going down, leaving, or the hold stretched past HOARD_SLIP lets go. Unheld,
-it weighs HOARD_REST_MASS: it goes where it is hauled, never shoved. The first grab on a floor brings the surges every
-HAUL_SURGE_S. Once the hoard rests on the deck with nobody holding it and every present hero is aboard (the downed
-too), at least one up, the lift goes down LIFT_HOLD_S later (anyone stepping off waits it again): LIFT_DROP in
-LIFT_RIDE_S, nobody taking damage and no wipe from then. At the bottom each present hero picks one of three boons
-(Thick Hide, Swift Boots, Keen Edge, Quick Hands, Strong Back, Field Medic, each up to BOON_RANK_MAX ranks), offered by a
-keyed roll of the seed, the depth and the player; once all have picked, or at BOON_TIMEOUT_S (the first offer for
-whoever hasn't), the party goes down to the next floor: the depth up, HOARD_GOLD in the purse, the downed up at
-REVIVE_HP, and the save made there. A hero arriving while the lift is busy lands on its deck and is waited for. Boons
-are kept through a leave and a wipe; the save holds the depth, not yet the boons.
+prompt says when): the hero's hold lifts the handle to HOARD_HOLD_HEIGHT with at most HOARD_LIFT of the hoard's weight,
+so one hauler lifts an end and drags it at HOARD_DRAG_SPEED, and two carry it clear at HOARD_CARRY_SPEED. A hauler does
+nothing else; Interact again, going down, leaving, or the hold stretched past HOARD_SLIP lets go. Unheld and settled, it
+weighs HOARD_REST_MASS: it goes where it is hauled, never shoved. A hand takes it only while the lift waits at the top;
+the deck is floor like any until it goes (minions walk onto it), and the HUD says when the hoard rests hanging over its
+edge. The first grab on a floor brings the surges every HAUL_SURGE_S. Once the hoard rests on the deck with nobody
+holding it and every present hero is aboard (the downed too), at least one up, the lift goes down LIFT_HOLD_S later
+(anyone stepping off waits it again): LIFT_DROP in LIFT_RIDE_S, nobody taking damage and no wipe from then. At the
+bottom each present hero picks one of three boons (Thick Hide, Swift Boots, Keen Edge, Quick Hands, Strong Back, Field
+Medic, each up to BOON_RANK_MAX ranks), offered by a keyed roll of the seed, the depth and the player, its input driving
+the boon panel alone; once all have picked, or at BOON_TIMEOUT_S (the first offer for whoever hasn't), the party goes
+down to the next floor: the depth up, HOARD_GOLD in the purse, the downed up at REVIVE_HP, and the save made there. A
+hero arriving while the lift is busy lands on its deck, clear of the hoard and the others, and is waited for. Boons are
+kept through a leave and a wipe; the save holds the depth, not yet the boons.
 
 ## The crowd
 

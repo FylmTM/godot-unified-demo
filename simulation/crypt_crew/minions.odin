@@ -343,9 +343,9 @@ next_within :: proc(walk: ^Minions_Within) -> (minion: ^Minion, handle: sim.Hand
 }
 
 // What minions are pushed out of this tick: every present hero's capsule, every prop held or at rest, every live
-// elite's capsule, and the hoard.
+// elite's capsule, the hoard, and the lift's shaft once the deck has gone down.
 @(private = "file")
-obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, PLAYERS + MAX_PROPS + MAX_ELITES + 1)) {
+obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, PLAYERS + MAX_PROPS + MAX_ELITES + 2)) {
 	heroes := sim.iterate_present(t)
 	for hero in sim.next(&heroes) do sim.append(&obstacles, Obstacle{hero.pos.xz, HERO_RADIUS})
 	props := sim.iterate(&t.state.props)
@@ -358,9 +358,13 @@ obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, PLAYERS + MAX_P
 	for elite in sim.next(&elites) {
 		if elite.phase != .Dying do sim.append(&obstacles, Obstacle{elite.pos.xz, ELITE_RADIUS})
 	}
-	// ---- the hoard (hoard.odin)
+	// ---- the hoard and the lift (hoard.odin, lift.odin): the deck's walkable while it is up; gone down, its shaft
+	// is kept clear (the navigation still has the deck's floor)
 	if hoard := &t.state.hoard; hoard.body != {} {
 		sim.append(&obstacles, Obstacle{physics.body_position(t.world.phys, hoard.body).xz, HOARD_FOOTPRINT})
+	}
+	if lift := &t.state.lift; lift.body != {} && lift_gone(t) {
+		sim.append(&obstacles, Obstacle{floor_of(t).places.lift.path.points[0].xz, LIFT_SHAFT_REACH})
 	}
 	return
 }

@@ -96,6 +96,15 @@ func on_pick(state: UnifiedSession.EventState, picker: int, boon: int) -> void:
 	_show()
 
 
+## The party's row lists `party` (every present player's key, in slot order) from now: BoonPanels follows joins and
+## leaves while the party chooses. A pick confirmed before a player left stays known, should it come back.
+func set_party(party: Array[int]) -> void:
+	if party == _party:
+		return
+	_party = party
+	_show()
+
+
 ## Whether this panel's player's pick is confirmed (the HUD's banner asks).
 func taken() -> bool:
 	return _taken.has(player)

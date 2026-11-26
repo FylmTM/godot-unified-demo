@@ -22,7 +22,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "23"
+VERSION :: "24"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -113,11 +113,13 @@ tick :: proc(t: ^Tick) {
 	}
 	{
 		sim.zone(t, Zone.Heroes)
-		revive_heroes(t) // first: the press that starts a revive grabs nothing
-		face_heroes(t)
-		use_hands(t) // after facing: a grab takes what the hero now faces
-		use_abilities(t) // after the hands: hands full start none
-		start_attacks(t) // after the hands and abilities: a throw's or a charge's Attack press starts no attack
+		if !choosing(t) { 	// at the lift's bottom a hero's input is its boon panel's: it only picks (lift.odin)
+			revive_heroes(t) // first: the press that starts a revive grabs nothing
+			face_heroes(t)
+			use_hands(t) // after facing: a grab takes what the hero now faces
+			use_abilities(t) // after the hands: hands full start none
+			start_attacks(t) // after the hands and abilities: a throw's or a charge's Attack press starts no attack
+		}
 		update_holds(t)
 		move_heroes(t)
 	}
@@ -147,6 +149,7 @@ tick :: proc(t: ^Tick) {
 	{
 		sim.zone(t, Zone.Lift)
 		hold_hauls(t) // a hold stretched too far lets go (hoard.odin)
+		settle_hoard(t) // a let-go hoard come to rest weighs its rest again (hoard.odin)
 		update_lift(t) // the lift's phase moves on, and the party may descend (lift.odin)
 	}
 	{

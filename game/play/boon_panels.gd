@@ -8,8 +8,8 @@ extends VBoxContainer
 ## back never shows a panel). A player whose session starts while the party chooses (a late joiner, a rejoiner) never
 ## heard that event: the panels open from the HUD data's lift phase as it first shows, the picks already made marked
 ## from the data's `picked` (the one prediction they take, as the purse takes its start: plan.md, verified session
-## data). A local player joining mid-choice gets its panel as it appears in the data. They close when the descent is
-## CONFIRMED. Every pick event goes to every panel (BoonPanel.on_pick, whose rule counts CONFIRMED only).
+## data). A local player joining mid-choice gets its panel as it appears in the data, and every panel's party row
+## follows the data's players as they join and leave. They close when the descent is CONFIRMED. Every pick event goes to every panel (BoonPanel.on_pick, whose rule counts CONFIRMED only).
 
 ## A local player's panel (game/play/boon_panel.tscn).
 @export var panel_scene: PackedScene
@@ -86,14 +86,24 @@ func _on_data_changed() -> void:
 						panel.on_pick(UnifiedSession.EVENT_CONFIRMED, hero.player, -1)
 	elif _depth >= 0 and choosing:
 		_add_missing()
+	if _depth >= 0:
+		var party: Array[int] = _party()
+		for panel: BoonPanel in panels():
+			panel.set_party(party)
 
 
-## A panel for every local hero that has none.
-func _add_missing() -> void:
+## Every present player's key, in slot order (the HUD data's).
+func _party() -> Array[int]:
 	var party: Array[int] = []
 	for hero: DataHudHero in Unified.data.hud.heroes:
 		if hero.player != 0:
 			party.append(hero.player)
+	return party
+
+
+## A panel for every local hero that has none.
+func _add_missing() -> void:
+	var party: Array[int] = _party()
 	var shown: Array[int] = []
 	for panel: BoonPanel in panels():
 		shown.append(panel.player)

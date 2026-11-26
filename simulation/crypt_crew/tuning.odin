@@ -519,6 +519,10 @@ HOARD_HANDLE :: [3]f32{0.8, 0.15, 0}
 HOARD_FRICTION :: f32(0.15) // on the floor: a dragged end slides
 HOARD_ANGULAR_DAMPING :: f32(3) // a carried chest's swing under its handles dies down, so it hangs steady
 HOARD_FOOTPRINT :: f32(0.9) // the circle minions are pushed out of (metres)
+// Let go of, it weighs HOARD_REST_MASS again only once slower than this (metres per second) and turning slower than
+// HOARD_SETTLE_SPIN (radians per second): a chest dropped mid-carry slides on at its own weight.
+HOARD_SETTLE_SPEED :: f32(0.2)
+HOARD_SETTLE_SPIN :: f32(0.3)
 HOARD_HOLD_HEIGHT :: f32(0.9) // a hold lifts its handle this high above the hauler's feet
 // A hold has its handle between these gaps off the hauler's capsule on the floor plan, and pulls it only when it strays
 // out of them: two haulers never fight over where the rigid chest is (two holds each pinning their handle to a spot
@@ -543,10 +547,16 @@ HOARD_GOLD :: 100 // the gold the hoard puts in the purse when the party descend
 // The lift: a kinematic deck in a shaft, the floor's exit.
 LIFT_HALF :: [3]f32{1.95, 0.25, 1.95} // the deck's half extents: a large floor tile's top, a hand short of the shaft
 LIFT_SENSOR_HEIGHT :: f32(2.5) // the volume above the deck that counts as aboard
+// Once the deck has gone down, minions are kept this far from the shaft's middle (its corners' reach): the navigation
+// keeps the deck's floor, which they walk while it is up.
+LIFT_SHAFT_REACH :: f32(2.9)
+#assert(LIFT_SHAFT_REACH * LIFT_SHAFT_REACH >= 2 * LIFT_HALF.x * LIFT_HALF.x)
 LIFT_HOLD_S :: f32(1.5) // everyone aboard with the hoard this long: it goes down
 LIFT_HOLD_TICKS :: u32(LIFT_HOLD_S * TICK_HZ)
-LIFT_DROP :: f32(6) // how far down the shaft it goes ...
-LIFT_RIDE_S :: f32(3) // ... in this long (smoothstepped: it starts and stops gently, so riders keep their feet)
+// How far down the shaft it goes: shallow enough that the camera, held at the rim and pitched down, sees the party
+// on the deck at the bottom (game/play/camera_rig.gd) ...
+LIFT_DROP :: f32(2.5)
+LIFT_RIDE_S :: f32(2.5) // ... in this long (smoothstepped: it starts and stops gently, so riders keep their feet)
 LIFT_RIDE_TICKS :: u32(LIFT_RIDE_S * TICK_HZ)
 // An arrival while the lift is busy (and dev_board's heroes) stands on its deck this far out along x and z, toward its
 // slot's corner: clear of the hoard in the middle.

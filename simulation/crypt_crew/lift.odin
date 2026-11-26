@@ -136,25 +136,36 @@ on_deck :: proc(phys: ^physics.World, lift: ^Lift, point: [3]f32) -> bool {
 	)
 }
 
-// Whether the hoard rests aboard: nobody holds it, the sensor sees it, and its whole box is over the deck (each corner
-// of its bottom), so a chest left hanging over the edge doesn't go.
-hoard_aboard :: proc(t: ^Tick) -> bool {
-	hoard, lift := &t.state.hoard, &t.state.lift
-	if hoard.body == {} || hoard.haulers != {} do return false
-	physics.shape_sensor_data(t.world.phys, lift.sensor, &t.world.overlaps)
-	seen := false
-	for overlap in t.world.overlaps do seen ||= overlap.shape == hoard.shape
-	if !seen do return false
+// Where the hoard is against the deck: `seen`, the sensor over the deck sees it (a part of it is on the lift), and
+// `wholly`, its whole box is over the deck as well (each corner of its bottom). Seen but not wholly aboard, the HUD says
+// so ("the hoard must be wholly on the lift"): a chest hanging over the edge doesn't go. Pure (on the step's sensor
+// data, into the World's scratch `overlaps`): what the tick and the HUD both ask.
+hoard_on_deck :: proc(
+	phys: ^physics.World,
+	hoard: ^Hoard,
+	lift: ^Lift,
+	overlaps: ^[dynamic]physics.Overlap,
+) -> (
+	seen: bool,
+	wholly: bool,
+) {
+	if hoard.body == {} || lift.body == {} do return
+	physics.shape_sensor_data(phys, lift.sensor, overlaps)
+	for overlap in overlaps do seen ||= overlap.shape == hoard.shape
+	if !seen do return
 	for corner in 0 ..< 4 {
 		local := HOARD_HALF * {f32(corner & 1) * 2 - 1, -1, f32(corner >> 1) * 2 - 1}
-		at := physics.body_local_point(
-			t.world.phys,
-			lift.body,
-			physics.body_world_point(t.world.phys, hoard.body, local),
-		)
-		if abs(at.x) > LIFT_HALF.x || abs(at.z) > LIFT_HALF.z do return false
+		at := physics.body_local_point(phys, lift.body, physics.body_world_point(phys, hoard.body, local))
+		if abs(at.x) > LIFT_HALF.x || abs(at.z) > LIFT_HALF.z do return
 	}
-	return true
+	return true, true
+}
+
+// Whether the hoard rests aboard: nobody holds it and it is wholly on the deck (hoard_on_deck).
+hoard_aboard :: proc(t: ^Tick) -> bool {
+	if t.state.hoard.haulers != {} do return false
+	_, wholly := hoard_on_deck(t.world.phys, &t.state.hoard, &t.state.lift, &t.world.overlaps)
+	return wholly
 }
 
 // Whether the lift may go: the hoard aboard (hoard_aboard), every present hero aboard (on_deck: a downed one too), and
@@ -199,6 +210,12 @@ lift_gone :: proc(t: ^Tick) -> bool {
 	return t.state.lift.phase >= .Descending
 }
 
+// Whether the party is picking its boons at the lift's bottom: the heroes take no input but the pick (the tick skips the
+// systems that read it, and the drive stands every hero still).
+choosing :: proc(t: ^Tick) -> bool {
+	return t.state.lift.phase == .Choosing
+}
+
 // The lift's phase becomes `phase`, from now.
 @(private = "file")
 set_lift_phase :: proc(t: ^Tick, phase: Lift_Phase) {
@@ -224,14 +241,30 @@ descend :: proc(t: ^Tick) {
 	sim.emit(t, Event_Descended{depth = t.state.depth, gold = t.state.gold})
 }
 
-// Where `player`'s hero arrives while the lift is busy (boarding, going down or choosing): on the deck, LIFT_SLOT_SPREAD
-// out toward its slot's corner, at the deck's height now; false while it waits (the arrival goes beside the party).
+// Where `player`'s hero arrives while the lift is busy (boarding, going down or choosing): on the deck, at the deck's
+// height now, at the first of its places clear of the hoard and of every hero (an overlap of the arrival's capsule
+// against CAT_HOARD | CAT_HERO): its slot's corner (LIFT_SLOT_SPREAD out), then the next slots' corners round from it,
+// then the middle; with none clear, its corner anyway. False while it waits (the arrival goes beside the party).
 lift_arrival :: proc(t: ^Tick, player: sim.Player) -> (feet: [3]f32, aboard: bool) {
 	lift := &t.state.lift
 	if lift.body == {} || lift.phase == .Waiting do return
 	slot := sim.player_slot(t, player)
-	corner := [3]f32{f32(slot & 1) * 2 - 1, 0, f32(slot >> 1) * 2 - 1} * LIFT_SLOT_SPREAD
-	return physics.body_world_point(t.world.phys, lift.body, corner + {0, LIFT_HALF.y, 0}), true
+	corner :: proc(slot: int) -> [3]f32 {
+		return [3]f32{f32(slot & 1) * 2 - 1, 0, f32(slot >> 1) * 2 - 1} * LIFT_SLOT_SPREAD
+	}
+	capsule := [2][3]f32{{0, HERO_POGO_REST, 0}, {0, HERO_POGO_REST + 2 * HERO_HALF_HEIGHT, 0}}
+	proxy := physics.make_proxy(capsule[:], HERO_RADIUS)
+	filter := physics.Filter {
+		category = CAT_HERO,
+		mask     = CAT_HOARD | CAT_HERO,
+	}
+	for k in 0 ..= PLAYERS {
+		place := corner((slot + k) % PLAYERS) if k < PLAYERS else [3]f32{}
+		at := physics.body_world_point(t.world.phys, lift.body, place + {0, LIFT_HALF.y, 0})
+		physics.world_overlap_shape(t.world.phys, at, proxy, &t.world.overlaps, filter)
+		if len(t.world.overlaps) == 0 do return at, true
+	}
+	return physics.body_world_point(t.world.phys, lift.body, corner(slot) + {0, LIFT_HALF.y, 0}), true
 }
 
 // Dev (Command_Dev_Board): while the lift waits, every hold on the hoard lets go, the hoard is put on the middle of the

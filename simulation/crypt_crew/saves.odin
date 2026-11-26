@@ -34,7 +34,7 @@ Setup :: struct {
 // the floor between them.
 save :: proc(state: ^State, setup: ^Setup) -> bool {
 	continued := setup.version == SAVE_VERSION
-	if state.surges == (setup.surges if continued else 0) && state.depth == (setup.depth if continued else 0) {
+	if state.surges == (setup.surges if continued else 0) && state.saved_depth == (setup.depth if continued else 0) {
 		return false
 	}
 	setup^ = {
@@ -43,7 +43,7 @@ save :: proc(state: ^State, setup: ^Setup) -> bool {
 		surges  = state.surges,
 		kills   = state.saved_kills,
 		gold    = state.saved_gold,
-		depth   = state.depth,
+		depth   = state.saved_depth,
 	}
 	return true
 }
@@ -58,6 +58,7 @@ start_from_setup :: proc(t: ^Tick) -> Level_Id {
 	t.state.gold = t.setup.gold
 	t.state.saved_gold = t.setup.gold
 	t.state.depth = t.setup.depth
+	t.state.saved_depth = t.setup.depth
 	return t.setup.floor
 }
 
@@ -67,4 +68,5 @@ mark_save_point :: proc(t: ^Tick) {
 	t.state.saved_kills = t.state.kills
 	t.state.saved_floor = t.state.level.id
 	t.state.saved_gold = t.state.gold
+	t.state.saved_depth = t.state.depth
 }

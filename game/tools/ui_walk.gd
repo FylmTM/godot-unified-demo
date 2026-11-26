@@ -443,7 +443,8 @@ func _walk_purse_states() -> void:
 ## aboard, the deck goes down, and at the bottom the boon panel opens on the confirmed Choosing, three cards. Its rule,
 ## driven with made-up picks (BoonPanel.on_pick; alone, a real pick is confirmed in the frame it is emitted, so only
 ## this tells the states apart): the hero's own pick EMITTED or CANCELLED locks no card and plays nothing, nor does it
-## tick the party's row; another player's CONFIRMED ticks the row. Then the real pick: the cursor stepped right with D,
+## tick the party's row; another player's CONFIRMED ticks the row; the row follows the party as it changes (one set,
+## then the HUD data's). Then the real pick: the cursor stepped right with D,
 ## taken with E, chimes once confirmed (the panel's lock: alone, the lift leaves on the same tick, so the panel closes
 ## at once), and the party descends: the panel closes, the crypt fades out and back in on the next floor at depth 1, the
 ## purse taking the hoard's gold.
@@ -452,8 +453,11 @@ func _walk_boons() -> void:
 	var boons: Control = hud.call(&"boon_panels")
 	var gold: int = Unified.data.hud.gold
 	session.send_command(CommandDevBoard.new())
+	await wait_for(func() -> bool: return Unified.data.hud.lift == EnumLiftPhase.BOARDING, 5.0, "the lift boards")
+	await frames(10)
+	await shot("02_lift_boarding")
 	await wait_for(func() -> bool: return Unified.data.hud.lift == EnumLiftPhase.DESCENDING, 5.0, "the lift goes down")
-	await seconds(1.0)
+	await seconds(1.2)
 	await shot("02_lift_descending")
 	await wait_for(func() -> bool: return not _boon_panels_open(boons).is_empty(), 8.0, "the boon panel opens")
 	if failed():
@@ -478,6 +482,14 @@ func _walk_boons() -> void:
 	var mine_locked: bool = panel.call(&"taken")
 	expect(other_ticked and not mine_locked and played(&"boon", mark) == 0,
 		"another's CONFIRMED pick ticks the party's row, and locks nothing of ours")
+	var joiner: int = me + 2000  # a player who joins the party while it chooses, then leaves
+	panel.call(&"set_party", [me, joiner] as Array[int])
+	var waits: Array = panel.call(&"waiting_for")
+	expect(waits == [me, joiner], "the row lists who joined: %s" % [waits])
+	boons.call(&"_on_data_changed")  # the HUD data's party (this player alone): the row follows it
+	waits = panel.call(&"waiting_for")
+	expect(waits == [me], "the row follows the data's party as it changes: %s" % [waits])
+	await seconds(0.6)  # the camera eased up, the party clear of the panel
 	await shot("02_boon_panel")
 	var hero: DataHudHero = null
 	for each: DataHudHero in Unified.data.hud.heroes:

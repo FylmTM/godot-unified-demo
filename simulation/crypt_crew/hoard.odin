@@ -7,14 +7,17 @@
 // of the hoard's weight. That cap is the whole rule of carrying: over half the weight, one hauler lifts its end and
 // drags the other along the floor; under all of it, only two lift it clear. The hauler's speed asks physics which it is
 // (haul_speed: the chest's lowest corner off the floor or not), so one hauler is slow (HOARD_DRAG_SPEED) and two are
-// quicker (HOARD_CARRY_SPEED), from the same rule. The hold is set where the handle was when taken, on the hauler's
-// side, and doesn't turn with its facing: a hauler walks any way and the chest comes along.
+// quicker (HOARD_CARRY_SPEED), from the same rule. The hold keeps its handle where it is, within a band of the
+// hauler's capsule (haul_frame), and doesn't turn with its facing: a hauler walks any way and the chest comes along,
+// and two haulers never fight over where the rigid chest is. A hauler's drive is capped (HOARD_GROUND_FORCE), so the
+// chest it pulls holds it back as it gets going, and the hauler bumps the chest as any body (it can't walk into it).
 //
 // A hauler does nothing else (Action.Haul: no attack, no ability, no revive) until it lets go: Interact again, going
 // down, leaving, a level change (all through release_hold), or its hold stretched past HOARD_SLIP (the chest caught on
-// something, its hauler gone on: hold_hauls). Unheld, the chest weighs HOARD_REST_MASS, so heroes can't shove it to the
-// lift: it goes where it is hauled. The first grab on a floor wakes the crypt: the surges come every HAUL_SURGE_S
-// from then on (surge_every). Minions are pushed out of it (obstacles_of).
+// something, its hauler gone on: hold_hauls). Unheld and settled, the chest weighs HOARD_REST_MASS (settle_hoard), so
+// heroes can't shove it to the lift: it goes where it is hauled. A hand is taken only while the lift waits at the top.
+// The first grab on a floor wakes the crypt: the surges come every HAUL_SURGE_S from then on (surge_every). Minions are
+// pushed out of it (obstacles_of).
 package crypt_crew
 
 import "unified:dmath"
@@ -34,7 +37,8 @@ Hoard :: struct {
 	shape:   physics.Shape_Ref, // its box: its density says what it weighs (held, or at rest)
 	haulers: [2]sim.Player, // who holds each handle, Left then Right ({}: nobody)
 	hauled:  bool, // a handle was taken on this floor: the haul's surges are on
-	_pad:    [3]u8,
+	resting: bool, // it weighs HOARD_REST_MASS: unheld and settled (settle_hoard)
+	_pad:    [2]u8,
 }
 
 // A hoard's place (a `hoard` marker): where it stands and how it is turned (its handles along the marker's X).
@@ -71,6 +75,7 @@ spawn_hoard :: proc(t: ^Tick) {
 	body_def := physics.body_def(.Dynamic, def.pos + {0, HOARD_HALF.y, 0}, def.rot)
 	body_def.angular_damping = HOARD_ANGULAR_DAMPING
 	hoard.body, hoard.shape = physics.create_box(t.world.phys, body_def, shape_def, HOARD_HALF)
+	hoard.resting = true
 }
 
 // The hoard's body goes (enter_level, after every hold let go of it).
@@ -85,12 +90,12 @@ handle_point :: proc(phys: ^physics.World, hoard: ^Hoard, handle: Haul_Handle) -
 	return physics.body_world_point(phys, hoard.body, {side * HOARD_HANDLE.x, HOARD_HANDLE.y, HOARD_HANDLE.z})
 }
 
-// The handle `hero` would take now (None: none): nothing unless the floor has a hoard, the lift still waits for it
-// (not yet going down) and the hero's hands are free (can_grab); else the nearest handle nobody holds within GRAB_RANGE
-// of its capsule on the floor plan, within GRAB_HEIGHT of its feet, no wall between its chest and the handle. Pure: what
-// the press (use_hands) and the "[E] Haul" prompt both ask.
+// The handle `hero` would take now (None: none): nothing unless the floor has a hoard, the lift still waits for it (not
+// boarding, nor gone down) and the hero's hands are free (can_grab); else the nearest handle nobody holds within
+// GRAB_RANGE of its capsule on the floor plan, within GRAB_HEIGHT of its feet, no wall between its chest and the
+// handle. Pure: what the press (use_hands) and the "[E] Haul" prompt both ask.
 haul_target :: proc(phys: ^physics.World, hoard: ^Hoard, lift: ^Lift, hero: ^Hero) -> (target: Haul_Handle) {
-	if hoard.body == {} || lift.phase > .Boarding || !can_grab(hero) do return
+	if hoard.body == {} || lift.phase != .Waiting || !can_grab(hero) do return
 	chest := hero.pos + {0, HOLD_HEIGHT, 0}
 	nearest := max(f32)
 	for handle in Haul_Handle.Left ..= Haul_Handle.Right {
@@ -127,7 +132,10 @@ grab_haul :: proc(t: ^Tick, player: sim.Player, handle: Haul_Handle) {
 		physics.link(hoard.body),
 		joint_def,
 	)
-	if hoard.haulers == {} do physics.shape_set_density(t.world.phys, hoard.shape, physics.box_density(HOARD_MASS, HOARD_HALF))
+	if hoard.resting {
+		physics.shape_set_density(t.world.phys, hoard.shape, physics.box_density(HOARD_MASS, HOARD_HALF))
+		hoard.resting = false
+	}
 	hoard.haulers[int(handle) - 1] = player
 	hero.handle = handle
 	hero.action, hero.action_started = .Haul, t.time
@@ -142,7 +150,8 @@ grab_haul :: proc(t: ^Tick, player: sim.Player, handle: Haul_Handle) {
 }
 
 // `player`'s hero lets go of its handle, if it holds one (`slipped`: its hold stretched too far): the joint goes, the
-// handle is free, the hero stands free (Action.None), and the hoard, unheld by anyone, weighs HOARD_REST_MASS again.
+// handle is free and the hero stands free (Action.None); the hoard, unheld, weighs HOARD_REST_MASS again once it has
+// settled (settle_hoard).
 release_haul :: proc(t: ^Tick, player: sim.Player, slipped: bool) {
 	hero := sim.player_data(t, player)
 	handle := hero.handle
@@ -150,9 +159,6 @@ release_haul :: proc(t: ^Tick, player: sim.Player, slipped: bool) {
 	hoard := &t.state.hoard
 	physics.destroy_joint(t.world.phys, &hero.hold)
 	hoard.haulers[int(handle) - 1] = {}
-	if hoard.haulers == {} {
-		physics.shape_set_density(t.world.phys, hoard.shape, physics.box_density(HOARD_REST_MASS, HOARD_HALF))
-	}
 	hero.handle = .None
 	if hero.action == .Haul do hero.action, hero.action_started = .None, t.time
 	sim.emit(t, Event_Hoard_Dropped{player = player, handle = handle, slipped = slipped})
@@ -167,6 +173,19 @@ haul_frame :: proc(phys: ^physics.World, hoard: ^Hoard, hero: ^Hero, handle: Hau
 	toward := offset / apart if apart > 0 else hero.facing
 	reach := dmath.clamp(apart, HERO_RADIUS + HOARD_HOLD_NEAR, HERO_RADIUS + HOARD_HOLD_FAR)
 	return {{toward.x * reach, HOARD_HOLD_HEIGHT - HERO_CENTRE_ABOVE_FEET, toward.y * reach}, {0, 0, 0, 1}}
+}
+
+// After the physics step: an unheld hoard that has come nearly to rest (slower than HOARD_SETTLE_SPEED, turning slower
+// than HOARD_SETTLE_SPIN) weighs HOARD_REST_MASS again. Not at the release: a chest let go of at a carry's speed with
+// a hundred times its mass would shove whatever it met as a wall would.
+settle_hoard :: proc(t: ^Tick) {
+	hoard := &t.state.hoard
+	if hoard.body == {} || hoard.resting || hoard.haulers != {} do return
+	speed := dmath.length(physics.body_linear_velocity(t.world.phys, hoard.body))
+	spin := dmath.length(physics.body_angular_velocity(t.world.phys, hoard.body))
+	if speed >= HOARD_SETTLE_SPEED || spin >= HOARD_SETTLE_SPIN do return
+	physics.shape_set_density(t.world.phys, hoard.shape, physics.box_density(HOARD_REST_MASS, HOARD_HALF))
+	hoard.resting = true
 }
 
 // After the physics step: each hold on the hoard stretched past HOARD_SLIP (from where the hold would have the handle

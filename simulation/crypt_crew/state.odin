@@ -42,6 +42,8 @@ State :: struct {
 	hoard:        Hoard, // the floor's gold chest
 	lift:         Lift, // the floor's exit
 	depth:        u32, // the floors the party has gone down this run, a save's included
+	saved_depth:  u32, // `depth` at the last save point (a surge's rise, the descent): what the save holds
+	_pad_depth:   u32,
 }
 
 // What a hero is doing, for the view to pose (a one-shot clip at its age).
