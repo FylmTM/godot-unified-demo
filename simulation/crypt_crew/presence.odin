@@ -20,10 +20,11 @@ Event_Hero_Spawned :: struct {
 	beside:   bool,
 }
 
-// What blocks an arrival's way from its anchor: walls and low cover (an arrival must walk to the party, not see it).
+// What blocks an arrival's way from its anchor: walls, low cover and mechanisms (a shut gate, a barricade, a roller):
+// an arrival must walk to the party, not see it.
 ARRIVAL_FILTER :: physics.Filter {
 	category = CAT_HERO,
-	mask     = CAT_WALL | CAT_LOW,
+	mask     = CAT_WALL | CAT_LOW | CAT_PIECE,
 }
 
 // Leaves, then arrivals in slot order: a leaver drops what it carries, ends its throws' ignores (end_throws_by), is let

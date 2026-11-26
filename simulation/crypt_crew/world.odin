@@ -22,11 +22,13 @@ CAT_LOW :: u64(1 << 2) // low cover: blocks walking only, shots fly over it
 CAT_HERO :: u64(1 << 3)
 CAT_PROP :: u64(1 << 4)
 CAT_ELITE :: u64(1 << 5) // an elite's capsule (elites.odin)
+CAT_PIECE :: u64(1 << 6) // a mechanism's body: a plate, a gate, a barricade, a trap (plates.odin, gates.odin, ...)
 
 // The game's levels, in GAME.levels' order (the State's `level` says which is active).
 Level_Id :: enum u8 {
 	Floor_1,
 	Arena, // one great hall where a crowd of hundreds fits: the crowd's benchmark rows and scale tests play it
+	Workshop, // a small hall holding each mechanism: the mechanisms' tests and look-dev play it
 }
 
 // What a prop marker places (game/levels/markers/prop.gd's `kind`, by name).
@@ -63,6 +65,11 @@ Places :: struct {
 	packs:       sim.List(Pack_Def, MAX_PACKS),
 	props:       sim.List(Prop_Def, MAX_PROPS),
 	elites:      sim.List(Elite_Def, MAX_ELITE_MARKERS), // asleep at their markers on entering (elites.odin)
+	// ---- mechanisms: each made on entering, in marker order (plates.odin, gates.odin, barricades.odin, traps.odin)
+	plates:      sim.List(Plate_Def, MAX_PLATES),
+	gates:       sim.List(Gate_Def, MAX_GATES),
+	barricades:  sim.List(Barricade_Def, MAX_BARRICADES),
+	traps:       sim.List(Trap_Def, MAX_TRAPS),
 }
 
 // A level's floor as the sim reads it, built once in world_create.
@@ -103,6 +110,10 @@ World :: struct {
 	in_way:         [MINION_GRID_CELLS]bool,
 	// scratch: the grid holds the minions where the physics step left them (strike_grid; cleared as the strikes begin)
 	strike_grid:    bool,
+	// ---- mechanisms' scratch
+	joints:         [dynamic]physics.Joint_Ref, // the step's joint events (break_barricades)
+	touching:       [dynamic]physics.Contact_Data, // a body's contacts (break_barricades)
+	sensed:         [dynamic]physics.Overlap, // what a sensor holds (spring_traps)
 }
 
 // Builds the world from the levels (unified/src/level/README.md): their static geometry, and each level's floor
@@ -128,6 +139,7 @@ world_create :: proc(seed: u64, levels: []sim.Level_File, _: Setup) -> ^World {
 		def.max_ground_force = HERO_GROUND_FORCE
 		def.accelerate = HERO_ACCELERATE
 		def.category = CAT_HERO
+		def.sensor_events = true // spikes feel it (traps.odin)
 		def.max_speed = CLASS_SPECS[class].max_speed
 		world.hero_defs[class] = def
 	}
@@ -298,11 +310,37 @@ read_places :: proc(places: ^Places, floor: ^level.Level) {
 			facing := dmath.normalize(dmath.quat_rotate(marker.rot, {0, 0, 1}).xz) // the marker's +Z, as a model's front
 			added := sim.append(&places.elites, Elite_Def{pos = marker.pos, facing = facing, kind = kind})
 			assert(added && facing != {}, "crypt_crew: more elites than MAX_ELITE_MARKERS, or one facing straight up")
+		// ---- mechanisms (plates.odin, gates.odin, barricades.odin, traps.odin)
+		case "plate":
+			plate := Plate_Def {
+				pos    = marker.pos,
+				rot    = marker.rot,
+				target = i32(level.prop_ref(&marker, "target")),
+			}
+			added := sim.append(&places.plates, plate) // its target is resolved below, once every marker is read
+			assert(added, "crypt_crew: more plates than MAX_PLATES")
+		case "gate":
+			gate := Gate_Def {
+				pos    = marker.pos,
+				rot    = marker.rot,
+				marker = i32(marker.index),
+				need   = i32(level.prop_int(&marker, "need")),
+				latch  = level.prop_bool(&marker, "latch"),
+			}
+			added := sim.append(&places.gates, gate)
+			assert(added, "crypt_crew: more gates than MAX_GATES")
+		case "barricade":
+			added := sim.append(&places.barricades, Barricade_Def{pos = marker.pos, rot = marker.rot})
+			assert(added, "crypt_crew: more barricades than MAX_BARRICADES")
+		case "trap":
+			added := sim.append(&places.traps, read_trap(&marker))
+			assert(added, "crypt_crew: more traps than MAX_TRAPS")
 		case:
 			assert(false, "crypt_crew: a marker of a kind the sim doesn't know (game/levels/markers/)")
 		}
 	}
 	for has_spawn in spawned do assert(has_spawn, "crypt_crew: a floor needs a hero_spawn per slot")
+	link_plates(places) // plates.odin
 	assert(places.graves.count > 0, "crypt_crew: a floor needs a grave for its surges to rise from")
 }
 
@@ -319,6 +357,9 @@ world_destroy :: proc(world: ^World) {
 	physics.destroy_hull(world.barrel_hull)
 	delete(world.contacts)
 	delete(world.shapes)
+	delete(world.joints)
+	delete(world.touching)
+	delete(world.sensed)
 	for &floor in world.floors {
 		nav.fields_destroy(&floor.fields)
 		nav.destroy(&floor.mesh)
@@ -341,17 +382,21 @@ init :: proc(t: ^Tick) {
 }
 
 // Takes the party to level `to` (init, the wipe's floor restart; the next floor later): every hero lets go and its body
-// goes, the props, the minions, the bolts and fireballs in flight and the elites (their bodies with them) go, a wipe
-// ends, the static geometry is swapped (physics.level_change), then the new level's props are made in marker order, its
-// packs and its elite markers' elites put to sleep (neither under a held crowd), its surge clock started, and every
-// present hero gets a body at its slot's spawn. The coins on the floor go too. What the block keeps across it (the
-// heroes' classes, the clock, the session's counts, the purse) stays.
+// goes, the props, the mechanisms, the minions, the bolts and fireballs in flight and the elites (their bodies with
+// them) go, a wipe ends, the static geometry is swapped (physics.level_change), then the new level's props and
+// mechanisms are made in marker order, its packs and its elite markers' elites put to sleep (neither under a held
+// crowd), its surge clock started, and every present hero gets a body at its slot's spawn. The coins on the floor go
+// too. What the block keeps across it (the heroes' classes, the clock, the session's counts, the purse) stays.
 enter_level :: proc(t: ^Tick, to: Level_Id) {
 	holding := sim.iterate_present(t)
 	for _, player in sim.next(&holding) do release_hold(t, player) // every hold, before any body it holds goes
 	leaving := sim.iterate_present(t)
 	for hero in sim.next(&leaving) do destroy_hero_body(t.world.phys, hero)
 	despawn_props(t)
+	physics.despawn_all(t.world.phys, &t.state.plates) // the mechanisms, their joints with them
+	physics.despawn_all(t.world.phys, &t.state.gates)
+	physics.despawn_all(t.world.phys, &t.state.barricades)
+	physics.despawn_all(t.world.phys, &t.state.traps)
 	sim.despawn_all(&t.state.minions)
 	sim.despawn_all(&t.state.bolts)
 	sim.despawn_all(&t.state.fireballs) // in flight: they burst on no floor
@@ -361,6 +406,10 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 	sim.despawn_all(&t.state.loot) // the purse is kept: its gold, like the tally, outlives the floor
 	physics.level_change(t, t.world.phys, to)
 	spawn_props(t)
+	spawn_plates(t) // the mechanisms, each kind in marker order
+	spawn_gates(t)
+	spawn_barricades(t)
+	spawn_traps(t)
 	if t.setup.crowd == .None do spawn_packs(t) // a held crowd is the floor's whole population
 	if t.setup.crowd == .None do spawn_marker_elites(t) // and none under a held crowd
 	sim.timer_start_ticks(t, &t.state.surge, SURGE_FIRST_TICKS)

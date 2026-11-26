@@ -40,4 +40,9 @@ Event :: union {
 	// loot (loot.odin)
 	Event_Loot_Dropped,
 	Event_Loot_Collected,
+	// mechanisms (plates.odin, gates.odin, barricades.odin, traps.odin)
+	Event_Plate,
+	Event_Gate,
+	Event_Barricade_Broken,
+	Event_Trap_Hit,
 }

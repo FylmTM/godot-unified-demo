@@ -499,3 +499,71 @@ ELITE_GOLD := [Elite_Kind]int {
 	.Rogue   = 20,
 	.Mage    = 25,
 }
+
+// ---- mechanisms: plates, gates, barricades and traps, Box3D bodies made from a floor's markers (plates.odin,
+// gates.odin, barricades.odin, traps.odin)
+
+MAX_PLATES :: 8
+MAX_GATES :: 8
+MAX_BARRICADES :: 8
+MAX_TRAPS :: 16
+// A gate or an unbroken barricade keeps minions out with three circles of this radius along its width (its middle and
+// two thirds of the way to each end), which overlap over a 4 m span (gate_obstacles, barricade_obstacles).
+PIECE_OBSTACLE_RADIUS :: f32(0.7)
+
+// A plate (plates.odin): a slab (the decorated tile, 2 m square) on a vertical prismatic joint, held up by its joint's
+// motor, which bears PLATE_LOAD on top of the slab's own weight and no more: a crate, a barrel or a hero standing on it
+// (its pogo spring pushes on whatever it stands on) sinks it, a lighter load doesn't. Box3D's prismatic spring has no
+// force cap, so the motor is the spring: it lifts the slab back at PLATE_RISE_SPEED once the load is off.
+PLATE_HALF :: [3]f32{0.95, 0.04, 0.95}
+PLATE_TRAVEL :: f32(0.12) // how far the slab sinks: its joint's limits, from its rest to a hand above the floor
+PLATE_CLEARANCE :: f32(0.01) // between the slab, sunk all the way, and the floor under it
+PLATE_ON :: f32(0.07) // sunk deeper than this, a plate is pressed ...
+PLATE_OFF :: f32(0.03) // ... and released once it rises above this (hysteresis: a bobbing slab never flickers)
+PLATE_MASS :: f32(10)
+PLATE_LOAD :: f32(15) // kilograms the motor bears on top of the slab's weight
+PLATE_RISE_SPEED :: f32(0.5) // metres per second: a released slab is back up in about a quarter second
+#assert(0 < PLATE_OFF && PLATE_OFF < PLATE_ON && PLATE_ON < PLATE_TRAVEL)
+
+// A gate (gates.odin): a grille (the gated wall, 4 m wide) on a vertical prismatic joint whose motor lifts it while
+// enough of its plates are pressed and lowers it otherwise, gravity off (the motor alone moves it).
+GATE_HALF :: [3]f32{1.95, 2, 0.2} // a hand narrower than the 4 m gap, so it never rubs the walls beside it
+GATE_MASS :: f32(120)
+GATE_SPEED :: f32(2) // metres per second, up or down
+GATE_RISE :: f32(2.6) // how high it lifts: its bottom clears a hero's head
+GATE_LIFT_FORCE :: f32(1500) // the motor's cap lifting it: full speed in about a sixth of a second
+// ... and lowering it: what it presses on whatever is under it, so a crate wedges it and a hero walks out from under it.
+GATE_CLOSE_FORCE :: f32(300)
+GATE_PASS :: f32(1.8) // lifted less than this, it is in minions' way (gate_obstacles)
+#assert(GATE_PASS < GATE_RISE)
+
+// A barricade (barricades.odin): a fence (the barrier, 4 m wide) welded to the world until a blow strains the weld past
+// BARRICADE_BREAK_N, which breaks it: the fence falls free as debris. A hero walking into it pushes at most
+// HERO_GROUND_FORCE; a thrown prop or a charge hits far harder.
+BARRICADE_HALF :: [3]f32{2, 0.55, 0.25}
+BARRICADE_MASS :: f32(80)
+BARRICADE_BREAK_N :: f32(6000)
+
+// Spikes (traps.odin): a sensor box over the spike tile's middle, up SPIKES_UP_S of every SPIKES_PERIOD_S (a pure
+// function of the game clock and the marker's phase), or while its plate is pressed. Up, they strike as they rise and
+// every SPIKES_HIT_TICKS after: SPIKES_DAMAGE to each hero, elite and minion over them, knocking skeletons off at
+// SPIKES_KNOCK.
+SPIKES_HALF :: f32(1.1) // half the spike cluster's width (it is square)
+SPIKES_SENSOR_HEIGHT :: f32(0.6) // the sensor's height above the floor: it meets every capsule standing there
+SPIKES_PERIOD_S :: f32(3)
+SPIKES_PERIOD_TICKS :: u32(SPIKES_PERIOD_S * TICK_HZ)
+SPIKES_UP_S :: f32(1)
+SPIKES_UP_TICKS :: u32(SPIKES_UP_S * TICK_HZ)
+SPIKES_HIT_TICKS :: u32(32)
+SPIKES_DAMAGE :: i16(20)
+SPIKES_KNOCK :: f32(5)
+#assert(SPIKES_UP_TICKS < SPIKES_PERIOD_TICKS)
+
+// The roller (traps.odin): a kinematic pillar driven along its marker's path, there and back, its phase a pure function
+// of the game clock; it shoves bodies as any moving body does, and strikes what touches it (within ROLLER_TOUCH of its
+// sides) every ROLLER_HIT_TICKS: ROLLER_DAMAGE, knocking skeletons away at ROLLER_KNOCK.
+ROLLER_HALF :: [3]f32{0.75, 2, 0.75} // the pillar, 1.5 m square and 4 m tall
+ROLLER_TOUCH :: f32(0.15)
+ROLLER_HIT_TICKS :: u32(48)
+ROLLER_DAMAGE :: i16(15)
+ROLLER_KNOCK :: f32(6)

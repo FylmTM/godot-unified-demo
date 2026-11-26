@@ -38,6 +38,12 @@ State :: struct {
 	saved_gold:   u32, // `gold` when the last surge rose: what the save holds (saves.odin)
 	drops:        u32, // the drop rolls made this session (felled minions): what each one's rolls are named by
 	_pad_loot:    u32,
+	// ---- mechanisms (plates.odin, gates.odin, barricades.odin, traps.odin): each table made from the floor's markers
+	// of its kind when the party enters it, in marker order, so a row's index is its marker's in the floor's Places
+	plates:       sim.Table(Plate, MAX_PLATES),
+	gates:        sim.Table(Gate, MAX_GATES),
+	barricades:   sim.Table(Barricade, MAX_BARRICADES),
+	traps:        sim.Table(Trap, MAX_TRAPS),
 }
 
 // What a hero is doing, for the view to pose (a one-shot clip at its age).

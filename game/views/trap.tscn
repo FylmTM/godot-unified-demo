@@ -1,0 +1,27 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/views/trap.gd" id="trap"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/floor_tile_big_spikes.gltf" id="spikes"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/pillar.gltf" id="pillar"]
+
+[node name="Trap" type="Node3D"]
+script = ExtResource("trap")
+
+[node name="UnifiedView" type="UnifiedView" parent="."]
+kind = "trap"
+
+[node name="Spikes" parent="." instance=ExtResource("spikes")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.4, 0)
+visible = false
+
+[node name="floor_tile_big_spikes" parent="Spikes" index="0"]
+mesh = null
+
+[node name="spikes" parent="Spikes/floor_tile_big_spikes" index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.95, 0)
+
+[node name="Roller" parent="." instance=ExtResource("pillar")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 0)
+visible = false
+
+[editable path="Spikes"]

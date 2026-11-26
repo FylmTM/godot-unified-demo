@@ -1,0 +1,13 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/views/gate.gd" id="gate"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/wall_gated.gltf" id="model"]
+
+[node name="Gate" type="Node3D"]
+script = ExtResource("gate")
+
+[node name="UnifiedView" type="UnifiedView" parent="."]
+kind = "gate"
+
+[node name="Model" parent="." instance=ExtResource("model")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 0)

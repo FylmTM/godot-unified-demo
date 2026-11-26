@@ -120,6 +120,7 @@ elite_def :: proc(kind: Elite_Kind) -> physics.Character_Def {
 	def.max_ground_force = ELITE_GROUND_FORCE
 	def.accelerate = HERO_ACCELERATE
 	def.category = CAT_ELITE
+	def.sensor_events = true // spikes feel it (traps.odin)
 	def.max_speed = ELITE_SPECS[kind].max_speed
 	return def
 }

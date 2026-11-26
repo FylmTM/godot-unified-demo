@@ -1,0 +1,13 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/views/barricade.gd" id="barricade"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/barrier.gltf" id="model"]
+
+[node name="Barricade" type="Node3D"]
+script = ExtResource("barricade")
+
+[node name="UnifiedView" type="UnifiedView" parent="."]
+kind = "barricade"
+
+[node name="Model" parent="." instance=ExtResource("model")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.55, 0)
