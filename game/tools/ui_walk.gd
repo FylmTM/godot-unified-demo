@@ -399,7 +399,7 @@ func _walk_loot() -> void:
 ## emitted, so only this tells the states apart): an EMITTED pickup and a CANCELLED one move nothing and play nothing;
 ## a CONFIRMED one shows its total, with one chime and its "+N". The prediction never moves the purse after its start:
 ## with a confirmed total the HUD data runs ahead of (a pickup predicted, not yet confirmed), the purse keeps it while
-## the ticks go by. Then it is put back at the State's gold.
+## the data changes (a scratch of a dev hurt). Then it is put back at the State's gold.
 func _walk_purse_states() -> void:
 	var purse: Control = find(current_scene, ^"Hud/%Purse") as Control
 	var at: Vector3 = local_hero().global_position
@@ -421,7 +421,15 @@ func _walk_purse_states() -> void:
 	expect(PurseWatch.gold_of(purse) == start + 2 and played(&"coin", mark) == 1 and gains.size() == 1,
 		"a CONFIRMED pickup shows its total %d, chimes once, floats its \"+2\"" % PurseWatch.gold_of(purse))
 	purse.call(&"on_pickup", UnifiedSession.EVENT_CONFIRMED, start - 1, 1, at)
-	await seconds(0.3)
+	var changes: Array[int] = [0]
+	var count_change: Callable = func() -> void: changes[0] += 1
+	Unified.data.hud.changed.connect(count_change)
+	var scratch := CommandDevHurt.new()  # a scratch: the HUD data changes (the hero's health), as it does in play
+	scratch.damage = 1
+	session.send_command(scratch)
+	await wait_for(func() -> bool: return changes[0] > 0, 2.0, "the HUD data changes")
+	await frames(2)
+	Unified.data.hud.changed.disconnect(count_change)
 	expect(PurseWatch.gold_of(purse) == start - 1, "the HUD data ahead of the confirmed total moves nothing (%d, data %d)"
 		% [PurseWatch.gold_of(purse), Unified.data.hud.gold])
 	purse.call(&"on_pickup", UnifiedSession.EVENT_CONFIRMED, Unified.data.hud.gold, 1, at)
