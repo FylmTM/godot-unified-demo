@@ -13,6 +13,7 @@
 [ext_resource type="PackedScene" path="res://game/characters/skeletons/warrior.tscn" id="11_db516"]
 [ext_resource type="PackedScene" path="res://game/characters/skeletons/rogue.tscn" id="12_uldh0"]
 [ext_resource type="PackedScene" path="res://game/characters/skeletons/mage.tscn" id="13_x830j"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_large.tscn" id="14_floor"]
 
 [node name="Lookdev" type="Node3D" unique_id=1967373511]
 script = ExtResource("1_nfcuv")
@@ -81,3 +82,66 @@ transform = Transform3D(0.9396926, 0, 0.34202012, 0, 1, 0, -0.34202012, 0, 0.939
 transform = Transform3D(0.90630776, 0, -0.42261827, 0, 1, 0, 0.42261827, 0, 0.90630776, 61.4, 0, 1.2)
 
 [node name="HeroLight" parent="Cast/HubMage" unique_id=327529875 instance=ExtResource("6_p30y0")]
+
+[node name="ParityStage" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 0, 0)
+
+[node name="Key" type="DirectionalLight3D" parent="ParityStage"]
+transform = Transform3D(0.8660254, 0, -0.5, -0.38302222, 0.64278764, -0.66341394, 0.32139380, 0.76604444, 0.55667040, 0, 6, 0)
+light_color = Color(1, 0.85, 0.7, 1)
+shadow_enabled = true
+
+[node name="Floor1" parent="ParityStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, -6)
+
+[node name="Floor2" parent="ParityStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, -2)
+
+[node name="Floor3" parent="ParityStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 2)
+
+[node name="Floor4" parent="ParityStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -6)
+
+[node name="Floor5" parent="ParityStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -2)
+
+[node name="Floor6" parent="ParityStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 2)
+
+[node name="Floor7" parent="ParityStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -6)
+
+[node name="Floor8" parent="ParityStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -2)
+
+[node name="Floor9" parent="ParityStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 2)
+
+[node name="Floor10" parent="ParityStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, -6)
+
+[node name="Floor11" parent="ParityStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, -2)
+
+[node name="Floor12" parent="ParityStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 2)
+
+[node name="Rigs" type="Node3D" parent="ParityStage"]
+
+[node name="Minion1" parent="ParityStage/Rigs" instance=ExtResource("10_cc424")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.8, 0, 0)
+
+[node name="Minion2" parent="ParityStage/Rigs" instance=ExtResource("10_cc424")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4, 0, 0)
+
+[node name="Minion3" parent="ParityStage/Rigs" instance=ExtResource("10_cc424")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="Minion4" parent="ParityStage/Rigs" instance=ExtResource("10_cc424")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.4, 0, 0)
+
+[node name="Minion5" parent="ParityStage/Rigs" instance=ExtResource("10_cc424")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.8, 0, 0)
+
+[node name="Crowd" type="MultiMeshInstance3D" parent="ParityStage"]
