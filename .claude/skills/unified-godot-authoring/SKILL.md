@@ -134,6 +134,9 @@ Every warning is an error. These are the ones that catch everybody:
   release loses the click, and that only shows in one run of several.
 - Look at a screenshot before trusting the default theme: deckbuilder's HP bars showed no fill until they had a style
   of their own (`add_theme_stylebox_override(&"fill", ...)`).
+- Never write to a Theme, or a StyleBox or Font it holds, every frame (a pulsing focus ring, say): each write emits `changed` and re-themes every
+  Control under it (milliseconds of process time a frame; `uni tool -- --frames` shows it as scene process, not
+  draw). Animate a node's `modulate`, a material, or a node of its own instead.
 
 ## The check loop
 

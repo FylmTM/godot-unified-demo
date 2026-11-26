@@ -33,7 +33,7 @@ Two at once: `start --name host -- --host-port 7000` and `start --name joiner --
 
 ## Windows
 
-Never disturb the developer: a window an agent opens starts muted on the leftmost screen and never takes focus
+Never disturb the developer: a window an agent opens starts muted in the top-left corner of the leftmost screen and never takes focus
 (`drive start`, `tool --window` and `coop --window` always do; `run` takes `--mute --screen left --background`). The
 editor takes focus: open it only when asked. `./uni tool <script> --window --shots` saves PNGs under `.out/shots/`
 (`--size WxH` for a look at another window size: one bigger than the leftmost screen moves just left of every screen;
