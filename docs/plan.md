@@ -15,12 +15,7 @@ braziers, and haul its treasure up to the lift.
   and continues from the menu. A player can join or rejoin at any time.
 - **Failure.** A downed hero ragdolls (today it lies in its death pose until revived). When the whole party is down,
   the floor restarts from the last save.
-- **Heroes.** Four classes (the Profile): Knight (sword arc, shield charge, block), Barbarian (cleave; grabs and
-  throws props, elites and allies), Mage (bolt, fireball with a physics blast), Rogue (crossbow that lands where the
-  shooter saw the target, dodge roll). Heroes shove and throw each other; they never damage each other.
-- **Enemies.** Skeleton minions as the crowd (about 500 alive), Skeleton Warriors (shielded), Skeleton Rogues
-  (flankers), Skeleton Mages (ranged, summoners), and a boss. Blasts and charges knock minions back too, through their
-  own velocity (a minion has no physics body).
+- **Enemies.** A boss, in the boss vault, beside the skeleton crowd and its elites.
 - **Depth.** Difficulty levels (the Setup); an endless arena mode (also the stress and benchmark scene); progress
   across runs (unlocks, best floors, gold hauled) that each player brings into a session through their Profile; each
   floor in 2–3 authored layouts, the run's seed picking the layout and placing spawns, props, traps and loot.
@@ -38,7 +33,7 @@ way of testing (below). What it shows already is the README's.
 
 ## How it's built
 
-- **Sim:** elites are Box3D bodies; the rule numbers get presets per difficulty and a quick preset for tests.
+- **Sim:** the rule numbers get presets per difficulty and a quick preset for tests.
 - **Ragdolls** drawn on the KayKit skeleton from the bones' rotations.
 
 ## How it's tested
@@ -50,7 +45,6 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 
 | # | What lands |
 |---|---|
-| 5 | Combat depth: abilities, elites, downed and revive, loot shown only when confirmed |
 | 6 | Physics set pieces: joints, plates, the lift, boons picked at it, traps, ragdolls, the hoard haul |
 | 7 | The run: the hub, three floors with their layouts, the boss, the run's save at each lift, difficulty, progress across runs, endless arena |
 | 8 | Polish: effects, audio, music, lighting, accessibility |
@@ -82,5 +76,8 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 - Verified session data: a `Data_*` value from the newest verified tick, beside the prediction's, so a HUD can start
   what must be final from it. The purse starts from the predicted HUD data once and counts confirmed pickups after
   (`game/play/purse.gd`). Later.
+- Per-instance colour on a MultiMesh view, so one kind draws its instances in more than one colour: a skeleton
+  Mage's bone bolts are a kind of their own meanwhile (`MultiView.Bone_Bolt`, `simulation/extension/frame.odin`).
+  Later.
 - Later, filed when it hurts: a shared app layer for games; composing a level from room scenes; the real-UDP net
   suite for game repos; a doc-comment lint a game's tests can run.

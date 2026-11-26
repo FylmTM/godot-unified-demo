@@ -764,139 +764,85 @@ Calls made in step 6's review (two reviewers' findings, the developer's decision
 
 ## Milestone 5: combat depth
 
-- Step 1 (downed and revive, the Knight's, Rogue's and Mage's abilities):
-  - A revive is an action of the reviver (`Action.Revive`, its Interact clip): a press within REVIVE_RANGE starts it,
-    holding keeps it; a blow taken or walking out of range ends it, and only a new press starts it again. Decided in
-    review: the press starts it through a held Attack too (it cuts a swing short, and no attack starts while it
-    tends), so "[E] Revive" shows exactly when a press revives, and such a press never grabs. When the ally rises, a
-    reviver still holding Interact carries on to another downed ally in range without a new press (kept as good UX).
-  - An ability cuts its hero's attack short (Block, Roll, Cast start from an attack too): a held Attack keeps a hero
-    attacking back to back, which would otherwise lock the Knight out of blocking.
-  - The fireball's landing is read when its windup ends, so the Mage aims through the windup and the ring follows the
-    aim until then. Added tuning: FIREBALL_NO_AIM (6 m along the facing without an aim's reach), FIREBALL_WALL_GAP
-    (0.3 m short of a wall), FIREBALL_FALLOFF (1.5 m, the blast's fade past FIREBALL_RADIUS).
-  - The blast on the props (decided in review): `physics.world_explode` pushed props through walls, so the fireball
-    applies its own impulse per prop, only where the wall ray from the blast's heart is clear (knock_area's rule):
-    FIREBALL_IMPULSE 240 N·s along the floor (a barrel at 8 m/s), FIREBALL_LIFT 0.35 of it up, so the lightest crate
-    rises under 1 m and none clears a 2.4 m wall. An occlusion option for world_explode is in plan.md's "Needed from
-    unified".
-  - The charge's blast is centred on the shield's face (HERO_RADIUS ahead, chest-high), so what is ahead is knocked
-    forward and what is beside it aside.
-  - A dev class change also clears the ability cooldown (the old class's ability's).
-  - The Barbarian's Ability does nothing until the heave (step 4); its pip shows full and its hint says "Ability".
-  - Leaving is no way up (decided in review): within a floor a leaver keeps its hit points, its ability's cooldown,
-    and being down with its revive's progress; a downed rejoiner arrives down (beside the party, or at its spawn) and
-    doesn't stop a wipe. A level change forgets it: whoever comes back after it comes back whole.
-  - Sounds (Kenney's Impact Sounds; the packs have no explosion): `impactMetal_heavy_000` for the block's clang,
-    `impactPunch_heavy_000` for the fireball's blast, `impactSoft_heavy_000` for going down, `impactBell_heavy_000` for
-    a revive (on CONFIRMED). All on the Interface bus until milestone 8's mix.
-  - The downed hero's ring is as wide as REVIVE_RANGE (stand inside it to revive) and fills clockwise from the top;
-    the fireball's ring is as wide as its blast. "[E] Revive" hangs over the downed ally, one per local hero who would
-    revive them, in that player's glyphs.
-  - The wipe's banner shows on the CONFIRMED Event_Party_Wiped and hides as soon as the HUD's data has a hero up (the
-    restart, a revive, a joiner), so a wipe a joiner stopped doesn't hang on.
-  - A pad's B is Ability in play and also `ui_cancel` in the menus and on a guest's drop card (as the design chose),
-    the way its A is Grab and the card's accept.
-  - Saved bindings (decided in review): a new action's default yields to a player's saved binding of another action
-    (Left Shift saved to Attack, B to Grab), so nothing fires twice; Ability then keeps its other default on that
-    device, or none.
+The calls made building abilities, elites, downed and revive, loot and the joins between them, beyond the design's
+decided ones (heave grabs elites and downed allies only; down until revived; one purse; five sounds; no unified
+changes).
 
-## Milestone 5, step 2: the elites
+Downed and revive:
+- A revive is the reviver's action (`Action.Revive`): Interact's press within REVIVE_RANGE starts it (through a held
+  Attack too, cutting the swing; that press never grabs), holding keeps it; a blow or walking off ends it. A reviver
+  still holding Interact when its ally rises carries on to the next downed ally in range. "[E] Revive" and the tick
+  ask the same revive_target, so the prompt shows exactly when a press revives; a heaved ally is nobody's to tend.
+- Leaving is no way up: within a floor a leaver keeps its HP, cooldown, being down and its revive's progress; a
+  level change forgets it. The downed ring is REVIVE_RANGE wide; toast, chime and wipe banner show on CONFIRMED.
 
-Calls made building the elites (docs/plan.md's design, section B), one line each:
+Abilities:
+- An ability cuts an attack short (a held Attack would otherwise lock the Knight out of blocking). A dev class change
+  ends the old class's ability and its cooldown, and lets a heave's body down.
+- The fireball's landing is read at its windup's end (the ring follows the aim until then); FIREBALL_NO_AIM 6 m,
+  FIREBALL_WALL_GAP 0.3 m, FIREBALL_FALLOFF 1.5 m added. Its blast is its own impulse per body where the wall ray from
+  its heart is clear (world_explode pushed through walls: plan.md, Needed from unified): FIREBALL_IMPULSE 240 N·s, a
+  barrel at 8 m/s, an elite under 1 m/s on top of its knock; FIREBALL_LIFT 0.35, no prop over a wall.
+- The charge's blast is centred on the shield's face, so what is ahead goes forward and what is beside goes aside.
+- The heave (step 4): a held body is a limp character on the prop hold's motor joint, its mass set to HEAVE_MASS 60 kg
+  while it hangs (a 320 kg skeleton on a hold capped by its weight would drag the Barbarian about), its own restored
+  as it is let go, so a thrown elite flies with its full weight. HEAVE_HOLD_HEIGHT 1.6 m keeps the capsule under the
+  doorways' lintel. Added: HEAVE_SPEED 0.6 (the Barbarian slowed while heaving), HEAVE_LAND_GAP 0.25 m and
+  HEAVE_FLIGHT_MAX_S 2 (when a throw has landed). A press with nothing in the cone spends no cooldown; the cooldown
+  runs from the heave's end. Unthrown at HEAVE_MAX_S, the body is let down where it hangs (no blast).
+- A held downed ally stays `Action.Down` and carries `Hero.heave` (Held, Thrown) instead of the design's Action.Held
+  and Thrown: every "is it down" rule (minions' targets, the wipe, loot, revive) keeps reading Down. An elite's are
+  phases (Elite_Phase.Held, Thrown), so its steering and attacks stand still by phase. The Barbarian's own actions
+  are Heave and Hurl (timed as a prop's throw).
+- The landing's blast hits as a thrown prop does: it breaks a Warrior's guard; a thrown elite also takes
+  HEAVE_LAND_DAMAGE itself, from no side, and staggers. A thrown downed ally's landing blasts too (heroes feel none),
+  so a rescue throw into a pack still knocks it back. A sleeping elite heaved or pushed by a blast is roused first,
+  since a sleeper's capsule is kinematic (resim-perf) and neither a hold nor an impulse moves it.
+- The Barbarian's prop throws: BARBARIAN_THROW 1.3 scales the speed along the floor only, so the arc's height and
+  time stay and it flies 1.3 times as far. Its HUD hint is "Heave".
+- Sounds (Kenney's Impact Sounds; no explosion in the packs): `impactMetal_heavy_000` the block, `impactPunch_heavy_000`
+  the fireball, `impactSoft_heavy_000` going down, `impactBell_heavy_000` a revive (CONFIRMED), RPG Audio's
+  `handleCoins2` a coin (CONFIRMED), all on the Interface bus until milestone 8's mix. A landing has dust and a small
+  shake, no sound of its own.
+- Bindings: a pad's B is Ability in play and `ui_cancel` in menus; a new action's default yields to a player's saved
+  binding of another action, so nothing fires twice.
 
-- Floor 1's two elite markers: a Warrior asleep in the great hall (10, -8) facing the west corridor, and a Mage asleep
-  in the north room (8, -18.6) behind its pack. A marker's elite sleeps (Idle) and wakes as a pack's sleepers do: a
-  hero in sight within AGGRO_RADIUS, or a hit. No Rogue marker: Rogues come from surges and the dev command.
-- The surge's elite kind is `(floor_surges / ELITE_SURGE_EVERY - 1) % 3` (Warrior, Rogue, Mage in turn): the design's
-  `floor_surges % 3` is always 0 on every third surge. It rises at the surge's graves in turn, in Rise, as a minion.
-- Every elite is a `physics.Character` capsule (radius 0.45, 2.1 m), category CAT_ELITE (32), four times a hero's
-  weight (ELITE_DENSITY) with a 24,000 N drive (ELITE_GROUND_FORCE), so a hero walking into one moves it under 0.3 m in
-  2 s (at a hero's weight a Knight shoved a Warrior 7 m in 3 s, and sleepers slid while shown asleep). An elite turns
-  at most 4° a tick (256°/s), so a hero can get round a Warrior's shield.
-- A sleeping elite's capsule is kinematic and may sleep in Box3D until it wakes (rouse_elite makes it a character):
-  a character never sleeps and is driven every tick, so Floor 1's two sleepers cost a sixth of its step (bench, A/B);
-  nothing shoves a sleeper now, where a hero moved one under 0.3 m in 2 s.
-- An elite's capsule reports no hits of its own (`hit_events` off): a prop's shape reports the prop's hits, which is
-  all elite_impacts reads. Probed: an elite knocked into a wall made a stray hit event with it on, none with it off,
-  and the thrown-prop tests pass either way.
-- Elites steer as the nav fields say, so they walk round props only by their capsule sliding off them (the fields
-  know nothing of props): accepted.
-- A guarded blow (from within 60° of a Warrior's facing, its shield up) takes 25 % of the damage, rounded, at least 1,
-  and neither knocks nor staggers it: a stagger lowers the shield, so a guarded blow that staggered would leave none.
-  A sleeping Warrior doesn't guard (nor shows the guard pose or the glint): the blow that wakes it lands whole.
-- Knocks: an elite takes half a blow's knock (ELITE_KNOCK_TAKE) as a velocity change, at most 6 m/s, which its drive's
-  friction stops; a knock of 6 m/s or more (a cleave, a thrown prop; a charge and a fireball later) staggers it 0.5 s,
-  which cuts off its attack or its summoning (a summoning cut off is tried again 6 s on, SUMMON_RETRY_S). A sword, a
-  bolt or a shot doesn't stagger.
-- A thrown prop hits an elite through Box3D's own hit event (elite_impacts, after prop_impacts), not prop_hits' walk:
-  the elite is a body the prop bounces off, and a footprint test would race the solver. It breaks the guard first, so
-  the hit lands whole (PROP_HIT_DAMAGE, PROP_HIT_KNOCK). A throw hurts each elite once, as each minion
-  (Prop.elites_hit, cleared by the next throw).
-- An elite's body goes at its death (heroes walk over the fallen); its row lingers DEATH_S for the fall and the sink.
-  An elite counts as a skeleton felled (`kills`).
-- The Rogue circles at FLANK_BEHIND round its target (a tangent and a pull back onto the circle) once within 6 m and
-  in sight, lunges from within 0.75 m of the spot behind it (or once its patience ran out, 3 s of circling counted
-  from when it began to circle, from 3 m), never without sight of its target, at 7 m/s through its 0.375 s windup,
-  homing at the elites' turn rate (a lunge locked at its start missed a target it had been circling), then backs off
-  1.5 s.
-- The Mage's bolt: a 0.5 s cast facing its target, then a bone bolt along that facing at 10 m/s for 1.5 s (dodged by
-  moving), 12 damage through damage_hero from where it flew (step 4's block judges that). Its first bolt 1 s after it
-  wakes; its summoning every 12 s (the first 12 s after it wakes), a 1 s cast, three minions rising on a 1.5 m ring.
-  It casts either only with its target in sight within its bolt's range (14 m). An elite raised already chasing (a
-  test's) starts its clocks as one that just woke.
-  Backing off, a Mage (and a retreating Rogue) turns off a wall along the floor (open_heading: an eighth, then a
-  quarter of a turn either way) instead of pressing into it.
-- `Elite` has no `held_by` and `thrown` yet: step 4's heave adds what it needs (the design listed them; unused fields
-  would be dead code until then). The Mage keeps two timers, `next_bolt` and `next_summon` (`cast` is an Odin keyword).
-- Dev commands: `dev_spawn_elite` (a kind, 5 m ahead of the sender's hero), `dev_hurt_elites` (from no side: never
-  guarded, no knock) and `dev_break_guards` (break_guard, the entry step 4's charge and fireball call). The script's
-  slot 3 raises an elite every 3 s (the kinds in turn) and breaks the guards 1.75 s after each, so the scenarios roll
-  back over elites, their bodies, bone bolts, summons, deaths and breaks.
-- None under a held crowd (no marker elites, no surge's, no dev spawn); Floor 1's benchmark row (no crowd) has its two
-  sleeping marker elites, as it has its sleeping packs.
-- Views: `View_Elite`, a pooled scene kind appearing on verified (game/views/elite.tscn: the kind's skeleton rig, a
-  billboard health bar whose per-instance fill is hp of hp_max, a hit's flash, a warm glint over a guarding Warrior's
-  shield pulsing on the shown time, the dead sinking 1 m over their last 0.6 s). Clips: the skeleton rise, walk, idle,
-  death and the 1H chop (Warrior), Melee_Blocking while a Warrior stands guarding, the dual-wield stab (Rogue; its
-  blow guessed at 0.5 s in), the magic shoot and spellcasting (Mage), Hit_A while staggered. Bone bolts are a second
-  MultiView kind, a bone-white orb; their bursts and an elite's hits throw sparks, a broken guard sparks and dust.
-## Milestone 5, step 3: loot and the confirmed purse
+Elites:
+- Floor 1's markers: a Warrior asleep in the great hall facing the west corridor, a Mage behind the north room's pack;
+  Rogues come from surges and dev spawns. The surge's elite kind is `(floor_surges / ELITE_SURGE_EVERY - 1) % 3` (the
+  design's `floor_surges % 3` is always 0 there).
+- Bodies: capsules in CAT_ELITE four times a hero's weight with a 24 kN drive (a hero can't shove one), turning at
+  most 4° a tick so a hero can get round a shield; no hit events of their own (a prop's report the hits). A sleeper is
+  kinematic and may sleep in Box3D (Floor 1's two sleepers cost a sixth of its step as characters); nothing shoves it.
+  Elites steer by the nav fields and slide off props. A dying elite's body goes at once; its row lingers DEATH_S.
+- The guard: a blow from within 60° of a Warrior's facing takes 25 % (at least 1) and neither knocks nor staggers it;
+  a sleeper doesn't guard. A charge's, a fireball's and a landing's blast break it before their blow lands
+  (knock_area's breaks_guard), as a thrown prop's Box3D hit does (elite_impacts), each a GUARD_BREAK_S break.
+- Knocks: half a blow's knock as a velocity change, at most 6 m/s; 6 m/s or more (a cleave, a thrown prop, a charge,
+  a fireball, a landing) staggers 0.5 s and cuts an attack or a summoning off (a summoning retried SUMMON_RETRY_S on).
+- The Rogue circles at FLANK_BEHIND, lunges from within 0.75 m of its spot (or after 3 s of circling), homing at the
+  turn rate, then backs off; the Mage's bolt is a 0.5 s cast then 10 m/s along its locked facing, through
+  damage_hero from where it flew, so a Knight's block takes BLOCK_TAKE of it from the front and a roll's safe start
+  lets it by (it bursts on the Rogue all the same). Both back off along open_heading, never into a wall.
+- Felled elites drop ELITE_COINS 5 coins on the LOOT_SPREAD ring through drop_loot, no roll: ELITE_GOLD 15 for a
+  Warrior, 20 a Rogue, 25 a Mage (the design's 15/20/25 in its kinds' order: the summoner a party must reach first is
+  worth the most). An elite counts as a skeleton felled.
+- Views: a pooled scene kind appearing on verified, with a billboard health bar, a hit's flash and a guard glint; a
+  heaved elite hangs in the skeleton's limp standing pose, the Barbarian raises its arms (Ranged_Magic_Raise) and
+  throws with the prop throw's clip. Bone bolts are a second MultiView kind (plan.md: per-instance colour).
 
-- Drops: a felled minion rolls 1 in LOOT_ONE_IN (5) for one coin worth 1..3; both rolls keyed by `State.drops`, which
-  counts every death that rolls (dropping or not), so a kill a tick later rolls the same. `drop_loot(t, at, count,
-  total, spread)` is the one way coins appear (one coin at the point, more on a ring LOOT_SPREAD 0.8 m round it, each
-  snapped onto the floor, values split by `coin_value`): step 4's elite calls it with ELITE_COINS and its total.
-- "No drops under a held crowd" is `Setup.crowd != .None` (as damage_hero reads it): the crowd rows and scale tests
-  drop nothing; Floor 1's benchmark row (a held surge, no crowd) drops as play does.
-- Pickup (Zone.Loot, last in the tick: after the step and the strikes, after a wipe's restart): a hero up within
-  LOOT_RADIUS on the floor plan, once the coin is LOOT_ARM_S old; two at once, the lower slot (not the nearer). A coin
-  is collectable through its last tick (LOOT_LIFE_TICKS - 1 old) and gone the next. A downed hero takes nothing.
-  MAX_LOOT 128; a drop with no free row is lost.
-- A wipe or a floor change takes the coins lying there (`enter_level`) and keeps the purse, as the tally. The save
-  holds `saved_gold`, the purse at the last surge's rise; `Setup.gold` is added by name (no SAVE_VERSION bump: an
-  older save reads 0). VERSION 16; the reference runs re-pinned; `replays/lan_pair` (and `the_lan_recording_fights`)
-  fail until it is recorded again: the Setup and the commands changed layout.
-- `Command_Dev_Drop_Loot{count}`: coins worth 1 on DEV_DROP_RING (2 m, beyond LOOT_RADIUS) round the sender's hero.
-  The script's slot 1 sends 6 every 320 ticks (at 40), so the standard scenarios roll back over pickups
-  (`the_suite_runs_cross_a_pickup`).
-- The coins are `MultiView.Loot`: `Appear.Verified`, `ages = {1}` (when it fell), no smoothing (a coin never moves).
-  KayKit's coin, stood on its edge and spun, hovering 0.45 m, 1.6 times the model (bigger by value), hopping out of
-  the fallen over 0.4 s and blinking through its last 4 s; matte on the dungeon palette (no glow: ART.md). Its mesh is
-  taken from the glTF once (`game/views/coins.gd`), its bounds grown by the lift.
-- EMITTED pickup: the coin is gone (state) and a small gold glint (`game/fx/glint.tscn`) plays. CONFIRMED only: the
-  purse, the chime (Kenney RPG Audio's `handleCoins2.ogg`, 0.34 s, once per frame however many confirm in it, through
-  Sfx on the Interface bus until milestone 8's mix) and a "+N" in the HUD (theme variation `Gain`, the focus frame's
-  gold) rising 80 px from above the coin over 1 s.
-- The purse shows the `gold` the last confirmed pickup carries, never a sum of events. Its start is `Data_Hud.gold`
-  read as it shows and once more at the data's first change; every update takes the larger, so a prediction in that
-  start holds the purse rather than counting it back (docs/plan.md, verified session data).
-- The purse is a fourth column, Gold, in the crypt's counts; their gaps went from 40 to 28 px to keep the toasts' lane.
-  At 130 % the lane is narrower than before and a long toast wraps to more lines; the walk's fit check passes.
-- Tests: `loot_test.odin` (a drop the same a tick later, armed pickup, the lower slot of two, the last tick and the
-  expiry, a downed hero, the split, the save, a held crowd, a wipe, the scenarios crossing a pickup), `view_test.odin`
-  (a coin's instance, the kind's policy: alone every tick is verified as computed, so no walk tells Verified from
-  Predicted). The walk drops six coins, checks the MultiMesh's instances, walks out through one and holds the purse to
-  PurseWatch (moves only in a frame that delivered a CONFIRMED pickup, never down). `uni coop --lan -- --lag 150
-  --verified-players`: the host dances among its coins; the joiner, predicting it 13 ticks deep, saw 34 pickups
-  emitted, 32 cancelled and 2 confirmed, its purse moving once; the coop beat requires a cancelled pickup under --lag.
+Loot:
+- Drops roll on `State.drops` (every death that rolls), never the tick; "none under a held crowd" is
+  `Setup.crowd != .None`. Pickup is last in the tick: armed after LOOT_ARM_S, two at once the lower slot, a downed
+  hero takes nothing; MAX_LOOT 128, a drop with no row is lost. A wipe or a floor change takes the coins lying there
+  and keeps the purse; the save holds `saved_gold`, `Setup.gold` added by name (no SAVE_VERSION bump).
+- The purse shows the `gold` the last CONFIRMED pickup carries, never a sum; its start is `Data_Hud.gold` as it shows
+  and at the data's first change, every update the larger (plan.md, verified session data). The coin is KayKit's,
+  matte, spun on its edge; the chime plays once per frame however many confirm.
+
+Tests and tools:
+- The bot uses every class's ability, revives a downed ally (slot 3 downs itself, dev) by walking the navigation mesh
+  (the World's memoized fields, as a minion steers), and picks up coins; slot 1 raises an elite now and then for the
+  Barbarian to heave. `uni coop`'s beats, both sides: an ability (a Barbarian's is its heave of the ally it then
+  revives), a coin, a revive given and one received, each waited on as CONFIRMED. `replays/lan_pair` was recorded
+  again with VERSION 21; its play needed no change.
