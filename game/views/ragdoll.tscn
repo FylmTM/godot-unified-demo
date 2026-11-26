@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/views/ragdoll.gd" id="ragdoll"]
+[ext_resource type="PackedScene" path="res://game/characters/heroes/knight.tscn" id="knight"]
+[ext_resource type="PackedScene" path="res://game/characters/heroes/barbarian.tscn" id="barbarian"]
+[ext_resource type="PackedScene" path="res://game/characters/heroes/mage.tscn" id="mage"]
+[ext_resource type="PackedScene" path="res://game/characters/heroes/rogue.tscn" id="rogue"]
+
+[node name="Ragdoll" type="Node3D"]
+script = ExtResource("ragdoll")
+knight = ExtResource("knight")
+barbarian = ExtResource("barbarian")
+mage = ExtResource("mage")
+rogue = ExtResource("rogue")
+
+[node name="UnifiedView" type="UnifiedView" parent="."]
+kind = "ragdoll"
+linger_s = 0.0

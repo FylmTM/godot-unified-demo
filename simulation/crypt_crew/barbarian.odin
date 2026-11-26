@@ -114,8 +114,9 @@ in_grab :: proc(t: ^Tick, hero: ^Hero, feet: [3]f32, radius: f32) -> (gap: f32, 
 // `player`'s hero heaves up `target`: its body goes limp, weighs HEAVE_MASS and feels no gravity (the hold bears it:
 // its spring's capped force all goes to carrying it round with the hero, which a 900 N weight would otherwise drag to
 // the floor on a quick turn), and a hold carries it (create_hold, at heave_frame); an elite stops what it was doing (a
-// sleeper wakes first: rouse_elite makes its dormant character a body a hold can carry) and a downed ally is Held; the
-// hero heaves (Action.Heave).
+// sleeper wakes first: rouse_elite makes its dormant character a body a hold can carry) and a downed ally is Held (one
+// lying as a ragdoll stands its capsule up from it first, stand_up, and that is what is heaved, until milestone 6's
+// last step heaves the ragdoll itself: docs/plan.md, Milestones); the hero heaves (Action.Heave).
 @(private = "file")
 heave :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, target: Heaved) {
 	body := heaved_body(t, target)
@@ -123,6 +124,7 @@ heave :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, target: Heaved) {
 		if elite.phase == .Idle do rouse_elite(t.world.phys, elite, t.time)
 		elite.phase, elite.since, elite.target, elite.heaved_by = .Held, t.time, {}, player
 	} else {
+		stand_up(t, target.hero)
 		held := sim.player_data(t, target.hero)
 		held.heave, held.heave_since, held.heaved_by = .Held, t.time, player
 	}

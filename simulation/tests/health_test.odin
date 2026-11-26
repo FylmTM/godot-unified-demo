@@ -12,8 +12,8 @@ import "unified:sim"
 
 import g "../crypt_crew"
 
-// A hero at 0 HP goes down (Action.Down): what it held is dropped, and it stays where it fell, neither sliding on
-// nor sinking, and nothing hurts it further. It stays down: no rising on its own, however long (an ally revives it).
+// A hero at 0 HP goes down (Action.Down): what it held is dropped, and once its ragdoll comes to rest it stays where it
+// fell (its stick moves it nowhere), and nothing hurts it further. It stays down: no rising on its own, however long (an ally revives it).
 @(test)
 a_downed_hero_stays_down :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 2)
@@ -36,6 +36,7 @@ a_downed_hero_stays_down :: proc(t: ^testing.T) {
 	testing.expect_value(t, hero.held, sim.Handle(g.Prop){})
 	testing.expect_value(t, crate.held_by, sim.Player{})
 	testing.expect_value(t, headless.run_events(&run, g.Event_Hero_Downed), 1)
+	settle(&run)
 	fell_at := hero.pos
 	play(&run, carry, 1) // its stick does nothing now
 	testing.expectf(t, dmath.length(hero.pos - fell_at) < 0.1, "a downed hero moved: %v from %v", hero.pos, fell_at)

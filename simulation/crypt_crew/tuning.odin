@@ -499,3 +499,18 @@ ELITE_GOLD := [Elite_Kind]int {
 	.Rogue   = 20,
 	.Mage    = 25,
 }
+
+// ---- ragdolls: a hero down falls as one (ragdolls.odin)
+
+RAGDOLL_SCALE :: HERO_HEIGHT / 1.8 // unified's ragdoll is a 1.8 m human: this makes it as tall as a hero's capsule
+RAGDOLL_MASS :: f32(60) // kilograms: its bones' density is what weighs it this (a heaved body's HEAVE_MASS)
+RAGDOLL_KICK :: f32(3) // metres per second away from the blow that downed it, on top of the hero's own velocity
+// Torque each joint's motor holds against (Ragdoll_Def.friction_torque, newton-metres): the sample's 5 for a 146 kg
+// body, scaled to this one's weight, so a fallen body neither flops like cloth nor holds a pose like a doll.
+RAGDOLL_FRICTION_TORQUE :: f32(2)
+// Its joints' springs back toward the standing pose it was made in (0: none, it lies as it falls).
+RAGDOLL_HERTZ :: f32(0)
+// A revived hero stands on the walkable floor's point nearest the floor under its pelvis (found within
+// RAGDOLL_FLOOR_BELOW of it, through a tomb's top or a wall the body lies on), within RAGDOLL_SNAP of it.
+RAGDOLL_SNAP :: f32(3)
+RAGDOLL_FLOOR_BELOW :: f32(10)

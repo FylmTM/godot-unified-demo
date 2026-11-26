@@ -10,7 +10,7 @@
 // held crowds and the benchmarks' populations), elites (Box3D skeletons: the shared rules) and a file per kind
 // (elite_warrior, elite_rogue, elite_mage), health (damage, down, the wipe), revive (allies tending the downed), pause
 // (the co-op pause), saves (the Setup a save is, and the tally it carries), dev (the dev commands) and script (the
-// scripted player); loot (coins dropped and the party's purse).
+// scripted player); loot (coins dropped and the party's purse); ragdolls (a downed hero falls as one, and gets up).
 package crypt_crew
 
 import "unified:physics"
@@ -21,7 +21,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "22"
+VERSION :: "23"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -139,6 +139,7 @@ tick :: proc(t: ^Tick) {
 		physics.step(t.world.phys)
 		read_back_heroes(t)
 		read_back_elites(t)
+		read_back_ragdolls(t) // a downed hero's pos is its pelvis
 	}
 	{
 		sim.zone(t, Zone.Strikes)
