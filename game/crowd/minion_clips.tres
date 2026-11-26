@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CrowdClips" format=3]
+
+[ext_resource type="Image" path="res://game/crowd/minion_bones.res" id="1_pa2r1"]
+[ext_resource type="Script" path="res://game/crowd/crowd_clips.gd" id="2_3fmkc"]
+
+[resource]
+script = ExtResource("2_3fmkc")
+bones = ExtResource("1_pa2r1")
+clips = Array[StringName]([&"Special/Skeletons_Idle", &"Special/Skeletons_Walking", &"CombatMelee/Melee_1H_Attack_Chop", &"Special/Skeletons_Awaken_Floor", &"Special/Skeletons_Death"])
+first_rows = PackedInt32Array(0, 129, 178, 307, 584)
+frame_counts = PackedInt32Array(129, 49, 129, 277, 241)
+rates = PackedFloat32Array(30, 30, 120, 120, 120)
+loops = Array[bool]([true, true, false, false, false])
+bone_count = 23
+bounds = AABB(-1.8447618, -1.8312491, -3.304078, 3.4882822, 3.9806042, 4.8439345)
+sources = "34986cbbe5d6faa4ead98fb5e328f98b19ecde272e3da1a95265df8554abff8f"

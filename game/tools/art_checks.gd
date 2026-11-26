@@ -6,7 +6,8 @@ extends RefCounted
 ## fails the suite instead of the look.
 ##
 ## Each problem is reported through the validate run's log capture, named by the file it is in. The characters and the
-## look-dev scene are run, not only loaded: every clip is posed on every character, and every shot is shown.
+## look-dev scene are run, not only loaded: every clip is posed on every character, and every shot is shown. The
+## crowd's bake (MinionCrowd) is held fresh and true: made from today's inputs, and posing as the minion scene does.
 
 ## The collision categories a kit part's `unified_category` may hold (the level exporter writes them into the sim's
 ## filters): the floor, walls (block walking, sight and shots), and low cover (blocks walking; shots fly over it).
@@ -37,6 +38,12 @@ const LOOKDEV: String = "res://game/lookdev/lookdev.tscn"
 const STAGES: Array[String] = ["res://game/lookdev/crypt_stage.tscn", "res://game/lookdev/hub_stage.tscn"]
 ## The stage that places every kit part, so the level exporter sees each one.
 const KIT_STAGE: String = "res://game/lookdev/kit_stage.tscn"
+## How far a baked crowd vertex may stand from where the minion scene puts it, in metres, at any time in a clip: at a
+## baked frame it stands where the scene puts it; between two, the bake blends their matrices linearly where the scene
+## turns each bone along an arc (MinionCrowd.RATES keeps the cut within about a centimetre at the fastest turns).
+const CROWD_PARITY: float = 0.015
+## How near a fresh bake's matrices must come to the committed ones (float noise across machines).
+const CROWD_FRESH: float = 0.00001
 
 ## How many problems the checks found.
 var problems: int = 0
@@ -60,6 +67,7 @@ func run() -> void:
 	_check_parts()
 	_check_stages()
 	_check_lookdev()
+	_check_crowd()
 
 
 ## Every pack folder (`assets/<vendor>/<pack>/`) has its licence and a CREDITS.md row; every file in it is a pack's
@@ -405,6 +413,165 @@ func _check_lookdev() -> void:
 			_problem("a pose for %s, whom the cast doesn't have" % member, LOOKDEV)
 	_tree_root.remove_child(lookdev)
 	lookdev.free()
+
+
+## The crowd's bake is fresh (its inputs' hash is today's, and a bake now gives its matrices), its mesh is one surface
+## within MinionCrowd.TRIANGLES whose bones and weights a shader can skin by, with its eyes, its table names
+## MinionCrowd's clips in order, and it poses as the minion scene does: in every clip, at frames and between them,
+## before a one-shot's start and past its end, every sampled vertex of the scene's meshes and weapon, skinned on the
+## CPU from the baked matrices as the shader does, stands within CROWD_PARITY of where the scene puts it.
+func _check_crowd() -> void:
+	var clips: CrowdClips = load(MinionCrowd.TABLE)
+	var mesh: ArrayMesh = load(MinionCrowd.MESH)
+	if clips.sources != MinionCrowd.sources():
+		_problem("the crowd's bake is stale: its inputs changed (./uni tool bake_crowd)", MinionCrowd.TABLE)
+	if clips.clips != MinionCrowd.CLIPS or MinionCrowd.Clip.size() != MinionCrowd.CLIPS.size():
+		_problem("the baked clips are not MinionCrowd.CLIPS, in MinionCrowd.Clip's order", MinionCrowd.TABLE)
+		return
+	var rows: int = 0
+	for clip: int in clips.clips.size():
+		if clips.first_rows[clip] != rows or clips.loops[clip] != (clips.clips[clip] in Clips.LOOPING):
+			_problem("%s: its rows or its looping are not the table's" % clips.clips[clip], MinionCrowd.TABLE)
+		rows += clips.frame_counts[clip]
+	if clips.bones.get_height() != rows or clips.bones.get_width() != clips.bone_count * CrowdClips.TEXELS_PER_BONE:
+		_problem("the bone texture is not the table's size", MinionCrowd.BONES)
+		return
+	_check_crowd_mesh(mesh, clips)
+	var rig: CharacterRig = (load(MinionCrowd.SCENE) as PackedScene).instantiate()
+	_tree_root.add_child(rig)
+	var fresh: CrowdClips = CrowdBake.bake_clips(rig, MinionCrowd.CLIPS, MinionCrowd.RATES, mesh.surface_get_arrays(0))
+	var drift: float = 0.0
+	for y: int in rows:
+		for x: int in clips.bones.get_width():
+			var a: Color = clips.bones.get_pixel(x, y)
+			var b: Color = fresh.bones.get_pixel(x, y)
+			drift = maxf(drift, maxf(maxf(absf(a.r - b.r), absf(a.g - b.g)), maxf(absf(a.b - b.b), absf(a.a - b.a))))
+	if drift > CROWD_FRESH:
+		_problem("a bake now differs from the committed one by %f (./uni tool bake_crowd)" % drift, MinionCrowd.BONES)
+	_check_crowd_parity(rig, clips)
+	_tree_root.remove_child(rig)
+	rig.free()
+
+
+func _check_crowd_mesh(mesh: ArrayMesh, clips: CrowdClips) -> void:
+	if mesh.get_surface_count() != 1:
+		_problem("the crowd mesh has %d surfaces, not one" % mesh.get_surface_count(), MinionCrowd.MESH)
+		return
+	var arrays: Array = mesh.surface_get_arrays(0)
+	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+	var bones: PackedFloat32Array = arrays[Mesh.ARRAY_CUSTOM0]
+	var weights: PackedFloat32Array = arrays[Mesh.ARRAY_CUSTOM1]
+	if indices.size() > MinionCrowd.TRIANGLES * 3:
+		_problem("the crowd mesh has %d triangles, over %d" % [indices.size() / 3.0, MinionCrowd.TRIANGLES], MinionCrowd.MESH)
+	var eyes: int = 0
+	for vertex: int in colors.size():
+		eyes += int(colors[vertex].r > 0.5)
+		var total: float = 0.0
+		for k: int in CrowdBake.WEIGHTS:
+			var bone: float = bones[vertex * CrowdBake.WEIGHTS + k]
+			total += weights[vertex * CrowdBake.WEIGHTS + k]
+			if bone != roundf(bone) or bone < 0 or bone >= clips.bone_count:
+				_problem("vertex %d is bound to bone %f" % [vertex, bone], MinionCrowd.MESH)
+				return
+		if absf(total - 1.0) > 0.0001:
+			_problem("vertex %d's weights sum to %f" % [vertex, total], MinionCrowd.MESH)
+			return
+	if eyes == 0:
+		_problem("the crowd mesh lost its eyes (no glowing vertex)", MinionCrowd.MESH)
+
+
+## Every 7th vertex of the scene minion's meshes and weapon, where the scene puts it (its skins' own binds and every
+## weight it has; the weapon where its BoneAttachment3D holds it) against the same vertex merged and skinned from the
+## baked matrices: at its ends and past them, at and between its first frames, and through its fastest turn between two
+## keys (where the blend cuts the arc most).
+func _check_crowd_parity(rig: CharacterRig, clips: CrowdClips) -> void:
+	var player: AnimationPlayer = rig.get_node("AnimationPlayer")
+	var merged: Array = CrowdBake.merge(rig, load(MinionCrowd.GLOW) as Material).arrays
+	var positions: PackedVector3Array = merged[Mesh.ARRAY_VERTEX]
+	var bones: PackedFloat32Array = merged[Mesh.ARRAY_CUSTOM0]
+	var weights: PackedFloat32Array = merged[Mesh.ARRAY_CUSTOM1]
+	var skeleton: Skeleton3D = CrowdBake.skeleton_of(rig)
+	var meshes: Array[Node] = rig.find_children("*", "MeshInstance3D", true, false)
+	var worst: float = 0.0
+	var worst_at: String = ""
+	for clip: int in clips.clips.size():
+		var clip_length: float = clips.length(clip)
+		var frame: float = 1.0 / clips.rates[clip]
+		var turn: Vector2 = _fastest_turn(player.get_animation(clips.clips[clip]))
+		var times: Array[float] = [-0.3, 0.0, frame, 1.5 * frame, clip_length, clip_length + 0.3]
+		for quarter: int in [1, 2, 3]:
+			times.append(lerpf(turn.x, turn.y, quarter / 4.0))
+		for seconds: float in times:
+			rig.pose(clips.clips[clip], seconds)
+			for found: Node in rig.find_children("*", "BoneAttachment3D", true, false):
+				(found as BoneAttachment3D).on_skeleton_update()
+			var vertex: int = 0
+			for found: Node in meshes:
+				var mesh_node: MeshInstance3D = found
+				var arrays: Array = mesh_node.mesh.surface_get_arrays(0)
+				var source: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+				var scene: Array[Vector3] = _scene_positions(rig, skeleton, mesh_node, arrays)
+				var sample: int = 0
+				for k: int in range(0, source.size(), 7):
+					var baked := Vector3.ZERO
+					for w: int in CrowdBake.WEIGHTS:
+						var weight: float = weights[(vertex + k) * CrowdBake.WEIGHTS + w]
+						if weight > 0.0:
+							var bone: int = int(bones[(vertex + k) * CrowdBake.WEIGHTS + w])
+							baked += weight * (clips.matrix(clip, seconds, bone) * positions[vertex + k])
+					var apart: float = baked.distance_to(scene[sample])
+					sample += 1
+					if apart > worst:
+						worst = apart
+						worst_at = "%s at %.3f s, %s" % [clips.clips[clip], seconds, mesh_node.name]
+				vertex += source.size()
+	if worst > CROWD_PARITY:
+		_problem("the crowd minion stands %.4f m from the scene's (%s)" % [worst, worst_at], MinionCrowd.TABLE)
+
+
+## The two keys of `animation` (their times) between which a bone turns the most.
+func _fastest_turn(animation: Animation) -> Vector2:
+	var most: float = -1.0
+	var between: Vector2 = Vector2.ZERO
+	for track: int in animation.get_track_count():
+		if animation.track_get_type(track) != Animation.TYPE_ROTATION_3D:
+			continue
+		for key: int in animation.track_get_key_count(track) - 1:
+			var a: Quaternion = animation.track_get_key_value(track, key)
+			var b: Quaternion = animation.track_get_key_value(track, key + 1)
+			if a.angle_to(b) > most:
+				most = a.angle_to(b)
+				between = Vector2(animation.track_get_key_time(track, key), animation.track_get_key_time(track, key + 1))
+	return between
+
+
+## Where the scene puts every 7th vertex of `mesh_node` as it is posed now, in the rig's space: skinned by its skin's
+## own binds with all its weights, or, unskinned, where the engine has placed the node.
+func _scene_positions(
+	rig: CharacterRig, skeleton: Skeleton3D, mesh_node: MeshInstance3D, arrays: Array
+) -> Array[Vector3]:
+	var source: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var out: Array[Vector3] = []
+	if mesh_node.skin == null:
+		var placed: Transform3D = rig.global_transform.affine_inverse() * mesh_node.global_transform
+		for k: int in range(0, source.size(), 7):
+			out.append(placed * source[k])
+		return out
+	var to_rig: Transform3D = rig.global_transform.affine_inverse() * skeleton.global_transform
+	var binds: Array[Transform3D] = []
+	for bind: int in mesh_node.skin.get_bind_count():
+		var bone: int = skeleton.find_bone(mesh_node.skin.get_bind_name(bind))
+		binds.append(to_rig * skeleton.get_bone_global_pose(bone) * mesh_node.skin.get_bind_pose(bind))
+	var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
+	var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
+	var per_vertex: int = roundi(float(bones.size()) / source.size())
+	for k: int in range(0, source.size(), 7):
+		var point := Vector3.ZERO
+		for w: int in per_vertex:
+			point += weights[k * per_vertex + w] * (binds[bones[k * per_vertex + w]] * source[k])
+		out.append(point)
+	return out
 
 
 ## How many times a scene instances each scene, by path.

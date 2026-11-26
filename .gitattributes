@@ -4,11 +4,13 @@
 # The one exception: cmd.exe misreads labels and goto in a batch file with LF line endings.
 *.cmd text eol=crlf
 *.bat text eol=crlf
-# Read byte for byte: exported levels, and the replay regressions' recordings and expectations.
+# Read byte for byte: exported levels, the replay regressions' recordings and expectations, and Godot's binary
+# resources (the crowd's bake).
 *.level binary
 *.unil binary
 *.unis binary
 *.unie binary
+*.res binary
 # Art, byte for byte: a pack's files stay exactly what it ships (some have CRLF line endings); Godot's .import files
 # beside them are ours, LF like the rest.
 assets/** -text

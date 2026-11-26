@@ -39,6 +39,8 @@ relief, rocks or a decoration, is walked through). Characters face +Z.
   flash, and the fights' one-shot effects (sparks, a bolt's burst, dust, the crossbow's tracer: a glowing beam).
 - `game/environments/`: each place's Environment (fog, glow, ambient, tonemap).
 - `game/lookdev/`: the look-dev scene and its stages.
+- `game/crowd/`: the skeleton minions drawn as one crowd: the bake (`crowd_bake.gd`, `crowd_clips.gd`), what is baked
+  (`minion_crowd.gd`), the baked mesh, bones and clip table, and the crowd's shader and material (Crowds, below).
 - `game/ui/theme.tres`: the interface's one Theme (The interface, below); `game/menu/backdrop.tscn`: the menus'
   graveyard; `game/ui/portraits/`: the heroes' portraits, rendered by `./uni tool render_portraits --window`.
 
@@ -98,6 +100,32 @@ whole pose. A view computes `seconds` from the simulation's state (what the char
 tick), so after a rollback or a replay seek it shows exactly the frame the state says. `clips.gd` names every clip
 the game plays (`Clips.WALK`, `Clips.KNIGHT_SLASH`) and which loop (`Clips.LOOPING`): `pose()` wraps those itself,
 and a one-shot holds its last frame. The checks pose every clip on every character.
+
+## Crowds
+
+The skeleton minions are drawn as a crowd: one MultiMesh of a baked minion, each instance posed by its custom data, so
+hundreds cost one draw call a pass and no node each. `game/crowd/minion_crowd.gd` says what is baked: the minion
+scene (`skeletons/minion.tscn`, its blade included), the clips a minion plays, in the order an instance names them, the
+rate each is baked at, and how far its meshes are lightened.
+
+- **The mesh:** the scene's meshes and its blade merged into one surface in the skeleton's bind space, its bones and
+  four weights a vertex in `CUSTOM0` and `CUSTOM1`, the eyes marked in the vertex colour (one material: the palette,
+  the eyes' glow). Each mesh is lightened to the coarsest of Godot's own LODs for it within the minion's LOD error,
+  the importer's simplifier (it moves no vertex and keeps the seams, so the palette atlas stays exact).
+- **The bones:** every frame of each clip as the bones' skinning matrices (the bone's pose times its bind, what Godot
+  skins by), three RGBA float texels a bone, a row a frame, posed through `CharacterRig.pose()`: the crowd poses as the
+  scene does. A clip whose bones turn fast between keys is baked at four times its keys' rate, since the shader blends
+  two frames' matrices linearly where the scene turns along an arc.
+- **The shader** (`crowd_minion.gdshader`): an instance's custom data is its clip, the seconds since it began and the
+  seconds since it was struck; it skins with four bones blended between two frames, loops or holds as `pose()` does,
+  flashes after a hit (`hit_flash.tres`' colour) and sinks the dying into the floor over their last moments.
+
+`./uni tool bake_crowd` re-bakes: after the minion's model, weapon, clips or import settings change, the clips a crowd
+plays, or the bake's code. The checks hash what the bake is made from (Godot's version included) and fail while the
+committed bake is stale; they also re-bake its matrices and pose every clip on the minion scene against the crowd's
+CPU skinning, vertex for vertex. The look-dev scene's parity stage (`crowd_parity`, `crowd_parity_game`) stands each
+clip as the scene minion and as the crowd side by side at the same time, and a flashing and a sinking crowd minion
+behind them.
 
 ## Kit parts
 
