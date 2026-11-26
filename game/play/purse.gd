@@ -6,13 +6,22 @@ extends VBoxContainer
 ## one that turns out wrong. The world shows the predicted pickup at once instead (the coin gone, a glint: play.gd),
 ## which costs nothing when a rollback takes it back.
 ##
-## What it shows is the `gold` the last confirmed pickup carries, the purse's total on the verified timeline then, not
-## a sum of events: a re-simulation may change an event's fields before it is confirmed (another hero's pickup got in
-## first), and the confirmed total is right whatever came before. Confirmed events arrive in tick order, so it only
-## grows. Its start is the HUD data's gold as the purse first shows (a continued crypt's, a late joiner's), the one time
-## it reads the data: the data is the newest prediction, and unified has no verified session data to start from
-## (docs/plan.md, Needed from unified: verified session data). Should that start hold a pickup still unconfirmed, the
-## purse holds there until the confirmed total passes it, rather than counting back.
+## In a live session it shows the `gold` each confirmed pickup carries, as it comes: the purse's total on the verified
+## timeline then, not a sum of events (a re-simulation may change an event's fields before it is confirmed: another
+## hero's pickup got in first). Confirmed events arrive in tick order, so that total only grows. The HUD data, the
+## newest prediction, never moves it but at its seeds, as unified has no verified session data to read (docs/plan.md,
+## Needed from unified: verified session data):
+## - its start, the data's gold as it first shows and at the data's first change (a continued crypt's, a late
+##   joiner's), never lower than what it shows: a prediction in that start holds the purse there until a confirmed
+##   total passes it;
+## - again once the link recovers (STATUS_CONNECTED after STATUS_RECOVERING): a client caught up by a resync never
+##   heard the confirmed pickups of the ticks it skipped, so its count is the data's.
+## In a replay every tick is final and a seek or a loop moves the state back and forth, so the purse shows the data's
+## gold at every change (the chime and the "+N" still play on each confirmed pickup).
+##
+## on_pickup is the whole rule, a pure function of a pickup's state and fields; the walk drives it with made-up
+## EMITTED, CANCELLED and CONFIRMED pickups (game/tools/ui_walk.gd), since a solo session confirms in the frame it
+## emits.
 
 ## How long a "+N" takes to rise and fade (seconds), how far it rises (pixels of the HUD's canvas), and from how high
 ## above where the coin lay (metres: about a hero's chest).
@@ -22,16 +31,23 @@ const FROM_HEIGHT: float = 1.4
 
 ## The gold shown.
 var _gold: int = 0
+## The start was read from the data (live sessions: it is read once, and again after a recovery).
+var _seeded: bool = false
+## The link is recovering: the next CONNECTED seeds the purse again.
+var _recovering: bool = false
 ## The process frame the chime last played in: the pickups confirmed in one frame chime once.
 var _chimed_frame: int = -1
 
 @onready var _gold_label: Label = %Gold
+@onready var _session: UnifiedSession = Unified.session
 
 
 func _ready() -> void:
-	_start_from_data()
-	Unified.data.hud.changed.connect(_start_from_data, CONNECT_ONE_SHOT)  # the session's first data, if not here yet
-	Unified.session.sim_event.connect(_on_sim_event)
+	_on_data_changed()
+	_seeded = false  # read again at the data's first change: the session's first fill, if the purse showed before it
+	Unified.data.hud.changed.connect(_on_data_changed)
+	_session.sim_event.connect(_on_sim_event)
+	_session.status_changed.connect(_on_status_changed)
 
 
 ## The gold shown (the walks read it).
@@ -39,21 +55,42 @@ func gold() -> int:
 	return _gold
 
 
-## The purse's start: the HUD data's gold, read as it first shows and once more at its first change (the session's
-## first fill, when the purse showed before it), never lower than what it shows.
-func _start_from_data() -> void:
-	_show(maxi(_gold, Unified.data.hud.gold))
-
-
-func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
-	if state != UnifiedSession.EVENT_CONFIRMED or not event is EventLootCollected:
+## A pickup's event in `state` (UnifiedSession.EVENT_*), carrying the purse's total `gold` and the coin's `value`,
+## where it lay (`at`): on CONFIRMED alone, the purse shows `gold` (a replay's shows the data's), chimes (once a frame)
+## and floats "+`value`" over `at`; EMITTED and CANCELLED change nothing.
+func on_pickup(state: UnifiedSession.EventState, gold: int, value: int, at: Vector3) -> void:
+	if state != UnifiedSession.EVENT_CONFIRMED:
 		return
-	var collected := event as EventLootCollected
-	_show(maxi(_gold, collected.gold))
+	if _session.mode != UnifiedSession.MODE_REPLAY:
+		_show(gold)
 	if Engine.get_process_frames() != _chimed_frame:
 		_chimed_frame = Engine.get_process_frames()
 		Sfx.play(&"coin")
-	_rise(collected.position, collected.value)
+	_rise(at, value)
+
+
+## The HUD data changed: a replay's purse is its gold; a live one's takes it only to seed (never lower than shown).
+func _on_data_changed() -> void:
+	if _session.mode == UnifiedSession.MODE_REPLAY:
+		_show(Unified.data.hud.gold)
+	elif not _seeded:
+		_seeded = true
+		_show(maxi(_gold, Unified.data.hud.gold))
+
+
+## A link that recovered (a resync) seeds the purse again from the data: what it shows is the data's, as it stands.
+func _on_status_changed(status: UnifiedSession.Status, _detail: String) -> void:
+	if status == UnifiedSession.STATUS_RECOVERING:
+		_recovering = true
+	elif status == UnifiedSession.STATUS_CONNECTED and _recovering:
+		_recovering = false
+		_show(Unified.data.hud.gold)
+
+
+func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
+	if event is EventLootCollected:
+		var collected := event as EventLootCollected
+		on_pickup(state, collected.gold, collected.value, collected.position)
 
 
 func _show(gold: int) -> void:

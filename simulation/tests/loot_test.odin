@@ -58,15 +58,33 @@ packs_dropped :: proc(t: ^testing.T, idle: int) -> Coins {
 	testing.expect_value(t, felled, u32(headless.run_events(&run, g.Event_Minion_Died)))
 	coins := coins_of(&run)
 	testing.expect_value(t, len(coins.values), headless.run_events(&run, g.Event_Loot_Dropped))
-	for value in coins.values {
-		testing.expectf(t, int(value) >= g.LOOT_VALUE_MIN && int(value) <= g.LOOT_VALUE_MAX, "a coin worth %d", value)
+	// The rolls by their names, written out here rather than asked of minion_drop: the death behind drop roll `key`
+	// drops on index 0's 1 in LOOT_ONE_IN, worth index 1's roll, its coin the next row of the table.
+	dropped := 0
+	for key in 0 ..< u64(felled) {
+		if sim.roll_below_at(3, 0, g.LOOT_ONE_IN, g.Roll.Drop, key, 0) != 0 do continue
+		value :=
+			g.LOOT_VALUE_MIN +
+			int(sim.roll_below_at(3, 0, g.LOOT_VALUE_MAX - g.LOOT_VALUE_MIN + 1, g.Roll.Drop, key, 1))
+		if dropped < len(coins.values) {
+			testing.expectf(
+				t,
+				int(coins.values[dropped]) == value,
+				"drop roll %d: worth %d, not %d",
+				key,
+				coins.values[dropped],
+				value,
+			)
+		}
+		dropped += 1
 	}
+	testing.expectf(t, dropped == len(coins.values), "%d coins dropped, the rolls say %d", len(coins.values), dropped)
 	scenarios.expect_synced(t, &run)
 	return coins
 }
 
 // A felled minion's drop is a roll named by the session's count of drop rolls, not by the tick: the same packs felled
-// a tick later drop the same coins, worth the same, where the same minions fell. And the drops are minion_drop's.
+// a tick later drop the same coins, worth the same, where the same minions fell, as the rolls named by the count say.
 @(test)
 a_drop_is_the_same_whichever_tick_the_kill_lands :: proc(t: ^testing.T) {
 	now := packs_dropped(t, 10)
@@ -84,9 +102,6 @@ a_drop_is_the_same_whichever_tick_the_kill_lands :: proc(t: ^testing.T) {
 			later.places[i],
 		)
 	}
-	expected := 0
-	for key in 0 ..< 64 do expected += int(g.minion_drop(3, u64(key)) > 0)
-	testing.expect(t, expected > 0 && expected < 64, "1 in LOOT_ONE_IN: some drop, not all")
 }
 
 // A coin lies LOOT_ARM_S before a hero standing on it picks it up; then its value goes into the purse, which the
@@ -207,6 +222,7 @@ the_save_carries_the_purse :: proc(t: ^testing.T) {
 	continued := headless.run_begin(&g.GAME, 2, saved, seated = 1)
 	defer headless.run_end(&continued)
 	testing.expect_value(t, continued.simulation.state.gold, 3)
+	testing.expect_value(t, continued.simulation.state.saved_gold, 3) // what its save holds until its next surge
 	testing.expect_value(t, continued.simulation.state.loot.count, 0)
 	place_coin(&continued, sim.slot_data(continued.simulation, 0).pos, 1, g.LOOT_ARM_TICKS)
 	headless.run_step(&continued)

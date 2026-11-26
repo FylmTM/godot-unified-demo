@@ -51,10 +51,14 @@ const SURGE_WITHIN_S: float = 15.0
 const RESUME_WITHIN_S: float = 15.0
 const PAUSE_WITHIN_S: float = 40.0
 ## The coins the host lays round its hero (on DEV_DROP_RING, 2 m out), its dance among them (strokes this long, each
-## way, a few tens of centimetres: never in reach of one) and how long it dances.
+## way, a few tens of centimetres: never in reach of one; past DANCE_DRIFT metres off where it began, the next stroke
+## heads back whatever the turn) and how long it dances.
 const COINS: int = 12
-const STROKE_S: float = 0.12
+const STROKE_S: float = 0.08
+const DANCE_DRIFT: float = 0.25
 const DANCE_S: float = 5.0
+## How long the host walks out of the ring (seconds): past the coin 2 m to its right.
+const WALK_OUT_S: float = 0.8
 
 ## The host's hits on skeletons, counted once each is confirmed.
 var _hits: int = 0
@@ -222,17 +226,41 @@ func _join_play() -> void:
 
 ## The host lays COINS round its hero and dances among them for DANCE_S, strokes of STROKE_S left and right that
 ## never reach one (the joiner, predicting each stroke on, picks some up that a rollback gives back), then walks out
-## right through the ring and picks one up for real.
+## right through the ring and picks one up for real. The skeletons are felled first (a dev kill), so nobody is hurt or
+## downed meanwhile and no wipe takes the coins; the strokes turn about, and head back once past DANCE_DRIFT, so a
+## hitch in the frames never walks it off. The host picks none of the ring's coins up while it dances (the felled
+## skeletons' own coins may lie near), and the walk out's pickup is one confirmed after it began.
 func _coin_dance() -> void:
+	session.send_command(CommandDevKillMinions.new())
+	await seconds(1.0)
+	var ring: Dictionary[int, bool] = {}  # the ring's coins, by their keys (their events' `loot`)
+	var on_ring: Array[int] = [0]  # the host's own pickups of them as it predicts them (EMITTED), while it dances
+	var watch_ring: Callable = func(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
+		if state != UnifiedSession.EVENT_EMITTED:
+			return
+		if event is EventLootDropped:
+			ring[(event as EventLootDropped).loot] = true
+		elif event is EventLootCollected:
+			var collected := event as EventLootCollected
+			on_ring[0] += int(collected.player == session.local_player and ring.has(collected.loot))
+	session.sim_event.connect(watch_ring)
 	var drop := CommandDevDropLoot.new()
 	drop.count = COINS
 	session.send_command(drop)
 	await seconds(0.6)  # the coins armed
-	await hold(&"move_left", STROKE_S / 2.0)
-	for i: int in int(DANCE_S / STROKE_S):
-		await hold(&"move_right" if i % 2 == 0 else &"move_left", STROKE_S)
-	await hold(&"move_right", 0.6)
-	await wait_for(func() -> bool: return _purse_watch.confirmed > 0, 5.0, "the walk out picks a coin up")
+	var centre: float = _hero(session.local_player).global_position.x
+	var dance_until: int = Time.get_ticks_msec() + int(DANCE_S * 1000.0)
+	var right: bool = false
+	while Time.get_ticks_msec() < dance_until and not failed():
+		var off: float = _hero(session.local_player).global_position.x - centre
+		right = off < -DANCE_DRIFT or (not right and off <= DANCE_DRIFT)
+		await hold(&"move_right" if right else &"move_left", STROKE_S)
+	session.sim_event.disconnect(watch_ring)
+	expect(ring.size() == COINS, "the ring's %d coins dropped (%d)" % [COINS, ring.size()])
+	expect(on_ring[0] == 0, "the host picks none of the ring's coins up while it dances (%d)" % on_ring[0])
+	var mark: int = _purse_watch.confirmed
+	await hold(&"move_right", WALK_OUT_S)
+	await wait_for(func() -> bool: return _purse_watch.confirmed > mark, 5.0, "the walk out picks a coin up")
 	step("danced among the coins and walked out: %s" % _purse_watch.summary())
 
 

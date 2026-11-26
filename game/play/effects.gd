@@ -1,9 +1,9 @@
 class_name Effects
 extends Node3D
 ## The play scene's one-shot effects: sparks where a skeleton is hit, a burst where a bolt bursts, dust where a prop
-## lands hard, the crossbow's tracer, and a glint where a coin is picked up. The play scene calls them for the sim's events as soon as they are predicted
-## (EMITTED): an effect a rollback takes back has already played, which an effect can afford, and one shown late would
-## look worse.
+## lands hard, the crossbow's tracer, and a glint where a coin is picked up. The play scene calls them for the sim's
+## events as soon as they are predicted (EMITTED): an effect a rollback takes back has already played, which an effect
+## can afford, and one shown late would look worse.
 ##
 ## Each kind is a small pool of its scene, made once and reused in turn (the oldest goes first), so a fight's hundreds
 ## of hits make no node.

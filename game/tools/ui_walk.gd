@@ -50,8 +50,8 @@ func _run() -> void:
 	step("the title")
 	for walk: Callable in [_walk_focus_pulse, _walk_title_wiring, _walk_pad, _walk_prompt_device, _walk_settings, _walk_new_game,
 			_walk_couch, _walk_players_list, _walk_stuck_key, _walk_focus_pause, _walk_setting, _walk_leave,
-			_walk_new_game_again, _walk_online_pause, _walk_replay_pause, _walk_play_together, _walk_join_code,
-			_walk_lan_host, _walk_open_to_friends, _walk_join_address, _walk_connecting, _walk_failed_join]:
+			_walk_replay_purse, _walk_new_game_again, _walk_online_pause, _walk_replay_pause, _walk_play_together,
+			_walk_join_code, _walk_lan_host, _walk_open_to_friends, _walk_join_address, _walk_connecting, _walk_failed_join]:
 		if failed():
 			return
 		await walk.call()
@@ -344,6 +344,7 @@ func _walk_new_game() -> void:
 	set_setting(&"hints", setting_value(&"Hints", &"ALWAYS"))  # the couch's glyph checks read them
 	step("in the crypt: F attacks, the hints follow, tick %d" % session.tick)
 	await _walk_loot()
+	await _walk_purse_states()
 	await _walk_single_pause()
 	await _walk_link_status()
 
@@ -378,6 +379,7 @@ func _walk_loot() -> void:
 	await wait_for(func() -> bool: return PurseWatch.gold_of(purse) > before, 3.0,
 		"walking out of the ring picks a coin up")
 	await key(KEY_D, false)
+	expect(Unified.data.hud.surges == 0, "the coin picked up before the first surge: the save holds it")
 	var gains: Array[Node] = purse.get_children().filter(_is_gain)
 	expect(gains.size() >= 1, "a \"+1\" rises over the coin")
 	expect(played(&"coin", mark) >= 1, "the coin's chime plays")
@@ -391,6 +393,73 @@ func _walk_loot() -> void:
 	expect(watch.confirmed >= 1 and gold == Unified.data.hud.gold,
 		"the purse shows the State's gold: %d (data %d)" % [gold, Unified.data.hud.gold])
 	step("coins: %d dropped, the purse at %d (%s)" % [LOOT_DROPPED, gold, watch.summary()])
+
+
+## The purse's rule, driven with made-up pickups (Purse.on_pickup; alone, a real pickup is confirmed in the frame it is
+## emitted, so only this tells the states apart): an EMITTED pickup and a CANCELLED one move nothing and play nothing;
+## a CONFIRMED one shows its total, with one chime and its "+N". The prediction never moves the purse after its start:
+## with a confirmed total the HUD data runs ahead of (a pickup predicted, not yet confirmed), the purse keeps it while
+## the ticks go by. Then it is put back at the State's gold.
+func _walk_purse_states() -> void:
+	var purse: Control = find(current_scene, ^"Hud/%Purse") as Control
+	var at: Vector3 = local_hero().global_position
+	var start: int = PurseWatch.gold_of(purse)
+	var mark: int = sounds.size()
+	var unconfirmed: Dictionary[String, int] = {
+		"EMITTED": UnifiedSession.EVENT_EMITTED,
+		"CANCELLED": UnifiedSession.EVENT_CANCELLED,
+	}
+	for state: String in unconfirmed:
+		purse.call(&"on_pickup", unconfirmed[state], start + 3, 3, at)
+		await frames(2)
+		expect(PurseWatch.gold_of(purse) == start and played(&"coin", mark) == 0,
+			"a pickup %s moves nothing and plays nothing (%d)" % [state, PurseWatch.gold_of(purse)])
+	purse.call(&"on_pickup", UnifiedSession.EVENT_CONFIRMED, start + 2, 2, at)
+	await frames(1)
+	var gains: Array[Node] = purse.get_children().filter(func(node: Node) -> bool:
+		return node is Label and (node as Label).text == "+2")
+	expect(PurseWatch.gold_of(purse) == start + 2 and played(&"coin", mark) == 1 and gains.size() == 1,
+		"a CONFIRMED pickup shows its total %d, chimes once, floats its \"+2\"" % PurseWatch.gold_of(purse))
+	purse.call(&"on_pickup", UnifiedSession.EVENT_CONFIRMED, start - 1, 1, at)
+	await seconds(0.3)
+	expect(PurseWatch.gold_of(purse) == start - 1, "the HUD data ahead of the confirmed total moves nothing (%d, data %d)"
+		% [PurseWatch.gold_of(purse), Unified.data.hud.gold])
+	purse.call(&"on_pickup", UnifiedSession.EVENT_CONFIRMED, Unified.data.hud.gold, 1, at)
+	step("the purse's rule: EMITTED and CANCELLED nothing, CONFIRMED its total, the data no driver")
+
+
+## A replay of the first game (recorded as it ended; every tick of a replay is final): its purse is the State's gold
+## wherever a seek takes it, forward to the end (the coin picked up), back to the start (none yet), and forward again.
+func _walk_replay_purse() -> void:
+	var recordings: PackedStringArray = DirAccess.get_directories_at("user://recordings")
+	recordings.sort()
+	expect(recordings.size() > 0, "the first game was recorded")
+	if failed():
+		return
+	session.replay("user://recordings/" + recordings[recordings.size() - 1])
+	await wait_for(func() -> bool: return scene_is("Play") and session.mode == UnifiedSession.MODE_REPLAY, 8.0,
+		"a replay plays")
+	if failed():
+		return
+	var purse: Control = find(current_scene, ^"Hud/%Purse") as Control
+	var seeks: Dictionary[String, int] = {
+		"the end": session.replay_last_tick,
+		"the start": session.replay_first_tick,
+		"the end again": session.replay_last_tick,
+	}
+	for to: String in seeks:
+		session.replay_seek(seeks[to])
+		await frames(10)
+		expect(PurseWatch.gold_of(purse) == Unified.data.hud.gold, "a seek to %s: the purse shows the State's %d (%d)"
+			% [to, Unified.data.hud.gold, PurseWatch.gold_of(purse)])
+		if to == "the start":
+			expect(Unified.data.hud.gold == 0, "the first game starts with no gold")
+		else:
+			expect(Unified.data.hud.gold > 0, "and ends with its coin")
+	game.call(&"leave")
+	await wait_for_scene("Menu", 5.0)
+	await frames(3)
+	step("a replay's purse follows its seeks")
 
 
 ## Whether `node` is a purse's rising "+1".

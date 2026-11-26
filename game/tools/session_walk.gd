@@ -115,7 +115,7 @@ func _walk_save_and_leave() -> void:
 
 
 ## New game over a save asks first (Back keeps it); Continue goes through hero select ("Continue your crypt") into the
-## save's floor with its tally on the HUD.
+## save's floor with its tally on the HUD, the purse starting at the save's gold (the first game's coin).
 func _walk_continue() -> void:
 	await click(title_control("NewGame"))
 	var dialog: Control = overlay("Dialog")
@@ -131,6 +131,8 @@ func _walk_continue() -> void:
 		return
 	expect(Unified.data.hud.surges == save.surges and Unified.data.hud.kills >= save.kills,
 		"the HUD carries the save's tally on: surge %d, %d felled" % [Unified.data.hud.surges, Unified.data.hud.kills])
+	var gold: int = PurseWatch.gold_of(find(current_scene, ^"Hud/%Purse") as Control)
+	expect(save.gold > 0 and gold == save.gold, "the purse starts at the save's gold: %d (saved %d)" % [gold, save.gold])
 	step("Continue: the save's floor, surge %d, %d felled" % [save.surges, save.kills])
 
 
