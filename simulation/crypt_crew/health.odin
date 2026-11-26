@@ -1,14 +1,13 @@
 // A hero's health: damage_hero is the only way a hero takes damage and goes down (a spawn sets its hit points whole, a
 // revive to REVIVE_HP). A blow first meets what the hero is doing: the early part of a Rogue's roll lets nothing
 // through, and a Knight's raised shield (or its charge) takes a blow from the front (abilities.odin). A hero at 0 HP
-// goes down: it lets go of what it carries, stops where it is (its drive holds it there, so it neither slides nor
-// sinks), and minions stop chasing it. It stays down until an ally revives it (revive.odin): there is no bleeding out
-// and no rising on its own. When every hero present is down, the wipe's WIPE_S runs (a hero up again, a joiner
-// arriving, stops it), and then the floor starts over (restart_floor).
+// goes down: it lets go of what it carries, falls as a ragdoll knocked away from the blow (ragdolls.odin), and minions
+// stop chasing it. It stays down until an ally revives it (revive.odin): there is no bleeding out and no rising on its
+// own. When every hero present is down, the wipe's WIPE_S runs (a hero up again, a joiner arriving, stops it), and then
+// the floor starts over (restart_floor).
 package crypt_crew
 
 import "unified:dmath"
-import "unified:physics"
 import "unified:sim"
 
 // `player`'s hero took `damage` from something at `position`, leaving `hp`.
@@ -51,11 +50,11 @@ damage_hero :: proc(t: ^Tick, player: sim.Player, damage: i16, from: [3]f32) {
 	sim.emit(t, Event_Hero_Hurt{player = player, position = sim.Position(from), damage = taken, hp = hero.hp})
 	if hero.hp > 0 do return
 	drop_prop(t, player)
-	physics.body_set_linear_velocity(t.world.phys, hero.body.body, {})
-	hero.vel = {}
+	feet := hero.pos
+	ragdoll_hero(t, player, ragdoll_kick(feet, from, hero.facing))
 	hero.action, hero.action_started = .Down, t.time
 	hero.revive = 0
-	sim.emit(t, Event_Hero_Downed{player = player, position = sim.Position(hero.pos)})
+	sim.emit(t, Event_Hero_Downed{player = player, position = sim.Position(feet)})
 }
 
 // Every hero present down (the wipe): WIPE_S after the last one fell, the floor starts over. A hero up again, by a

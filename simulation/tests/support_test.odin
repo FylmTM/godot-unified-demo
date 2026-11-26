@@ -150,3 +150,20 @@ watch_rises :: proc(t: ^testing.T, run: ^headless.Run(g.Game), watch: ^Rise_Watc
 	}
 	return risen
 }
+
+// ---- ragdolls
+
+// Long enough for a downed hero's ragdoll to fall and come to rest (seconds).
+SETTLE_S :: 2
+
+// SETTLE_S of idle play: a ragdoll falls and comes to rest.
+settle :: proc(run: ^headless.Run(g.Game)) {
+	play(run, {}, SETTLE_S)
+}
+
+// The walkable floor's point under `near` (a downed hero's pelvis lies above it): where a test stands a hero beside one.
+on_floor :: proc(run: ^headless.Run(g.Game), near: [3]f32) -> [3]f32 {
+	spot, found := g.floor_spot(floor_of(run), near, 1)
+	assert(found, "a test's spot is off the floor")
+	return spot.point
+}

@@ -4,9 +4,10 @@
 // moving at REVIVE_SPEED meanwhile, Attack held or not (no attack starts while it tends: start_attacks waits for it).
 // Letting go, walking off or a blow taken (damage_hero) breaks it off, and only a new press starts it again. Each tick
 // a downed hero's revive gains one for each ally tending them, so two revive twice as fast, and loses REVIVE_DECAY
-// untended; at REVIVE_TICKS it rises where it lies, at REVIVE_HP, in its grace, and an ally still holding Interact
-// carries on to the next hero down in its range, if there is one, without a new press. revive_target is both what the
-// tick tends and what the view's "[E] Revive" prompt asks, so the prompt shows exactly when a press would revive.
+// untended; at REVIVE_TICKS it rises where it lies (from a ragdoll, on the floor by its pelvis: ragdolls.odin), at
+// REVIVE_HP, in its grace, and an ally still holding Interact carries on to the next hero down in its range, if there
+// is one, without a new press. revive_target is both what the tick tends and what the view's "[E] Revive" prompt asks,
+// so the prompt shows exactly when a press would revive.
 package crypt_crew
 
 import "unified:dmath"
@@ -78,10 +79,12 @@ revive_heroes :: proc(t: ^Tick) {
 }
 
 // `player`'s hero, down, rises where it lies at REVIVE_HP, in its grace, revived by `by` (a heaved one let go of first:
-// end_hero_heave, so no hero up hangs on a hold). Whoever was tending it stops, unless another hero down is in its range
-// (revive_target): it carries on there, its Interact still held.
+// end_hero_heave, so no hero up hangs on a hold; one lying as a ragdoll stands up from it, stand_up). Whoever was
+// tending it stops, unless another hero down is in its range (revive_target): it carries on there, its Interact still
+// held.
 revive_hero :: proc(t: ^Tick, player: sim.Player, by: sim.Player) {
 	end_hero_heave(t, player)
+	stand_up(t, player, by)
 	hero := sim.player_data(t, player)
 	hero.hp = REVIVE_HP
 	hero.action, hero.action_started = .None, t.time

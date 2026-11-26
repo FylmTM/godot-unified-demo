@@ -11,21 +11,22 @@ import "unified:sim"
 
 import g "../crypt_crew"
 
-// A run of `seated` heroes with no minion, slot `downed`'s hero down at its spawn and every other slot standing
-// beside it within REVIVE_RANGE (a ring around it), each facing it.
+// A run of `seated` heroes with no minion, slot `downed`'s hero down by its spawn, its ragdoll come to rest (settle),
+// and every other slot standing beside where it lies within REVIVE_RANGE (a ring around it), each facing it.
 @(private = "file")
 one_down :: proc(seated: int, downed := 0) -> headless.Run(g.Game) {
 	run := headless.run_begin(&g.GAME, 1, seated = seated)
 	clear_minions(&run)
-	at := spawn_of(&run, downed)
-	place_hero(&run, downed, at)
+	place_hero(&run, downed, spawn_of(&run, downed))
+	hurt(&run, downed, g.HERO_HP)
+	settle(&run)
+	at := sim.slot_data(run.simulation, downed).pos
 	for slot in 0 ..< seated {
 		if slot == downed do continue
 		dir := dmath.DIR8[(slot * 3) % len(dmath.DIR8)]
 		beside := [3]f32{dir.x, 0, dir.y} * (g.REVIVE_RANGE - 0.4)
-		place_hero(&run, slot, at + beside, -dir)
+		place_hero(&run, slot, on_floor(&run, at + beside), -dir)
 	}
-	hurt(&run, downed, g.HERO_HP)
 	return run
 }
 
@@ -38,7 +39,8 @@ tend :: proc(run: ^headless.Run(g.Game), slots: []int, ticks: int) {
 }
 
 // Holding Interact beside a downed ally revives them in REVIVE_TICKS of tending, not a tick sooner: they rise where they
-// lie at REVIVE_HP, in their grace (a blow does nothing), and the reviver is free again.
+// lie (on the floor under their ragdoll's pelvis) at REVIVE_HP, in their grace (a blow does nothing), and the reviver is
+// free again.
 @(test)
 a_revive_takes_its_time :: proc(t: ^testing.T) {
 	run := one_down(2)
@@ -53,7 +55,8 @@ a_revive_takes_its_time :: proc(t: ^testing.T) {
 	testing.expect_value(t, downed.action, g.Action.None)
 	testing.expect_value(t, downed.hp, g.REVIVE_HP)
 	testing.expect_value(t, reviver.action, g.Action.None)
-	testing.expectf(t, dmath.length(downed.pos - lying) < 0.05, "rose at %v, not where it lay (%v)", downed.pos, lying)
+	under := on_floor(&run, lying)
+	testing.expectf(t, dmath.length(downed.pos - under) < 0.05, "rose at %v, not where it lay (%v)", downed.pos, under)
 	revived, _ := headless.run_last_event(&run, g.Event_Hero_Revived)
 	testing.expect_value(t, revived.player, sim.player_in_slot(run.simulation, 0))
 	testing.expect_value(t, revived.by, sim.player_in_slot(run.simulation, 1))
@@ -194,9 +197,16 @@ a_reviver_carries_on_to_the_next :: proc(t: ^testing.T) {
 	run := one_down(3)
 	defer headless.run_end(&run)
 	reviver, second := sim.slot_data(run.simulation, 1), sim.slot_data(run.simulation, 2)
-	place_hero(&run, 2, sim.slot_data(run.simulation, 0).pos + {0, 0, -1.1})
-	place_hero(&run, 1, sim.slot_data(run.simulation, 0).pos + {1, 0, 0}, {-1, 0})
+	first := sim.slot_data(run.simulation, 0).pos
+	place_hero(&run, 2, on_floor(&run, first + {0, 0, -1.1}))
 	hurt(&run, 2, g.HERO_HP)
+	settle(&run)
+	// Between the two where they lie, nearer the first and within REVIVE_RANGE of both.
+	apart := second.pos.xz - first.xz
+	testing.expectf(t, dmath.length(apart) < 2.4, "the two lie %v m apart", dmath.length(apart))
+	across := dmath.normalize([2]f32{-apart.y, apart.x}) * 0.3
+	between := first + {0.4 * apart.x + across.x, 0, 0.4 * apart.y + across.y}
+	place_hero(&run, 1, on_floor(&run, between), dmath.normalize(-apart))
 	tend(&run, {1}, int(g.REVIVE_TICKS))
 	testing.expect_value(t, sim.slot_data(run.simulation, 0).action, g.Action.None) // the nearer first
 	tend(&run, {1}, 5)

@@ -56,7 +56,10 @@ update_presence :: proc(t: ^Tick) {
 		spawn_hero(t, player, feet, beside)
 		if kept.hp == 0 && kept.action != .Down do continue // new, or forgotten: whole
 		hero.hp, hero.revive, hero.ability_ready = kept.hp, kept.revive, kept.ability_ready
-		if kept.action == .Down do hero.action = .Down // it lies where it arrives, as it fell (action_started: now)
+		if kept.action == .Down { 	// it falls where it arrives, a ragdoll as it was (action_started: now)
+			hero.action = .Down
+			ragdoll_hero(t, player, ragdoll_kick(hero.pos, hero.pos, hero.facing))
+		}
 	}
 }
 
@@ -140,10 +143,11 @@ arrival_class :: proc(t: ^Tick, played: Class, wish: Class) -> Class {
 	unreachable()
 }
 
-// The hero's body goes (a leave, a level change), its warp epoch folded into the hero's own (hero_warp), so the
-// view of its next body snaps.
+// The hero's body goes (a leave, a level change), and the ragdoll it lies as if it is down, its warp epoch folded into
+// the hero's own (hero_warp), so the view of its next body snaps.
 destroy_hero_body :: proc(phys: ^physics.World, hero: ^Hero) {
 	hero.warp = hero_warp(phys, hero)
+	physics.ragdoll_destroy(phys, &hero.ragdoll)
 	physics.character_destroy(phys, &hero.body)
 }
 

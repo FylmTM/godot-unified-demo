@@ -20,7 +20,8 @@ extends Node3D
 ## body stands (the death clip, held on its last frame: a downed ally a Barbarian heaves hangs and flies so) with a ring
 ## on the floor round it as wide as the reach an ally revives from (Unified.constants.revive_range), which fills as its
 ## revive comes on (ground_ring.gdshader, turned with the world, not the hero), and none while it is heaved (no ally
-## tends it then); one just revived blinks while its grace lasts.
+## tends it then); one just revived blinks while its grace lasts. A hero down as a ragdoll shows only the ring and its
+## light, on the floor under its pelvis: its ragdoll's view (RagdollView) shows the body.
 
 ## A standing hero walks from this speed, and a walking one stands below the lower (metres per second).
 const WALK_FROM: float = 0.5
@@ -111,7 +112,7 @@ func _process(_delta: float) -> void:
 				_rig.pose(_gait(), now / Unified.tick_hz + float(_view.player) * PHASE_PER_KEY)
 	var shooting: bool = data.action == EnumAction.ATTACK and data.class == EnumClass.ROGUE
 	_rig.rotation.y = ROGUE_SHOT_TURN if shooting else 0.0
-	_rig.visible = not data.grace or fposmod(now, 2.0 * GRACE_BLINK_TICKS) < GRACE_BLINK_TICKS
+	_rig.visible = not data.ragdoll and (not data.grace or fposmod(now, 2.0 * GRACE_BLINK_TICKS) < GRACE_BLINK_TICKS)
 	_show_revive_ring()
 
 

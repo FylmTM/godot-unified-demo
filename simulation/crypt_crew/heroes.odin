@@ -57,10 +57,12 @@ move_heroes :: proc(t: ^Tick) {
 	}
 }
 
-// After the physics step: each present hero's feet and velocity, from its body.
+// After the physics step: each present hero's feet and velocity, from its body (a ragdolled hero's are its pelvis's:
+// read_back_ragdolls).
 read_back_heroes :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero in sim.next(&heroes) {
+		if ragdolled(hero) do continue
 		hero.pos = physics.body_position(t.world.phys, hero.body.body) - {0, HERO_CENTRE_ABOVE_FEET, 0}
 		hero.vel = physics.body_linear_velocity(t.world.phys, hero.body.body)
 	}

@@ -124,3 +124,34 @@ a_plate_stays_pressed_while_anything_weighs_on_it :: proc(t: ^testing.T) {
 	testing.expect(t, !plate.pressed, "nothing on it: released")
 	scenarios.expect_synced(t, &run)
 }
+
+// A downed hero's ragdoll weighs on a plate as a crate does (RAGDOLL_MASS against PLATE_LOAD; its bones meet
+// CAT_PIECE): a hero standing just off a plate's edge, its back to it, goes down (a dev hurt tips it backwards) and its
+// body falls across the slab, which sinks and presses; the plate stays pressed while it lies there, its capsule
+// dormant and out of the world. A second hero stands far off, so no wipe restarts the floor meanwhile.
+@(test)
+a_ragdoll_presses_a_plate :: proc(t: ^testing.T) {
+	run := workshop(seated = 2)
+	defer headless.run_end(&run)
+	plate, handle := plate_at(&run, STORE_PLATE)
+	spot := plate_spot(&run, STORE_PLATE)
+	place_hero(&run, 0, spot + {g.PLATE_HALF.x + 0.4, 0, 0}, {1, 0}) // off the east edge, facing east
+	place_hero(&run, 1, spot + {0, 0, 6})
+	headless.run_pin(&run)
+	play(&run, {}, 0.5)
+	testing.expect(t, !plate.pressed, "nothing presses it before the fall")
+	hero := sim.slot_data(run.simulation, 0)
+	headless.run_command(&run, 0, g.Command_Dev_Hurt{damage = g.HERO_HP})
+	testing.expect(t, g.ragdolled(hero), "the hero lies as a ragdoll")
+	for _ in 0 ..< 2 * g.TICK_HZ {
+		headless.run_step(&run)
+		if plate.pressed do break
+	}
+	pressed, found := headless.run_last_event(&run, g.Event_Plate)
+	testing.expect(t, found && pressed.plate == handle && pressed.pressed, "the body falling across it pressed it")
+	play(&run, {}, 1)
+	testing.expectf(t, depth_of(&run, STORE_PLATE) > g.PLATE_ON, "the body sinks it %v m", depth_of(&run, STORE_PLATE))
+	testing.expect(t, plate.pressed && g.ragdolled(hero), "it stays pressed while the body lies on it")
+	testing.expect_value(t, headless.run_events(&run, g.Event_Plate), 1)
+	scenarios.expect_synced(t, &run)
+}

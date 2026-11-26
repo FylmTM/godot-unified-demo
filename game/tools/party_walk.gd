@@ -508,8 +508,8 @@ func _walk_crowd() -> void:
 	step("the crowd: %d sleeping minions, one MultiMesh" % shown)
 
 
-## The guest (pad 1's Rogue) rolls with its pad's B, its ability pip draining; a dev hurt downs it, and its view lies in
-## its revive ring; the skeletons are killed (dev), so no blow ends the revive; the first player walks up to it on the keyboard, and "[E] Revive" hangs over the guest; holding E
+## The guest (pad 1's Rogue) rolls with its pad's B, its ability pip draining; a dev hurt downs it, and it lies as its
+## ragdoll's view (its hero view's character hidden) in its revive ring; the skeletons are killed (dev), so no blow ends the revive; the first player walks up to it on the keyboard, and "[E] Revive" hangs over the guest; holding E
 ## fills the ring and revives it, with the toast "<first player> revived <guest>", which waits for CONFIRMED.
 func _walk_revive() -> void:
 	var guest: int = session.get_local_player_key(_local_of(1))
@@ -525,6 +525,10 @@ func _walk_revive() -> void:
 	await wait_for(func() -> bool: return _view_action(downed) == EnumAction.DOWN, 3.0, "the guest goes down")
 	var ring: Node3D = find(downed, ^"ReviveRing") as Node3D
 	expect(ring.visible, "a ring lies round the downed guest")
+	var ragdoll: Node3D = session.get_player_view(EnumView.RAGDOLL, guest) as Node3D
+	expect(ragdoll != null and ragdoll.is_visible_in_tree(), "the guest lies as its ragdoll's view")
+	var character: Node3D = downed.get(&"_rig")
+	expect(not character.visible, "and its hero view hides its character")
 	# The floor's first surge has risen by now (the elites' part came first): a blow from one of its skeletons would end
 	# the revive, so they go (dev) before the first player walks up.
 	session.send_command(CommandDevKillMinions.new())

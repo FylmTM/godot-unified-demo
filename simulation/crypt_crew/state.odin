@@ -91,4 +91,8 @@ Hero :: struct {
 	// (hero_warp): a teleport of the body bumps the body's, a new body this one.
 	warp:           u8,
 	heave:          Heave_Phase, // while down: held up by a Barbarian, or thrown by one (barbarian.odin)
+	// ---- ragdolls (ragdolls.odin)
+	// While down: the ragdoll it lies as (zero: none, and always none while up), its capsule dormant and out of the
+	// world meanwhile. Freed on every path that frees the body (destroy_hero_body: a leave, a level change).
+	ragdoll:        physics.Ragdoll,
 }

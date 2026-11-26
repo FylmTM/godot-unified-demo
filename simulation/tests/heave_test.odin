@@ -335,6 +335,7 @@ a_thrown_body_passes_through_heroes :: proc(t: ^testing.T) {
 	place_hero(&run, 1, start + {3, 0, 0}, {-1, 0})
 	place_hero(&run, 2, start + {4.5, 0, 0}, {-1, 0})
 	hurt(&run, 2, g.HERO_HP)
+	settle(&run) // its ragdoll comes to rest in the path
 	warrior := elite_of(&run, heave_ahead(&run))
 	hold(&run, {}, 8)
 	up, down := standing.pos, lying.pos

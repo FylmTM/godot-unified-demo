@@ -13,8 +13,8 @@ braziers, and haul its treasure up to the lift.
   the crypt wakes behind them. The lift is the save point; each hero picks a boon and the party descends.
 - **A run.** A hub between runs (the lobby), three floors, and a boss vault: 20–30 minutes. A run saves at every lift
   and continues from the menu. A player can join or rejoin at any time.
-- **Failure.** A downed hero ragdolls (today it lies in its death pose until revived). When the whole party is down,
-  the floor restarts from the last save.
+- **Failure.** A downed hero ragdolls (a heaved one is still its capsule in the death pose until milestone 6's last
+  step). When the whole party is down, the floor restarts from the last save.
 - **Enemies.** A boss, in the boss vault, beside the skeleton crowd and its elites.
 - **Depth.** Difficulty levels (the Setup); an endless arena mode (also the stress and benchmark scene); progress
   across runs (unlocks, best floors, gold hauled) that each player brings into a session through their Profile; each
@@ -79,5 +79,10 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 - Per-instance colour on a MultiMesh view, so one kind draws its instances in more than one colour: a skeleton
   Mage's bone bolts are a kind of their own meanwhile (`MultiView.Bone_Bolt`, `simulation/extension/frame.odin`).
   Later.
+- Body names out of the world's hash, or rolled back with it: Box3D's canonical image (the netcode's deep checksum)
+  keeps every name a body was ever given, and a snapshot's restore takes none back, so a world rolled back to before a
+  named body was made hashes otherwise than one that never saw it. physics.ragdoll_create names its bones, so the game
+  gives the World's anchor those names before the first save (`simulation/crypt_crew/ragdolls.odin`,
+  intern_ragdoll_names). Now.
 - Later, filed when it hurts: a shared app layer for games; composing a level from room scenes; the real-UDP net
   suite for game repos; a doc-comment lint a game's tests can run.

@@ -23,6 +23,7 @@ CAT_HERO :: u64(1 << 3)
 CAT_PROP :: u64(1 << 4)
 CAT_ELITE :: u64(1 << 5) // an elite's capsule (elites.odin)
 CAT_PIECE :: u64(1 << 6) // a mechanism's body: a plate, a gate, a barricade, a trap (plates.odin, gates.odin, ...)
+CAT_RAGDOLL :: u64(1 << 7) // a downed hero's ragdoll's bones (ragdolls.odin)
 
 // The game's levels, in GAME.levels' order (the State's `level` says which is active).
 Level_Id :: enum u8 {
@@ -90,6 +91,8 @@ Floor :: struct {
 	grid_origin:  [2]f32, // the minion grid's corner, its columns and rows: laid over the mesh's extent
 	grid_columns: int,
 	grid_rows:    int,
+	// ---- ragdolls (ragdolls.odin)
+	lowest:       f32, // the navigation mesh's lowest point: a ragdoll RAGDOLL_KILL_DEPTH below it has left the level
 }
 
 // The world outside the block.
@@ -148,6 +151,7 @@ world_create :: proc(seed: u64, levels: []sim.Level_File, _: Setup) -> ^World {
 	height := 2 * barrel.half.y
 	world.barrel_hull = physics.create_cylinder(height, barrel.half.x, -barrel.half.y, PROP_CYLINDER_SIDES)
 	world.barrel_density = barrel.mass / physics.compute_hull_mass(world.barrel_hull, 1).mass
+	intern_ragdoll_names(world.phys)
 	return world
 }
 
@@ -165,6 +169,8 @@ build_floor :: proc(floor: ^Floor, data: ^level.Level, seed: u64) {
 	assert(err == .None, "crypt_crew: a level's navigation mesh doesn't build (bake it: uni bake --nav)")
 	floor.fields = nav.fields_make(&floor.mesh, MAX_FIELDS)
 	lay_grid(floor)
+	floor.lowest = max(f32)
+	for vertex in floor.mesh.vertices do floor.lowest = dmath.min(floor.lowest, vertex.y)
 	read_places(&floor.places, data)
 	spawn_poly, _ := nav.nearest(&floor.mesh, floor.places.hero_spawns[0], HERO_NAV_REACH)
 	assert(spawn_poly != nav.NO_POLY, "crypt_crew: slot 0's hero_spawn is off the navigation mesh")

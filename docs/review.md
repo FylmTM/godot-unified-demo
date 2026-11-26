@@ -853,3 +853,33 @@ Tests and tools:
   Barbarian to heave. `uni coop`'s beats, both sides: an ability (a Barbarian's is its heave of the ally it then
   revives), a coin, a revive given and one received, each waited on as CONFIRMED. `replays/lan_pair` was recorded
   again with VERSION 21; its play needed no change.
+
+## Milestone 6, step 2: ragdolls
+
+The calls made building the downed heroes' ragdolls, beyond the design's decided ones (only heroes ragdoll; the
+capsule dormant; the revive at the floor by the pelvis; the heave of a ragdoll is step 4's).
+
+- The dormant capsule is also taken out of the world (physics.body_disable) and left where it fell, not set on the
+  pelvis each tick: a dormant capsule is solid (props and elites would bounce off an invisible post), and a teleport
+  each tick moves the warp epoch on every tick. It is put back, teleported and woken on the revive.
+- The ragdoll's mask is every category but the heroes' and the elites': ragdolls meet each other (and their own bones
+  no filter joint parts), so two downed heroes pile instead of passing through each other, and the categories steps 1
+  and 3 add (pieces, the hoard, the lift) are met with no change here.
+- Decided in review: a blow from no side (a dev hurt, a rejoin while down) tips the body backwards (RAGDOLL_TIP 0.8 m/s:
+  it lies within 0.75 s); a body carries at most RAGDOLL_CARRY_MAX 4 m/s of its hero's velocity; a ragdoll
+  RAGDOLL_KILL_DEPTH 20 m below the floor's navigation mesh goes and its hero lies down at its spawn (deep enough for a
+  lift's ride). RAGDOLL_FRICTION_TORQUE 2 N·m and RAGDOLL_HERTZ 0 (limp) added.
+- The revive's floor is found by a ray down from the pelvis to CAT_FLOOR (RAGDOLL_FLOOR_BELOW 10 m) before
+  floor_spot; where floor_spot refuses it (a tomb's top nearer than the floor), the nearest spot of RAGDOLL_RINGS 5
+  rings RAGDOLL_RING 0.75 m apart round it (the arrival's way); else the reviver's (or the heaving Barbarian's) floor;
+  the spawn only for a body with neither. A ragdoll with no such spot isn't heavable (none found on Floor 1).
+- Until step 4, heaving a ragdolled ally stands its capsule up from the ragdoll (the revive's rule) and heaves that, as
+  before; let down, it lies as that capsule in the death pose until revived.
+- The view: View_Ragdoll keyed by its player, posed at the pelvis turned from its rest pose; every rig bone takes its
+  ragdoll bone's turn, a limb's after the constant turn from the rig's T-pose direction to the ragdoll's rest
+  direction, so knees and elbows bend in their own plane; the bones ease between ticks to the data's tick. It lingers
+  0 s, so a revived hero never shows twice; the downed hero's own view hides its character and keeps the ring and the
+  light, on the floor the ray down from the pelvis finds.
+- Box3D's deep hash keeps every body name ever given, across a restore: the bones' names are given to the World's
+  anchor before the first save (plan.md, Needed from unified). `replays/lan_pair` no longer loads (the Hero's layout):
+  recorded again at the merge.
