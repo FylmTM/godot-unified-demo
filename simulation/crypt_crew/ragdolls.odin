@@ -14,9 +14,7 @@
 // A ragdoll's bones meet everything but heroes and elites (RAGDOLL_FILTER): nobody trips over a fallen ally, an elite
 // walks over one, a thrown prop knocks one about, and two fall on each other. Until milestone 6's last step makes the
 // heave hold the ragdoll itself (docs/plan.md, Milestones), a Barbarian heaving a downed ally stands its capsule up
-// first and heaves that, as before (barbarian.odin, heave); let down, it lies as that capsule until revived. The
-// bones' names are given to the World's anchor before the first save (intern_ragdoll_names): a workaround that keeps
-// a rolled-back world's hash its own.
+// first and heaves that, as before (barbarian.odin, heave); let down, it lies as that capsule until revived.
 package crypt_crew
 
 import "unified:dmath"
@@ -147,8 +145,8 @@ stand_capsule :: proc(phys: ^physics.World, hero: ^Hero, feet: [3]f32) {
 	hero.pos, hero.vel = feet, {}
 }
 
-// The names ragdoll_create gives a ragdoll's bones (Box3D body names): what intern_ragdoll_names names the World's
-// anchor in turn. ragdolls_test.odin holds them to the names a ragdoll's bones get.
+// The names ragdoll_create gives a ragdoll's bones (Box3D body names), which debug draws and traces show:
+// ragdolls_test.odin holds them to the names a ragdoll's bones get.
 @(rodata)
 RAGDOLL_BONE_NAMES := [physics.Ragdoll_Bone]cstring {
 	.Pelvis          = "pelvis",
@@ -163,24 +161,6 @@ RAGDOLL_BONE_NAMES := [physics.Ragdoll_Bone]cstring {
 	.Left_Forearm    = "left forearm",
 	.Right_Upper_Arm = "right upper arm",
 	.Right_Forearm   = "right forearm",
-}
-
-// Gives the World's anchor each bone's name in turn, then its own back, before the harness saves the world for the
-// first time (world_create). A workaround (docs/plan.md, Needed from unified: body names in the world's hash): Box3D's
-// canonical image, which the netcode's deep checksum hashes, keeps every name a body was ever given, and a snapshot's
-// restore takes none back; so the first ragdoll after a save would leave its bones' names in a world rolled back to
-// before it, and that world would hash otherwise than one that never saw it (a rollback, a late joiner and a replay
-// all disagree on every deep checksum tick). Given here, on every peer's world before any save, the names are in every
-// world from the start, and no ragdoll adds one. Renaming the anchor makes and frees no body, so every body after it
-// is numbered as it would be without it.
-intern_ragdoll_names :: proc(phys: ^physics.World) {
-	anchor, _ := physics.resolve(phys, physics.world_anchor(phys))
-	before: [64]u8 // a copy of its own name (a rename may free the one the anchor has), zero-terminated
-	name := string(physics.body_name(phys, anchor))
-	assert(len(name) < len(before), "crypt_crew: the anchor's name is longer than intern_ragdoll_names keeps")
-	copy(before[:], name)
-	for bone_name in RAGDOLL_BONE_NAMES do physics.body_set_name(phys, anchor, bone_name)
-	physics.body_set_name(phys, anchor, cstring(&before[0]))
 }
 
 // After the physics step (and read_back_heroes, which leaves a ragdolled hero alone): each ragdolled hero's `pos` and

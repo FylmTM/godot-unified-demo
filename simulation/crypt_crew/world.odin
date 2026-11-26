@@ -159,7 +159,6 @@ world_create :: proc(seed: u64, levels: []sim.Level_File, _: Setup) -> ^World {
 	height := 2 * barrel.half.y
 	world.barrel_hull = physics.create_cylinder(height, barrel.half.x, -barrel.half.y, PROP_CYLINDER_SIDES)
 	world.barrel_density = barrel.mass / physics.compute_hull_mass(world.barrel_hull, 1).mass
-	intern_ragdoll_names(world.phys)
 	return world
 }
 

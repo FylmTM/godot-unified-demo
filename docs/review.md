@@ -880,9 +880,10 @@ capsule dormant; the revive at the floor by the pelvis; the heave of a ragdoll i
   direction, so knees and elbows bend in their own plane; the bones ease between ticks to the data's tick. It lingers
   0 s, so a revived hero never shows twice; the downed hero's own view hides its character and keeps the ring and the
   light, on the floor the ray down from the pelvis finds.
-- Box3D's deep hash keeps every body name ever given, across a restore: the bones' names are given to the World's
-  anchor before the first save (plan.md, Needed from unified). `replays/lan_pair` no longer loads (the Hero's layout):
-  recorded again at the merge.
+- Box3D's deep hash kept every body name ever given, across a restore: the bones' names were given to the World's
+  anchor before the first save, until unified's Box3D 3362633-r6 (the bump to 83e5e1d0) made the workaround go.
+  `replays/lan_pair` no longer loads (the Hero's layout): recorded again at the merge.
+
 ## Milestone 6: physics set pieces
 
 Step 3, the hoard, the lift and boons (beyond the design's decided calls):

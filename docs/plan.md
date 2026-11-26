@@ -79,10 +79,5 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 - Per-instance colour on a MultiMesh view, so one kind draws its instances in more than one colour: a skeleton
   Mage's bone bolts are a kind of their own meanwhile (`MultiView.Bone_Bolt`, `simulation/extension/frame.odin`).
   Later.
-- Body names out of the world's hash, or rolled back with it: Box3D's canonical image (the netcode's deep checksum)
-  keeps every name a body was ever given, and a snapshot's restore takes none back, so a world rolled back to before a
-  named body was made hashes otherwise than one that never saw it. physics.ragdoll_create names its bones, so the game
-  gives the World's anchor those names before the first save (`simulation/crypt_crew/ragdolls.odin`,
-  intern_ragdoll_names). Now.
 - Later, filed when it hurts: a shared app layer for games; composing a level from room scenes; the real-UDP net
   suite for game repos; a doc-comment lint a game's tests can run.

@@ -50,7 +50,7 @@ ragdoll_mass :: proc(run: ^headless.Run(g.Game), hero: ^g.Hero) -> (mass: f32) {
 }
 
 // A hero going down falls as a ragdoll: its capsule dormant and out of the world where it stood, a ragdoll of
-// RAGDOLL_MASS in its place in CAT_RAGDOLL, its bones named as intern_ragdoll_names names the anchor, moving
+// RAGDOLL_MASS in its place in CAT_RAGDOLL, its bones named as RAGDOLL_BONE_NAMES says, moving
 // RAGDOLL_KICK away from the blow (the minion at its right, not along its facing), its pos the pelvis's; the body comes
 // to rest lying on the floor.
 @(test)
