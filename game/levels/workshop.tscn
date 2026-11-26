@@ -7,7 +7,6 @@
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_shelves.tscn" id="5_2vb7w"]
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/brazier.tscn" id="6_617kk"]
 [ext_resource type="PackedScene" path="res://game/fx/fire.tscn" id="7_i60vy"]
-[ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/chest_gold.gltf" id="9_o2n4j"]
 [ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/coin_stack_small.gltf" id="10_brp7d"]
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/torch_mounted.tscn" id="11_tptji"]
 [ext_resource type="Script" path="res://game/levels/markers/hero_spawn.gd" id="12_702nl"]
@@ -16,7 +15,10 @@
 [ext_resource type="Script" path="res://game/levels/markers/trap.gd" id="15_qibbp"]
 [ext_resource type="Script" path="res://game/levels/markers/plate.gd" id="16_orto4"]
 [ext_resource type="Script" path="res://game/levels/markers/barricade.gd" id="17_0tywy"]
+[ext_resource type="PackedScene" path="res://game/levels/parts/crypt/lift_shaft.tscn" id="18_6a4b86"]
 [ext_resource type="Script" path="res://game/levels/markers/prop.gd" id="18_s72pi"]
+[ext_resource type="Script" path="res://game/levels/markers/lift.gd" id="19_825d08"]
+[ext_resource type="Script" path="res://game/levels/markers/hoard.gd" id="20_6a1dd2"]
 
 [sub_resource type="NavigationMesh" id="NavigationMesh_2hxcu"]
 vertices = PackedVector3Array(-4.5, 0.5, -4.75, -3, 0.5, -5, -3, 0.5, -6.75, -10.75, 0.5, -6.75, -10.75, 0.5, -5, -7.25, 0.5, -4.75, -9.25, 0.5, 5.5, -9, 0.5, 7, 0.75, 0.5, 7, 0.25, 0.5, -2.75, -4.25, 0.5, -2.75, -7.75, 0.5, -2.75, -7.25, 0.5, -3.25, 0.75, 0.5, -3.25, -10.75, 0.5, -2.75, -10.75, 0.5, 5.5, -0.75, 0.5, -6.75, -0.75, 0.5, -5, 0.75, 0.5, -4.75, 7.5, 0.5, -4.75, 11, 0.5, -5, 11, 0.5, -6.75, 7.75, 0.5, -2.75, 9.75, 0.5, 6, 11, 0.5, 6, 11, 0.5, -2.75, 9.5, 0.5, 7)
@@ -80,7 +82,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -6)
 [node name="FloorTileLarge12" parent="Nav" unique_id=447238504 instance=ExtResource("1_1q7nx")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -2)
 
-[node name="FloorTileLarge13" parent="Nav" unique_id=62578799 instance=ExtResource("1_1q7nx")]
+[node name="LiftShaft" parent="Nav" unique_id=65579106 instance=ExtResource("18_6a4b86")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 2)
 
 [node name="FloorTileLarge14" parent="Nav" unique_id=1339937732 instance=ExtResource("1_1q7nx")]
@@ -198,9 +200,6 @@ strength = 1.6
 transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, 10.5, 3, 7)
 strength = 1.6
 
-[node name="ChestGold" parent="Decor" unique_id=632248559 instance=ExtResource("9_o2n4j")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, -6.6)
-
 [node name="CoinStackSmall" parent="Decor" unique_id=2116936622 instance=ExtResource("10_brp7d")]
 transform = Transform3D(0.9396926, 0, 0.34202012, 0, 1, 0, -0.34202012, 0, 0.9396926, -4.6, 0, -6.4)
 
@@ -279,12 +278,12 @@ script = ExtResource("15_qibbp")
 phase = 1.5
 
 [node name="PlateVaultWest" type="Marker3D" parent="Markers" unique_id=436270727]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.5, 0, -1.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.5, 0, -1.5)
 script = ExtResource("16_orto4")
 target = NodePath("../GateVault")
 
 [node name="PlateVaultEast" type="Marker3D" parent="Markers" unique_id=2016628302]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.5, 0, -1.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0, -1.5)
 script = ExtResource("16_orto4")
 target = NodePath("../GateVault")
 
@@ -323,3 +322,11 @@ script = ExtResource("18_s72pi")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, 6.2)
 script = ExtResource("18_s72pi")
 kind = "heavy_crate"
+
+[node name="Hoard" type="Marker3D" parent="Markers" unique_id=2001222995]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, -6.4)
+script = ExtResource("20_6a1dd2")
+
+[node name="Lift" type="Marker3D" parent="Markers" unique_id=2051413920]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 2)
+script = ExtResource("19_825d08")

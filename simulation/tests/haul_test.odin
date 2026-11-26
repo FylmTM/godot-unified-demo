@@ -2,7 +2,8 @@
 // from the same rule, every way a hold lets go, the lift boarding only with the hoard at rest and everyone aboard (the
 // downed too), stepping off, the ride, a late joiner on the deck, a leaver, and the descent with its save. Each on a
 // sync-tested run (headless.Run) that ends synced, so the holds, the deck and the level change also roll back. The
-// hoard and the lift are Floor 1's markers; heroes are put beside them (place_hero), the party aboard by dev_board.
+// hoard and the lift are Floor 1's; the hoard is taken out of its vault into the great hall (HALL_HOARD: room to walk
+// it about in), heroes are put beside it (place_hero), the party aboard by dev_board.
 package test_crypt_crew
 
 import "core:testing"
@@ -14,15 +15,31 @@ import "unified:sim"
 
 import g "../crypt_crew"
 
+// How far east of the deck's middle a Barbarian throws a body onto it from: the body comes down on the deck's near half
+// and slides into the hoard resting across its far edge.
+THROW_FROM :: f32(12)
+
+// A quarter turn about +Y: a body's +X turned to -Z.
+QUARTER_TURN :: [4]f32{0, 0.70710678, 0, 0.70710678}
+
 // How far out from a handle a hauler stands to take it (feet to handle, on the floor plan): in reach of its capsule.
 HANDLE_STAND :: f32(0.7)
 
-// A run of `seated` heroes on Floor 1 with no minion and no elite (nothing to hurt them).
+// Where the haul tests stand the hoard, out of the vault: the great hall, between its braziers.
+HALL_HOARD :: [3]f32{8, 0, -10.6}
+
+// A run of `seated` heroes on Floor 1 with no minion and no elite (nothing to hurt them), the hoard resting at
+// HALL_HOARD unless `in_vault`.
 @(private = "file")
-quiet_run :: proc(seated: int) -> headless.Run(g.Game) {
+quiet_run :: proc(seated: int, in_vault := false) -> headless.Run(g.Game) {
 	run := headless.run_begin(&g.GAME, 1, seated = seated)
 	clear_minions(&run)
 	clear_elites(&run)
+	if !in_vault {
+		hoard := run.simulation.state.hoard.body
+		physics.body_teleport(run.simulation.world.phys, hoard, HALL_HOARD + {0, g.HOARD_HALF.y, 0})
+		headless.run_pin(&run)
+	}
 	return run
 }
 
@@ -81,7 +98,7 @@ until_lift :: proc(run: ^headless.Run(g.Game), phase: g.Lift_Phase, seconds: f32
 // HOARD_REST_MASS (no hero shoves it), the deck at floor level, waiting.
 @(test)
 the_hoard_and_the_lift_stand_at_their_markers :: proc(t: ^testing.T) {
-	run := quiet_run(1)
+	run := quiet_run(1, in_vault = true)
 	defer headless.run_end(&run)
 	state := &run.simulation.state
 	phys := run.simulation.world.phys
@@ -697,5 +714,80 @@ a_downed_body_rides_the_lift_down :: proc(t: ^testing.T) {
 	testing.expect(t, g.ragdolled(downed), "the body still lies as a ragdoll")
 	testing.expect(t, g.on_deck(run.simulation.world.phys, &state.lift, downed.pos), "on the deck at the bottom")
 	testing.expectf(t, top - downed.pos.y > g.LIFT_DROP - 0.3, "it went down %v m", top - downed.pos.y)
+	scenarios.expect_synced(t, &run)
+}
+
+// A hero downed on the lift arrives up: struck down on the deck as the lift boards, its ragdoll rides down with the
+// party, it picks its boon lying there, and on the next floor it stands at its spawn at REVIVE_HP, its ragdoll gone and
+// its capsule back in the world, walking on its own stick.
+@(test)
+a_hero_downed_on_the_lift_arrives_up :: proc(t: ^testing.T) {
+	run := quiet_run(2)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	board(&run)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Boarding)
+	hurt(&run, 1, g.HERO_HP) // boarding: the floor isn't won yet
+	downed := sim.slot_data(run.simulation, 1)
+	testing.expect(t, g.ragdolled(downed), "down on the deck, as a ragdoll")
+	testing.expect(t, until_lift(&run, .Choosing), "the lift goes down with it aboard")
+	testing.expect_value(t, downed.action, g.Action.Down)
+	headless.run_command(&run, 0, g.Command_Pick_Boon{0})
+	headless.run_command(&run, 1, g.Command_Pick_Boon{0})
+	testing.expect_value(t, state.depth, 1)
+	testing.expect_value(t, downed.action, g.Action.None)
+	testing.expect_value(t, downed.hp, g.REVIVE_HP)
+	testing.expect(t, !g.ragdolled(downed), "it arrives on its feet, no ragdoll")
+	testing.expect(
+		t,
+		physics.body_is_enabled(run.simulation.world.phys, downed.body.body),
+		"its capsule is in the world",
+	)
+	from := downed.pos
+	play(&run, {1 = {move_x = 127}}, 0.5)
+	testing.expectf(t, downed.pos.x > from.x + 1, "it walks on its own stick: %v from %v", downed.pos, from)
+	scenarios.expect_synced(t, &run)
+}
+
+// A Barbarian heaves a downed ally's ragdoll and throws it onto the waiting deck from across the room, then walks aboard
+// itself: the body comes down on the deck and slides into the hoard resting across its far edge (a thrown body lands
+// some ten metres off at a throw's speed, and would slide on off the 4 m deck) and lies there, and with the hoard aboard the lift boards (a downed hero
+// aboard counts as aboard, however it got there).
+@(test)
+a_heaved_ragdoll_thrown_onto_the_deck_boards :: proc(t: ^testing.T) {
+	run := quiet_run(2)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	phys := run.simulation.world.phys
+	headless.run_command(&run, 0, g.Command_Dev_Set_Class{.Barbarian})
+	deck := deck_point(&run, {})
+	// the hoard across the deck's far edge, its long side to the throw: what stops the body sliding off it
+	physics.body_teleport(
+		phys,
+		state.hoard.body,
+		deck + {g.HOARD_HALF.z - g.LIFT_HALF.x + 0.05, g.HOARD_HALF.y, 1.1},
+		QUARTER_TURN,
+	)
+	thrower := deck + {THROW_FROM, 0, 1.1} // down the corridor east of the west room, facing the deck
+	place_prop(&run, HEAVY_CRATE, spawn_of(&run, 3)) // out of the throw's way
+	place_hero(&run, 0, thrower, {-1, 0})
+	place_hero(&run, 1, thrower + {-GRAB_AHEAD, 0, 0})
+	headless.run_pin(&run)
+	hurt(&run, 1, g.HERO_HP)
+	press(&run, 0, .Ability)
+	ally := sim.slot_data(run.simulation, 1)
+	testing.expect_value(t, ally.heave, g.Heave_Phase.Held)
+	play(&run, {}, 0.5)
+	press(&run, 0, .Attack)
+	for _ in 0 ..< 3 * g.TICK_HZ {
+		if ally.heave == .None do break
+		headless.run_step(&run)
+	}
+	testing.expect_value(t, headless.run_events(&run, g.Event_Heave_Landed), 1)
+	play(&run, {}, 1.5)
+	testing.expectf(t, g.on_deck(phys, &state.lift, ally.pos), "the body came to rest on the deck: %v", ally.pos)
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Waiting) // the Barbarian is still off it
+	place_hero(&run, 0, deck_point(&run, {1, 0, 1} * g.LIFT_SLOT_SPREAD))
+	testing.expect(t, until_lift(&run, .Boarding, 1), "the lift boards with the thrown body aboard")
 	scenarios.expect_synced(t, &run)
 }

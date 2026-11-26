@@ -43,9 +43,9 @@ CROWD_REFERENCE :: scenarios.Reference {
 	setup         = "floor=arena,crowd=fight",
 	checkpoints   = {0x31c8e41d4302c318, 0xfd36f5f9d8b05e8c, 0x40713b0b177ff062, 0xc9e64c363c62eae7},
 	trace         = 0x5b94bc12cced7bfe,
-	snapshot      = 0x2afa66ae3205159c,
-	log           = 0x07373bd13154b4e2,
-	compat        = 0x7f1795365d71a3b0,
+	snapshot      = 0x7410e57da3362c04,
+	log           = 0x307d10d687735511,
+	compat        = 0xa3a25368275272ac,
 }
 
 // What a chaser closes on a neighbour or a spawn in the tick a run seats its heroes.
@@ -99,7 +99,7 @@ the_levels_are_in_level_id_order :: proc(t: ^testing.T) {
 }
 
 // A floor's cap is CROWD_DENSITY to its walkable square metre, at most MINION_CAP: Floor 1's rooms hold about a
-// hundred, the arena the most any floor holds.
+// hundred and fifty, the arena the most any floor holds.
 @(test)
 a_floors_cap_comes_from_its_area :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1)
@@ -107,7 +107,7 @@ a_floors_cap_comes_from_its_area :: proc(t: ^testing.T) {
 	floors := &run.simulation.world.floors
 	first := &floors[.Floor_1]
 	testing.expect_value(t, first.minion_cap, int(first.area * g.CROWD_DENSITY))
-	testing.expectf(t, first.minion_cap > 80 && first.minion_cap < 140, "Floor 1 holds %d", first.minion_cap)
+	testing.expectf(t, first.minion_cap > 120 && first.minion_cap < 180, "Floor 1 holds %d", first.minion_cap)
 	arena := &floors[.Arena]
 	testing.expectf(t, arena.area * g.CROWD_DENSITY >= g.MINION_CAP, "the arena's %v m²", arena.area)
 	testing.expect_value(t, arena.minion_cap, g.MINION_CAP)
@@ -172,13 +172,16 @@ a_chasing_crowd_never_downs_its_heroes :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// A held crowd on Floor 1 replaces its packs: the floor's cap of chasers, none of them a pack's.
+// A held crowd on Floor 1 replaces its packs: the floor's cap of chasers held (State.held; those placed on the spikes
+// fall to them, and rise again at a grave), none of them a pack's.
 @(test)
 a_crowd_replaces_the_packs :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Floor_1, crowd = .Chase}, seated = g.PLAYERS)
 	defer headless.run_end(&run)
 	state := &run.simulation.state
-	testing.expect_value(t, g.minions_alive(&state.minions), floor_of(&run).minion_cap)
+	testing.expect_value(t, int(state.held), floor_of(&run).minion_cap)
+	alive := g.minions_alive(&state.minions)
+	testing.expectf(t, alive > floor_of(&run).minion_cap - 4, "%d alive of the cap", alive)
 	expect_all_in(t, state, .Chase)
 	scenarios.expect_synced(t, &run)
 }
@@ -219,6 +222,24 @@ the_script_sends_no_command_under_a_crowd :: proc(t: ^testing.T) {
 			testing.expectf(t, sent == 0, "under %v the script sent %d commands", crowd, sent)
 		}
 	}
+}
+
+// A wiping crowd (crowd_wipe's): the crowd's blows down the four heroes, each a ragdoll under it, and the floor holds
+// (no wipe restarts it: the crowd and the bodies stay), synced.
+@(test)
+a_wiping_crowd_downs_the_party_into_ragdolls :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Arena, crowd = .Wipe}, seated = g.PLAYERS)
+	defer headless.run_end(&run)
+	for _ in 0 ..< 10 * g.TICK_HZ {
+		headless.run_scripted(&run, g.PLAYERS)
+		if headless.run_events(&run, g.Event_Hero_Downed) == g.PLAYERS do break
+	}
+	testing.expect_value(t, headless.run_events(&run, g.Event_Hero_Downed), g.PLAYERS)
+	for slot in 0 ..< g.PLAYERS do testing.expect(t, g.ragdolled(sim.slot_data(run.simulation, slot)), "a ragdoll")
+	play(&run, {}, g.WIPE_S + 1)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 0)
+	testing.expect_value(t, int(run.simulation.state.held), floor_of(&run).minion_cap)
+	scenarios.expect_synced(t, &run)
 }
 
 // The arena in play (no crowd): no packs, the first surge rises at its graves along the rim, and its cap is the most

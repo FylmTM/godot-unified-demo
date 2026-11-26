@@ -151,6 +151,22 @@ watch_rises :: proc(t: ^testing.T, run: ^headless.Run(g.Game), watch: ^Rise_Watc
 	return risen
 }
 
+// Whether `point` is where a trap of the floor can strike: over spikes, or within reach of a roller's path (within
+// 1.5 m of any of its points).
+on_a_trap :: proc(run: ^headless.Run(g.Game), point: [3]f32) -> bool {
+	for &trap in sim.slice(&floor_of(run).places.traps) {
+		switch trap.kind {
+		case .Spikes:
+			if g.within_square(trap.pos, trap.rot, g.SPIKES_HALF + g.MINION_RADIUS, point) do return true
+		case .Roller:
+			for k in 0 ..< int(trap.path.count) {
+				if dmath.length(trap.path.points[k].xz - point.xz) < 1.5 + g.ROLLER_HALF.x do return true
+			}
+		}
+	}
+	return false
+}
+
 // ---- ragdolls
 
 // Long enough for a downed hero's ragdoll to fall and come to rest (seconds).

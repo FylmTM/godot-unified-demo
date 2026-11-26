@@ -431,6 +431,7 @@ a_summon_stays_under_the_cap :: proc(t: ^testing.T) {
 		for g.minions_alive(&state.minions) < floor.minion_cap - short_of_cap {
 			spot := g.floor_point(floor, &rng)
 			if dmath.length(spot.point.xz - spawn_of(&run, 0).xz) < g.AGGRO_RADIUS + 3 do continue // asleep, unseen
+			if on_a_trap(&run, spot.point) do continue // nothing fells them meanwhile
 			g.spawn_minion(state, spot.point, spot.poly, {0, 1}, .Idle, state.clock.time)
 		}
 		mage := place_elite(&run, .Mage, spawn_of(&run, 0) + {5, 0, 0}, {-1, 0}, .Chase)

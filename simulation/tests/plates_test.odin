@@ -155,3 +155,42 @@ a_ragdoll_presses_a_plate :: proc(t: ^testing.T) {
 	testing.expect_value(t, headless.run_events(&run, g.Event_Plate), 1)
 	scenarios.expect_synced(t, &run)
 }
+
+// The hoard weighs on a plate as anything does (its box meets CAT_PIECE): the workshop's hoard, let down onto the store
+// plate from a hand above it, sinks it and presses it, and the store gate opens; it stays pressed while the hoard rests
+// there at HOARD_REST_MASS.
+@(test)
+the_hoard_presses_a_plate :: proc(t: ^testing.T) {
+	run := workshop(seated = 1)
+	defer headless.run_end(&run)
+	plate, _ := plate_at(&run, STORE_PLATE)
+	hoard := run.simulation.state.hoard.body
+	physics.body_teleport(
+		run.simulation.world.phys,
+		hoard,
+		plate_spot(&run, STORE_PLATE) + {0, g.PLATE_TRAVEL + g.HOARD_HALF.y + 0.2, 0},
+	)
+	headless.run_pin(&run)
+	play(&run, {}, 1.5)
+	testing.expect(t, plate.pressed, "the hoard presses the plate")
+	testing.expect(t, run.simulation.state.hoard.resting, "and rests on it")
+	testing.expectf(t, lift_of(&run, STORE_GATE) > 1, "its gate opens: %v m up", lift_of(&run, STORE_GATE))
+	scenarios.expect_synced(t, &run)
+}
+
+// Every plate on every level rests released with nothing on it: no wall, pillar or prop the level stands against its
+// slab sinks it (a slab overlapping a pillar is pressed for good, and its gate needs one plate fewer).
+@(test)
+every_plate_rests_released :: proc(t: ^testing.T) {
+	for id in g.Level_Id {
+		run := headless.run_begin(&g.GAME, 1, g.Setup{floor = id})
+		defer headless.run_end(&run)
+		clear_minions(&run)
+		play(&run, {}, 1)
+		plates := sim.iterate(&run.simulation.state.plates)
+		for plate, handle in sim.next(&plates) {
+			at := sim.slice(&floor_of(&run).places.plates)[handle.index].pos
+			testing.expectf(t, !plate.pressed, "%v's plate at %v is pressed with nothing on it", id, at)
+		}
+	}
+}

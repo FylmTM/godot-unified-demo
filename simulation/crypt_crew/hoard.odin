@@ -15,7 +15,8 @@
 // A hauler does nothing else (Action.Haul: no attack, no ability, no revive) until it lets go: Interact again, going
 // down, leaving, a level change (all through release_hold), or its hold stretched past HOARD_SLIP (the chest caught on
 // something, its hauler gone on: hold_hauls). Unheld and settled, the chest weighs HOARD_REST_MASS (settle_hoard), so
-// heroes can't shove it to the lift: it goes where it is hauled. A hand is taken only while the lift waits at the top.
+// heroes can't shove it to the lift: it goes where it is hauled (or where a fireball's blast skids it, at HOARD_MASS
+// until it settles: fireballs.odin). A hand is taken only while the lift waits at the top.
 // The first grab on a floor wakes the crypt: the surges come every HAUL_SURGE_S from then on (surge_every). Minions are
 // pushed out of it (obstacles_of).
 package crypt_crew
@@ -132,10 +133,7 @@ grab_haul :: proc(t: ^Tick, player: sim.Player, handle: Haul_Handle) {
 		physics.link(hoard.body),
 		joint_def,
 	)
-	if hoard.resting {
-		physics.shape_set_density(t.world.phys, hoard.shape, physics.box_density(HOARD_MASS, HOARD_HALF))
-		hoard.resting = false
-	}
+	unrest_hoard(t.world.phys, hoard)
 	hoard.haulers[int(handle) - 1] = player
 	hero.handle = handle
 	hero.action, hero.action_started = .Haul, t.time
@@ -147,6 +145,14 @@ grab_haul :: proc(t: ^Tick, player: sim.Player, handle: Haul_Handle) {
 		}
 	}
 	sim.emit(t, Event_Hoard_Grabbed{player = player, handle = handle})
+}
+
+// The hoard, if it rests (weighing HOARD_REST_MASS), weighs HOARD_MASS again: a hand takes it, or a blast moves it
+// (fireballs.odin).
+unrest_hoard :: proc(phys: ^physics.World, hoard: ^Hoard) {
+	if !hoard.resting do return
+	physics.shape_set_density(phys, hoard.shape, physics.box_density(HOARD_MASS, HOARD_HALF))
+	hoard.resting = false
 }
 
 // `player`'s hero lets go of its handle, if it holds one (`slipped`: its hold stretched too far): the joint goes, the

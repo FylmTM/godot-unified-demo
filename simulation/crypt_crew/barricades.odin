@@ -1,6 +1,7 @@
 // Barricades: a fence welded to the World's anchor, broken free by a blow: its weld strained past BARRICADE_BREAK_N
 // (Box3D's joint force threshold: the step reports the joint, world_joint_events) while a blow touches it, a thrown prop
-// (its throw running), a Knight's charge or a body a Barbarian threw. The blow decides and the threshold is its floor:
+// (its throw running), a Knight's charge or a body a Barbarian threw; a fireball's blast breaks it outright
+// (blast_barricades). The blow decides and the threshold is its floor:
 // the strain alone can't tell a blow from a walk, since a hero at a run carries more momentum than a thrown crate and
 // Box3D's contacts stop a capsule within a substep, so walking into the fence strains its weld harder than a thrown crate
 // does. Broken, the weld goes and the fence falls free as debris: a loose body in CAT_PROP that props, heroes and elites
@@ -93,7 +94,8 @@ break_barricade :: proc(t: ^Tick, barricade: ^Barricade, handle: sim.Handle(Barr
 }
 
 // Whether a blow touches the barricade after the step, and whose: the first of its contacts that is a thrown prop (its
-// thrower's), a charging hero, or an elite or a downed hero a Barbarian threw (the thrower's), in contact order.
+// thrower's), a charging hero, or an elite or a downed hero's ragdoll a Barbarian threw (the thrower's), in contact
+// order. (A fireball's blast breaks it outright: blast_barricades.)
 @(private = "file")
 barricade_blow :: proc(t: ^Tick, barricade: ^Barricade) -> (blow: bool, player: sim.Player) {
 	physics.body_contact_data(t.world.phys, barricade.body, &t.world.touching)
@@ -107,7 +109,9 @@ barricade_blow :: proc(t: ^Tick, barricade: ^Barricade) -> (blow: bool, player: 
 				hero := sim.player_data(t, sim.player_of_key(side.tag))
 				if hero == nil do continue
 				if hero.action == .Charge do return true, sim.player_of_key(side.tag)
-				if hero.heave == .Thrown do return true, hero.heaved_by
+			case side.category & CAT_RAGDOLL != 0:
+				hero := sim.player_data(t, sim.player_of_key(side.tag))
+				if hero != nil && hero.heave == .Thrown do return true, hero.heaved_by
 			case side.category & CAT_ELITE != 0:
 				elite := sim.get(&t.state.elites, sim.handle_of_key(Elite, side.tag))
 				if elite != nil && elite.phase == .Thrown do return true, elite.heaved_by
@@ -115,6 +119,18 @@ barricade_blow :: proc(t: ^Tick, barricade: ^Barricade) -> (blow: bool, player: 
 		}
 	}
 	return false, {}
+}
+
+// A blast at `heart` (a fireball's, `player`'s): each barricade it reaches (blast_impulse, walls shielding it) breaks
+// if it stands, and its fence takes the blast's impulse, standing or already debris. The blast decides, as a blow
+// does in break_barricades: it has no body whose contact a break could be read from.
+blast_barricades :: proc(t: ^Tick, heart: [3]f32, player: sim.Player) {
+	barricades := sim.iterate(&t.state.barricades)
+	for barricade, handle in sim.next(&barricades) {
+		impulse := blast_impulse(t, heart, barricade.body) or_continue
+		if !barricade.broken do break_barricade(t, barricade, handle, player)
+		physics.body_apply_linear_impulse_to_center(t.world.phys, barricade.body, impulse)
+	}
 }
 
 // Every barricade standing, as obstacles for minions: three circles along its fence (piece_obstacles).

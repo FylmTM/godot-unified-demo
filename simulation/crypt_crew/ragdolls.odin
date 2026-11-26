@@ -13,9 +13,10 @@
 // and stands the capsule, back in the world and awake, on the walkable floor under the pelvis (stand_up).
 //
 // A ragdoll's bones meet everything but heroes and elites (RAGDOLL_FILTER): nobody trips over a fallen ally, an elite
-// walks over one, a thrown prop knocks one about, and two fall on each other. Until milestone 6's last step makes the
-// heave hold the ragdoll itself (docs/plan.md, Milestones), a Barbarian heaving a downed ally stands its capsule up
-// first and heaves that, as before (barbarian.odin, heave); let down, it lies as that capsule until revived.
+// walks over one, a thrown prop, a fireball's blast (fireballs.odin) or the roller knocks one about, two fall on each
+// other, and one weighs a plate down. A hero is down exactly while it lies as a ragdoll: a Barbarian heaving it holds
+// the ragdoll by its chest bone and throws it whole (barbarian.odin), and a body fallen out of the level is laid anew at
+// its spawn.
 package crypt_crew
 
 import "unified:dmath"
@@ -30,7 +31,7 @@ RAGDOLL_FILTER :: physics.Filter {
 	mask     = ~(CAT_HERO | CAT_ELITE),
 }
 
-// Whether the hero lies as a ragdoll (down, and neither heaved nor let down from a heave).
+// Whether the hero lies as a ragdoll: down (every hero down does, heaved or not).
 ragdolled :: proc(hero: ^Hero) -> bool {
 	return hero.ragdoll.bones[.Pelvis] != {}
 }
@@ -99,8 +100,8 @@ floor_under :: proc(phys: ^physics.World, pelvis: [3]f32) -> [3]f32 {
 	return hit.point if found else pelvis
 }
 
-// Where a hero whose ragdoll's pelvis is at `pelvis` stands up, helped by a hero standing at `helper` (its reviver,
-// or the Barbarian heaving it): the walkable floor nearest the floor under the pelvis (floor_under) within RAGDOLL_SNAP;
+// Where a hero whose ragdoll's pelvis is at `pelvis` stands up, helped by a hero standing at `helper` (its reviver):
+// the walkable floor nearest the floor under the pelvis (floor_under) within RAGDOLL_SNAP;
 // else (floor_spot refuses a point a tomb's or a wall's top is nearer than the floor: a body on a wide tomb) the spot
 // nearest it of the first of RAGDOLL_RINGS rings round it, RAGDOLL_RING apart, with one on the walkable floor (each
 // within RAGDOLL_RING of its ring's point); else the floor at the helper's feet. Not ok with none of them, for a body
@@ -122,10 +123,10 @@ standing_spot :: proc(t: ^Tick, pelvis, helper: [3]f32) -> (feet: [3]f32, ok: bo
 	return {}, false
 }
 
-// `player`'s hero gets up from its ragdoll, if it lies as one, helped by `helper` (its reviver, the Barbarian heaving
-// it; the nobody Player: none): the ragdoll goes, and its capsule stands at its standing_spot, or at its slot's
-// hero_spawn with none (stand_capsule). Before that tick's move (revive_heroes, the dev revive, the heave), so the woken
-// capsule's drive finds its ground in this tick's update.
+// `player`'s hero gets up from its ragdoll, if it lies as one, helped by `helper` (its reviver; the nobody Player:
+// none): the ragdoll goes, and its capsule stands at its standing_spot, or at its slot's hero_spawn with none
+// (stand_capsule). Before that tick's move (revive_heroes, the dev revive), so the woken capsule's drive finds its
+// ground in this tick's update.
 stand_up :: proc(t: ^Tick, player: sim.Player, helper: sim.Player) {
 	hero := sim.player_data(t, player)
 	if !ragdolled(hero) do return
@@ -167,27 +168,32 @@ RAGDOLL_BONE_NAMES := [physics.Ragdoll_Bone]cstring {
 
 // After the physics step (and read_back_heroes, which leaves a ragdolled hero alone): each ragdolled hero's `pos` and
 // `vel`, its pelvis's. A ragdoll fallen RAGDOLL_KILL_DEPTH below the floor's navigation mesh has left the level: it
-// goes, and its hero, still down, lies as its capsule at its slot's hero_spawn, where an ally can revive it.
+// goes (a Barbarian heaving it lets go first), and its hero, still down, lies as a ragdoll laid anew at its slot's
+// hero_spawn (tipped backwards, as from a blow from no side), where an ally can revive it.
 read_back_ragdolls :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
 		if !ragdolled(hero) do continue
 		read_back_ragdoll(t.world.phys, hero)
 		if hero.pos.y >= floor_of(t).lowest - RAGDOLL_KILL_DEPTH do continue
+		end_hero_heave(t, player)
 		physics.ragdoll_destroy(t.world.phys, &hero.ragdoll)
-		stand_capsule(t.world.phys, hero, floor_of(t).places.hero_spawns[sim.player_slot(t, player)])
+		hero.pos, hero.vel = floor_of(t).places.hero_spawns[sim.player_slot(t, player)], {}
+		ragdoll_hero(t, player, ragdoll_kick(hero.pos, hero.pos, hero.facing))
 	}
 }
 
 // After read_back_ragdolls: each awake ragdoll come to rest (every bone still, RAGDOLL_STILL_TICKS in a row) on nothing
 // but the level sleeps at once, without the half second Box3D's own sleep waits out. Sleep is an island's: one touching
-// another body (a prop, another ragdoll, the lift's deck) is left to Box3D, so nothing it touches stops mid-move. A
-// sleeping ragdoll wakes as any body does, when something meets it.
+// another body (a prop, another ragdoll, the lift's deck) is left to Box3D, so nothing it touches stops mid-move, and
+// so is one a Barbarian heaves (its hold joins it to the Barbarian's island). A sleeping ragdoll wakes as any body
+// does, when something meets it.
 settle_ragdolls :: proc(t: ^Tick) {
 	phys := t.world.phys
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
-		if !ragdolled(hero) || !physics.body_is_awake(phys, hero.ragdoll.bones[.Pelvis]) do continue
+		if !ragdolled(hero) || hero.heave != .None do continue
+		if !physics.body_is_awake(phys, hero.ragdoll.bones[.Pelvis]) do continue
 		if !ragdoll_still(phys, &hero.ragdoll) {
 			hero.still = 0
 			continue
@@ -210,8 +216,8 @@ ragdoll_still :: proc(phys: ^physics.World, ragdoll: ^physics.Ragdoll) -> bool {
 }
 
 // Whether `player`'s ragdoll touches nothing but itself (its bones carry the player's key) and static bodies (the
-// level): its island is its own, so putting it to sleep sleeps nothing else. Its joints are all its own (a heave stands
-// it up first: barbarian.odin).
+// level): its island is its own, so putting it to sleep sleeps nothing else. Its joints are all its own (settle_ragdolls
+// leaves a heaved one alone: the hold joins it to its Barbarian).
 @(private = "file")
 ragdoll_alone :: proc(t: ^Tick, player: sim.Player) -> bool {
 	phys := t.world.phys

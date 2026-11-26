@@ -191,6 +191,56 @@ a_fireball_stops_at_walls_and_moves_props :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
+// The blast reaches every body no wall shields, not the props and elites alone: a fireball landing at Floor 1's
+// barricade breaks it (its caster's break) and blows its fence away, skids the hoard off its rest (HOARD_MASS until
+// it settles), and knocks a downed hero's ragdoll away; a ragdoll as near but behind the gallery's wall stays put.
+@(test)
+a_fireball_blasts_the_hoard_ragdolls_and_barricades :: proc(t: ^testing.T) {
+	run := ability_hero(.Mage, seated = 3)
+	defer headless.run_end(&run)
+	clear_elites(&run)
+	state := &run.simulation.state
+	phys := run.simulation.world.phys
+	barricade, _, _ := sim.item_at(&state.barricades, 0)
+	fence := sim.slice(&floor_of(&run).places.barricades)[0].pos // (15.7, 0, -6): the hall's east wall, by the passage
+	place_hero(&run, 0, fence + {-2.4, 0, 0}, {1, 0}) // clear of the decorated pillar west of it
+	near := sim.slot_data(run.simulation, 1)
+	shielded := sim.slot_data(run.simulation, 2)
+	place_hero(&run, 1, fence + {-2.2, 0, -2.4})
+	place_hero(&run, 2, {17.5, 0, -2.5}) // in the gallery, behind its north wall from the burst
+	hurt(&run, 1, g.HERO_HP)
+	hurt(&run, 2, g.HERO_HP)
+	physics.body_teleport(phys, state.hoard.body, fence + {-2.2, g.HOARD_HALF.y, 2.4})
+	headless.run_pin(&run)
+	settle(&run)
+	testing.expect(t, state.hoard.resting, "the hoard rests")
+	aim := g.Input {
+		aim   = dmath.dir2({1, 0}),
+		reach = g.reach_steps(2.1),
+	}
+	fireball, _ := cast_on(&run, aim)
+	testing.expectf(t, dmath.length(fireball.to.xz - fence.xz) < 0.5, "lands at %v, by the fence", fireball.to)
+	hold(&run, {}, int(g.FIREBALL_FLIGHT_TICKS) - 1)
+	testing.expect(t, !barricade.broken, "standing until the burst")
+	hoard_from := physics.body_position(phys, state.hoard.body)
+	near_from, shielded_from := near.pos, shielded.pos
+	hold(&run, {}, 1)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Fireball_Burst), 1)
+	testing.expect(t, barricade.broken, "the burst breaks the barricade")
+	broken, _ := headless.run_last_event(&run, g.Event_Barricade_Broken)
+	testing.expect_value(t, broken.player, sim.player_in_slot(run.simulation, 0))
+	fence_speed := dmath.length(physics.body_linear_velocity(phys, barricade.body))
+	testing.expectf(t, fence_speed > 1, "its fence is blown away at %v m/s", fence_speed)
+	hold(&run, {}, int(g.TICK_HZ / 2))
+	skid := physics.body_position(phys, state.hoard.body) - hoard_from
+	testing.expectf(t, skid.z > 0.3, "the hoard skids away from the burst: %v", skid)
+	knocked := near.pos - near_from
+	testing.expectf(t, dmath.length(knocked.xz) > 0.5 && knocked.z < 0, "the ragdoll is knocked away: %v", knocked)
+	still := dmath.length(shielded.pos - shielded_from)
+	testing.expectf(t, still < 0.01, "the ragdoll behind the wall moved %v m", still)
+	scenarios.expect_synced(t, &run)
+}
+
 // No prop is blown over a wall: a crate (the lightest) right by a fireball's landing rises nowhere near a wall's
 // 2.4 m, though the blast sends it off.
 @(test)

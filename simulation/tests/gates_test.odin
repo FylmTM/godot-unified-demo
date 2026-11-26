@@ -266,3 +266,31 @@ a_shut_gate_stops_bone_bolts :: proc(t: ^testing.T) {
 	testing.expect_value(t, sim.slot_data(run.simulation, 0).hp, g.HERO_HP)
 	scenarios.expect_synced(t, &run)
 }
+
+// Floor 1's vault: its gate (two plates, latched) stays shut under one hero on a plate, opens with both plates pressed,
+// and stays open once its heroes step off; the hoard rests behind it, in the vault.
+@(test)
+floor_1s_vault_opens_to_two_plates :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 2)
+	defer headless.run_end(&run)
+	clear_minions(&run)
+	clear_elites(&run)
+	places := &floor_of(&run).places
+	testing.expect_value(t, int(places.gates.count), 1)
+	gate := sim.slice(&places.gates)[0]
+	testing.expect(t, gate.need == 2 && gate.latch, "the vault's gate needs two plates and latches")
+	hoard := physics.body_position(run.simulation.world.phys, run.simulation.state.hoard.body)
+	testing.expectf(t, hoard.x > gate.pos.x + 2, "the hoard (%v) is in the vault, past the gate (%v)", hoard, gate.pos)
+	plates := sim.slice(&places.plates)
+	place_hero(&run, 0, plates[0].pos)
+	play(&run, {}, 1)
+	testing.expectf(t, lift_of(&run, 0) < 0.05, "one plate leaves it shut: %v m up", lift_of(&run, 0))
+	place_hero(&run, 1, plates[1].pos)
+	play(&run, {}, 2)
+	testing.expectf(t, lift_of(&run, 0) > g.GATE_PASS, "two plates open it: %v m up", lift_of(&run, 0))
+	place_hero(&run, 0, spawn_of(&run, 0))
+	place_hero(&run, 1, spawn_of(&run, 1))
+	play(&run, {}, 2)
+	testing.expectf(t, lift_of(&run, 0) > g.GATE_PASS, "latched, it stays open: %v m up", lift_of(&run, 0))
+	scenarios.expect_synced(t, &run)
+}

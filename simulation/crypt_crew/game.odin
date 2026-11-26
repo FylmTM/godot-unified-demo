@@ -23,7 +23,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "27"
+VERSION :: "28"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -53,7 +53,8 @@ GAME := Game {
 	save              = save,
 	bench_prepare     = bench_prepare,
 	// The game's row (today's play on Floor 1), and the crowd's on the arena (director.odin, Crowd): what sleepers,
-	// a crowd on the move and a crowd in a fight cost at the most any floor holds.
+	// a crowd on the move, a crowd in a fight and a fight that downs the party into ragdolls cost at the most any floor
+	// holds.
 	benches           = {
 		{
 			what     = "floor 1: four heroes against a held surge among the props",
@@ -78,6 +79,13 @@ GAME := Game {
 			name     = "crowd_fight",
 			what     = "the arena: a crowd around four heroes who hold Attack, the felled rising again",
 			setup    = "floor=arena,crowd=fight",
+			entities = MINION_CAP,
+			ticks    = 600,
+		},
+		{
+			name     = "crowd_wipe",
+			what     = "the arena: the crowd's fight, its blows downing the four heroes into ragdolls under it",
+			setup    = "floor=arena,crowd=wipe",
 			entities = MINION_CAP,
 			ticks    = 600,
 		},

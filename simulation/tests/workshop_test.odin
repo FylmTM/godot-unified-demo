@@ -1,11 +1,12 @@
 // The mechanisms' shared test support and the workshop's own suite: the workshop (game/levels/workshop.tscn) is a hall
-// holding one of each mechanism, which every mechanism test plays on (plates_test.odin, gates_test.odin,
+// holding one of each mechanism, and a hoard in a vault and a lift (a whole haul to the descent in a small room), which every mechanism test plays on (plates_test.odin, gates_test.odin,
 // barricades_test.odin, traps_test.odin), sync-tested as every rule test is, so each also rolls back over what it
 // checks: a plate pressed, a gate moving, a barricade's break, the spikes rising. Its pieces are found by their marker
 // order in the floor's Places, never by numbers copied out of the level.
 package test_crypt_crew
 
 import "core:testing"
+import "unified:dmath"
 import "unified:headless"
 import "unified:headless/scenarios"
 import "unified:physics"
@@ -114,11 +115,11 @@ WORKSHOP_REFERENCE :: scenarios.Reference {
 	ticks         = 1200,
 	snapshot_tick = 600,
 	setup         = "floor=workshop",
-	checkpoints   = {0x9b33e309b91bfc6c, 0x22a383827b301d5b, 0x748f922f3c6414ec, 0x8381c7ed229a097d},
-	trace         = 0x5cb5b1fcdc786b8b,
-	snapshot      = 0xc7a5f2cb6f80a32e,
-	log           = 0x46cec77f1cf05565,
-	compat        = 0x7f1795365d71a3b0,
+	checkpoints   = {0x93ec1e28cb309c5e, 0xfe0a37e8e292b2ca, 0x09b63c6c842844ba, 0x60bb5b797d3ae567},
+	trace         = 0x93d110bbfebaf1ba,
+	snapshot      = 0xdecdd9b5f455e4e7,
+	log           = 0x624db00fab36911d,
+	compat        = 0xa3a25368275272ac,
 }
 
 @(test)
@@ -159,4 +160,66 @@ the_workshops_mechanisms_are_made_in_marker_order :: proc(t: ^testing.T) {
 	testing.expect_value(t, state.gates, second.simulation.state.gates)
 	testing.expect_value(t, state.traps, second.simulation.state.traps)
 	scenarios.expect_synced(t, &first)
+}
+
+// Steps slot `slot`'s hero along `waypoints` at a full stick (each reached within 0.4 m on the floor plan), the others
+// idle, for at most `seconds`; whether it reached the last.
+@(private = "file")
+walk_through :: proc(run: ^headless.Run(g.Game), slot: int, waypoints: [][2]f32, seconds: f32) -> bool {
+	hero := sim.slot_data(run.simulation, slot)
+	next := 0
+	for _ in 0 ..< int(seconds * g.TICK_HZ) {
+		for next < len(waypoints) && dmath.length(waypoints[next] - hero.pos.xz) < 0.4 do next += 1
+		if next == len(waypoints) do return true
+		toward := dmath.normalize(waypoints[next] - hero.pos.xz)
+		inputs: [g.PLAYERS]g.Input
+		inputs[slot].move_x, inputs[slot].move_z = dmath.axis_i8(toward.x), dmath.axis_i8(toward.y)
+		headless.run_step(run, inputs)
+	}
+	return false
+}
+
+// The workshop's whole haul, played by the rules: two heroes stand on the vault's plates and its latched gate opens;
+// one takes a handle of the hoard and drags it out of the vault, across the hall and onto the lift's deck, and lets
+// go; the other walks aboard; the lift boards, goes down, both pick a boon, and the party descends (to the run's next
+// floor) with the hoard's gold.
+@(test)
+the_workshops_haul_reaches_the_descent :: proc(t: ^testing.T) {
+	run := workshop(seated = 2)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	phys := run.simulation.world.phys
+	place_hero(&run, 0, plate_spot(&run, VAULT_WEST))
+	place_hero(&run, 1, plate_spot(&run, VAULT_EAST))
+	play(&run, {}, 2)
+	testing.expectf(
+		t,
+		lift_of(&run, VAULT_GATE) > g.GATE_PASS,
+		"the vault gate is open: %v m",
+		lift_of(&run, VAULT_GATE),
+	)
+	hauler := sim.slot_data(run.simulation, 0)
+	left := g.handle_point(phys, &state.hoard, .Left)
+	place_hero(&run, 0, {left.x - 0.7, 0, left.z}, {1, 0})
+	press(&run, 0, .Interact)
+	testing.expect_value(t, hauler.handle, g.Haul_Handle.Left)
+	deck := physics.body_position(phys, state.lift.body).xz
+	way := [][2]f32{{-7.4, -4.9}, {-6.4, -2.8}, {-6, 0.2}, {deck.x - 1, 0.2}, {deck.x + 0.5, deck.y + 1.6}}
+	testing.expect(t, walk_through(&run, 0, way, 20), "the hauler drags the hoard to the lift")
+	testing.expect_value(t, hauler.handle, g.Haul_Handle.Left) // held all the way
+	press(&run, 0, .Interact)
+	place_hero(&run, 1, {deck.x - 1.2, 0, deck.y - 1.2})
+	gold := state.gold
+	for _ in 0 ..< 8 * g.TICK_HZ {
+		if state.lift.phase == .Choosing do break
+		headless.run_step(&run)
+	}
+	testing.expect_value(t, state.lift.phase, g.Lift_Phase.Choosing)
+	headless.run_command(&run, 0, g.Command_Pick_Boon{0})
+	headless.run_command(&run, 1, g.Command_Pick_Boon{1})
+	testing.expect_value(t, state.depth, 1)
+	testing.expect_value(t, state.gold, gold + g.HOARD_GOLD)
+	testing.expect_value(t, state.level.id, g.FLOOR_ORDER[1 % len(g.FLOOR_ORDER)])
+	testing.expect_value(t, headless.run_events(&run, g.Event_Descended), 1)
+	scenarios.expect_synced(t, &run)
 }

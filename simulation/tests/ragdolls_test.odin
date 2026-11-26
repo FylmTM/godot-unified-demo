@@ -1,9 +1,9 @@
 // The ragdolls' rule tests (ragdolls.odin): a hero going down falls as a ragdoll knocked away from the blow, its
 // capsule dormant and out of the world; a revive stands it up on the floor where its body lies; a ragdoll rolls back,
 // reaches a late joiner and goes with its hero (a leave, a wipe's restart); it meets the floor, props and other
-// ragdolls, never a hero; at rest on the level alone it sleeps at once; a heave stands the capsule up from it (until
-// milestone 6's last step). Each on a sync-tested run (headless.Run) that ends synced, the physics world's refs checked
-// after every restore (an orphaned bone fails).
+// ragdolls, never a hero; at rest on the level alone it sleeps at once; a heave holds it by its chest bone. Each on a
+// sync-tested run (headless.Run) that ends synced, the physics world's refs checked after every restore (an orphaned
+// bone fails).
 package test_crypt_crew
 
 import "core:testing"
@@ -224,15 +224,16 @@ a_ragdoll_never_blocks_a_hero :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// A Barbarian heaving an ally lying as a ragdoll stands its capsule up from it and heaves that (until milestone 6's
-// last step heaves the ragdoll itself): the ragdoll goes, the capsule hangs on the hold, and let down it lies as that
-// capsule, still down, until revived.
+// A Barbarian heaving a downed ally holds its ragdoll by the chest bone: the capsule stays dormant and out of the
+// world, the ragdoll is the body the hold carries (the chest high in front, the pelvis under it, off the floor); let
+// down unthrown, it falls and lies as that ragdoll, still down, until revived.
 @(test)
-a_heave_stands_the_capsule_up_from_its_ragdoll :: proc(t: ^testing.T) {
+a_heave_holds_the_ragdoll_by_its_chest :: proc(t: ^testing.T) {
 	run := ragdoll_run(2)
 	defer headless.run_end(&run)
 	phys := run.simulation.world.phys
 	headless.run_command(&run, 0, g.Command_Dev_Set_Class{.Barbarian})
+	barbarian := sim.slot_data(run.simulation, 0)
 	ally := sim.slot_data(run.simulation, 1)
 	start := [3]f32{6, 0, 0} // the great hall
 	place_hero(&run, 1, start + {1.3, 0, 0})
@@ -241,14 +242,22 @@ a_heave_stands_the_capsule_up_from_its_ragdoll :: proc(t: ^testing.T) {
 	place_hero(&run, 0, on_floor(&run, ally.pos - {1.3, 0, 0}), {1, 0})
 	press(&run, 0, .Ability)
 	testing.expect_value(t, ally.heave, g.Heave_Phase.Held)
-	testing.expect(t, !g.ragdolled(ally), "the heave holds the capsule, its ragdoll gone")
-	testing.expect(t, physics.body_is_enabled(phys, ally.body.body), "the capsule is back in the world")
-	play(&run, {}, g.HEAVE_MAX_S + 0.5) // held unthrown: let down
+	testing.expect(t, g.ragdolled(ally), "the heave holds its ragdoll")
+	testing.expect(t, !physics.body_is_enabled(phys, ally.body.body), "the capsule stays out of the world")
+	play(&run, {}, 0.75)
+	chest := physics.body_position(phys, ally.ragdoll.bones[.Chest])
+	testing.expectf(t, chest.y > g.HEAVE_HOLD_HEIGHT - 0.3, "the chest hangs at the hold: %v", chest)
+	testing.expectf(t, dmath.length(chest.xz - barbarian.pos.xz) < 1.5, "in front of the Barbarian: %v", chest)
+	testing.expectf(t, ally.pos.y > 0.6, "its pelvis hangs under its chest, off the floor: %v", ally.pos)
+	play(&run, {}, g.HEAVE_MAX_S) // held unthrown: let down
 	testing.expect_value(t, ally.heave, g.Heave_Phase.None)
 	testing.expect_value(t, ally.action, g.Action.Down)
-	testing.expect(t, !g.ragdolled(ally), "let down, it lies as its capsule")
+	testing.expect(t, g.ragdolled(ally), "let down, it lies as its ragdoll")
+	play(&run, {}, 1)
+	testing.expectf(t, ally.pos.y < 0.4, "fallen to the floor: %v", ally.pos)
 	headless.run_command(&run, 0, g.Command_Dev_Revive{})
 	testing.expect_value(t, ally.action, g.Action.None)
+	testing.expect(t, physics.body_is_enabled(phys, ally.body.body), "revived, its capsule is back in the world")
 	scenarios.expect_synced(t, &run)
 }
 
@@ -323,8 +332,8 @@ a_body_in_the_air_stands_under_it_or_by_its_reviver :: proc(t: ^testing.T) {
 	}
 }
 
-// A ragdoll fallen RAGDOLL_KILL_DEPTH below the floor has left the level: it goes, and its hero, still down, lies as its
-// capsule at its spawn, in the world, where a revive stands it up.
+// A ragdoll fallen RAGDOLL_KILL_DEPTH below the floor has left the level: it goes, and its hero, still down, lies as a
+// ragdoll laid anew at its spawn (its capsule still out of the world), where a revive stands it up.
 @(test)
 a_body_out_of_the_level_lies_at_its_spawn :: proc(t: ^testing.T) {
 	run := ragdoll_run(2)
@@ -343,14 +352,16 @@ a_body_out_of_the_level_lies_at_its_spawn :: proc(t: ^testing.T) {
 		)
 	}
 	headless.run_pin(&run)
+	fallen := hero.ragdoll
 	headless.run_step(&run)
-	testing.expect(t, !g.ragdolled(hero), "its ragdoll goes")
+	testing.expect(t, g.ragdolled(hero) && hero.ragdoll != fallen, "its ragdoll goes, and another lies at its spawn")
 	testing.expect_value(t, hero.action, g.Action.Down)
-	testing.expect_value(t, hero.pos, spawn_of(&run, 1))
-	testing.expect(t, physics.body_is_enabled(phys, hero.body.body), "its capsule lies in the world")
+	testing.expectf(t, dmath.length(hero.pos.xz - spawn_of(&run, 1).xz) < 0.3, "it lies at %v", hero.pos)
+	testing.expect(t, !physics.body_is_enabled(phys, hero.body.body), "its capsule stays out of the world")
+	play(&run, {}, 1)
 	headless.run_command(&run, 0, g.Command_Dev_Revive{})
 	testing.expect_value(t, hero.action, g.Action.None)
-	testing.expectf(t, dmath.length(hero.pos - spawn_of(&run, 1)) < 0.05, "rose at %v", hero.pos)
+	testing.expectf(t, dmath.length(hero.pos - spawn_of(&run, 1)) < 1.5, "rose at %v, by its spawn", hero.pos)
 	scenarios.expect_synced(t, &run)
 }
 

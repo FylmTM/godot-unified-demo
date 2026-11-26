@@ -16,12 +16,12 @@ extends Node3D
 ## Attack then shows one swing after another, no gait between). A hero carrying walks with plain gaits: no clip
 ## holds a load. An ability is a clip at its age too: the Knight's shield held up (blocking or charging), the Rogue's
 ## dodge stretched over the roll, the Mage's spellcasting through the windup, the Barbarian's arms raised under what it
-## heaves and its throw timed as a prop's; a hero tending a downed ally reaches out to them. A hero down falls where its
-## body stands (the death clip, held on its last frame: a downed ally a Barbarian heaves hangs and flies so) with a ring
-## on the floor round it as wide as the reach an ally revives from (Unified.constants.revive_range), which fills as its
-## revive comes on (ground_ring.gdshader, turned with the world, not the hero), and none while it is heaved (no ally
-## tends it then); one just revived blinks while its grace lasts. A hero down as a ragdoll shows only the ring and its
-## light, on the floor under its pelvis: its ragdoll's view (RagdollView) shows the body.
+## heaves and its throw timed as a prop's; a hero tending a downed ally reaches out to them. A hero down lies as its
+## ragdoll, which its ragdoll's view (RagdollView) shows, heaved and thrown by a Barbarian too: this view hides its
+## character and shows only its light and a ring on the floor under the pelvis as wide as the reach an ally revives
+## from (Unified.constants.revive_range), which fills as its revive comes on (ground_ring.gdshader, turned with the
+## world, not the hero), and none while it is heaved (no ally tends it then); one just revived blinks while its grace
+## lasts.
 
 ## A standing hero walks from this speed, and a walking one stands below the lower (metres per second).
 const WALK_FROM: float = 0.5
@@ -87,8 +87,6 @@ func _process(_delta: float) -> void:
 			_rig.pose(Clips.PICK_UP, PICK_UP_FROM + (now - data.action_started) / Unified.tick_hz)
 		EnumAction.THROW:
 			_rig.pose(Clips.THROW, THROW_FROM + (now - data.action_started) / Unified.tick_hz)
-		EnumAction.DOWN:
-			_rig.pose(Clips.DEATH, (now - data.action_started) / Unified.tick_hz)
 		EnumAction.ATTACK:
 			_pose_attack((now - data.action_started) / Unified.tick_hz)
 		EnumAction.BLOCK, EnumAction.CHARGE:

@@ -2,9 +2,9 @@
 // gave as its cast left (Fireball.to), over anything between, bursting there FIREBALL_FLIGHT_S after the cast. Its
 // flight is the view's (a parabola from `from` to `to` at its age): the rules only wait it out, so where it lands is
 // known from the cast on. The burst is a blast twice over: on the skeletons through knock_area (FIREBALL_DAMAGE and a
-// knock away from it, a Warrior's guard broken first), and on the Box3D bodies of the props and the elites as an
-// impulse (blast_bodies), which rolls back with the rest of the physics; walls shield both, by the same ray from the
-// blast's heart. (Box3D's own explosion, world_explode, sees through walls: docs/plan.md, Needed from unified.)
+// knock away from it, a Warrior's guard broken first), and on the Box3D bodies of the props, the elites, the hoard,
+// the downed heroes' ragdolls and the barricades as an impulse (blast_bodies; a barricade it reaches breaks), which
+// rolls back with the rest of the physics; walls shield both, by the same ray from the blast's heart. (Box3D's own explosion, world_explode, sees through walls: docs/plan.md, Needed from unified.)
 // fireball_target is both what the cast reads and what the view's landing ring shows, on the newest local input, so
 // the ring is where the fireball will land.
 package crypt_crew
@@ -68,8 +68,8 @@ fly_fireballs :: proc(t: ^Tick) {
 
 // A fireball bursts at its landing: every live skeleton within FIREBALL_RADIUS that no wall shields from the blast's
 // heart (chest-high above the landing) takes FIREBALL_DAMAGE, knocked away from it, a Warrior's guard broken first
-// (knock_area), and every prop and elite no wall shields is blown away (blast_bodies). Heroes feel neither: heroes
-// never hurt or shove each other.
+// (knock_area), and every body no wall shields is blown away (blast_bodies), each barricade it reaches broken. Heroes
+// up feel neither: heroes never hurt or shove each other (a downed one's ragdoll is a body like any other).
 @(private = "file")
 burst_fireball :: proc(t: ^Tick, fireball: ^Fireball) {
 	heart := fireball.to + {0, CHEST_HEIGHT, 0}
@@ -83,17 +83,19 @@ burst_fireball :: proc(t: ^Tick, fireball: ^Fireball) {
 		.Fireball,
 		breaks_guard = true,
 	)
-	blast_bodies(t, heart)
+	blast_bodies(t, heart, fireball.caster)
 	sim.emit(t, Event_Fireball_Burst{position = sim.Position(fireball.to)})
 }
 
-// The blast on the Box3D bodies, in table order: each prop free of a hold and each live elite that the blast reaches
-// (blast_impulse) takes its impulse; a sleeping elite it reaches wakes first (rouse_elite: its dormant character a
-// body an impulse moves again). The impulse is the same on every body, so a light prop skids and hops while an elite,
-// at its weight, barely shifts on top of the knock the blast already gave it (knock_area: a skeleton's rule); the two
-// add up to ELITE_KNOCK_MAX at most, and a held elite takes neither (shove_elite).
+// The blast on the Box3D bodies, `caster`'s, in table order: each prop free of a hold and each live elite that the
+// blast reaches (blast_impulse) takes its impulse; a sleeping elite it reaches wakes first (rouse_elite: its dormant
+// character a body an impulse moves again). The impulse is the same on every body, so a light prop skids and hops while
+// an elite, at its weight, barely shifts on top of the knock the blast already gave it (knock_area: a skeleton's rule);
+// the two add up to ELITE_KNOCK_MAX at most, and a held elite takes neither (shove_elite). Then the hoard, unheld
+// (blast_hoard), each downed hero's ragdoll nobody heaves (blast_ragdoll) and each barricade (blast_barricades: one
+// standing breaks, its debris blown away).
 @(private = "file")
-blast_bodies :: proc(t: ^Tick, heart: [3]f32) {
+blast_bodies :: proc(t: ^Tick, heart: [3]f32, caster: sim.Player) {
 	props := sim.iterate(&t.state.props)
 	for prop in sim.next(&props) {
 		if prop.held_by != {} do continue
@@ -109,13 +111,47 @@ blast_bodies :: proc(t: ^Tick, heart: [3]f32) {
 			shove_elite(t, elite, impulse / physics.body_mass(t.world.phys, elite.body.body))
 		}
 	}
+	blast_hoard(t, heart)
+	heroes := sim.iterate_present(t)
+	for hero in sim.next(&heroes) {
+		if !ragdolled(hero) || hero.heave != .None do continue
+		if impulse, reached := blast_impulse(t, heart, hero.ragdoll.bones[.Pelvis]); reached {
+			blast_ragdoll(t.world.phys, &hero.ragdoll, impulse)
+		}
+	}
+	blast_barricades(t, heart, caster)
+}
+
+// The blast on the hoard, if it has one nobody holds and the blast reaches it: it weighs HOARD_MASS as a hand had taken
+// it (at HOARD_REST_MASS the impulse would barely stir it) and takes the impulse, so it skids a stride or so; it
+// weighs its rest again once it has settled (settle_hoard).
+@(private = "file")
+blast_hoard :: proc(t: ^Tick, heart: [3]f32) {
+	hoard := &t.state.hoard
+	if hoard.body == {} || hoard.haulers != {} do return
+	impulse, reached := blast_impulse(t, heart, hoard.body)
+	if !reached do return
+	unrest_hoard(t.world.phys, hoard)
+	physics.body_apply_linear_impulse_to_center(t.world.phys, hoard.body, impulse)
+}
+
+// The blast's `impulse` on a ragdoll: each bone its share by its mass, so the whole body moves off together (at the
+// impulse over RAGDOLL_MASS) rather than one bone flung from the rest.
+@(private = "file")
+blast_ragdoll :: proc(phys: ^physics.World, ragdoll: ^physics.Ragdoll, impulse: [3]f32) {
+	for bone in ragdoll.bones {
+		physics.body_apply_linear_impulse_to_center(
+			phys,
+			bone,
+			impulse * (physics.body_mass(phys, bone) / RAGDOLL_MASS),
+		)
+	}
 }
 
 // The blast's impulse on `body`, and whether it reaches it: its centre within FIREBALL_RADIUS + FIREBALL_FALLOFF of
 // the blast's `heart` on the floor plan and no wall between them (the ray knock_area casts). FIREBALL_IMPULSE (fading
 // to none over FIREBALL_FALLOFF past FIREBALL_RADIUS) away from the heart along the floor, FIREBALL_LIFT of it upward,
 // so none is thrown over a wall.
-@(private = "file")
 blast_impulse :: proc(t: ^Tick, heart: [3]f32, body: physics.Body_Ref) -> (impulse: [3]f32, reached: bool) {
 	centre := physics.body_position(t.world.phys, body)
 	offset := centre.xz - heart.xz

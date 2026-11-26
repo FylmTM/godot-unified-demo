@@ -48,7 +48,7 @@ SCRIPT_DROP_COUNT :: 6 // ... and how many coins it lays: on DEV_DROP_RING, so a
 // directions at a reach, or none (other draws), holds Attack in bursts and Ability in holds of their own (a block, a
 // roll, a fireball; a charge where they overlap), and presses Interact now and then.
 // Under a held crowd: standing still (Idle), walking and aiming only (Chase), or holding Attack, let go one tick in
-// each SCRIPT_PERIOD so the next is a press (a throw), with Interact's presses (grabs) as in play (Fight).
+// each SCRIPT_PERIOD so the next is a press (a throw), with Interact's presses (grabs) as in play (Fight, Wipe).
 scripted_input :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup) -> Input {
 	if setup.crowd == .Idle do return {}
 	bits := sim.script_bits(seed, slot, tick, SCRIPT_PERIOD)
@@ -67,7 +67,7 @@ scripted_input :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Setup)
 		if (phase + SCRIPT_ABILITY_AT) % SCRIPT_ABILITY_EVERY < SCRIPT_ABILITY_TICKS do input.buttons += {.Ability}
 	case .Idle, .Chase:
 		return input
-	case .Fight:
+	case .Fight, .Wipe:
 		if phase % SCRIPT_PERIOD != 0 do input.buttons += {.Attack}
 	}
 	if phase % SCRIPT_INTERACT_EVERY < SCRIPT_INTERACT_TICKS do input.buttons += {.Interact}

@@ -204,6 +204,9 @@ HEAVE_LAND_DAMAGE :: i16(15) // ... this much (a thrown elite takes it too, and 
 HEAVE_LAND_KNOCK :: f32(8) // ... knocked away at this, falling off to BLAST_RIM of it at the rim
 // A thrown body has landed once it falls with this little floor (or a prop) under its capsule (metres) ...
 HEAVE_LAND_GAP :: f32(0.25)
+// A thrown downed hero's ragdoll has landed once its pelvis falls with this little floor (or a prop) under it
+// (metres): about a body lying on its back's, plus a hand ...
+RAGDOLL_LAND_REACH :: f32(0.5)
 HEAVE_FLIGHT_MAX_S :: f32(2) // ... or once it has flown this long, wherever it is (wedged off the floor)
 HEAVE_FLIGHT_MAX_TICKS :: u32(HEAVE_FLIGHT_MAX_S * TICK_HZ)
 #assert(ELITE_STAGGER_TICKS < HEAVE_COOLDOWN_TICKS)
@@ -580,6 +583,7 @@ ROLLER_KNOCK :: f32(6)
 
 RAGDOLL_SCALE :: HERO_HEIGHT / 1.8 // unified's ragdoll is a 1.8 m human: this makes it as tall as a hero's capsule
 RAGDOLL_MASS :: f32(60) // kilograms: its bones' density is what weighs it this (a heaved body's HEAVE_MASS)
+#assert(RAGDOLL_MASS == HEAVE_MASS) // the hold a heave makes is capped for HEAVE_MASS: a ragdoll hangs on it as it is
 RAGDOLL_KICK :: f32(3) // metres per second away from the blow that downed it, on top of the hero's own velocity ...
 RAGDOLL_CARRY_MAX :: f32(4) // ... of which it carries at most this much (a charge doesn't fling a body into a horde)
 RAGDOLL_TIP :: f32(0.8) // a blow from no side (a dev hurt, a rejoin while down) tips it backwards this fast instead
@@ -602,7 +606,7 @@ RAGDOLL_FLOOR_BELOW :: f32(10)
 RAGDOLL_RING :: f32(0.75)
 RAGDOLL_RINGS :: 5
 // A ragdoll this far below the floor's navigation mesh has fallen out of the level: it goes, and its hero lies at its
-// spawn. Deep enough for anything a floor lowers a body through (a lift's ride).
+// spawn as a ragdoll laid anew. Deep enough for anything a floor lowers a body through (a lift's ride).
 RAGDOLL_KILL_DEPTH :: f32(20)
 
 // ---- the hoard, the lift and boons (hoard.odin, lift.odin, boons.odin)

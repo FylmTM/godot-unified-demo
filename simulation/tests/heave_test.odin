@@ -52,6 +52,14 @@ limp :: proc(body: physics.Character) -> bool {
 	return .Limp in body.flags
 }
 
+// How far a heaved ally's ragdoll hangs off the Barbarian `hero`'s hold: its chest bone (what the hold takes) from
+// heave_frame's point.
+@(private = "file")
+chest_off_hold :: proc(run: ^headless.Run(g.Game), hero: ^g.Hero, ally: ^g.Hero) -> f32 {
+	chest := physics.body_position(run.simulation.world.phys, ally.ragdoll.bones[.Chest])
+	return dmath.length(chest - (hero.pos + {0, g.HERO_CENTRE_ABOVE_FEET, 0} + g.heave_frame(hero).p))
+}
+
 // Where the hold carries the feet of a heaved body whose capsule's centre is `centre_above_feet` over them, for the
 // Barbarian `hero`: heave_frame's point (from the Barbarian's centre), less that height.
 @(private = "file")
@@ -162,9 +170,10 @@ a_heave_grabs_elites_and_the_downed_only :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// A downed ally is heaved and thrown as a rescue: limp in the Barbarian's hands, out of every reviver's reach while it
-// hangs or flies, deaf to its own player's input (stick, aim and every button held throughout), and once it lands it
-// lies where it fell, still down, held still by its drive, and an ally can revive it there.
+// A downed ally is heaved and thrown as a rescue: its ragdoll hangs in the Barbarian's hands by its chest (its capsule
+// still out of the world), out of every reviver's reach while it hangs or flies, deaf to its own player's input (stick,
+// aim and every button held throughout), and once it lands its ragdoll comes to rest where it fell, still down, and an
+// ally can revive it there.
 @(test)
 a_heave_throws_a_downed_ally_to_its_rescuers :: proc(t: ^testing.T) {
 	run := barbarian_run(seated = 3)
@@ -191,9 +200,10 @@ a_heave_throws_a_downed_ally_to_its_rescuers :: proc(t: ^testing.T) {
 	inputs[0] = {}
 	testing.expect_value(t, downed.heave, g.Heave_Phase.Held)
 	testing.expect_value(t, downed.heaved_by, sim.player_in_slot(run.simulation, 0))
-	testing.expect(t, limp(downed.body), "the held ally is limp")
+	testing.expect(t, g.ragdolled(downed), "the held ally is its ragdoll")
+	testing.expect(t, !physics.body_is_enabled(run.simulation.world.phys, downed.body.body), "its capsule stays out")
 	for _ in 0 ..< g.TICK_HZ / 2 do headless.run_step(&run, inputs)
-	hung := dmath.length(downed.pos - hold_point(barbarian, g.HERO_CENTRE_ABOVE_FEET))
+	hung := chest_off_hold(&run, barbarian, downed)
 	testing.expectf(t, hung < 0.3, "the ally hangs %v m off the hold", hung)
 	expect_facing(t, downed, {0, 1})
 	testing.expect_value(t, downed.action, g.Action.Down)
@@ -215,8 +225,8 @@ a_heave_throws_a_downed_ally_to_its_rescuers :: proc(t: ^testing.T) {
 	testing.expect(t, until_landed(&run, inputs), "the ally lands")
 	testing.expect_value(t, downed.heave, g.Heave_Phase.None)
 	testing.expect_value(t, downed.action, g.Action.Down)
-	testing.expect(t, !limp(downed.body), "landed, its drive holds it again")
-	for _ in 0 ..< g.TICK_HZ / 2 do headless.run_step(&run, inputs)
+	testing.expect(t, g.ragdolled(downed), "landed, it lies as its ragdoll")
+	for _ in 0 ..< 2 * g.TICK_HZ do headless.run_step(&run, inputs)
 	testing.expectf(t, dmath.length(downed.vel) < 0.05, "it lies still: %v m/s", downed.vel)
 	testing.expectf(t, downed.pos.x > start.x + 4, "it came down at %v, thrown from %v", downed.pos, start)
 	expect_facing(t, downed, {0, 1})
@@ -274,7 +284,7 @@ a_heave_ends_when_its_body_goes :: proc(t: ^testing.T) {
 	hurt(&run, 0, g.HERO_HP)
 	testing.expect_value(t, barbarian.action, g.Action.Down)
 	testing.expect_value(t, ally.heave, g.Heave_Phase.None)
-	testing.expect(t, !limp(ally.body), "dropped, its drive holds it again")
+	testing.expect(t, g.ragdolled(ally), "dropped, it lies as its ragdoll")
 	headless.run_command(&run, 2, g.Command_Dev_Revive{sim.player_in_slot(run.simulation, 0)})
 
 	hold(&run, {}, int(g.HEAVE_COOLDOWN_TICKS))
@@ -482,7 +492,7 @@ a_heave_holds_its_body :: proc(t: ^testing.T) {
 	testing.expectf(t, abs(barbarian.vel.x - want) < 0.2, "heaving, it walks at %v m/s, not %v", barbarian.vel.x, want)
 	hold(&run, {aim = dmath.dir2({0, 1})}, int(g.TICK_HZ * 3 / 4)) // within HEAVE_MAX_S of the grab
 	testing.expect_value(t, barbarian.action, g.Action.Heave)
-	hung := dmath.length(ally.pos - hold_point(barbarian, g.HERO_CENTRE_ABOVE_FEET))
+	hung := chest_off_hold(&run, barbarian, ally)
 	testing.expectf(t, hung < 0.3, "turned, the ally hangs %v m off the hold", hung)
 	scenarios.expect_synced(t, &run)
 }
@@ -534,7 +544,7 @@ a_thrown_body_lands_when_it_should :: proc(t: ^testing.T) {
 		testing.expect_value(t, ally.heave, g.Heave_Phase.Thrown)
 		headless.run_command(&run, 0, g.Command_Dev_Revive{})
 		testing.expect_value(t, ally.heave, g.Heave_Phase.None)
-		testing.expect(t, !limp(ally.body), "revived in flight, it is let down at once")
+		testing.expect(t, !g.ragdolled(ally) && !limp(ally.body), "revived in flight, it stands on its own at once")
 		scenarios.expect_synced(t, &run)
 	}
 }

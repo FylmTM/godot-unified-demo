@@ -1,5 +1,6 @@
 // The traps' rule tests (traps.odin), on the workshop (workshop_test.odin), each on a sync-tested run that ends synced,
-// so the spikes' sensor and the roller's kinematic drive roll back with the rest (check_refs after every restore).
+// so the spikes' sensor and the roller's kinematic drive roll back with the rest (check_refs after every restore); and
+// every level's rollers checked for room to pass them.
 package test_crypt_crew
 
 import "core:testing"
@@ -331,4 +332,60 @@ the_roller_strikes_elites_in_its_way :: proc(t: ^testing.T) {
 	}
 	testing.expect(t, struck, "the roller strikes the elite in its way")
 	scenarios.expect_synced(t, &run)
+}
+
+// A hero's width and a hand to spare: what a roller's sides keep from the level's walls and low cover all along its
+// path, so the pillar never pins a hero against them (a kinematic body pushes on through what it squeezes: out of
+// the level).
+ROLLER_CLEARANCE :: 2 * g.HERO_RADIUS + 0.15
+
+// Every roller on every level keeps ROLLER_CLEARANCE from the level's walls and low cover (CAT_WALL, CAT_LOW) round its
+// pillar wherever its path takes it: the pillar's box grown by the clearance on every side (from a hand over the floor
+// to a hero's height), at every tick of its cycle there and back, overlaps none of them.
+@(test)
+every_roller_keeps_room_to_pass_it :: proc(t: ^testing.T) {
+	rollers := 0
+	for id in g.Level_Id {
+		run := headless.run_begin(&g.GAME, 1, g.Setup{floor = id})
+		defer headless.run_end(&run)
+		phys := run.simulation.world.phys
+		out: [dynamic]physics.Overlap
+		defer delete(out)
+		for &def in sim.slice(&floor_of(&run).places.traps) {
+			if def.kind != .Roller do continue
+			rollers += 1
+			half := [3]f32{g.ROLLER_HALF.x + ROLLER_CLEARANCE, g.HERO_HEIGHT / 2, g.ROLLER_HALF.z + ROLLER_CLEARANCE}
+			corners: [8][3]f32
+			for &corner, k in corners {
+				local := half * {f32(k & 1) * 2 - 1, f32((k >> 1) & 1) * 2 - 1, f32(k >> 2) * 2 - 1}
+				corner = dmath.quat_rotate(def.rot, local)
+			}
+			box := physics.make_proxy(corners[:], 0)
+			cycle := 0
+			for k in 0 ..< int(def.path.count) - 1 do cycle += int(def.path.seconds[k] * g.TICK_HZ)
+			for tick in 0 ..= 2 * cycle {
+				foot := physics.path_sample(&def.path, u32(tick), g.TICK_HZ)
+				at := foot + {0, 0.1 + half.y, 0}
+				physics.world_overlap_shape(
+					phys,
+					at,
+					box,
+					&out,
+					{category = g.CAT_PIECE, mask = g.CAT_WALL | g.CAT_LOW},
+				)
+				if len(out) > 0 {
+					testing.expectf(
+						t,
+						false,
+						"%v's roller at %v comes within %v m of a wall",
+						id,
+						foot,
+						ROLLER_CLEARANCE,
+					)
+					break
+				}
+			}
+		}
+	}
+	testing.expect_value(t, rollers, 2) // the workshop's and Floor 1's
 }

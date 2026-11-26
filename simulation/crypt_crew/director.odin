@@ -30,13 +30,16 @@ Roll :: enum u8 {
 }
 
 // A held crowd (Setup.crowd, which the rules and the scripted player read): what the population does while it is held.
-// Its heroes take no damage (a wipe would restart the floor and empty it), and the scripted player sends no dev command
-// and no pause, so the population stays what was asked.
+// Its heroes take no damage (but under Wipe), none of them going down wipes the party (a restart would empty the
+// floor), and the scripted player sends no dev command and no pause, so the population stays what was asked.
 Crowd :: enum u8 {
 	None, // play: the director's packs and surges
 	Idle, // asleep out of the heroes' sight, the scripted heroes standing still: what sleepers cost
 	Chase, // chasing scripted heroes who walk and never attack: what a crowd on the move costs
 	Fight, // around scripted heroes who walk and hold Attack: blows, bursts, deaths and the felled rising again
+	// The fight, its heroes taking the crowd's blows: they go down as ragdolls under it one by one, and lie there (nobody
+	// revives them, no wipe restarts the floor): what the most ragdolls a party has cost under a crowd.
+	Wipe,
 }
 
 ROLL_STEPS :: 4096 // a roll for a fraction draws one of this many steps

@@ -13,7 +13,10 @@ dungeon crawler for 1–4 players, and the answer to "what does a real game buil
 > cast and summon, against the Knight's quick sword, shield and shield charge, the Barbarian's wide cleave and its
 > heave, which throws an elite into a pack or a downed ally to safety, the Mage's bursting bolts and fireball, and the
 > Rogue's crossbow and dodge roll, and the barrels and crates any hero picks up and throws. Felled skeletons drop coins
-> into the party's purse. A hero at 0 HP goes down until an ally revives it; the whole party down restarts the floor.
+> into the party's purse. The floor's way out: two plates open the vault, a spike gallery with a roller guards it (a
+> barricade's passage round the traps, once broken), and the hoard inside is hauled by its two handles to the lift,
+> where each hero picks a boon and the party goes down. A hero at 0 HP falls as a ragdoll until an ally revives it
+> (or a Barbarian heaves it to safety); the whole party down restarts the floor.
 > What the game becomes, and in what order, is [`docs/plan.md`](docs/plan.md).
 
 ## Play it
@@ -98,13 +101,23 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
   (`props.odin`); a carried prop hangs on a motor joint, and a thrown one ignores its thrower's contacts
   (`hands.odin`); a fireball's blast is an impulse on the props' and elites' Box3D bodies, walls shielding them
   (`fireballs.odin`); elites are `physics.Character` capsules too, a sleeper dormant until it wakes
-  (`character_set_dormant`, `elites.odin`), and a body the Barbarian heaves goes limp on the same hold, then flies
+  (`character_set_dormant`, `elites.odin`), and an elite the Barbarian heaves goes limp on the same hold, then flies
   through every hero, its filter's mask changed until it lands (`character_set_limp`, `shape_set_filter`:
   `barbarian.odin`).
+- **Ragdolls under rollback**: a downed hero falls as a `physics.Ragdoll` in the state block, its capsule dormant and
+  out of the world until it gets up (`ragdolls.odin`); the Barbarian's heave holds a downed ally's ragdoll by its chest
+  bone and throws it whole (`ragdoll_set_velocity`: `barbarian.odin`); a fireball's blast moves each bone by its share
+  of the body's mass (`fireballs.odin`).
+- **Mechanisms under rollback**: plates and gates are prismatic joints whose motors bear a load or lift a grille
+  (`plates.odin`, `gates.odin`); a barricade is a weld that breaks past a force threshold, read from the step's joint
+  events (`barricades.odin`); spikes are Box3D sensors and the roller a kinematic body driven along a path on the game
+  clock (`traps.odin`).
 - **Physics set pieces under rollback**: the hoard is hauled by two players' holds on one body, motor joints whose
   force cap lets one hauler drag it and two carry it clear (`hoard.odin`); the lift is a kinematic deck driven along a
   path (`physics.Path`, `drive_kinematic`) that carries the characters standing on it, with a sensor that sees the hoard
-  aboard, and its descent changes the level as a sim decision (`lift.odin`).
+  aboard, and its descent changes the level as a sim decision (`lift.odin`). The workshop level holds one of each
+  piece, the hoard and the lift: the mechanisms' tests and a whole haul to the descent play it
+  (`simulation/tests/workshop_test.odin`).
 - **A choice confirmed for all**: the boons offered at the lift are a keyed roll the tick and the HUD both make
   (`boons.odin`), and the boon panel locks a pick only once it is CONFIRMED (`game/play/boon_panel.gd`; `uni coop --lan
   -- --lag 150 --verified-players` shows it holding through a pick predicted frames ahead).
@@ -159,8 +172,8 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
 - **Dev commands** (`dev.odin`): a class swap, spawning, hurting and killing, dropping coins, as dev UI forms and
   `uni drive command`.
 - **Benchmark rows**: four heroes against a held surge among Floor 1's props, and a crowd of MINION_CAP on the arena
-  asleep, chasing and fighting, each row's population chosen by its Setup (`benches` in `game.odin`; `Crowd`,
-  `place_crowd` and `bench_prepare` in `director.odin`).
+  asleep, chasing, fighting, and fighting while its blows down the party into ragdolls, each row's population chosen by
+  its Setup (`benches` in `game.odin`; `Crowd`, `place_crowd` and `bench_prepare` in `director.odin`).
 
 ## The rules
 
@@ -186,9 +199,10 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    every blow from the front taken); the Rogue's roll (ROLL_SPEED for ROLL_S along the stick, unhurt for
    ROLL_SAFE_S); the Mage's cast (FIREBALL_WINDUP_S, then a fireball lobbed to where its aim reaches, up to
    FIREBALL_RANGE, short of a wall); the Barbarian's heave (the nearest elite or downed ally in the grab's cone, never
-   an ally who is up: its body hangs limp on the hold at HEAVE_HOLD_HEIGHT, weighing HEAVE_MASS and borne by the
-   hold; Attack throws it as a prop is thrown, through every hero until it lands, and held HEAVE_MAX_S it is let
-   down; HEAVE_COOLDOWN_S from its landing or its letting down). Otherwise Attack held starts
+   an ally who is up: an elite hangs limp on the hold at HEAVE_HOLD_HEIGHT, weighing HEAVE_MASS and borne by the hold,
+   a downed ally's ragdoll by its chest bone at that height, RAGDOLL_MASS being HEAVE_MASS; Attack throws it as a prop
+   is thrown, an elite through every hero, until it lands, and held HEAVE_MAX_S it is let down; HEAVE_COOLDOWN_S from
+   its landing or its letting down). Otherwise Attack held starts
    the class's attack (`CLASS_SPECS`: windup, duration, cooldown; held, it repeats every cooldown). The hold's joint
    follows the facing (`HOLD_*`), and the hero walks toward the stick's velocity at its class's speed, slowed by a
    carried prop or by what it does (ATTACK_SPEED, BLOCK_SPEED, REVIVE_SPEED, HEAVE_SPEED).
@@ -229,10 +243,12 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
    MAX_REWIND_S back). Walls shield what is behind them from blows, bursts, blasts and shots; bolts and shots fly at
    FLIGHT_HEIGHT, over low cover and resting light props, and meet walls, heavy crates, elites and props held or in
    flight. A fireball bursts FIREBALL_FLIGHT_S after its cast: a blast (FIREBALL_RADIUS, FIREBALL_DAMAGE,
-   FIREBALL_KNOCK) on the skeletons and an impulse on the props' and elites' bodies (FIREBALL_IMPULSE, FIREBALL_LIFT of
-   it up, fading over FIREBALL_FALLOFF). A body a Barbarian threw lands once the floor is HEAVE_LAND_GAP under it (or
-   HEAVE_FLIGHT_MAX_S on): a blast (HEAVE_LAND_RADIUS, HEAVE_LAND_DAMAGE, HEAVE_LAND_KNOCK), a thrown elite taking the
-   blow itself and a stagger; it stands again, a downed ally still down. An elite takes a blow as a minion does,
+   FIREBALL_KNOCK) on the skeletons and an impulse on the bodies (FIREBALL_IMPULSE, FIREBALL_LIFT of it up, fading
+   over FIREBALL_FALLOFF): the props free of a hold, the elites, the hoard unheld (at HOARD_MASS until it settles
+   again), each downed hero's ragdoll nobody heaves (each bone its share) and each barricade, which breaks to it. A
+   thrown elite lands once the floor is HEAVE_LAND_GAP under it, a thrown ragdoll once its pelvis falls within
+   RAGDOLL_LAND_REACH of it (or either HEAVE_FLIGHT_MAX_S on): a blast (HEAVE_LAND_RADIUS, HEAVE_LAND_DAMAGE, HEAVE_LAND_KNOCK), a thrown elite taking the
+   blow itself and a stagger; an elite stands again, a downed ally lies still down. An elite takes a blow as a minion does,
    except that a Warrior's shield takes all but ELITE_GUARD_TAKE of one from within ELITE_GUARD_COS of its facing
    (staggered or broken, none), and a knock moves its body by ELITE_KNOCK_TAKE of it (knocks and pushes together at
    most ELITE_KNOCK_MAX; none on a held elite),
@@ -249,9 +265,9 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
     DEATH_S. A hero at 0 HP goes down and stays down until revived: it falls as a Box3D ragdoll (RAGDOLL_SCALE tall,
     RAGDOLL_MASS, at its velocity, at most RAGDOLL_CARRY_MAX, plus RAGDOLL_KICK away from the blow or RAGDOLL_TIP
     backwards from a blow from no side) that meets everything but heroes and elites, its capsule dormant and out of
-    the world meanwhile (a Barbarian's heave stands the capsule up from it and holds that); one come to rest on the
-    level alone sleeps after RAGDOLL_STILL_TICKS still, not Box3D's half second; a ragdoll fallen
-    RAGDOLL_KILL_DEPTH below the floor goes, its hero lying at its spawn. Every hero down for WIPE_S restarts the
+    the world meanwhile; one come to rest on the level alone (and nobody's heave) sleeps after RAGDOLL_STILL_TICKS
+    still, not Box3D's half second; a ragdoll fallen RAGDOLL_KILL_DEPTH below the floor goes, and its hero lies at its
+    spawn as a ragdoll laid anew. Every hero down for WIPE_S restarts the
     floor.
 12. **Loot.** A felled skeleton drops a coin on a roll of 1 in LOOT_ONE_IN, worth LOOT_VALUE_MIN to LOOT_VALUE_MAX
     gold; a felled elite drops ELITE_COINS coins worth its kind's ELITE_GOLD between them, on a LOOT_SPREAD ring (none
@@ -265,13 +281,21 @@ A plate is pressed once its slab sinks past PLATE_ON under anything weighing mor
 PLATE_OFF. A gate lifts GATE_RISE while `need` of its plates are pressed (a latched one stays up), and closes pressing at
 most GATE_CLOSE_FORCE; below GATE_PASS it keeps minions back. A barricade breaks to a blow (a thrown prop, a charge, a
 hurled body) touching it as its weld strains past BARRICADE_BREAK_N: the blow decides, and the threshold is its floor,
-since a hero walking into the fence strains it harder than a thrown crate. Spikes are up SPIKES_UP_S of every
+since a hero walking into the fence strains it harder than a thrown crate; a fireball's blast that reaches it breaks it
+outright. Its fence then lies loose (CAT_PROP): a dragged hoard catches on it, and heroes shove it aside. Spikes are up SPIKES_UP_S of every
 SPIKES_PERIOD_S on the game clock from their phase, or while their plate is pressed, striking SPIKES_DAMAGE as they rise
 and every SPIKES_HIT_TICKS; the roller, on the clock too, strikes ROLLER_DAMAGE what touches it every ROLLER_HIT_TICKS.
+A level keeps a hero's width between a roller's sides and every wall or low cover along its whole path (a kinematic
+pillar pushes on through what it squeezes), which `every_roller_keeps_room_to_pass_it` holds.
+
+Floor 1's way out: the vault east of the great hall, its gate (`need` 2, latched) opened by two plates, one in the
+spike gallery before it and one in the passage north of the gallery; the gallery's two spike tiles (phases half a
+period apart) and the roller between them and the plates; the passage, round the traps, closed at the hall by a
+barricade. The hoard rests in the vault, a sleeping pack beside it.
 
 ## The hoard, the lift and boons
 
-The floor's hoard (its `hoard` marker: Floor 1's in the great hall) is hauled to its lift (its `lift` marker: a deck
+The floor's hoard (its `hoard` marker: Floor 1's in its vault) is hauled to its lift (its `lift` marker: a deck
 over a shaft by the spawns). Interact beside one of the hoard's two handles takes it (before any prop; the "[E] Haul"
 prompt says when): the hero's hold lifts the handle to HOARD_HOLD_HEIGHT with at most HOARD_LIFT of the hoard's weight,
 so one hauler lifts an end and drags it at HOARD_DRAG_SPEED, and two carry it clear at HOARD_CARRY_SPEED. A hauler does
