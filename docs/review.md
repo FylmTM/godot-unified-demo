@@ -608,46 +608,72 @@ Calls made in step 3 (the crowd's rules), as they stand after its review:
   kept, as free: the passes end at the first that changes nothing. A pressing crowd costs more, not less (the same
   look over a crowd pressed to a centimetre: 190 us).
 
-Calls made in step 4 (the baked minion):
+Calls made in step 4 (the baked minion), as they stand after its review (which found the bake correct; KayKit's death
+clip leaves the feet standing apart from the fallen body, and the eyes read dim from the pose and the camera):
 
-- The bake lives in `game/crowd/`: `CrowdBake` (no game in it: a CharacterRig on one skeleton, skinned meshes,
-  weapons on BoneAttachment3Ds), `CrowdClips` (the table, a resource), `MinionCrowd` (what the demo bakes); `./uni
-  tool bake_crowd` writes the mesh and the bones as binary resources and the table as text. What moves into unified's
-  tools_godot in step 6: `CrowdBake`, `CrowdClips`, the shader's skinning (`add_bone` and the frame lookup, as a
-  `.gdshaderinc`), the parity check's scene-side skinning, and a crowd declaration resource in place of `MinionCrowd`.
+- The bake lives in `game/crowd/`: `CrowdBake` (no game in it: a character's root node, a pose Callable, a Recipe of
+  its clips, which loop, their rates, the glow material and the LOD error; the skeleton is the skinned meshes' own,
+  placements come from global transforms, hidden meshes are left out as the scene leaves them undrawn), `CrowdClips`
+  (the table, a resource), `MinionCrowd` (the demo's recipe and material); `./uni tool bake_crowd` writes the mesh and
+  the bones as binary resources and the table as text. What moves into unified's tools_godot in step 6: `CrowdBake`,
+  `CrowdClips`, the shader's skinning (`add_bone` and the frame lookup, as a `.gdshaderinc`), the parity check's
+  scene side (`Scene_Mesh`, the sampling), and a crowd declaration resource for the Recipe.
 - Headless: the KayKit glTF meshes, skins and binds read fine under `uni tool` (CPU-side arrays), and
-  `ImporterMesh.generate_lods` runs there. A bake takes about a second.
+  `ImporterMesh.generate_lods` runs there. A bake takes about a second, and gives the same bytes each time.
 - Lightening: Godot's only simplifier that takes a triangle count, `SurfaceTool.generate_lod`, is deprecated, and its
-  warning fails a `uni tool` run. `ImporterMesh.generate_lods` makes a chain that halves: on the merged minion
-  5,745, 2,871, 1,387, and its 1,387 drops the eyes (a small part collapses first; 2,871 keeps 40 of their 132
-  triangles). So each mesh is lightened on its own, to its coarsest LOD within an error of 0.11 (relative to the
-  mesh's size; the chains jump past it, to 0.15 for an arm and about 0.4 for the body, head, cloak and blade):
-  2,325 triangles, the head and jaw whole, the eyes 32. Not the 1,800 to 2,000 asked; the look-dev shots show no
-  difference at the game camera. Lighter needs a simplifier that takes a count (a call for the developer:
-  meshoptimizer through unified, or accept 2,325).
+  warning fails a `uni tool` run. `ImporterMesh.generate_lods` makes a chain that halves: on the merged minion 5,745,
+  2,871, 1,387, and its 1,387 drops the eyes. So each mesh is lightened on its own, to its coarsest LOD within an error
+  of 0.11 (relative to the mesh's size; the chains jump past it, to 0.15 for an arm and about 0.4 for the body, head,
+  cloak and blade), and the eyes (the glowing mesh) not at all: 2,425 triangles, the head, jaw and eyes whole;
+  TRIANGLES, a maximum, 2,450. Not the 1,800 to 2,000 asked; the look-dev shots show no difference at the game camera.
+  Lighter needs a simplifier that takes a count (a call for the developer: meshoptimizer through unified, or accept
+  2,425).
 - Rates: the clips' keys are at 30 fps, but the swing's, the rise's and the fall's bones turn up to 70 and 130 degrees
   between keys, and a linear blend of two frames' matrices cuts such an arc: 15 cm at a blade's tip at 30 fps, 4 at
   60, 1 at 120. Idle and walk bake at 30 (within 4 mm), attack, rise and death at 120; the texture is 69 by 825 RGBA
   float, 911 kB. Blending rotations instead (quaternions in the texture) was not taken: the scene's in-between is a
   composition of per-bone arcs that no blend of model-space transforms reproduces exactly, and the rate does it with
   the simplest shader.
-- The custom data: x the clip (MinionCrowd.Clip), y the seconds since it began, z the seconds since the last hit, w
-  spare; the ages are the shown time's, written by `View_Policy.ages` in step 5. Per clip offsets (where an action
-  starts in its clip, today's RISE_FROM and BLOW_AT) are a shader uniform the view sets, so the art's timing stays the
-  view's. The hit's flash is `hit_flash.tres`' colour as emission for its 8 ticks; the dying sink 0.5 m from 1.4 s to
-  DEATH_S. No hit clip: the scene minion only flashes.
-- The material (`crowd_minion.tres`) holds the look; the clip table and bone texture are set on it at load
-  (`MinionCrowd.material()`), so no baked data is embedded in a text resource.
-- Checks (the art checks, in the godot suite, about 0.2 s): the bake fresh (a hash of every input file, the bake's code
-  and Godot's version; and a re-bake of the matrices within 1e-5), the mesh one surface within 2,400 triangles with
-  whole bone indices, weights summing to 1 and its eyes, the table in MinionCrowd's order, and parity: every 7th vertex
-  of the scene's meshes and blade, posed by the scene (its own skins, all its weights; the blade where the engine's
-  BoneAttachment3D holds it), within 1.5 cm of the crowd's CPU skinning, at frames, between them, past the ends and
-  through each clip's fastest key turn. At baked frames the two agree exactly; between them at most 1.04 cm, every
-  half frame of every clip measured. Mutants each caught: the blade placed without its bone's bind, every clip at 30
-  fps, two weights a vertex, a stale bake.
-- The parity stage in the look-dev scene (60 m west, its own floor and key light): five pairs, scene minion left, crowd
-  right, in idle, walk between two frames, attack mid-swing, rise and death; behind them a flashing walker and a
-  sinking dead one. Shots `crowd_parity` and `crowd_parity_game`; the pairs match by eye in every clip.
-- Shadows: the crowd's material casts them like the scene's (the shader skins in the shadow passes too); whether the
-  arena's 500 keep them is step 5's measurement.
+- The custom data (the shader's header, step 5's contract): x the clip (MinionCrowd.Clip, clamped), y the seconds into
+  it (a one-shot's stamp its action's tick; a loop's minus the minion's phase, so gaits never walk in lockstep and a
+  walk doesn't restart when a minion stops and goes), z the seconds since the last hit (never struck: a far-past stamp;
+  a 0 stamp would age as the shown time and flash every minion in a session's first ticks), w spare, 0; the ages
+  written by `View_Policy.ages`. Per clip offsets (where an action starts in its clip, today's RISE_FROM and BLOW_AT)
+  are a uniform the view sets, so the art's timing stays the view's. No hit clip: the scene minion only flashes.
+- The eye mask is UV2's x, not the vertex colour: a MultiMesh's instance colour multiplies COLOR, so a tint would dim
+  the eyes; UV2 is a plain second UV nothing multiplies (CUSTOM2 would take a third custom format for one float).
+- The sink hides the corpse: the bake measures each clip's last pose's top (CrowdClips.tops; the death clip's 0.88 m),
+  and the dead sink that deep and SINK_MARGIN (5 cm) more over the last SINK_S (0.6 s) of DEATH_S, on the clip's age
+  with its offset as the pose runs; the checks hold the depth at least the top.
+- The material is made by `MinionCrowd.material()`, no file, every value from its home: the death clip from
+  MinionCrowd.Clip, the flash's length from MinionView.FLASH_TICKS over the tick rate, the sink's end from DEATH_S (the
+  view constants' new `minion_death`), the eyes' colour, emission and energy from `skeleton_glow.tres`, the flash
+  colour from `hit_flash.tres`, the palette and roughness from `skeleton.tres` (filtered linear, as every material).
+  One MAX_CLIPS: the shader's constant, held equal to CrowdClips' by the checks, the clip count checked under it, the
+  index clamped. The material check holds the crowd's palette to its model's pack atlas.
+- Checks (the art checks, in the godot suite): the sizes first (the clips MinionCrowd's in Clip's order under
+  MAX_CLIPS, every list one per clip, the texture the table's size, one surface; else it stops, no flood of
+  out-of-range reads); fresh (a hash of `crowd_bake.gd`, the recipe's values, every input file and Godot's version, not
+  the runtime files step 5 edits; the committed mesh against the scene merged and lightened now, every array bit for
+  bit, the normals within 0.01 as stored compressed; the matrices, bounds and tops against a bake's now, the mesh's
+  custom_aabb its bounds); the mesh's rules; each committed vertex's glow against its scene mesh's; the sink deep
+  enough; and parity: the committed vertices (every seventh and each bone's farthest, mapped to the scene vertex each
+  one is) skinned from the baked matrices within 1.5 cm of where the scene puts them (its own skins with every weight;
+  the blade where the engine's BoneAttachment3D holds it), at each clip's ends and past them, at and between its first
+  frames, and through the pair of baked frames between which a bone's farthest vertex turns most (the worst cut), so
+  it holds at any time. Exact at baked frames; at most 1.04 cm between them, every half frame of every clip measured.
+  The crowd check takes about 0.17 s and the material's 0.03 s on a quiet machine (the scene's arrays read once, each
+  side's 23 matrices once per sampled time; step 4 had said 0.2 s where it took 1.0 to 1.4).
+- Mutants, each caught: the blade placed without its bone's bind, every clip at 30 fps, two weights a vertex, a vertex
+  given its neighbour's bones and weights (1.52 m), the glow mask shifted by a vertex, the committed mesh's bones
+  swapped between two vertices, the attack at 60 fps (4.07 cm at 0.592 s, the blade), a stale bake; an edit to a runtime
+  file (`minion_crowd.gd`) is not stale.
+- The parity stage in the look-dev scene (60 m west, its own floor and a key light from above, so its shadows show):
+  five pairs, scene minion left, crowd right, in idle, walk between two frames, attack mid-swing, rise and death; at
+  the row's ends a flashing walker and a sinking dead one. Shots `crowd_parity` and `crowd_parity_game`; the pairs
+  match by eye in every clip.
+- Shadows: the crowd casts them like the scene minion (the shader skins in the shadow passes too); whether the arena's
+  500 keep them is step 5's measurement. The host's MultiMesh bounds take the mesh's custom_aabb (unified's fix, which
+  step 5 bumps).
+- `ui_walk.gd`'s stuck-key walk read the hero before a 0.3 s wait after a join that can replace its view, and failed
+  now and then on a freed node: it reads the local hero at each moment.
