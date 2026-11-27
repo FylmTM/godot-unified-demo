@@ -1,8 +1,9 @@
 class_name Saves
 extends RefCounted
-## The one save slot, `user://save.json`: the Setup that continues the party's crypt, as its JSON (UnifiedSetup.to_json)
+## The one save slot, `user://save.json`: the Setup that continues the party's run, as its JSON (UnifiedSetup.to_json)
 ## and nothing else, so a later build reads it back by field name. Game keeps one Saves: it writes each save the session
-## hands over (save_changed) when this machine hosts or plays alone, and the title offers Continue from it. Written
+## hands over (save_changed) when this machine hosts or plays alone, and the title offers Continue from it while it
+## holds a run (has_run: a save of the hub's floor is a run that ended, or the Pit's, with nothing to continue). Written
 ## through UserFile: beside first, then moved over the old file, so a crash or a full disk never leaves half a save; a
 ## write that fails keeps the session's copy (`setup`) and says so in the log.
 ##
@@ -14,7 +15,7 @@ extends RefCounted
 ## The slot's file.
 const PATH: String = "user://save.json"
 
-## The save in the slot (null: none): what Continue starts from.
+## The save in the slot (null: none): what Continue starts from, while it holds a run.
 var setup: UnifiedSetup = null
 ## Why the file in the slot didn't read at load (""; it did, or there was none): the title tells the player once.
 var problem: String = ""
@@ -42,12 +43,25 @@ func keep(save: UnifiedSetup) -> bool:
 	return _in_memory or UserFile.write(path, save.to_json() + "\n")
 
 
-## What the slot holds, in a line: "Floor 1 · Surge 7 · 312 felled" ("": nothing).
+## A new game's Setup: the session starts in the hub, where the party sets its run at the shrines.
+static func new_game() -> UnifiedSetup:
+	var fresh := UnifiedSetup.new()
+	fresh.floor = EnumLevel.HUB
+	return fresh
+
+
+## Whether the slot holds a run to continue: a save on one of the run's floors, not the hub's.
+func has_run() -> bool:
+	return setup != null and setup.floor != EnumLevel.HUB
+
+
+## What the slot holds, in a line: "Floor 2 · Hard · 2 lives · 340 gold" ("": no run).
 func summary() -> String:
-	if setup == null:
+	if not has_run():
 		return ""
 	var floor_name: String = EnumLevel.name(setup.floor).capitalize()
-	return "%s · Surge %d · %d felled" % [floor_name, setup.surges, setup.kills]
+	var lives: String = "1 life" if setup.lives == 1 else "%d lives" % setup.lives
+	return "%s · %s · %s · %d gold" % [floor_name, EnumDifficulty.name(setup.difficulty).capitalize(), lives, setup.gold]
 
 
 ## The file's save, unless it doesn't read or another version made it: then it goes aside, and `problem` says why.

@@ -15,6 +15,10 @@ extends Node3D
 ## (the HUD's Purse), and the hoard's gold once the descent is. The crypt fades to black and back as the verified level
 ## changes (the HUD's fade).
 ##
+## The run: the crypt's environment gives way to the graveyard's moonlight in the hub (hub_environment, as the level
+## changes); a shrine turned clicks as predicted; once CONFIRMED, a run's beginning and a life lost say so in a toast
+## (and the HUD counts the felled anew), and a run's end shows its results (the HUD's).
+##
 ## The mouse's aim reaches the sim through it, as only a script knows it: just before the session samples (its
 ## input_wanted, so this frame's sample takes it), the cursor's ray meets a plane at chest height, and the direction
 ## from the keyboard player's shown hero to that point is that player's input value. Esc, or a pad's Start that the
@@ -44,11 +48,16 @@ const GLINT_HEIGHT: float = 0.4
 
 ## The pause menu (game/play/pause_menu.tscn), made when it opens.
 @export var pause_menu_scene: PackedScene
+## The hub's environment (game/environments/hub.tres): the graveyard's sky and moonlight; every other level keeps the
+## scene's own (the crypt's).
+@export var hub_environment: Environment
 
 ## Whether the mouse aims for the keyboard's player: once it has moved.
 var _mouse_aims: bool = false
 ## The pause menu while it shows (null: closed).
 var _pause_menu: PauseMenu = null
+## The scene's own environment (the crypt's), for every level but the hub.
+var _crypt_environment: Environment = null
 
 @onready var _session: UnifiedSession = Unified.session
 @onready var _camera_rig: CameraRig = $CameraRig
@@ -58,9 +67,11 @@ var _pause_menu: PauseMenu = null
 @onready var _couch: Couch = $Couch
 @onready var _hud: Hud = $Hud
 @onready var _menus: CanvasLayer = $Menus
+@onready var _world_environment: WorldEnvironment = $WorldEnvironment
 
 
 func _ready() -> void:
+	_crypt_environment = _world_environment.environment
 	_session.level_root = _level
 	_session.view_root = _views
 	_session.level_changed.connect(_on_level_changed)
@@ -154,8 +165,10 @@ func _remembered_pick() -> int:
 	return pick
 
 
-## The floor is on screen: the crypt fades back in, and the camera frames its hero spawns until a local hero is there.
-func _on_level_changed(_level_id: int) -> void:
+## The floor is on screen: the crypt fades back in under its environment (the hub's in the hub), and the camera frames
+## its hero spawns until a local hero is there.
+func _on_level_changed(level_id: int) -> void:
+	_world_environment.environment = hub_environment if level_id == EnumLevel.HUB else _crypt_environment
 	_hud.fade_in()
 	var sum := Vector3.ZERO
 	var count: int = 0
@@ -232,16 +245,37 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 		Sfx.play(&"thud")
 	elif event is EventLift and (event as EventLift).phase == EnumLiftPhase.CHOOSING:
 		Sfx.play(&"thud")
+	# The run: a shrine turned
+	elif event is EventShrine:
+		Sfx.play(&"plate")
 
 
 ## What must not be taken back once shown, on its CONFIRMED showing: a revive's chime and its toast, and the wipe's
-## banner (a revive or a wipe a rollback undid would have rung or hung for nothing).
+## banner (a revive or a wipe a rollback undid would have rung or hung for nothing); the run's beginning, a life lost
+## and the run's end.
 func _on_sim_event_confirmed(event: UnifiedEvent) -> void:
 	if event is EventHeroRevived:
 		var revived := event as EventHeroRevived
 		Sfx.play(&"revived")
-		Game.toast("%s revived %s" % [_session.get_player_name(revived.by), _session.get_player_name(revived.player)])
+		var risen: String = _session.get_player_name(revived.player)
+		if revived.by == 0:  # nobody's hands: the Pit's lull raises the downed
+			Game.toast("%s is up again" % risen)
+		else:
+			Game.toast("%s revived %s" % [_session.get_player_name(revived.by), risen])
 	elif event is EventPartyWiped:
 		_hud.show_wipe()
 	elif event is EventDescended:
 		Game.toast("Down to depth %d with the hoard" % (event as EventDescended).depth)
+	# The run
+	elif event is EventRunBegan:
+		var began := event as EventRunBegan
+		var mode: String = "The Pit" if began.mode == EnumMode.PIT else "The crypt"
+		Game.toast("%s opens · %s" % [mode, EnumDifficulty.name(began.difficulty).capitalize()])
+		_hud.count_anew()
+	elif event is EventLifeLost:
+		var lives: int = (event as EventLifeLost).lives
+		if lives > 0:
+			Game.toast("A life lost: %s left" % ("1 life" if lives == 1 else "%d lives" % lives))
+		_hud.count_anew()
+	elif event is EventRunEnded:
+		_hud.show_results(event as EventRunEnded)

@@ -148,9 +148,9 @@ func _leave(quit: bool) -> void:
 	if others:
 		heading = "End the game for everyone?"
 		confirm = "End the game"
-	var saved: String = "Nothing is saved yet: the first surge saves your crypt."
-	if Game.saves.setup != null:
-		saved = "Your crypt is saved at surge %d: Continue starts it there." % Game.saves.setup.surges
+	var saved: String = "No run is saved: a run saves as it begins, at each lift and each life lost."
+	if Game.saves.has_run():
+		saved = "Your run is saved (%s): Continue starts it there." % Game.saves.summary()
 	Game.ask(heading, saved, confirm, "Stay", func(confirmed: bool) -> void:
 		if confirmed:
 			act.call(), "", others or quit)

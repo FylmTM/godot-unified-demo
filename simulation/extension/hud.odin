@@ -15,24 +15,35 @@ Data :: union {
 
 // What the HUD shows.
 Data_Hud :: struct {
-	minions:    u16, // minions alive (the newest prediction, like all of it)
-	paused:     bool, // the co-op pause (the State's Clock)
-	_pad:       u8,
-	paused_by:  sim.Player, // who paused it (its key; 0: nobody)
-	surges:     u32, // the surges the party has faced, a save's included
-	kills:      u32, // the skeletons it has felled, a save's included (a prediction: the HUD never counts it back)
+	minions:      u16, // minions alive (the newest prediction, like all of it)
+	paused:       bool, // the co-op pause (the State's Clock)
+	_pad:         u8,
+	paused_by:    sim.Player, // who paused it (its key; 0: nobody)
+	surges:       u32, // the surges the party has faced, a save's included
+	kills:        u32, // the skeletons it has felled, a save's included (a prediction: the HUD never counts it back)
 	// The party's purse (a prediction, a save's included): the HUD's purse takes it once, when it shows, and from then on
 	// counts from CONFIRMED pickups alone (game/play/purse.gd), never from this.
-	gold:       u32,
-	heroes:     [g.PLAYERS]Hud_Hero, // by slot
+	gold:         u32,
+	heroes:       [g.PLAYERS]Hud_Hero, // by slot
 	// ---- the lift and boons (lift.odin, boons.odin)
-	lift:       g.Lift_Phase, // EnumLiftPhase: Choosing opens the boon panels (a late joiner's too)
+	lift:         g.Lift_Phase, // EnumLiftPhase: Choosing opens the boon panels (a late joiner's too)
 	// The hoard rests partly on the deck, unheld, while the lift waits: the HUD says it must be wholly on (the rules'
 	// hoard_on_deck: hoard_hanging)
-	overhang:   bool,
-	_pad_lift:  [2]u8,
-	lift_since: sim.Game_Time, // when the lift's phase began: the choosing's countdown runs from it (constants.boon_timeout)
-	depth:      u32, // the floors the party has gone down
+	overhang:     bool,
+	_pad_lift:    [2]u8,
+	lift_since:   sim.Game_Time, // when the lift's phase began
+	depth:        u32, // the floors the party has gone down
+	// ---- the run (run.odin, arena.odin)
+	run:          g.Run_Phase, // EnumRunPhase: the hub's banner and shrine prompts show in Hub
+	mode:         g.Mode, // EnumMode: the run's (in the hub: the mode shrine's setting)
+	difficulty:   g.Difficulty, // EnumDifficulty: likewise
+	lives:        u8, // the run's lives left: the pips
+	lives_max:    u8, // the lives it began with (the difficulty's, the Pit's one): the pips drawn
+	// A boon choice is open (a lift's bottom, the Pit's lull: the rules' choosing): the boon panels, a late joiner's too
+	choosing:     bool,
+	_pad_run:     [2]u8,
+	// When the open choice began: its countdown runs from it (constants.boon_timeout)
+	choice_since: sim.Game_Time,
 }
 
 // One slot's hero (DataHudHero).
@@ -55,10 +66,15 @@ Hud_Hero :: struct {
 	// `offer_count` of them.
 	offer:       [g.BOON_OFFER]g.Boon,
 	offer_count: u8,
-	picked:      bool, // it has had its pick at this depth (has_picked, as the state has it: a prediction)
+	picked:      bool, // it has had its pick at the open choice (has_picked, as the state has it: a prediction)
 	// A local hero's: the hoard's handle its Interact would take now (the rules' haul_target: the "[E] Haul" prompt;
 	// EnumHaulHandle.NONE: none, or not a local hero).
 	haul:        g.Haul_Handle,
+	// ---- the run (run.odin)
+	// A local hero's: the hub's shrine its Interact would turn now (the rules' shrine_target: the "[E] Turn" prompt),
+	// EnumShrineSetting + 1 (0: none, or not a local hero)
+	shrine:      u8,
+	_pad:        u8,
 }
 
 // The HUD's data from the frame's state.
@@ -75,6 +91,12 @@ fill_hud :: proc(f: ^Frame) {
 		lift_since = f.state.lift.since,
 		depth      = f.state.depth,
 	}
+	// ---- the run (run.odin, arena.odin)
+	run := &f.state.run
+	hud.run, hud.mode, hud.difficulty = run.phase, run.mode, run.difficulty
+	hud.lives, hud.lives_max = run.lives, g.run_lives(run)
+	hud.choosing = g.choice_open(f.state)
+	hud.choice_since = f.state.lift.since if f.state.lift.phase == .Choosing else f.state.pit.since
 	heroes := sim.iterate_present(&f.state.players)
 	for hero, player in sim.next(&heroes) {
 		slot, _ := sim.player_slot(&f.state.players, player)
@@ -89,10 +111,13 @@ fill_hud :: proc(f: ^Frame) {
 			ability = u8(dmath.round(g.ability_charge(f.time, hero) * 255)),
 			revive  = g.revive_target(&f.state.players, player) if local else {},
 			boons   = hero.boons,
-			picked  = g.has_picked(hero, f.state.depth),
+			picked  = g.has_picked(hero, run.offers),
 			haul    = g.haul_target(f.world.phys, &f.state.hoard, &f.state.lift, hero) if local else .None,
 		}
-		offer := g.boon_offer(f.seed, f.state.depth, player, hero.boons) // the tick's own roll: the same cards
+		if setting, at := g.shrine_target(f.state, f.world, player); at && local {
+			hud.heroes[slot].shrine = u8(setting) + 1
+		}
+		offer := g.boon_offer(f.seed, g.offer_index(run), player, hero.boons) // the tick's own roll: the same cards
 		hud.heroes[slot].offer = offer.boons
 		hud.heroes[slot].offer_count = u8(offer.count)
 	}

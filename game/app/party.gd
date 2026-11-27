@@ -62,3 +62,9 @@ static func free_place(taken: Array[int]) -> int:
 	while place in taken:
 		place += 1
 	return place
+
+
+## The profile id of the player at party place `place` (local index: 0 for the first), what a save keeps their boons by:
+## this machine's Settings.profile_id, plus the place.
+static func profile_id(place: int) -> int:
+	return Settings.profile_id.to_int() + place

@@ -33,14 +33,14 @@ offer_of :: proc(run: ^headless.Run(g.Game), slot: int) -> g.Boon_Offer {
 	hero := sim.slot_data(run.simulation, slot)
 	return g.boon_offer(
 		run.simulation.seed,
-		run.simulation.state.depth,
+		g.offer_index(&run.simulation.state.run),
 		sim.player_in_slot(run.simulation, slot),
 		hero.boons,
 	)
 }
 
 // The offer is BOON_OFFER distinct boons, none at its top rank, the same whenever and however often it is asked (a
-// keyed roll of the seed, the depth and the player, never the tick), and another player's or depth's differs somewhere.
+// keyed roll of the seed, the choice's index and the player, never the tick), and another index's differs somewhere.
 @(test)
 the_offer_is_a_keyed_roll :: proc(t: ^testing.T) {
 	player := sim.Player {
@@ -55,7 +55,7 @@ the_offer_is_a_keyed_roll :: proc(t: ^testing.T) {
 	testing.expect_value(t, g.boon_offer(7, 0, player, {}), offer)
 	differs := false
 	for depth in u32(1) ..< 8 do differs ||= g.boon_offer(7, depth, player, {}).boons != offer.boons
-	testing.expect(t, differs, "another depth, another offer")
+	testing.expect(t, differs, "another choice, another offer")
 	maxed := g.Boons{}
 	for &rank, boon in maxed do if boon != .Keen_Edge && boon != .Field_Medic do rank = g.BOON_RANK_MAX
 	two := g.boon_offer(7, 0, player, maxed)
@@ -101,7 +101,7 @@ a_pick_grants_the_card_the_hud_showed :: proc(t: ^testing.T) {
 	}
 }
 
-// A pick counts once a depth: a second one, sent before the lift leaves, changes nothing; and a pick sent while the
+// A pick counts once a choice: a second one, sent before the lift leaves, changes nothing; and a pick sent while the
 // lift isn't waiting on picks counts for nothing.
 @(test)
 a_pick_counts_once :: proc(t: ^testing.T) {
@@ -114,7 +114,7 @@ a_pick_counts_once :: proc(t: ^testing.T) {
 	testing.expect_value(t, hero.boons[before.boons[0]], 1)
 	testing.expect_value(t, hero.boons[before.boons[1]], 0)
 	testing.expect_value(t, headless.run_events(&run, g.Event_Boon_Picked), 1)
-	testing.expect_value(t, hero.picked, run.simulation.state.depth + 1)
+	testing.expect_value(t, hero.picked, run.simulation.state.run.offers)
 	scenarios.expect_synced(t, &run)
 
 	fresh := headless.run_begin(&g.GAME, 1, seated = 1)
@@ -256,7 +256,8 @@ each_boon_does_its_part :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// A seed whose depth-0 offers to slots 0 and 1 (members 1 and 2) both hold Thick_Hide, and each one's index of it.
+// A seed whose first-choice offers of a new game's run to slots 0 and 1 (members 1 and 2) both hold Thick_Hide, and
+// each one's index of it.
 @(private = "file")
 thick_hide_seed :: proc() -> (seed: u64, index: [2]u8) {
 	search: for candidate in u64(1) ..< 400 {
@@ -265,7 +266,7 @@ thick_hide_seed :: proc() -> (seed: u64, index: [2]u8) {
 				index = u16(slot),
 				id    = u16(slot + 1),
 			}
-			offer := g.boon_offer(candidate, 0, player, {})
+			offer := g.boon_offer(candidate, g.offer_index(&g.Run{number = 1, offers = 1}), player, {})
 			found := false
 			for boon, i in offer.boons[:offer.count] {
 				if boon == .Thick_Hide do index[slot], found = u8(i), true
@@ -312,7 +313,7 @@ thick_hide_heals_the_up_and_shapes_the_next_body :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// A hero that picked, left and came back at the same depth has had its pick: a second one counts for nothing.
+// A hero that picked, left and came back during the same choice has had its pick: a second one counts for nothing.
 @(test)
 a_rejoiner_doesnt_pick_twice :: proc(t: ^testing.T) {
 	run := choosing_run(2)

@@ -23,11 +23,12 @@ extends Node
 ## frame, so the theme itself never changes). Buttons are wired as they enter the tree, hooked from _enter_tree, so a
 ## scene that is in the tree before any _ready runs (the main scene, on a real launch) is wired too.
 ##
-## Saves: the session hands over a save at each surge (save_changed). When this machine plays alone or hosts it is kept
-## in the one slot (Saves), which the title's Continue starts from; a joiner keeps the host's newest in memory only (a
-## friend's game never overwrites its own crypt; a host's continued crypt counts from the start), and when the host is
-## gone it is offered "Continue on your own": that save goes into its slot (asking first if it holds another crypt)
-## and the menu continues it through hero select, as Continue does.
+## Saves: the session hands over a save at each of the run's save points (its beginning, a descent, a life lost, its
+## end: save_changed). When this machine plays alone or hosts it is kept in the one slot (Saves), which the title's
+## Continue starts from while it holds a run; a joiner keeps the host's newest in memory only (a friend's game never
+## overwrites its own run; a host's continued run counts from the start), and when the host is gone with a run under
+## way it is offered "Continue on your own": that save goes into its slot (asking first if it holds another run) and
+## the menu continues it through hero select, as Continue does. A new game starts in the hub (Saves.new_game).
 ##
 ## The name and quit_app(exit_code) are a contract: UnifiedTool finds this autoload by its name and ends every tool
 ## run through quit_app, so a run quits the way a player does.
@@ -168,6 +169,7 @@ func _ready() -> void:
 	session.mode_changed.connect(_on_mode_changed)
 	session.join_code_changed.connect(_on_join_code_changed)
 	session.local_name = Settings.player_name
+	Unified.profile.id = Party.profile_id(0)  # a session the command line starts carries the player's id too
 	Unified.data.hud.changed.connect(_remember_classes)
 	add_child(session)  # last: the command line's session flags start it here, and the flow must already follow
 	_preload_play_scene()
@@ -198,16 +200,16 @@ func _notification(what: int) -> void:
 
 
 ## Starts a single-player game with `party` (hero select's seats; couch co-op is single player too) on `setup` (a save
-## to continue; null: a new game): each Any among its seats becomes a class nobody picked (Party.resolve_any), the first
+## to continue; null: a new game, in the hub): each Any among its seats becomes a class nobody picked (Party.resolve_any), the first
 ## seat's pick is the session's Profile, and the play scene's Couch brings the other seats in (take_party). Without a
 ## party, the first player plays Any (the sim resolves it on arrival). Ignored while a game is starting or playing, or
 ## the app quits; a start that fails says why through the session's status.
 func start_single(party: Party = null, setup: UnifiedSetup = null) -> void:
 	if _take_party(party, true):
-		session.start_single(setup)
+		session.start_single(setup if setup != null else Saves.new_game())
 
 
-## Hosts a game for friends with `party` on `setup` (a save to continue; null: a new crypt). On the LAN it hosts on
+## Hosts a game for friends with `party` on `setup` (a save to continue; null: a new game, in the hub). On the LAN it hosts on
 ## lan_port; online it is the same as Invite friends: a single-player game, up and playable at once, opened online as
 ## soon as it is (the code comes later, and a lobby that fails leaves it playing alone, a toast saying why). As
 ## start_single otherwise.
@@ -216,6 +218,8 @@ func start_host(party: Party, setup: UnifiedSetup, online: bool) -> void:
 		return
 	inviting = not online  # online, the invite comes once the game is up
 	invite_problem = ""
+	if setup == null:
+		setup = Saves.new_game()
 	if online:
 		_open_online_once_up = true
 		session.start_single(setup)
@@ -304,6 +308,7 @@ func _take_party(party: Party, resolve: bool) -> bool:
 		party.resolve_any()
 	_party = party
 	Unified.profile.class = party.seats[0].hero_class if party != null else EnumClass.ANY
+	Unified.profile.id = Party.profile_id(0)
 	return true
 
 
@@ -554,7 +559,7 @@ func _tell_read_problems() -> void:
 ## continue it alone.
 func _show_ending(ending: Ending, then: Callable = Callable()) -> void:
 	Sfx.play(&"error")
-	if ending.save != null:
+	if ending.save != null and ending.save.floor != EnumLevel.HUB:  # a run under way (the hub's is none)
 		var save: UnifiedSetup = ending.save
 		ask(ending.heading, ending.reason + " You can carry on from the last save on your own.",
 			"Continue on your own", "Back to the title", func(confirmed: bool) -> void:
@@ -567,23 +572,23 @@ func _show_ending(ending: Ending, then: Callable = Callable()) -> void:
 	_quiet_focus = false
 
 
-## A joiner continues its host's `save` on its own: into its slot (asking first when that holds a crypt of its own),
+## A joiner continues its host's `save` on its own: into its slot (asking first when that holds a run of its own),
 ## then hero select on it, as the title's Continue.
 func _continue_alone(save: UnifiedSetup) -> void:
 	var take: Callable = func() -> void:
 		saves.keep(save)
 		continue_wanted.emit()
-	if saves.setup == null or saves.setup.to_json() == save.to_json():
+	if not saves.has_run() or saves.setup.to_json() == save.to_json():
 		take.call()
 		return
-	ask("Replace your crypt?", "This replaces your own crypt (%s)." % saves.summary(), "Replace it", "Keep mine",
+	ask("Replace your run?", "This replaces your own run (%s)." % saves.summary(), "Replace it", "Keep mine",
 		func(confirmed: bool) -> void:
 			if confirmed:
 				take.call())
 
 
 ## A joiner keeps the Setup its host's game started from when it is a save (a host's Continue): the host's save until
-## the next surge gives a newer one, so "Continue on your own" is offered from the start.
+## its next save point gives a newer one, so "Continue on your own" is offered from the start.
 func _keep_host_setup() -> void:
 	if keeps_saves() or _host_save != null:
 		return

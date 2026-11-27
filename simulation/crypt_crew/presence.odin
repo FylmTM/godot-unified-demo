@@ -31,7 +31,7 @@ ARRIVAL_FILTER :: physics.Filter {
 // go of if a Barbarian heaves it (end_hero_heave), its body goes, and its class stays with what it brings back within
 // the floor (its hit points, its ability's cooldown, down and its revive's progress); an arrival gets a class
 // (arrival_class) and a body at its arrival_spot, whole if it is new (or the floor changed since it left), else as it
-// left.
+// left. A member's first arrival of the session takes back the boons a save kept for its profile id (claim_saved_hero).
 update_presence :: proc(t: ^Tick) {
 	for player in t.player_changes.left {
 		drop_prop(t, player)
@@ -52,6 +52,7 @@ update_presence :: proc(t: ^Tick) {
 	}
 	for player in t.player_changes.arrived {
 		hero := sim.player_data(t, player)
+		claim_saved_hero(t, player) // a first arrival takes its saved boons back (saves.odin)
 		kept := hero^
 		hero.class = arrival_class(t, hero.class, sim.player_profile(t, player).class)
 		feet, beside := arrival_spot(t, player)

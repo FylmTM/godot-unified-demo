@@ -408,7 +408,12 @@ the_party_descends_with_the_hoard :: proc(t: ^testing.T) {
 // A Continue starts at the save's depth (and a save of an older build, without one, at none).
 @(test)
 a_continue_starts_at_its_depth :: proc(t: ^testing.T) {
-	run := headless.run_begin(&g.GAME, 1, g.Setup{version = g.SAVE_VERSION, floor = .Floor_1, depth = 2}, seated = 1)
+	run := headless.run_begin(
+		&g.GAME,
+		1,
+		g.Setup{version = g.SAVE_VERSION, floor = .Floor_1, lives = 1, depth = 2},
+		seated = 1,
+	)
 	defer headless.run_end(&run)
 	testing.expect_value(t, run.simulation.state.depth, 2)
 	scenarios.expect_synced(t, &run)

@@ -1,8 +1,9 @@
 class_name TitleScreen
 extends MenuScreen
 ## The title screen: the game's name over the backdrop, and what a player can do from here. Continue (only while the
-## save slot holds a crypt, its line under it: "Floor 1 · Surge 7 · 312 felled") and New game open hero select (where
-## the couch's players take their seats); New game over a save asks first, as its first surge replaces the save.
+## save slot holds a run, its line under it: "Floor 2 · Hard · 2 lives · 340 gold") and New game open hero select (where
+## the couch's players take their seats; a new game starts in the hub); New game over a run asks first, as the new run's
+## beginning replaces the save.
 ## Play together hosts or joins a game with friends; Settings opens the settings over it; Quit leaves the app. The
 ## version is the build's (project.godot's config/version).
 ##
@@ -28,7 +29,7 @@ signal settings_requested
 
 
 func _ready() -> void:
-	if Game.saves.setup != null:
+	if Game.saves.has_run():
 		first_focus = _continue
 	super()
 	_show_save()
@@ -41,9 +42,9 @@ func _ready() -> void:
 	_version.text = "Version %s" % ProjectSettings.get_setting("application/config/version")
 
 
-## Continue and the save's line, while the slot holds a crypt.
+## Continue and the save's line, while the slot holds a run.
 func _show_save() -> void:
-	var saved: bool = Game.saves.setup != null
+	var saved: bool = Game.saves.has_run()
 	_continue.visible = saved
 	_save_line.visible = saved
 	_save_line.text = Game.saves.summary()
@@ -51,12 +52,12 @@ func _show_save() -> void:
 		set_first_focus(_continue)
 
 
-## A new game, asking first when the slot holds a crypt: the new game's first surge replaces it.
+## A new game, asking first when the slot holds a run: the new run's beginning replaces it.
 func _ask_new_game() -> void:
-	if Game.saves.setup == null:
+	if not Game.saves.has_run():
 		new_game_requested.emit()
 		return
-	Game.ask("Start a new crypt?", "Your saved crypt (%s) is replaced at the new game's first surge."
+	Game.ask("Start a new crypt?", "Your saved run (%s) is replaced when the new run begins."
 		% Game.saves.summary(), "New game", "Back", func(confirmed: bool) -> void:
 			if confirmed:
 				new_game_requested.emit())

@@ -210,12 +210,14 @@ a_hit_wakes_a_sleeper :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 1)
 	defer headless.run_end(&run)
 	clear_minions(&run)
-	sleeper := sim.get(&run.simulation.state.minions, place_minion(&run, PAST_THE_DOORWAY, .Idle))
-	sleeper.hp = g.MINION_HP + 1 // dev_kill_minions deals MINION_HP: this one lives
-	headless.run_pin(&run)
-	headless.run_command(&run, 0, g.Command_Dev_Kill_Minions{})
-	testing.expect_value(t, sleeper.phase, g.Minion_Phase.Chase)
-	testing.expect_value(t, sleeper.hp, 1)
+	place_hero(&run, 0, PAST_THE_DOORWAY, {1, 0})
+	sleeper := sim.get(&run.simulation.state.minions, place_minion(&run, PAST_THE_DOORWAY + {1.6, 0, 0}, .Idle))
+	held := [g.PLAYERS]g.Input {
+		0 = {buttons = {.Attack}},
+	}
+	for _ in 0 ..= g.CLASS_SPECS[.Knight].windup do headless.run_step(&run, held) // a Knight's blow: less than its hp
+	testing.expectf(t, sleeper.phase != .Idle && sleeper.phase != .Dying, "it %v", sleeper.phase) // awake: it chases, or swings
+	testing.expect_value(t, sleeper.hp, g.MINION_HP - g.CLASS_SPECS[.Knight].damage)
 	scenarios.expect_synced(t, &run)
 }
 

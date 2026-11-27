@@ -112,7 +112,8 @@ func _seat_guests(seats: Array[Party.Seat]) -> void:
 	for frame: int in SEAT_FRAMES:
 		var refused: Array[Party.Seat] = []
 		for seat: Party.Seat in waiting:
-			var local: int = _session.add_local_player(seat.device, seat.player_name, Heroes.profile(seat.hero_class))
+			var profile: UnifiedProfile = Heroes.profile(seat.hero_class, Party.profile_id(next_place()))
+			var local: int = _session.add_local_player(seat.device, seat.player_name, profile)
 			if local > 0:
 				Game.party_seated(local)
 			else:
@@ -132,7 +133,8 @@ func next_place() -> int:
 ## Brings pad `device` in as a guest playing `hero_class` (its join card's pick), named by the place it takes.
 func join(device: int, hero_class: int) -> void:
 	_picking.erase(device)
-	if _session.add_local_player(device, Party.name_of(next_place()), Heroes.profile(hero_class)) < 0:
+	var place: int = next_place()
+	if _session.add_local_player(device, Party.name_of(place), Heroes.profile(hero_class, Party.profile_id(place))) < 0:
 		_place_first()
 
 

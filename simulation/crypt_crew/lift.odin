@@ -1,14 +1,15 @@
 // The lift: the floor's exit (its `lift` marker), a kinematic deck at floor level over a shaft, and a sensor over the
 // deck. The party leaves a floor on it, with the hoard and everyone present aboard: nobody is left behind.
 //
-// Its phases (Lift_Phase): it waits; once the hoard rests on the deck with no hand on it and every present hero is
-// aboard, at least one of them up (a downed hero aboard counts: it rides down as it lies), it boards, and LIFT_HOLD_S
-// later goes down, LIFT_DROP in LIFT_RIDE_S; anyone stepping off while it boards puts it back to waiting. Going down,
-// nobody takes damage and the party can't wipe: the floor is won. At the bottom the heroes pick their boons
+// Its phases (Lift_Phase): it waits; once the hoard rests on the deck with no hand on it (a lift whose marker asks for
+// none, the hub's, skips this) and every present hero is aboard, at least one of them up (a downed hero aboard counts:
+// it rides down as it lies), it boards, and LIFT_HOLD_S later goes down, LIFT_DROP in LIFT_RIDE_S; anyone stepping off
+// while it boards puts it back to waiting. Going down, nobody takes damage and the party can't wipe: the floor is won.
+// The hub's lift, at its bottom, begins the run (begin_run, run.odin). A crypt floor's opens a boon choice there
 // (boons.odin), and once every present hero has picked, or BOON_TIMEOUT_S has run, the party descends: the depth goes
-// up, the hoard's HOARD_GOLD goes in the purse, the next floor is entered (FLOOR_ORDER) with everyone present on it,
-// the downed up at REVIVE_HP, and the save point is marked there. A hero arriving while the lift is busy appears on its
-// deck (lift_arrival) and is offered its boons too.
+// up, the hoard's HOARD_GOLD (as the difficulty pays it) goes in the purse, the next floor is entered (FLOOR_ORDER) with
+// everyone present on it, the downed up at REVIVE_HP, and the save point is marked there. A hero arriving while the
+// lift is busy appears on its deck (lift_arrival) and is offered its boons too.
 //
 // The deck's height is a pure function of its phase and how long it has been in it (lift_target: the marker's Path at
 // the phase's age while it goes down), and drive_lift sets the kinematic body's velocity to reach it in the next step
@@ -47,7 +48,7 @@ Lift_Def :: struct {
 	rot:    [4]f32,
 	placed: bool, // the floor has one
 	// Whether the floor's hoard must be aboard before it goes (the marker's `hoard`): the crypt's floors' lifts; the
-	// hub's, which takes the party into the crypt, goes without one. Read, not yet used (docs/plan.md, milestone 7).
+	// hub's, which takes the party into the run (begin_run), goes without one.
 	hoard:  bool,
 	_pad:   [2]u8,
 }
@@ -171,10 +172,10 @@ hoard_aboard :: proc(t: ^Tick) -> bool {
 	return wholly
 }
 
-// Whether the lift may go: the hoard aboard (hoard_aboard), every present hero aboard (on_deck: a downed one too), and
-// one of them up (a party all down is a wipe, not a ride).
+// Whether the lift may go: the hoard aboard (hoard_aboard) if its marker asks for it, every present hero aboard
+// (on_deck: a downed one too), and one of them up (a party all down is a wipe, not a ride).
 ready_to_go :: proc(t: ^Tick) -> bool {
-	if !hoard_aboard(t) do return false
+	if floor_of(t).places.lift.hoard && !hoard_aboard(t) do return false
 	up := false
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
@@ -185,10 +186,10 @@ ready_to_go :: proc(t: ^Tick) -> bool {
 }
 
 // After the physics step: the lift's phase moves on (the package header's order), and at the end of the choosing the
-// party descends.
+// party descends. A run that ended (its results showing) holds it where it is.
 update_lift :: proc(t: ^Tick) {
 	lift := &t.state.lift
-	if lift.body == {} do return
+	if lift.body == {} || t.state.run.phase == .Won || t.state.run.phase == .Lost do return
 	age := u32(t.time - lift.since)
 	switch lift.phase {
 	case .Waiting:
@@ -197,11 +198,18 @@ update_lift :: proc(t: ^Tick) {
 		if !ready_to_go(t) do set_lift_phase(t, .Waiting)
 		else if age >= LIFT_HOLD_TICKS do set_lift_phase(t, .Descending)
 	case .Descending:
-		if age >= LIFT_RIDE_TICKS do set_lift_phase(t, .Choosing)
+		if age < LIFT_RIDE_TICKS do return
+		if !floor_of(t).places.lift.hoard {
+			begin_run(t) // the hub's: down into the run (run.odin)
+			return
+		}
+		t.state.run.offers += 1
+		set_lift_phase(t, .Choosing)
+		sim.emit(t, Event_Choice{open = true})
 	case .Choosing:
 		chosen := true
 		heroes := sim.iterate_present(t)
-		for hero in sim.next(&heroes) do chosen &&= has_picked(hero, t.state.depth)
+		for hero in sim.next(&heroes) do chosen &&= has_picked(hero, t.state.run.offers)
 		if !chosen && age < BOON_TIMEOUT_TICKS do return
 		pick_for_the_late(t)
 		descend(t)
@@ -213,10 +221,16 @@ lift_gone :: proc(t: ^Tick) -> bool {
 	return t.state.lift.phase >= .Descending
 }
 
-// Whether the party is picking its boons at the lift's bottom: the heroes take no input but the pick (the tick skips
-// the systems that read it, and the drive stands every hero still).
+// Whether the party is picking its boons, at the lift's bottom or in the Pit's lull (arena.odin): the heroes take no
+// input but the pick (the tick skips the systems that read it, and the drive stands every hero still).
 choosing :: proc(t: ^Tick) -> bool {
-	return t.state.lift.phase == .Choosing
+	return choice_open(t.state)
+}
+
+// Whether a boon choice is open in `state`: a run playing, its lift at the bottom waiting on picks or the Pit in a
+// lull's choice (a run that ended mid-choice has none). Pure: what the tick (choosing) and the HUD both ask.
+choice_open :: proc(state: ^State) -> bool {
+	return state.run.phase == .Playing && (state.lift.phase == .Choosing || state.pit.stage == .Choosing)
 }
 
 // The lift's phase becomes `phase`, from now.
@@ -226,8 +240,9 @@ set_lift_phase :: proc(t: ^Tick, phase: Lift_Phase) {
 	sim.emit(t, Event_Lift{phase = phase})
 }
 
-// The party descends with the hoard: depth and purse up, the next floor entered (each present hero at its spawn, up:
-// at the health it had, or REVIVE_HP if it was down), the save point marked there.
+// The party descends with the hoard: the choice closes, depth and purse up (the hoard's gold as the difficulty pays
+// it), the next floor entered (each present hero at its spawn, up: at the health it had, or REVIVE_HP if it was down),
+// the save point marked there.
 @(private = "file")
 descend :: proc(t: ^Tick) {
 	kept: [PLAYERS]i16 // by slot: each present hero's health on the next floor
@@ -235,8 +250,9 @@ descend :: proc(t: ^Tick) {
 	for hero, player in sim.next(&heroes) {
 		kept[sim.player_slot(t, player)] = REVIVE_HP if hero.action == .Down else hero.hp
 	}
+	sim.emit(t, Event_Choice{open = false})
 	t.state.depth += 1
-	t.state.gold += HOARD_GOLD
+	t.state.gold += u32(run_gold(t, HOARD_GOLD))
 	enter_level(t, FLOOR_ORDER[t.state.depth % len(FLOOR_ORDER)])
 	arrived := sim.iterate_present(t)
 	for hero, player in sim.next(&arrived) do hero.hp = kept[sim.player_slot(t, player)]
@@ -270,17 +286,20 @@ lift_arrival :: proc(t: ^Tick, player: sim.Player) -> (feet: [3]f32, aboard: boo
 	return physics.body_world_point(t.world.phys, lift.body, corner(slot) + {0, LIFT_HALF.y, 0}), true
 }
 
-// Dev (Command_Dev_Board): while the lift waits, every hold lets go (the hoard's, a prop's, a heave's), the hoard is
-// put on the middle of the deck, turned as the deck is, and every present hero on the deck at its slot's corner
-// (lift_arrival's places; a downed one's ragdoll laid there anew), so the lift boards as the rules say (nothing is
-// skipped: it still needs the party aboard and one up).
+// Dev (Command_Dev_Board): while the lift waits, every hold lets go (the hoard's, a prop's, a heave's), the hoard (on a
+// floor whose lift wants one) is put on the middle of the deck, turned as the deck is, and every present hero on the
+// deck at its slot's corner (lift_arrival's places; a downed one's ragdoll laid there anew), so the lift boards as the
+// rules say (nothing is skipped: it still needs the party aboard and one up).
 board_lift :: proc(t: ^Tick) {
 	lift, hoard := &t.state.lift, &t.state.hoard
-	if lift.body == {} || hoard.body == {} || lift.phase != .Waiting do return
+	wants_hoard := floor_of(t).places.lift.hoard
+	if lift.body == {} || (wants_hoard && hoard.body == {}) || lift.phase != .Waiting do return
 	holding := sim.iterate_present(t)
 	for _, player in sim.next(&holding) do release_hold(t, player) // every hold first: a heave's joint on a body that goes
-	centre := physics.body_world_point(t.world.phys, lift.body, {0, LIFT_HALF.y + HOARD_HALF.y, 0})
-	physics.body_teleport(t.world.phys, hoard.body, centre, physics.body_rotation(t.world.phys, lift.body))
+	if hoard.body != {} {
+		centre := physics.body_world_point(t.world.phys, lift.body, {0, LIFT_HALF.y + HOARD_HALF.y, 0})
+		physics.body_teleport(t.world.phys, hoard.body, centre, physics.body_rotation(t.world.phys, lift.body))
+	}
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
 		slot := sim.player_slot(t, player)

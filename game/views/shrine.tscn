@@ -1,0 +1,35 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/views/shrine.gd" id="shrine"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/halloween/shrine_candles.gltf" id="model"]
+[ext_resource type="PackedScene" path="res://assets/kaykit/halloween/skull.gltf" id="skull"]
+[ext_resource type="Script" path="res://game/fx/flicker.gd" id="flicker"]
+
+[node name="Shrine" type="Node3D"]
+script = ExtResource("shrine")
+
+[node name="UnifiedView" type="UnifiedView" parent="."]
+kind = "shrine"
+
+[node name="Model" parent="." instance=ExtResource("model")]
+
+[node name="Candles" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0.5)
+light_color = Color(1, 0.68, 0.36, 1)
+light_energy = 1.6
+omni_range = 4.5
+script = ExtResource("flicker")
+
+[node name="Skull" type="Node3D" parent="."]
+visible = false
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.79, 0)
+
+[node name="Model" parent="Skull" instance=ExtResource("skull")]
+transform = Transform3D(0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, 0, 0, 0)
+
+[node name="Light" type="OmniLight3D" parent="Skull"]
+visible = false
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0.3)
+light_color = Color(0.55, 1, 0.6, 1)
+light_energy = 2.0
+omni_range = 3.5

@@ -92,7 +92,7 @@ func _walk_join_code() -> void:
 
 
 ## A LAN host from the menus on a free port, over a save: A new crypt asks first (Back keeps the save), Continue your
-## crypt hosts it through hero select ("Host a crypt"), at its surge; the session panel shows the address and one
+## crypt hosts it through hero select ("Host a crypt"), at its depth; the session panel shows the address and one
 ## player; Invite friends shows it, Copy copies it (to the run's own clipboard) and says "Copied"; Stop inviting: the
 ## panel says "Closed"; inviting again opens it. Leave asks first.
 func _walk_lan_host() -> void:
@@ -113,8 +113,8 @@ func _walk_lan_host() -> void:
 	if failed():
 		return
 	expect(session.mode == UnifiedSession.MODE_HOST_DIRECT, "on this network")
-	expect(saved != null and Unified.data.hud.surges == saved.surges, "the saved crypt, at its surge %d"
-		% Unified.data.hud.surges)
+	expect(saved != null and Unified.data.hud.depth == saved.depth, "the saved run, at its depth %d"
+		% Unified.data.hud.depth)
 	await wait_for(func() -> bool: return session.join_code != "", 3.0, "its address")
 	var panel: Control = find(current_scene, ^"Hud/SessionPanel") as Control
 	var value: Label = find(panel, ^"%Value") as Label

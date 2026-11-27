@@ -19,7 +19,8 @@ extends VBoxContainer
 ## In a replay every tick is final and a seek or a loop moves the state back and forth, so the purse shows the data's
 ## gold at every change (the chime and the "+N" still play on each confirmed pickup).
 ##
-## The hoard's gold comes the same way: the descent's CONFIRMED event carries the purse's total with it.
+## The hoard's gold comes the same way: the descent's CONFIRMED event carries the purse's total with it; and so does a
+## life lost (the purse back at the save point's) and a run's beginning (an empty purse).
 ##
 ## on_pickup is the whole rule, a pure function of a pickup's state and fields; the walk drives it with made-up
 ## EMITTED, CANCELLED and CONFIRMED pickups (game/tools/ui_walk.gd), since a solo session confirms in the frame it
@@ -93,10 +94,14 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 	if event is EventLootCollected:
 		var collected := event as EventLootCollected
 		on_pickup(state, collected.gold, collected.value, collected.position)
-	elif event is EventDescended and state == UnifiedSession.EVENT_CONFIRMED:
-		var descended := event as EventDescended  # the hoard's gold: the total it carries, as a pickup's
-		if _session.mode != UnifiedSession.MODE_REPLAY:
-			_show(descended.gold)
+	elif state != UnifiedSession.EVENT_CONFIRMED or _session.mode == UnifiedSession.MODE_REPLAY:
+		return
+	elif event is EventDescended:
+		_show((event as EventDescended).gold)  # the hoard's gold: the total it carries, as a pickup's
+	elif event is EventLifeLost:
+		_show((event as EventLifeLost).gold)  # back at the save point's: the purse may count down here alone
+	elif event is EventRunBegan:
+		_show(0)
 
 
 func _show(gold: int) -> void:

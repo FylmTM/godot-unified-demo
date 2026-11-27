@@ -54,12 +54,12 @@ func _open_play_together() -> void:
 	screen.rejoin_requested.connect(_join)
 
 
-## Hosts a game (`online`: by a lobby code): on the saved crypt or a new one (asked while the slot holds one; a new
-## one over a save asks first, as the title's New game does).
+## Hosts a game (`online`: by a lobby code): on the saved run or a new one in the hub (asked while the slot holds a run;
+## a new one over it asks first, as the title's New game does).
 func _host(online: bool) -> void:
 	var host: Callable = func(save: UnifiedSetup) -> void:
 		_open_hero_select("Host a crypt", func(party: Party) -> void: Game.start_host(party, save, online))
-	if Game.saves.setup == null:
+	if not Game.saves.has_run():
 		host.call(null)
 		return
 	var crypt := _stack.push(host_crypt_scene) as HostCryptScreen
@@ -67,7 +67,7 @@ func _host(online: bool) -> void:
 		if save != null:
 			host.call(save)
 			return
-		Game.ask("Start a new crypt?", "Your saved crypt (%s) is replaced at the new game's first surge."
+		Game.ask("Start a new crypt?", "Your saved run (%s) is replaced when the new run begins."
 			% Game.saves.summary(), "New crypt", "Back", func(confirmed: bool) -> void:
 				if confirmed:
 					host.call(null)))

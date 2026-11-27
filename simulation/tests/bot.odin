@@ -141,7 +141,7 @@ bot_input :: proc(seed: u64, slot: int, tick: u32, state: ^g.State, _: g.Setup) 
 // BOT_DOWN_EVERY, for the others to revive; at the lift's bottom each picks its first boon.
 bot_commands :: proc(seed: u64, slot: int, tick: u32, state: ^g.State, _: g.Setup, out: ^sim.Command_Out(g.Command)) {
 	if hero := sim.slot_data(&state.players, slot); hero != nil && state.lift.phase == .Choosing {
-		if !g.has_picked(hero, state.depth) do sim.send_command(out, g.Command_Pick_Boon{0})
+		if !g.has_picked(hero, state.run.offers) do sim.send_command(out, g.Command_Pick_Boon{0})
 		return
 	}
 	if slot == 0 && tick % BOT_SPAWN_EVERY == BOT_SPAWN_EVERY / 2 {

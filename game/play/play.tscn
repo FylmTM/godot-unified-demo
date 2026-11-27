@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://game/play/couch.gd" id="couch"]
 [ext_resource type="Script" path="res://game/play/camera_rig.gd" id="camera_rig"]
 [ext_resource type="Environment" path="res://game/environments/crypt.tres" id="crypt"]
+[ext_resource type="Environment" path="res://game/environments/hub.tres" id="hub_env"]
 [ext_resource type="PackedScene" path="res://game/play/hud.tscn" id="hud"]
 [ext_resource type="PackedScene" path="res://game/play/pause_menu.tscn" id="pause_menu"]
 [ext_resource type="Script" path="res://game/play/effects.gd" id="effects"]
@@ -66,6 +67,7 @@ use_custom_data = true
 [node name="Play" type="Node3D"]
 script = ExtResource("play")
 pause_menu_scene = ExtResource("pause_menu")
+hub_environment = ExtResource("hub_env")
 
 [node name="Couch" type="Node" parent="."]
 script = ExtResource("couch")

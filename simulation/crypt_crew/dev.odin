@@ -8,12 +8,13 @@ import "unified:sim"
 
 // Each present player's dev commands: `Command_Dev_Set_Class` turns their hero into another class (ending an attack
 // or an ability of the old one, and that ability's cooldown), `Command_Dev_Spawn_Minions` raises minions around it,
-// `Command_Dev_Hurt` hurts a hero, `Command_Dev_Kill_Minions` kills every minion (through damage_minion, as the
+// `Command_Dev_Hurt` hurts a hero, `Command_Dev_Kill_Minions` kills every minion (its hit points, through damage_minion, as the
 // attacks do), `Command_Dev_Revive` revives a hero down (through revive_hero, as an ally's revive does), or every one.
 // The elites' (elites.odin): `Command_Dev_Spawn_Elite` raises one ahead of the hero, `Command_Dev_Hurt_Elites` hurts
 // every one (damage_elite), `Command_Dev_Break_Guards` breaks every Warrior's guard (break_guard). The loot's
 // (loot.odin): `Command_Dev_Drop_Loot` drops coins around the hero (drop_loot, as a death does). The lift's (lift.odin):
-// `Command_Dev_Board` puts the hoard and every present hero on its deck (board_lift).
+// `Command_Dev_Board` puts the hoard and every present hero on its deck (board_lift). The run's (run.odin):
+// `Command_Dev_End_Run` ends the run (end_run).
 apply_dev_commands :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
@@ -34,7 +35,7 @@ apply_dev_commands :: proc(t: ^Tick) {
 				minions := sim.iterate(&t.state.minions)
 				for minion, handle in sim.next(&minions) {
 					away := dmath.normalize(minion.pos.xz - hero.pos.xz)
-					damage_minion(t, handle, MINION_HP, away, DEV_KILL_KNOCK, player, .Dev)
+					damage_minion(t, handle, minion.hp, away, DEV_KILL_KNOCK, player, .Dev)
 				}
 			case Command_Dev_Revive:
 				downed := sim.iterate_present(t)
@@ -59,6 +60,9 @@ apply_dev_commands :: proc(t: ^Tick) {
 			// The lift (lift.odin)
 			case Command_Dev_Board:
 				board_lift(t)
+			// The run (run.odin)
+			case Command_Dev_End_Run:
+				end_run(t, command.won)
 			}
 		}
 	}

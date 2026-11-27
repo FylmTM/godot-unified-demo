@@ -538,7 +538,7 @@ the_floors_elites_sleep_until_seen_or_hit :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// Every ELITE_SURGE_EVERY-th surge on a floor brings an elite, rising at a grave, the kinds in turn: the third surge a
+// Every DIFFICULTY.elite_every-th surge on a floor brings an elite, rising at a grave, the kinds in turn: the third surge a
 // Warrior, the sixth a Rogue, the ninth a Mage.
 @(test)
 the_third_surge_brings_an_elite :: proc(t: ^testing.T) {
@@ -548,7 +548,7 @@ the_third_surge_brings_an_elite :: proc(t: ^testing.T) {
 		clear_minions(&run)
 		clear_elites(&run)
 		state := &run.simulation.state
-		state.floor_surges = u32(g.ELITE_SURGE_EVERY * (int(kind) + 1) - 1)
+		state.floor_surges = u32(int(g.DIFFICULTY[.Normal].elite_every) * (int(kind) + 1) - 1)
 		headless.run_pin(&run)
 		for headless.run_events(&run, g.Event_Surge) == 0 do headless.run_step(&run)
 		testing.expect_value(t, int(state.elites.count), 1)
