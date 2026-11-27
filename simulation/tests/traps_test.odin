@@ -387,5 +387,5 @@ every_roller_keeps_room_to_pass_it :: proc(t: ^testing.T) {
 			}
 		}
 	}
-	testing.expect_value(t, rollers, 2) // the workshop's and Floor 1's
+	testing.expect_value(t, rollers, 4) // the workshop's, Floor 1's and the Deep Halls' (Floor 3) two
 }

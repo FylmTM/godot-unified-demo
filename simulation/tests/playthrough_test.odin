@@ -94,3 +94,36 @@ the_bots_take_the_floors_way_out :: proc(t: ^testing.T) {
 bot_picks :: proc(seed: u64, slot: int, tick: u32, state: ^g.State, setup: g.Setup, out: ^sim.Command_Out(g.Command)) {
 	if state.lift.phase == .Choosing do bot_commands(seed, slot, tick, state, setup, out)
 }
+
+// The bots take each of the run's new floors' way out the same, on a quiet floor (no skeleton, no elite, surges held
+// off) with every gate latched open from the start: as the Ossuary's and the Deep Halls' vault gates would be with
+// their braziers lit (braziers.odin's rule, milestone 7's step 2, lights none yet), and the Deep Halls' held gate with a
+// hero on its plate. The Mage breaks the floor's barricade, the Knight walks into the vault and drags the hoard to the
+// lift (the Deep Halls': along the shortcut the barricade closed), everyone boards, each picks, and the party descends;
+// synced.
+@(test)
+the_bots_take_the_run_floors_ways_out :: proc(t: ^testing.T) {
+	for id in ([?]g.Level_Id{.Floor_2, .Floor_3}) {
+		game := g.GAME
+		game.scripted_input, game.scripted_commands = bot_input, bot_picks
+		run := headless.run_begin(&game, 3, g.Setup{floor = id})
+		defer headless.run_end(&run)
+		bot_world = run.simulation.world
+		state := &run.simulation.state
+		for _ in 0 ..< 2 * g.TICK_HZ do headless.run_scripted(&run, g.PLAYERS) // everyone arrives
+		state.hoard.hauled = true // as if hauled already: the first grab doesn't bring the haul's surges on
+		gates := sim.iterate(&state.gates)
+		for gate in sim.next(&gates) do gate.latched = true
+		hold_surges(&run)
+		clear_elites(&run)
+		for _ in 0 ..< 3 * 60 * g.TICK_HZ {
+			headless.run_scripted(&run, g.PLAYERS)
+			if headless.run_events(&run, g.Event_Descended) > 0 do break
+		}
+		testing.expectf(t, headless.run_events(&run, g.Event_Barricade_Broken) > 0, "%v's barricade still stands", id)
+		testing.expectf(t, headless.run_events(&run, g.Event_Hoard_Grabbed) > 0, "nobody took %v's hoard", id)
+		testing.expectf(t, headless.run_events(&run, g.Event_Descended) == 1, "%v's party never went down", id)
+		testing.expect_value(t, headless.run_events(&run, g.Event_Boon_Picked), g.PLAYERS)
+		scenarios.expect_synced(t, &run)
+	}
+}

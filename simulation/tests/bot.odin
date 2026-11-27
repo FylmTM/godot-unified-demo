@@ -157,7 +157,8 @@ bot_commands :: proc(seed: u64, slot: int, tick: u32, state: ^g.State, _: g.Setu
 // the waiting deck, everyone walks to its corner of the deck and stands there; while the vault's gate is shut, the
 // BOT_PLATE_SLOTS stand on its plates; while the barricade stands, the BOT_BLAST_SLOT Mage walks up to it and casts at
 // it; once the gate is open, the BOT_HAUL_SLOT takes the hoard's Left handle and drags it to the lift (bot_haul),
-// and every other bot with no skeleton to fight waits by the lift, off the deck and out of the hauler's way.
+// and once the gate is open every other bot with no skeleton to fight waits by the lift, off the deck and out of the
+// hauler's way.
 @(private = "file")
 bot_duty :: proc(input: ^g.Input, state: ^g.State, slot: int, hero: ^g.Hero, tick: u32) -> bool {
 	phys := bot_world.phys
@@ -194,9 +195,11 @@ bot_duty :: proc(input: ^g.Input, state: ^g.State, slot: int, hero: ^g.Hero, tic
 	if gate, _, found := sim.item_at(&state.gates, 0); found && gate.open && slot == BOT_HAUL_SLOT {
 		return bot_haul(input, state, hero, tick)
 	}
-	if hoard.haulers != {} && lift.phase == .Waiting {
+	vault, _, gated := sim.item_at(&state.gates, 0)
+	if lift.phase == .Waiting && (hoard.haulers != {} || !gated || vault.open) {
 		if _, _, near := nearest_minion(state, hero.pos.xz); !near {
-			// the hoard on its way and nothing to fight: wait by the lift, out of the hauler's way
+			// the hoard free to go and nothing to fight: wait by the lift, out of the hauler's way (never standing
+			// where its duty left it, which may be the doorway the haul comes through)
 			corner := [3]f32{f32(slot & 1) * 2 - 1, 0, f32(slot >> 1) * 2 - 1} * BOT_LIFT_WAIT
 			go(input, state, hero, physics.body_world_point(phys, lift.body, corner))
 			return true
