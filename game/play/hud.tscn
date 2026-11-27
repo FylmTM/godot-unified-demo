@@ -73,80 +73,85 @@ grow_horizontal = 0
 mouse_filter = 2
 theme_type_variation = &"Plate"
 
-[node name="Stats" type="HBoxContainer" parent="Crypt"]
+[node name="Rows" type="VBoxContainer" parent="Crypt"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="Stats" type="HBoxContainer" parent="Crypt/Rows"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 28
 
-[node name="Surge" type="VBoxContainer" parent="Crypt/Stats"]
+[node name="Surge" type="VBoxContainer" parent="Crypt/Rows/Stats"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 0
 
-[node name="Surges" type="Label" parent="Crypt/Stats/Surge"]
+[node name="Surges" type="Label" parent="Crypt/Rows/Stats/Surge"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Heading"
 text = "0"
 horizontal_alignment = 1
 
-[node name="Caption" type="Label" parent="Crypt/Stats/Surge"]
+[node name="Caption" type="Label" parent="Crypt/Rows/Stats/Surge"]
 layout_mode = 2
 theme_type_variation = &"Dim"
 text = "Surge"
 horizontal_alignment = 1
 
-[node name="Up" type="VBoxContainer" parent="Crypt/Stats"]
+[node name="Up" type="VBoxContainer" parent="Crypt/Rows/Stats"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 0
 
-[node name="Skeletons" type="Label" parent="Crypt/Stats/Up"]
+[node name="Skeletons" type="Label" parent="Crypt/Rows/Stats/Up"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Heading"
 text = "0"
 horizontal_alignment = 1
 
-[node name="Caption" type="Label" parent="Crypt/Stats/Up"]
+[node name="Caption" type="Label" parent="Crypt/Rows/Stats/Up"]
 layout_mode = 2
 theme_type_variation = &"Dim"
 text = "Skeletons"
 horizontal_alignment = 1
 
-[node name="Felled" type="VBoxContainer" parent="Crypt/Stats"]
+[node name="Felled" type="VBoxContainer" parent="Crypt/Rows/Stats"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 0
 
-[node name="Kills" type="Label" parent="Crypt/Stats/Felled"]
+[node name="Kills" type="Label" parent="Crypt/Rows/Stats/Felled"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Heading"
 text = "0"
 horizontal_alignment = 1
 
-[node name="Caption" type="Label" parent="Crypt/Stats/Felled"]
+[node name="Caption" type="Label" parent="Crypt/Rows/Stats/Felled"]
 layout_mode = 2
 theme_type_variation = &"Dim"
 text = "Felled"
 horizontal_alignment = 1
 
-[node name="Purse" type="VBoxContainer" parent="Crypt/Stats"]
+[node name="Purse" type="VBoxContainer" parent="Crypt/Rows/Stats"]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 0
 script = ExtResource("purse")
 
-[node name="Gold" type="Label" parent="Crypt/Stats/Purse"]
+[node name="Gold" type="Label" parent="Crypt/Rows/Stats/Purse"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Heading"
 text = "0"
 horizontal_alignment = 1
 
-[node name="Caption" type="Label" parent="Crypt/Stats/Purse"]
+[node name="Caption" type="Label" parent="Crypt/Rows/Stats/Purse"]
 layout_mode = 2
 theme_type_variation = &"Dim"
 text = "Gold"
@@ -370,4 +375,116 @@ theme_type_variation = &"Plate"
 layout_mode = 2
 theme_type_variation = &"HudText"
 text = "The hoard must be wholly on the lift"
+horizontal_alignment = 1
+
+[node name="Lives" type="HBoxContainer" parent="Crypt/Rows"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="Caption" type="Label" parent="Crypt/Rows/Lives"]
+layout_mode = 2
+theme_type_variation = &"Dim"
+text = "Lives"
+
+[node name="LivePips" type="HBoxContainer" parent="Crypt/Rows/Lives"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="RunBanner" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 3
+anchors_preset = 0
+mouse_filter = 2
+theme_type_variation = &"Banner"
+
+[node name="RunBannerText" type="Label" parent="RunBanner"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+text = "The Crypt · Normal"
+horizontal_alignment = 1
+
+[node name="ShrinePrompts" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 3
+anchors_preset = 0
+mouse_filter = 2
+
+[node name="ShrinePrompt1" parent="ShrinePrompts" instance=ExtResource("action_prompt")]
+visible = false
+layout_mode = 0
+actions = Array[StringName]([&"interact"])
+text = "Turn"
+
+[node name="ShrinePrompt2" parent="ShrinePrompts" instance=ExtResource("action_prompt")]
+visible = false
+layout_mode = 0
+actions = Array[StringName]([&"interact"])
+text = "Turn"
+
+[node name="ShrinePrompt3" parent="ShrinePrompts" instance=ExtResource("action_prompt")]
+visible = false
+layout_mode = 0
+actions = Array[StringName]([&"interact"])
+text = "Turn"
+
+[node name="ShrinePrompt4" parent="ShrinePrompts" instance=ExtResource("action_prompt")]
+visible = false
+layout_mode = 0
+actions = Array[StringName]([&"interact"])
+text = "Turn"
+
+[node name="Results" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_type_variation = &"Banner"
+
+[node name="Rows" type="VBoxContainer" parent="Results"]
+custom_minimum_size = Vector2(640, 0)
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 12
+
+[node name="ResultsHeading" type="Label" parent="Results/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+text = "The crypt is yours"
+horizontal_alignment = 1
+
+[node name="ResultsLine" type="Label" parent="Results/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HudText"
+text = "The Crypt · Normal"
+horizontal_alignment = 1
+
+[node name="ResultsStats" type="Label" parent="Results/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HudText"
+text = "Depth 3 · 340 gold · 120 felled · 9 surges · 12:04"
+horizontal_alignment = 1
+
+[node name="ResultsBack" type="Label" parent="Results/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Dim"
+text = "Back to the graveyard soon"
 horizontal_alignment = 1

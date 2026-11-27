@@ -1000,3 +1000,26 @@ Step 4, the joins (beyond the design's decided calls):
   and the hub's stub a lift with `hoard = false` on a shaft cell. Adding levels re-pinned the reference runs' snapshot,
   log and compat (the levels' hash and Box3D's static bodies), not their checkpoints or traces, and lan_pair was
   recorded again (its snapshot's layout moved); no VERSION bump, since no tick computes anything else.
+- Step 1 (the run): the sim's default Setup still starts on Floor 1 (the tests', the reference runs', `uni run`'s and
+  the scripted sessions'), as a run already playing; the app's New game and a new host pass `floor = hub`
+  (`Saves.new_game`). A new game outside the hub marks its save point at once (its run began there).
+- A shrine takes an Interact press only when nothing else would (a haul, a drop, a grab, a revive): it is last in
+  Interact's order, so a barrel by a shrine is grabbed first (`shrine_target`). The hub's layout keeps them apart.
+- The shrine's view draws the shrine's model (`shrine_candles`, no collision) at its marker, with its candles' light
+  (red on Hard) and a skull lit for the Pit (the Halloween skull: `post_skull` is step 3's part). The hub's layout
+  places only the marker there; a low-cover part under it if walking through the plinth shows.
+- A save also carries the rows of a continued save's members who haven't come back yet (after the present members,
+  each id once), so a friend who skips a session keeps their boons; `begin_run` drops them (a new run).
+- The Pit's wave n is PIT_BASE + PIT_GROWTH × n with n from 1 (the first wave 12 plus SURGE_PER_HERO a hero), and its
+  first wave rises SURGE_FIRST_S in, as a floor's first surge. The lull's rest fall as kills (Hit_Source.Fall, nobody
+  credited), their coins dropping as any kill's.
+- Event_Run_Ended carries the run's mode (the results panel names the Pit's waves); Event_Life_Lost carries the purse
+  after the restore (the HUD's purse counts back on it, the one place it does); boon choices open and close on a new
+  Event_Choice (the lift's bottom and the Pit's lull alike).
+- A run ended mid-choice (only the dev command can) closes the choice and holds the lift where it is until the hub.
+- `Command_Dev_End_Run{won}` ends a run at once: a look at the results panel, and the walks' way back to the hub.
+- Settings' `profile_id` is kept as its decimal digits (a JSON number loses a 62-bit id's low bits); a tool run makes
+  its own each run. A session the command line starts carries it too (Game sets `Unified.profile.id`); scripted
+  sessions use scripted_profile's (slot + 1).
+- The run's banner hangs over the hub lift's deck (projected, as the prompts are); the life pips sit in the counts'
+  plate; the results panel is centred and stays until the party is back in the hub.

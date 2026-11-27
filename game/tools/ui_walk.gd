@@ -11,14 +11,15 @@ extends TogetherWalk
 ##     schemes (a key, a swap, a click outside cancelling, Esc and a reserved key, a mouse button and a trigger in the
 ##     second slot, a pad button, a refused clear, the prompt bar's Cancel and Clear, the resets); attack left on F;
 ##     the name field (PartyWalk);
-##   - pad A on New game: hero select on pads (PartyWalk), the party in the crypt, the guest dropping out, F attacks,
+##   - pad A on New game: hero select on pads (PartyWalk), the party in the hub (its banner over the crypt's lift),
+##     the guest dropping out, the lift down into the run (dev_board; the life pips), F attacks,
 ##     the hints follow the device and the setting, coins dropped and one picked up (the purse counting it once
 ##     confirmed), the floor's elites (PartyWalk), the pause menu alone (SessionWalk), the reconnecting plate takes
 ##     nothing;
 ##   - the couch's join cards (PartyWalk), with the toasts and the guests' own glyphs; the Players list drops a guest;
 ##     a key held while a guest leaves and released while the first player is free walks nobody once the guest is
 ##     back; the window in the background pauses;
-##   - a surge's save, leaving from the pause menu (it asks), the title's Continue, New game over a save (it asks), the
+##   - a descent's save, leaving from the pause menu (it asks), the title's Continue, New game over a save (it asks), the
 ##     continued game (SessionWalk), the lift down with the hoard (dev_board) and the boon panel (a pick shows on
 ##     CONFIRMED only); a settings file that didn't read is told once; the pause menu online (a LAN host
 ##     alone: Pause and Resume for everyone, input under it moving nobody); the pause menu over a replay;
@@ -320,6 +321,9 @@ func _walk_new_game() -> void:
 	var hud: Control = find(current_scene, ^"Hud") as Control
 	expect(hud.is_visible_in_tree(), "the HUD shows")
 	await _walk_drop_out()
+	await _walk_hub()
+	if failed():
+		return
 	await seconds(0.5)
 	await shot("02_play_pad")
 	await key(KEY_F, true)
@@ -345,11 +349,33 @@ func _walk_new_game() -> void:
 	expect(hints.visible, "Briefly: a change of device shows them again")
 	set_setting(&"hints", setting_value(&"Hints", &"ALWAYS"))  # the couch's glyph checks read them
 	step("in the crypt: F attacks, the hints follow, tick %d" % session.tick)
-	await _walk_loot()  # first: its pickup must come before the floor's first surge, which saves it
+	await _walk_loot()
 	await _walk_purse_states()
 	await _walk_elites()
 	await _walk_single_pause()
 	await _walk_link_status()
+
+
+## The hub, where a new game starts: its banner over the crypt's lift names the run the shrines set ("The Crypt ·
+## Normal"), no life pip shows; the lift (dev_board puts the party aboard: it wants no hoard) takes the party down into
+## the run, on the crypt's first floor, the pips showing its lives.
+func _walk_hub() -> void:
+	var hud: Control = find(current_scene, ^"Hud") as Control
+	expect(Unified.data.hud.run == EnumRunPhase.HUB, "a new game starts in the hub")
+	var banner: Control = find(hud, ^"%RunBanner") as Control
+	await wait_for(func() -> bool: return banner.visible, 5.0, "the banner over the crypt's lift")
+	var text: String = (find(hud, ^"%RunBannerText") as Label).text
+	expect(text == "The Crypt · Normal", "the banner names the run: %s" % text)
+	expect(not (find(hud, ^"%Lives") as Control).visible, "no life pip in the hub")
+	await seconds(0.5)
+	await shot("02_hub")
+	session.send_command(CommandDevBoard.new())
+	await wait_for(func() -> bool: return Unified.data.hud.run == EnumRunPhase.PLAYING, 10.0, "the lift takes the party into the run")
+	await wait_for(func() -> bool: return local_hero() != null and not banner.visible, 5.0, "the run's first floor shows")
+	expect((find(hud, ^"%Lives") as Control).visible, "the life pips show")
+	step("the hub, and down into the run: %d lives" % Unified.data.hud.lives)
+	await seconds(0.5)  # the new floor's crowd drawn
+	_walk_crowd()
 
 
 ## Coins and the purse (game/views/coins.gd, game/play/purse.gd): dev_drop_loot lays six round the hero, and the coins'
@@ -382,7 +408,6 @@ func _walk_loot() -> void:
 	await wait_for(func() -> bool: return PurseWatch.gold_of(purse) > before, 3.0,
 		"walking out of the ring picks a coin up")
 	await key(KEY_D, false)
-	expect(Unified.data.hud.surges == 0, "the coin picked up before the first surge: the save holds it")
 	var gains: Array[Node] = purse.get_children().filter(_is_gain)
 	expect(gains.size() >= 1, "a \"+1\" rises over the coin")
 	expect(played(&"coin", mark) >= 1, "the coin's chime plays")
@@ -452,6 +477,7 @@ func _walk_boons() -> void:
 	var hud: Control = find(current_scene, ^"Hud") as Control
 	var boons: Control = hud.call(&"boon_panels")
 	var gold: int = Unified.data.hud.gold
+	var depth: int = Unified.data.hud.depth
 	session.send_command(CommandDevBoard.new())
 	await wait_for(func() -> bool: return Unified.data.hud.lift == EnumLiftPhase.BOARDING, 5.0, "the lift boards")
 	await frames(10)
@@ -502,7 +528,7 @@ func _walk_boons() -> void:
 	session.sim_event.connect(watch)
 	await press_key(KEY_D)
 	await press_key(KEY_E)
-	await wait_for(func() -> bool: return Unified.data.hud.depth == 1, 3.0, "the party descends")
+	await wait_for(func() -> bool: return Unified.data.hud.depth == depth + 1, 3.0, "the party descends")
 	session.sim_event.disconnect(watch)
 	var second: int = hero.offer[1]
 	expect(picks == [second] and played(&"boon", mark) == 1,
@@ -610,7 +636,7 @@ func _walk_setting() -> void:
 	step("a setting applies at once")
 
 
-## Leaving from the pause menu, once a surge saved the crypt, ends the session; the menu follows once it said goodbye,
+## Leaving from the pause menu, once a descent saved the run, ends the session; the menu follows once it said goodbye,
 ## Continue focused, the toasts gone.
 func _walk_leave() -> void:
 	await _walk_save_and_leave()

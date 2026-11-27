@@ -9,11 +9,12 @@
 // bodies, hits, impacts and throws' ends), minions (targets, steering, swings, dying), director (sleeping packs, surges,
 // held crowds and the benchmarks' populations), elites (Box3D skeletons: the shared rules) and a file per kind
 // (elite_warrior, elite_rogue, elite_mage), health (damage, down, the wipe), revive (allies tending the downed), pause
-// (the co-op pause), saves (the Setup a save is, and the tally it carries), dev (the dev commands) and script (the
+// (the co-op pause), saves (the Setup a save is: the run, its tally and the heroes' boons), dev (the dev commands) and script (the
 // scripted player); loot (coins dropped and the party's purse); the mechanisms: plates, gates, barricades and traps
 // (spikes and the roller); ragdolls (a downed hero falls as one, and gets up); hoard (the gold chest hauled by its
-// handles), lift (the floor's exit) and boons (picked at the lift); braziers, run (the hub's shrines) and boss, whose
-// markers are read and kept for the run's rules to come (docs/plan.md, milestone 7).
+// handles), lift (the floor's exit) and boons (picked at the lift); run (the hub, its shrines, a run's lives and end,
+// the difficulty and the depth ramp) and arena (the Pit: the endless arena's waves and lulls); braziers and boss, whose
+// markers are read and kept for the rules to come (docs/plan.md, milestone 7).
 package crypt_crew
 
 import "unified:physics"
@@ -24,7 +25,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "29"
+VERSION :: "30"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -56,6 +57,7 @@ GAME := Game {
 	scripted_commands = scripted_commands,
 	scripted_profile  = scripted_profile,
 	save              = save,
+	setup_check       = setup_check, // saves.odin
 	bench_prepare     = bench_prepare,
 	// The game's row (today's play on Floor 1), and the crowd's on the arena (director.odin, Crowd): what sleepers,
 	// a crowd on the move, a crowd in a fight and a fight that downs the party into ragdolls cost at the most any floor
@@ -132,6 +134,7 @@ tick :: proc(t: ^Tick) {
 		if !choosing(t) { 	// at the lift's bottom a hero's input is its boon panel's: it only picks (lift.odin)
 			revive_heroes(t) // first: the press that starts a revive grabs nothing
 			face_heroes(t)
+			press_shrines(t) // run.odin: a press the hands would take (shrine_target) turns no shrine
 			use_hands(t) // after facing: a grab takes what the hero now faces
 			use_abilities(t) // after the hands: hands full start none
 			start_attacks(t) // after the hands and abilities: a throw's or a charge's Attack press starts no attack
@@ -142,6 +145,7 @@ tick :: proc(t: ^Tick) {
 	{
 		sim.zone(t, Zone.Director)
 		locate_heroes(t)
+		update_pit(t) // arena.odin: before the director, which a lull holds
 		raise_surges(t)
 		wake_packs(t)
 	}
@@ -181,6 +185,7 @@ tick :: proc(t: ^Tick) {
 		hold_hauls(t) // a hold stretched too far lets go (hoard.odin)
 		settle_hoard(t) // a let-go hoard come to rest weighs its rest again (hoard.odin)
 		update_lift(t) // the lift's phase moves on, and the party may descend (lift.odin)
+		update_run(t) // a run's end takes the party back to the hub (run.odin)
 	}
 	{
 		sim.zone(t, Zone.Strikes)

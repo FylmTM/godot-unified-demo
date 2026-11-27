@@ -2,7 +2,7 @@ class_name SessionWalk
 extends PartyWalk
 ## The walk's parts about pausing and saving (game/tools/ui_walk.gd extends this and runs them in its order): the pause
 ## menu alone and with others in one process, its settings and Players list, the pause on the window going to the
-## background, leaving with its question, the save a surge makes, Continue, and New game over a save.
+## background, leaving with its question, the save a descent makes, Continue, and New game over a save.
 
 
 
@@ -85,20 +85,28 @@ func _walk_players_list() -> void:
 	step("the Players list drops a couch guest")
 
 
-## A save: play on until a surge has risen (the session hands its save over, kept in the slot), then leave from the
-## pause menu: Leave asks first, saying where the crypt is saved; Stay keeps playing, Leave goes to the title, which
-## offers Continue with the save's line, and has its focus.
+## A save: the party goes down a floor (dev_board, then every local player's pick: the descent is a save point, the
+## hoard's gold in it; the session hands its save over, kept in the slot), then leave from the pause menu: Leave asks
+## first, saying where the run is saved; Stay keeps playing, Leave goes to the title, which offers Continue with the
+## save's line, and has its focus.
 func _walk_save_and_leave() -> void:
-	await wait_for(func() -> bool: return Unified.data.hud.surges > 0, 10.0, "a surge rises")
-	await wait_for(func() -> bool: return _saved() != null, 3.0, "its save kept in the slot")
+	var depth: int = Unified.data.hud.depth
+	session.send_command(CommandDevBoard.new())
+	await wait_for(func() -> bool: return Unified.data.hud.choosing, 10.0, "the lift reaches its bottom")
+	for local: int in session.local_indices:
+		var pick := CommandPickBoon.new()
+		session.send_command(pick, local)
+	await wait_for(func() -> bool: return Unified.data.hud.depth > depth, 5.0, "the party descends")
+	await wait_for(func() -> bool: return _saved() != null and _saved().depth > depth, 3.0, "its save kept in the slot")
 	if failed():
 		return
-	var surges: int = Unified.data.hud.surges
+	var summary: String = _summary()
+	await seconds(0.5)
 	await press_key(KEY_ESCAPE)
 	await click(_pause_control("Leave") as Control)
 	var dialog: Control = overlay("Dialog")
 	var text: String = (find(dialog, ^"%Text") as Label).text
-	expect(dialog.visible and text.contains("saved at surge %d" % surges), "Leave asks first: %s" % text)
+	expect(dialog.visible and text.contains(summary), "Leave asks first: %s" % text)
 	await shot("17_leave_asks")
 	await press_key(KEY_ESCAPE)
 	expect(not dialog.visible and flow_name() == "PLAYING", "Esc stays")
@@ -108,14 +116,15 @@ func _walk_save_and_leave() -> void:
 	await frames(3)
 	expect(flow_name() == "MENU", "Leave goes to the title")
 	var line: String = (title_control("SaveLine") as Label).text
-	expect(title_control("Continue").visible and line.contains("Surge %d" % _saved().surges), "Continue: %s" % line)
+	expect(title_control("Continue").visible and line == summary, "Continue: %s" % line)
 	expect(root.gui_get_focus_owner() == title_control("Continue"), "Continue has the focus")
 	await shot("18_continue")
-	step("a save at surge %d; leave asks, the title offers Continue" % surges)
+	step("a save at depth %d (%s); leave asks, the title offers Continue" % [_saved().depth, summary])
 
 
 ## New game over a save asks first (Back keeps it); Continue goes through hero select ("Continue your crypt") into the
-## save's floor with its tally on the HUD, the purse starting at the save's gold (the first game's coin).
+## save's floor with its run and tally on the HUD, the purse starting at the save's gold (the first game's coin and its
+## hoard).
 func _walk_continue() -> void:
 	await click(title_control("NewGame"))
 	var dialog: Control = overlay("Dialog")
@@ -129,11 +138,12 @@ func _walk_continue() -> void:
 	await wait_for(func() -> bool: return local_hero() != null, 8.0, "the local hero, on the save")
 	if failed():
 		return
-	expect(Unified.data.hud.surges == save.surges and Unified.data.hud.kills >= save.kills,
-		"the HUD carries the save's tally on: surge %d, %d felled" % [Unified.data.hud.surges, Unified.data.hud.kills])
+	expect(Unified.data.hud.depth == save.depth and Unified.data.hud.lives == save.lives
+		and Unified.data.hud.kills >= save.kills, "the HUD carries the save's run on: depth %d, %d lives, %d felled"
+		% [Unified.data.hud.depth, Unified.data.hud.lives, Unified.data.hud.kills])
 	var gold: int = PurseWatch.gold_of(find(current_scene, ^"Hud/%Purse") as Control)
 	expect(save.gold > 0 and gold == save.gold, "the purse starts at the save's gold: %d (saved %d)" % [gold, save.gold])
-	step("Continue: the save's floor, surge %d, %d felled" % [save.surges, save.kills])
+	step("Continue: the save's floor, depth %d, %d felled" % [save.depth, save.kills])
 
 
 ## The pause menu with others (a LAN host in this process, nobody joined yet: the session isn't single player): an
@@ -294,6 +304,13 @@ func _pause_control(unique_name: String) -> Control:
 func _pause_top(menu: Control) -> String:
 	var top: Control = menu.call(&"top")
 	return top.name
+
+
+## The slot's line ("Floor 1 · Normal · 3 lives · 101 gold").
+func _summary() -> String:
+	var saves: RefCounted = game.get(&"saves")
+	var line: String = saves.call(&"summary")
+	return line
 
 
 ## The save in the slot (null: none).

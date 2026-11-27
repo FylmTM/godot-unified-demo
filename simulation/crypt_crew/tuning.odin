@@ -393,7 +393,6 @@ MAX_ELITES :: 16 // elite rows, the dying included
 MAX_ELITE_MARKERS :: 8 // the most elite markers a level holds
 // A surge or a dev spawn raises no elite while this many are alive (a floor's markers place theirs whatever).
 ELITES_ALIVE_MAX :: 6
-ELITE_SURGE_EVERY :: 3 // every this many surges on a floor, the surge brings an elite too
 // A surge's or a dev spawn's elite rises on this ring round its place when the place itself is taken.
 ELITE_RISE_RING :: f32(1.5)
 ELITE_RADIUS :: f32(0.45)
@@ -690,3 +689,69 @@ FIELD_MEDIC :: f32(0.3) // Field_Medic: this much faster a revive a rank (REVIVE
 // ---- the run (docs/plan.md, milestone 7)
 
 MAX_BRAZIERS :: 8 // the most brazier markers a level holds (braziers.odin)
+
+// ---- the run, the difficulty and the Pit (run.odin, arena.odin; docs/plan.md, milestone 7 step 1)
+
+// A difficulty's numbers (DIFFICULTY): the run's lives, and what each scales by (1: as written above).
+Difficulty_Spec :: struct {
+	lives:         u8, // the wipes a crypt run can take
+	minion_hp:     f32, // a minion's MINION_HP (minion_hp, beside the depth ramp)
+	minion_damage: f32, // a minion's swing's MINION_DAMAGE (minion_damage)
+	surge:         f32, // a surge's and a wave's size (surge_size)
+	elite_hp:      f32, // an elite's ELITE_SPECS hp (elite_hp)
+	elite_every:   u32, // every this many surges on a floor, the surge brings an elite (elite_every)
+	boss_hp:       f32, // the boss's health (boss.odin)
+	gold:          f32, // what a coin and the hoard are worth (run_gold)
+}
+
+// Normal, and Hard: fewer lives, and every skeleton tougher, harder-hitting, more numerous and better paid.
+@(rodata)
+DIFFICULTY := [Difficulty]Difficulty_Spec {
+	.Normal = {
+		lives         = 3,
+		minion_hp     = 1,
+		minion_damage = 1,
+		surge         = 1,
+		elite_hp      = 1,
+		elite_every   = 3,
+		boss_hp       = 1,
+		gold          = 1,
+	},
+	.Hard = {
+		lives         = 2,
+		minion_hp     = 1.4,
+		minion_damage = 1.5,
+		surge         = 1.4,
+		elite_hp      = 1.3,
+		elite_every   = 2,
+		boss_hp       = 1.3,
+		gold          = 1.5,
+	},
+}
+
+// The depth ramp: each floor the party has gone down adds SURGE_PER_DEPTH to a surge, and DEPTH_HP of MINION_HP to a
+// minion as it rises.
+SURGE_PER_DEPTH :: 2
+DEPTH_HP :: f32(0.15)
+
+// The hub's shrines (run.odin): an Interact press this close (on the floor plan) turns one, at most once this often.
+SHRINE_RANGE :: f32(1.5)
+SHRINE_COOLDOWN_S :: f32(0.5)
+SHRINE_COOLDOWN_TICKS :: u32(SHRINE_COOLDOWN_S * TICK_HZ)
+RUN_END_S :: f32(8) // a run's end shows the results this long, then the party is back in the hub
+RUN_END_TICKS :: u32(RUN_END_S * TICK_HZ)
+OFFER_RUN_STRIDE :: 64 // a run's boon offers are keyed from its number times this (offer_index): more than it opens
+
+// The Pit (arena.odin): wave n every PIT_SURGE_S, PIT_BASE + PIT_GROWTH × n and SURGE_PER_HERO a hero, an elite every
+// PIT_ELITE_EVERY-th; after every PIT_BOON_EVERY-th the next holds until at most PIT_LULL are alive (or PIT_LULL_MAX_S),
+// then a boon choice. One life.
+PIT_SURGE_S :: f32(15)
+PIT_SURGE_TICKS :: u32(PIT_SURGE_S * TICK_HZ)
+PIT_BASE :: 8
+PIT_GROWTH :: 4
+PIT_ELITE_EVERY :: 2
+PIT_BOON_EVERY :: 5
+PIT_LULL :: 6
+PIT_LULL_MAX_S :: f32(20)
+PIT_LULL_MAX_TICKS :: u32(PIT_LULL_MAX_S * TICK_HZ)
+PIT_LIVES :: 1

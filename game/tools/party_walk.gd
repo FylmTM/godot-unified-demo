@@ -1,7 +1,7 @@
 class_name PartyWalk
 extends MenuTool
 ## The walk's parts about who plays (game/tools/ui_walk.gd extends this and runs them in its order): the player's name
-## field, hero select on pads and on the keyboard and mouse, the party in the crypt, a guest dropping out, the couch's
+## field, hero select on pads and on the keyboard and mouse, the party in the hub, a guest dropping out, the couch's
 ## join cards, and a guest downed and revived. Each part starts and ends where the walk's order puts it, and uses each
 ## pad's own events.
 
@@ -151,8 +151,7 @@ func _walk_hero_select() -> void:
 	var picks: Array = setting(&"hero_picks")
 	expect(picks == [EnumClass.KNIGHT, EnumClass.ANY, EnumClass.ANY, EnumClass.ANY],
 		"the picks remembered by place, Any as Any: %s" % [picks])
-	step("the party in the crypt: a Knight and a Barbarian")
-	_walk_crowd()
+	step("the party in the hub: a Knight and a Barbarian")
 
 
 ## The seats at 130 % interface size: inside the view, clear of the banner and the buttons.

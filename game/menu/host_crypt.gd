@@ -1,7 +1,7 @@
 class_name HostCryptScreen
 extends MenuScreen
-## Which crypt a host opens to friends, asked only while the save slot holds one: the saved crypt (its line under it),
-## where the friends join it, or a new one (whose first surge replaces the save, as a new game's does).
+## Which crypt a host opens to friends, asked only while the save slot holds a run: the saved run (its line under it),
+## where the friends join it, or a new one in the hub (whose run's beginning replaces the save, as a new game's does).
 
 ## The player chose: `save` (the slot's) to continue, or null for a new crypt.
 signal chosen(save: UnifiedSetup)

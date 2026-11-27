@@ -6,8 +6,8 @@ extends RefCounted
 ## nobody plays, or the one the player played before. Two players may pick the same class: the sim honours a wish
 ## without looking at who else has it.
 ##
-## profile() is where a pick becomes what a player brings: milestone 7's unlocks and progress across runs join the
-## Profile here.
+## profile() is where a pick becomes what a player brings: the class, and the stable id a save keeps the player's boons
+## by (Party.profile_id: each player on one machine is their own).
 
 ## Where each class's portrait is (game/tools/render_portraits.gd renders them from the hero scenes).
 const PORTRAITS: String = "res://game/ui/portraits/%s.png"
@@ -68,8 +68,9 @@ static func portrait_path(hero_class: int) -> String:
 	return PORTRAITS % EnumClass.name(hero_class).to_lower()
 
 
-## The Profile a player who picked `hero_class` brings into a session.
-static func profile(hero_class: int) -> UnifiedProfile:
+## The Profile a player of profile id `id` (Party.profile_id) who picked `hero_class` brings into a session.
+static func profile(hero_class: int, id: int) -> UnifiedProfile:
 	var made := UnifiedProfile.new()
 	made.class = hero_class
+	made.id = id
 	return made

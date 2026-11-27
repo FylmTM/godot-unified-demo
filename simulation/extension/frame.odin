@@ -33,6 +33,8 @@ View :: union {
 	// The floor's hoard and lift, one of each: alone of their kinds (hoard.odin, lift.odin)
 	View_Hoard,
 	View_Lift,
+	// The run (run.odin)
+	View_Shrine, // a hub shrine, keyed by its setting (sim.entity: EnumShrineSetting)
 }
 
 // The MultiMesh views (a MultiMeshInstance3D with a UnifiedMultiView each), keyed by their handles: the Mage's bolts
@@ -189,7 +191,8 @@ loot_instance :: proc(coin: ^g.Loot, handle: sim.Handle(g.Loot)) -> godot.Multi_
 }
 
 // Every present hero, every prop, every bolt, every fireball and where a local Mage's would land, every minion, every
-// elite, every mechanism, every downed hero's ragdoll, the hoard and the lift, every coin, then the HUD's data.
+// elite, every mechanism, every downed hero's ragdoll, the hoard and the lift, every coin, the hub's shrines, then the
+// HUD's data.
 fill_frame :: proc(f: ^Frame) {
 	fill_heroes(f)
 	fill_props(f)
@@ -209,6 +212,7 @@ fill_frame :: proc(f: ^Frame) {
 	fill_hoard_and_lift(f)
 	coins := sim.iterate(&f.state.loot)
 	for coin, handle in sim.next(&coins) do godot.push_multi_view(f, loot_instance(coin, handle))
+	fill_shrines(f)
 	fill_hud(f)
 }
 
@@ -470,5 +474,31 @@ fill_hoard_and_lift :: proc(f: ^Frame) {
 			pos = sim.Position(physics.body_world_point(f.world.phys, lift.body, {0, g.LIFT_HALF.y, 0})),
 			rot = physics.body_rotation(f.world.phys, lift.body),
 		}, View_Lift{phase = lift.phase})
+	}
+}
+
+// ---- the run (run.odin)
+
+// A hub shrine, keyed by its setting (sim.entity of EnumShrineSetting) and posed at its marker (game/views/shrine.gd):
+// its candles show the setting's value (Hard burns red; the Pit lights the skull), and flare from when it last turned.
+View_Shrine :: struct {
+	turned: sim.Game_Time, // when it last turned (its cooldown's start; 0: never)
+	sets:   g.Shrine_Setting, // EnumShrineSetting
+	value:  u8, // the setting's value: an EnumMode or an EnumDifficulty
+	_pad:   [2]u8,
+}
+
+// The floor's shrines (the hub's), each showing its setting's value as the run holds it.
+fill_shrines :: proc(f: ^Frame) {
+	run := &f.state.run
+	for &def, setting in f.world.floors[f.state.level.id].places.shrines {
+		if !def.placed do continue
+		value := u8(run.mode) if setting == .Mode else u8(run.difficulty)
+		shrine := View_Shrine {
+			turned = f.state.shrines[setting].start,
+			sets   = setting,
+			value  = value,
+		}
+		godot.push_view(f, sim.entity(int(setting)), {pos = sim.Position(def.pos)}, shrine)
 	}
 }

@@ -26,7 +26,7 @@ Roll :: enum u8 {
 	Rise_Distance, // its distance from the grave
 	Crowd_Place, // where a held crowd's minions stand (a stream: place_crowd's at key 0, a sleeping refill's after)
 	Drop, // a felled minion's drop: whether it drops (index 0) and its value (1), keyed by State.drops (loot.odin)
-	Boon, // a hero's boons offered at the lift, keyed by its player and indexed by the depth (boons.odin)
+	Boon, // a hero's boons offered at a choice, keyed by its player and indexed by the run and the choice (boons.odin)
 }
 
 // A held crowd (Setup.crowd, which the rules and the scripted player read): what the population does while it is held.
@@ -130,30 +130,32 @@ wake_packs :: proc(t: ^Tick) {
 	}
 }
 
-// When the surge clock runs out (and a grave is eligible), a surge is owed (State.rising): SURGE_BASE, SURGE_PER_HERO
-// for each hero present and SURGE_GROWTH for each surge faced on this floor, at most up to the floor's cap alive and
-// into the table's free rows, less what earlier surges still owe. Every tick the owed rise (rise_owed) at
-// surge_graves', up to the cap alive. A held population is refilled instead (refill_held), and gets no elite.
+// When the surge clock runs out (and a grave is eligible), a surge is owed (State.rising): surge_size's (run.odin: the
+// crypt's SURGE_BASE, SURGE_PER_HERO for each hero present, SURGE_GROWTH for each surge faced on this floor and
+// SURGE_PER_DEPTH for each floor gone down, or the Pit's wave, times the difficulty's), at most up to the floor's cap
+// alive and into the table's free rows, less what earlier surges still owe. Every tick the owed rise (rise_owed) at
+// surge_graves', up to the cap alive. A held population is refilled instead (refill_held), and gets no elite. Nothing
+// rises while the director rests (director_runs, run.odin: the hub, a run's end, the Pit's lull).
 raise_surges :: proc(t: ^Tick) {
 	if t.state.held > 0 {
 		refill_held(t)
 		return
 	}
+	if !director_runs(t) do return
 	due := !sim.timer_running(t, t.state.surge)
 	if !due && t.state.rising == 0 do return
 	graves := surge_graves(t)
 	if due {
-		sim.timer_start_ticks(t, &t.state.surge, surge_every(t)) // SURGE_EVERY_S, HAUL_SURGE_S once hauling (hoard.odin)
+		sim.timer_start_ticks(t, &t.state.surge, surge_clock(t)) // the floor's (surge_every) or the Pit's (run.odin)
 		owed := int(t.state.rising)
 		room := dmath.min(floor_of(t).minion_cap - minions_alive(&t.state.minions), free_rows(&t.state.minions))
-		wanted := SURGE_BASE + SURGE_PER_HERO * sim.present_count(t) + SURGE_GROWTH * int(t.state.floor_surges)
+		wanted := surge_size(t) // run.odin
 		if count := dmath.min(wanted, room - owed); count > 0 && graves.count > 0 {
 			t.state.surges += 1
 			t.state.floor_surges += 1
 			t.state.rising += u32(count)
-			mark_save_point(t)
 			sim.emit(t, Event_Surge{count = i32(count), surge = t.state.surges})
-			raise_surge_elite(t, sim.slice(&graves)) // every ELITE_SURGE_EVERY-th brings an elite (elites.odin)
+			raise_surge_elite(t, sim.slice(&graves)) // every elite_every-th brings an elite (elites.odin)
 		}
 	}
 	if t.state.rising == 0 do return

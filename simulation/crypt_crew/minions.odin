@@ -80,6 +80,7 @@ Hit_Source :: enum u8 {
 	Fireball, // a Mage's fireball's burst
 	Heave, // a body a Barbarian threw, landing (barbarian.odin)
 	Trap, // spikes or the roller (traps.odin)
+	Fall, // the Pit's lull ending: the rest of a wave fall at once, by nobody's hand (arena.odin)
 }
 
 // `player` hit `minion` for `damage` with `source` (sim.Position: where).
@@ -120,7 +121,7 @@ spawn_minion :: proc(
 		facing = facing,
 		poly   = poly,
 		since  = now,
-		hp     = MINION_HP,
+		hp     = minion_hp(state), // the difficulty's and the depth's (run.odin)
 		phase  = phase,
 		pack   = pack,
 	}
@@ -594,5 +595,5 @@ strike :: proc(t: ^Tick, minion: ^Minion) {
 	if to_hero != {} && dmath.dot(to_hero, minion.facing) < MINION_STRIKE_COS do return
 	eye, seen := minion.pos + {0, EYE_HEIGHT, 0}, hero.pos + {0, EYE_HEIGHT, 0}
 	if _, walled := physics.world_cast_ray_closest(t.world.phys, eye, seen - eye, SIGHT_FILTER); walled do return
-	damage_hero(t, minion.target, MINION_DAMAGE, minion.pos)
+	damage_hero(t, minion.target, minion_damage(t), minion.pos) // the difficulty's (run.odin)
 }

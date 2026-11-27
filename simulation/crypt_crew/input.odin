@@ -43,9 +43,12 @@ reach_steps :: proc(metres: f32) -> u8 {
 // A tick's inputs and commands, by slot.
 Inputs :: sim.Inputs(Game)
 
-// What a player chose before joining (sim's Profile): their hero's class. `--profile class=mage` picks one.
+// What a player chose before joining (sim's Profile): their hero's class (`--profile class=mage` picks one), and the
+// stable id their boons are saved by (saves.odin: Settings' profile id, plus the couch place; 0: none, saved never).
 Profile :: struct {
+	id:    u64,
 	class: Class,
+	_pad:  [7]u8,
 }
 
 // A hero's class. `Any` (the zero, what a Profile asks for by default) resolves on arrival to a class nobody plays.
@@ -80,7 +83,7 @@ Command_Dev_Hurt :: struct {
 	damage: i16,
 }
 
-// `dev_kill_minions` (dev builds): every live minion takes MINION_HP (a killing blow) from the sender, knocked away
+// `dev_kill_minions` (dev builds): every live minion takes its hit points (a killing blow) from the sender, knocked away
 // from its hero.
 Command_Dev_Kill_Minions :: struct {}
 
@@ -120,6 +123,12 @@ Command_Pick_Boon :: struct {
 // so the lift boards (a look at the descent and the boons, and the walks' way to them).
 Command_Dev_Board :: struct {}
 
+// `dev_end_run` (dev builds): the run ends at once, `won` or lost (end_run), as the boss's death or the last life
+// ends it: a look at the results, and the walks' way back to the hub.
+Command_Dev_End_Run :: struct {
+	won: bool,
+}
+
 // Every command a player can send.
 Command :: union {
 	Command_Set_Paused,
@@ -136,4 +145,6 @@ Command :: union {
 	// The lift and boons (lift.odin, boons.odin)
 	Command_Pick_Boon,
 	Command_Dev_Board,
+	// The run (run.odin)
+	Command_Dev_End_Run,
 }

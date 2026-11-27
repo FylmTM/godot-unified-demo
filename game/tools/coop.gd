@@ -2,11 +2,12 @@ extends UnifiedCoop
 ## Crypt Crew's co-op play (the flow is the library's, UnifiedCoop): the friend's hero must arrive beside the host's (a
 ## late join lands by the party, not at the floor's start), as each side sees it; then the host raises skeletons around
 ## itself (a dev command) and swings at them until one is hit, then walks a square, swinging as it goes, while the
-## joiner keeps moving. Once a surge has risen (it saves the crypt), the host pauses the game for everyone (the co-op
+## joiner keeps moving. Once the party has gone down a floor (the descent saves the run), the host pauses the game for everyone (the co-op
 ## pause) from its pause menu, and its Leave asks "End the game for everyone?" (Stay); the joiner sees who paused (the
 ## State's paused_by, the HUD's banner, its own menu's heading) and resumes it from its menu, and the host leaves. The
 ## joiner's app then takes it back to the title, says why, and offers to continue the host's last save on its own, which
-## it does, through hero select, from the surge it saw. Both sessions start from uni's flags, so this also proves the
+## it does, through hero select, at the depth it saw, its boons back (the host's save keeps its row by its profile id).
+## Both sessions start from uni's flags, so this also proves the
 ## app adopts a session its menus didn't start.
 ##
 ## With `uni coop --menus` (and `--lan`), neither side starts from session flags: each goes through the game's own menus
@@ -72,9 +73,9 @@ const HIT_WITHIN_S: float = 10.0
 const DIRS: Array[StringName] = [&"move_left", &"move_down", &"move_right", &"move_up"]
 ## The joiner's name.
 const FRIEND_NAME: String = "Friend"
-## How long the host waits for the first surge (seconds of play: it saves the crypt), for the friend's resume, and how
-## long the friend waits for the host's pause.
-const SURGE_WITHIN_S: float = 15.0
+## How long the host waits for the descent's save, for the friend's resume, and how long the friend waits for the
+## host's pause.
+const SAVE_WITHIN_S: float = 15.0
 const RESUME_WITHIN_S: float = 15.0
 const PAUSE_WITHIN_S: float = 40.0
 ## The coins the host lays round its hero (on DEV_DROP_RING, 2 m out), its dance among them (strokes this long, each
@@ -144,8 +145,8 @@ const CLEAR_FRAMES: int = 10
 
 ## The host's hits on skeletons, counted once each is confirmed.
 var _hits: int = 0
-## The most surges this side saw while it played in the host's game (the joiner continues from them).
-var _surges_seen: int = 0
+## The deepest this side saw the party while it played in the host's game (the joiner continues there).
+var _depth_seen: int = 0
 ## How many times this side joined through the menus (the second is a --rejoin: the title's Rejoin).
 var _menu_joins: int = 0
 ## What this side's menus joined ("" while it joined from uni's flags).
@@ -181,7 +182,7 @@ func _init() -> void:
 func _run() -> void:
 	Unified.data.hud.changed.connect(func() -> void:
 		if session != null and session.mode in [UnifiedSession.MODE_JOIN_DIRECT, UnifiedSession.MODE_JOIN_ONLINE]:
-			_surges_seen = maxi(_surges_seen, Unified.data.hud.surges))
+			_depth_seen = maxi(_depth_seen, Unified.data.hud.depth))
 	await super()
 
 
@@ -268,7 +269,7 @@ func _host_play() -> void:
 	await _boon_beat(true)
 	if failed():
 		return
-	await wait_for(func() -> bool: return Unified.data.hud.surges > 0, SURGE_WITHIN_S, "a surge (a save) before leaving")
+	await wait_for(func() -> bool: return Unified.data.hud.depth > 0, SAVE_WITHIN_S, "a descent (a save) before leaving")
 	if failed():
 		return
 	await press_action(&"pause")
@@ -1024,11 +1025,11 @@ func _host() -> void:
 
 ## The joiner, once the host left: back on the title, a dialog saying the game ended and why, offering to continue
 ## the host's last save alone; Continue on your own keeps it in the slot (what the title's Continue offers) and goes
-## through hero select into a single-player game on it, at the surge the joiner last saw.
+## through hero select into a single-player game on it, at the depth the joiner last saw, its boons back.
 func _host_left() -> void:
 	if _lan_pair():
 		return  # the recording ended with the host's session
-	var seen: int = _surges_seen
+	var seen: int = _depth_seen
 	await wait_for(func() -> bool: return scene_is("Menu"), 5.0, "back on the title")
 	var dialog: Control = find(game, ^"Overlays/Dialog") as Control
 	await wait_for(func() -> bool: return dialog.visible, 5.0, "a dialog says the game ended")
@@ -1045,8 +1046,8 @@ func _host_left() -> void:
 	await click(ok)
 	var saves: RefCounted = game.get(&"saves")
 	var kept: UnifiedSetup = saves.get(&"setup")
-	expect(kept != null and kept.surges == seen, "the host's save is in the slot, at surge %d (saw %d)"
-		% [kept.surges if kept != null else -1, seen])
+	expect(kept != null and kept.depth == seen, "the host's save is in the slot, at depth %d (saw %d)"
+		% [kept.depth if kept != null else -1, seen])
 	await wait_for(func() -> bool: return _menu_top() != null and _menu_top().name == "HeroSelect", 3.0,
 		"hero select, on the save")
 	if failed():
@@ -1056,9 +1057,15 @@ func _host_left() -> void:
 	await click(find(card, ^"%Act") as Control)
 	await click(find(hero_select, ^"%Start") as Control)
 	await wait_for(_playing_alone, 10.0, "a game of its own on the host's save")
-	expect(Unified.data.hud.surges == seen, "it continues from the host's last surge (%d, saw %d)"
-		% [Unified.data.hud.surges, seen])
-	step("continued on its own: surge %d, %d felled" % [Unified.data.hud.surges, Unified.data.hud.kills])
+	expect(Unified.data.hud.depth == seen, "it continues from the host's last save (depth %d, saw %d)"
+		% [Unified.data.hud.depth, seen])
+	var ranks: int = 0
+	for hero: DataHudHero in Unified.data.hud.heroes:
+		if hero.local:
+			for rank: int in hero.boons:
+				ranks += rank
+	expect(ranks > 0, "its boons came back with it (the host's save keeps its row by its profile id)")
+	step("continued on its own: depth %d, %d boon ranks" % [Unified.data.hud.depth, ranks])
 
 
 ## Whether this run plays replays/lan_pair's script (--play=lan_pair) instead of the co-op checks.

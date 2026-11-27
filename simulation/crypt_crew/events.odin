@@ -51,4 +51,10 @@ Event :: union {
 	Event_Lift,
 	Event_Boon_Picked,
 	Event_Descended,
+	// The run (run.odin, arena.odin)
+	Event_Run_Began,
+	Event_Run_Ended,
+	Event_Shrine,
+	Event_Life_Lost,
+	Event_Choice,
 }

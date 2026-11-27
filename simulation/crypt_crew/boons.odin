@@ -1,11 +1,13 @@
-// Boons: what a hero takes away from a floor. At the lift's bottom (Lift_Phase.Choosing, lift.odin) each present hero
-// is offered BOON_OFFER boons and picks one (Command_Pick_Boon), which ranks it up, to BOON_RANK_MAX at most; the lift
-// leaves once every present hero has picked, or at BOON_TIMEOUT_S, when whoever hasn't gets its first offer. A hero
-// keeps its boons through a leave and a wipe (only its player leaving the session for good forgets them); the save
-// doesn't hold them yet (docs/plan.md, the run's save at each lift).
+// Boons: what a hero takes away from a floor. At each boon choice of a run (a lift's bottom, Lift_Phase.Choosing in
+// lift.odin; a lull of the Pit, arena.odin; each counted in Run.offers) each present hero is offered BOON_OFFER boons
+// and picks one (Command_Pick_Boon), which ranks it up, to BOON_RANK_MAX at most; the choice ends once every present
+// hero has picked, or at BOON_TIMEOUT_S, when whoever hasn't gets its first offer. A hero keeps its boons through a
+// leave and a wipe (only its player leaving the session for good forgets them) until the next run begins; the save
+// holds them by profile id (saves.odin).
 //
-// The offer is a keyed roll (boon_offer): named by the session's seed, the depth and the player, never by the tick, so
-// the tick that grants a pick and the HUD that shows the cards compute the same three, whenever each asks. A pick names
+// The offer is a keyed roll (boon_offer): named by the session's seed, the run's number and choice (offer_index) and
+// the player, never by the tick, so the tick that grants a pick and the HUD that shows the cards compute the same
+// three, whenever each asks, and a second run's cards aren't the first's. A pick names
 // the card's index, so it means the same on every peer. Picks are read on paused ticks too (pick_boons runs before the
 // co-op pause's early return): a command arrives once, and a pick dropped while paused would leave its panel waiting
 // on a pick that never comes. What a boon does is read where its rule is: the helpers below, each a pure function of
@@ -43,10 +45,11 @@ Event_Boon_Picked :: struct {
 	auto:   bool,
 }
 
-// What `player`, holding `boons`, is offered at depth `depth`: BOON_OFFER distinct boons not at their top rank, drawn
-// from those by a keyed roll (sim.roll_distinct_at, purpose Roll.Boon, the player's key and the depth); all of them, in
-// order, when no more than that many are left. Pure: the tick (pick_boons) and the HUD both call it.
-boon_offer :: proc(seed: u64, depth: u32, player: sim.Player, boons: Boons) -> (offer: Boon_Offer) {
+// What `player`, holding `boons`, is offered at the choice `index` names (offer_index): BOON_OFFER distinct boons not at
+// their top rank, drawn from those by a keyed roll (sim.roll_distinct_at, purpose Roll.Boon, the player's key and the
+// index); all of them, in order, when no more than that many are left. Pure: the tick (pick_boons) and the HUD both
+// call it.
+boon_offer :: proc(seed: u64, index: u32, player: sim.Player, boons: Boons) -> (offer: Boon_Offer) {
 	open: [len(Boon)]Boon
 	count := 0
 	for boon in Boon {
@@ -57,53 +60,59 @@ boon_offer :: proc(seed: u64, depth: u32, player: sim.Player, boons: Boons) -> (
 		offer.count = count
 		return
 	}
-	picks := sim.roll_distinct_at(seed, count, BOON_OFFER, Roll.Boon, sim.player_key(player), int(depth))
+	picks := sim.roll_distinct_at(seed, count, BOON_OFFER, Roll.Boon, sim.player_key(player), int(index))
 	for pick, i in picks do offer.boons[i] = open[pick]
 	offer.count = BOON_OFFER
 	return
 }
 
-// Whether `hero` has had its pick at depth `depth`: it picked (Hero.picked), or it has nothing left to pick (every boon
-// at its top rank).
-has_picked :: proc(hero: ^Hero, depth: u32) -> bool {
-	if hero.picked == depth + 1 do return true
+// The index a run's open choice keys its offers by (boon_offer): the run's number times OFFER_RUN_STRIDE, plus its
+// choices so far (Run.offers), so each choice of each run deals its own cards.
+offer_index :: proc(run: ^Run) -> u32 {
+	return run.number * OFFER_RUN_STRIDE + run.offers
+}
+
+// Whether `hero` has had its pick at the run's choice `offers` (Run.offers): it picked (Hero.picked), or it has
+// nothing left to pick (every boon at its top rank).
+has_picked :: proc(hero: ^Hero, offers: u32) -> bool {
+	if hero.picked == offers do return true
 	for rank in hero.boons {
 		if rank < BOON_RANK_MAX do return false
 	}
 	return true
 }
 
-// Each present player's Command_Pick_Boon, on every tick (paused ones too): while the lift waits on picks
-// (Lift_Phase.Choosing), the pick of its hero's offer at `index` ranks that boon up, once per depth; any other pick (the
-// lift not choosing, a second one, an index past the offer) is dropped.
+// Each present player's Command_Pick_Boon, on every tick (paused ones too): while a choice is open (choosing: a lift's
+// bottom, the Pit's lull), the pick of its hero's offer at `index` ranks that boon up, once a choice; any other pick
+// (no choice open, a second one, an index past the offer) is dropped.
 pick_boons :: proc(t: ^Tick) {
 	players := sim.iterate_present(t)
 	for hero, player in sim.next(&players) {
 		for sent in sim.commands(t, player) {
 			pick := sent.(Command_Pick_Boon) or_continue
-			if t.state.lift.phase != .Choosing || has_picked(hero, t.state.depth) do continue
-			offer := boon_offer(t.seed, t.state.depth, player, hero.boons)
+			if !choosing(t) || has_picked(hero, t.state.run.offers) do continue
+			offer := boon_offer(t.seed, offer_index(&t.state.run), player, hero.boons)
 			if int(pick.index) < offer.count do grant_boon(t, player, offer.boons[pick.index], auto = false)
 		}
 	}
 }
 
-// The lift's wait ran out (BOON_TIMEOUT_S): every present hero that hasn't picked takes its first offer.
+// The choice's wait ran out (BOON_TIMEOUT_S): every present hero that hasn't picked takes its first offer.
 pick_for_the_late :: proc(t: ^Tick) {
 	players := sim.iterate_present(t)
 	for hero, player in sim.next(&players) {
-		if has_picked(hero, t.state.depth) do continue
-		offer := boon_offer(t.seed, t.state.depth, player, hero.boons)
+		if has_picked(hero, t.state.run.offers) do continue
+		offer := boon_offer(t.seed, offer_index(&t.state.run), player, hero.boons)
 		grant_boon(t, player, offer.boons[0], auto = true) // has_picked: something is left to offer
 	}
 }
 
-// `player`'s hero takes `boon` at this depth: a rank up (Thick_Hide's pick heals the health it adds).
+// `player`'s hero takes `boon` at this choice: a rank up (Thick_Hide's pick heals the health it adds).
 @(private = "file")
 grant_boon :: proc(t: ^Tick, player: sim.Player, boon: Boon, auto: bool) {
 	hero := sim.player_data(t, player)
 	hero.boons[boon] += 1
-	hero.picked = t.state.depth + 1
+	hero.picked = t.state.run.offers
 	if boon == .Thick_Hide && hero.action != .Down do hero.hp += THICK_HIDE_HP
 	sim.emit(t, Event_Boon_Picked{player = player, boon = boon, rank = hero.boons[boon], auto = auto})
 }

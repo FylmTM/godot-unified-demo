@@ -18,14 +18,16 @@ extends RefCounted
 ## - Prompts: each baked glyph map is its source's; real pad names read as their family; every glyph the prompts'
 ##   tables name, and every default binding's, is in its family's map.
 ## - Every class has a square portrait.
-## - Settings round-trip a file: a first run picks one of the game's names and saves it; saved values read back (the
+## - Settings round-trip a file: a first run picks one of the game's names and a profile id (a positive 62-bit number,
+##   its digits exact) and saves them; one that is no positive number is made anew; saved values read back (the
 ##   bindings, the pads' glyphs, the dead zone, the name and the picks among them); a name is cleaned and cut to what
 ##   the other players get, a blank one is a game's name again; the picks are always four valid choices; a value
 ##   missing, of the wrong type or out of range falls back or is clamped, a whole number is taken for a fraction; a
 ##   file that doesn't parse is kept as .bad, defaults used, and a fresh file written.
-## - The save slot round-trips a file of its own (Saves): a save kept reads back as itself, with its line; a second
-##   one replaces it; a write cut before its move reads from the .tmp; a write that fails says so and keeps the save
-##   for the session; a damaged file and one another version made are moved aside, with the reason, the slot empty.
+## - The save slot round-trips a file of its own (Saves): a save kept reads back as itself, with its line, its heroes'
+##   ids exact; a save of the hub's floor holds no run (no Continue, no line); a second one replaces it; a write cut
+##   before its move reads from the .tmp; a write that fails says so and keeps the save for the session; a damaged file,
+##   a version 1 save and one another version made are moved aside, with the reason, the slot empty.
 ##
 ## Each problem is reported through the validate run's log capture, named by the file it is in.
 
@@ -301,6 +303,7 @@ func _check_settings() -> void:
 	settings = _settings_from_file()
 	var kept_name: String = settings.get(&"player_name")
 	_expect(kept_name == first_name, "the picked name is kept (%s, %s)" % [first_name, kept_name])
+	_check_profile_id(settings)
 	_check_names(settings)
 	var bindings: Dictionary = {"attack": {"keyboard": ["key:F", "key:Space"]}}
 	settings.set(&"show_fps", true)
@@ -392,13 +395,33 @@ func _check_saves() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	var save := UnifiedSetup.new()
 	save.version = Unified.constants.save_version
+	save.difficulty = EnumDifficulty.HARD
+	save.lives = 2
 	save.surges = 7
 	save.kills = 312
+	save.gold = 340
+	var row := DataSavedHero.new()
+	row.id = (1 << 61) + 12345  # past a JSON double's exact integers: the file must keep every digit
+	row.class = EnumClass.MAGE
+	save.heroes = [row]
 	_expect_save(Saves.new(false, SAVE_FILE).keep(save), "a save is written")
 	var read := Saves.new(false, SAVE_FILE)
 	var ok: bool = read.setup != null and read.setup.to_json() == save.to_json() and read.problem == ""
 	_expect_save(ok, "a kept save reads back as itself")
-	_expect_save(read.summary() == "Floor 1 · Surge 7 · 312 felled", "its line: %s" % read.summary())
+	var rows: Array = read.setup.heroes if read.setup != null else []
+	var read_id: int = -1
+	if rows.size() == 1:
+		var first: DataSavedHero = rows[0]
+		read_id = first.id
+	_expect_save(read_id == row.id, "its heroes' ids exact (%d, wrote %d)" % [read_id, row.id])
+	_expect_save(read.has_run() and read.summary() == "Floor 1 · Hard · 2 lives · 340 gold", "its line: %s"
+		% read.summary())
+	var ended := Saves.new(true, SAVE_FILE)
+	var hub := UnifiedSetup.new()
+	hub.version = Unified.constants.save_version
+	hub.floor = EnumLevel.HUB
+	ended.keep(hub)
+	_expect_save(not ended.has_run() and ended.summary() == "", "a save of the hub's floor holds no run")
 	var later: UnifiedSetup = UnifiedSetup.from_json(save.to_json())
 	later.surges = 8
 	_expect_save(read.keep(later), "a second save is written over the first")
@@ -414,7 +437,8 @@ func _check_saves() -> void:
 		"a write that fails says so and keeps the save for the session")
 	var other: UnifiedSetup = UnifiedSetup.from_json(save.to_json())
 	other.version = save.version + 1
-	for broken: String in ["{\"version\": 1, \"surges\": ", other.to_json()]:
+	var version_1: String = "{\"version\": 1, \"floor\": \"Floor_1\", \"surges\": 7, \"kills\": 312}"
+	for broken: String in ["{\"version\": 1, \"surges\": ", version_1, other.to_json()]:
 		var file := FileAccess.open(SAVE_FILE, FileAccess.WRITE)
 		file.store_string(broken)
 		file.close()
@@ -423,6 +447,20 @@ func _check_saves() -> void:
 		_expect_save(FileAccess.file_exists(read.bad_path) and not FileAccess.file_exists(SAVE_FILE),
 			"and kept aside as %s" % read.bad_path.get_file())
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(read.bad_path))
+
+
+## The profile id: a first run made one (a positive whole number, as digits) and saved it; it reads back as itself; one
+## that is no positive number is made anew.
+func _check_profile_id(settings: Node) -> void:
+	var id: String = settings.get(&"profile_id")
+	_expect(id.is_valid_int() and id.to_int() > 0, "a first run makes a profile id (%s)" % id)
+	var again: Node = _settings_from_file()
+	var kept: String = again.get(&"profile_id")
+	_expect(kept == id, "the profile id is kept (%s, %s)" % [id, kept])
+	again.set(&"profile_id", "-3")
+	var made: String = again.get(&"profile_id")
+	_expect(made.is_valid_int() and made.to_int() > 0 and made != "-3", "a bad profile id is made anew (%s)" % made)
+	again.free()
 
 
 func _expect_save(cond: bool, what: String) -> void:

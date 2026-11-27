@@ -14,7 +14,6 @@ import g "../crypt_crew"
 
 // A coin worth `value` lying at `at`, dropped `age` ticks before the next tick computes (LOOT_ARM_TICKS: armed then),
 // pinned there.
-@(private = "file")
 place_coin :: proc(run: ^headless.Run(g.Game), at: [3]f32, value: u16, age: u32) -> sim.Handle(g.Loot) {
 	state := &run.simulation.state
 	coin, handle, spawned := sim.spawn(&state.loot)
@@ -197,38 +196,38 @@ a_drop_splits_its_total :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// The save carries the purse as it stood at the last surge's rise (as it does the kills), not the coins lying on the
-// floor, and a session started from it starts with that gold and none lying.
+// The save carries the purse as it stood at the last save point (the descent's, the hoard's gold in it), not the
+// coins lying on the floor, and a session started from it starts with that gold and none lying.
 @(test)
 the_save_carries_the_purse :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 1)
 	defer headless.run_end(&run)
+	clear_minions(&run)
+	clear_elites(&run)
 	place_coin(&run, sim.slot_data(run.simulation, 0).pos, 3, g.LOOT_ARM_TICKS)
 	headless.run_step(&run)
 	testing.expect_value(t, run.simulation.state.gold, 3)
+	descend(&run)
 	saved := run.simulation.setup
-	for run.simulation.state.surges == 0 {
-		headless.run_step(&run)
-		sim.save_changed(run.simulation, run.simulation.tick, &saved)
-	}
-	testing.expect_value(t, saved.gold, 3)
+	testing.expect(t, sim.save_changed(run.simulation, run.simulation.tick, &saved), "the descent saves")
+	testing.expect_value(t, saved.gold, 3 + g.HOARD_GOLD)
 	place_coin(&run, spawn_of(&run, 0) + {4, 0, 0}, 5, 0) // lying when the session ends: not the save's
 	place_coin(&run, sim.slot_data(run.simulation, 0).pos, 2, g.LOOT_ARM_TICKS)
 	headless.run_step(&run)
-	testing.expect_value(t, run.simulation.state.gold, 5)
+	testing.expect_value(t, run.simulation.state.gold, 5 + g.HOARD_GOLD)
 	testing.expect(t, !sim.save_changed(run.simulation, run.simulation.tick, &saved), "a pickup makes no save")
-	testing.expect_value(t, saved.gold, 3)
+	testing.expect_value(t, saved.gold, 3 + g.HOARD_GOLD)
 	scenarios.expect_synced(t, &run)
 
 	continued := headless.run_begin(&g.GAME, 2, saved, seated = 1)
 	defer headless.run_end(&continued)
-	testing.expect_value(t, continued.simulation.state.gold, 3)
-	testing.expect_value(t, continued.simulation.state.saved_gold, 3) // what its save holds until its next surge
+	testing.expect_value(t, continued.simulation.state.gold, 3 + g.HOARD_GOLD)
+	testing.expect_value(t, continued.simulation.state.saved.gold, 3 + g.HOARD_GOLD) // the save, until its next point
 	testing.expect_value(t, continued.simulation.state.loot.count, 0)
 	place_coin(&continued, sim.slot_data(continued.simulation, 0).pos, 1, g.LOOT_ARM_TICKS)
 	headless.run_step(&continued)
 	collected, _ := headless.run_last_event(&continued, g.Event_Loot_Collected)
-	testing.expect_value(t, collected.gold, 4)
+	testing.expect_value(t, collected.gold, 4 + g.HOARD_GOLD)
 	scenarios.expect_synced(t, &continued)
 }
 
@@ -244,22 +243,29 @@ a_held_crowd_drops_nothing :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// A wipe's restart takes the coins lying on the floor with it and keeps the purse, as it keeps the tally.
+// A wipe's restart takes the coins lying on the floor with it, and the purse back to what the save point held (the
+// descent's), as it does the felled.
 @(test)
-a_wipe_keeps_the_purse :: proc(t: ^testing.T) {
+a_wipe_takes_the_purse_back_to_the_save :: proc(t: ^testing.T) {
 	run := headless.run_begin(&g.GAME, 1, seated = 2)
 	defer headless.run_end(&run)
+	clear_minions(&run)
+	clear_elites(&run)
 	place_coin(&run, sim.slot_data(run.simulation, 0).pos, 2, g.LOOT_ARM_TICKS)
 	headless.run_step(&run)
+	descend(&run)
+	place_coin(&run, sim.slot_data(run.simulation, 0).pos, 3, g.LOOT_ARM_TICKS)
+	headless.run_step(&run)
+	testing.expect_value(t, run.simulation.state.gold, 5 + g.HOARD_GOLD)
 	headless.run_command(&run, 0, g.Command_Dev_Drop_Loot{4})
 	testing.expect_value(t, run.simulation.state.loot.count, 4)
 	for slot in 0 ..< 2 do hurt(&run, slot, g.HERO_HP)
-	for headless.run_events(&run, g.Event_Floor_Restarted) == 0 && run.simulation.state.clock.time < 20 * g.TICK_HZ {
+	for headless.run_events(&run, g.Event_Floor_Restarted) == 0 && run.simulation.state.clock.time < 40 * g.TICK_HZ {
 		headless.run_step(&run)
 	}
 	testing.expect_value(t, headless.run_events(&run, g.Event_Floor_Restarted), 1)
 	testing.expect_value(t, run.simulation.state.loot.count, 0)
-	testing.expect_value(t, run.simulation.state.gold, 2)
+	testing.expect_value(t, run.simulation.state.gold, 2 + g.HOARD_GOLD)
 	scenarios.expect_synced(t, &run)
 }
 

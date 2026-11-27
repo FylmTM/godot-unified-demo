@@ -22,22 +22,17 @@ State :: struct {
 	// The minions a held population keeps alive (a held crowd, a benchmark's; 0: the director's surges, as in play).
 	held:         u32,
 	kills:        u32, // the skeletons the party has felled, a save's included
-	saved_kills:  u32, // `kills` when the last surge rose: what the save holds (saves.odin)
 	paused_by:    sim.Player, // who paused the game for everyone (pause.odin; {}: nobody, or it runs)
 	rising:       u32, // the minions the last surges still owe: they rise a few a tick (director.odin)
 	// The surges faced since the party last entered the floor (a wipe's restart and a Continue enter it anew): what
 	// a surge's growth counts.
 	floor_surges: u32,
-	saved_floor:  Level_Id, // the floor the party was on when the last surge rose: what the save holds
-	_pad:         [7]u8,
 	// Elites (elites.odin): the skeleton Warriors, Rogues and Mages, each a Box3D character.
 	elites:       sim.Table(Elite, MAX_ELITES),
 	// ---- loot (loot.odin)
 	loot:         sim.Table(Loot, MAX_LOOT), // the coins on the floor
 	gold:         u32, // the party's purse: the gold of every coin it picked up, a save's included
-	saved_gold:   u32, // `gold` when the last surge rose: what the save holds (saves.odin)
 	drops:        u32, // the drop rolls made this session (felled minions): what each one's rolls are named by
-	_pad_loot:    u32,
 	// ---- mechanisms (plates.odin, gates.odin, barricades.odin, traps.odin): each table made from the floor's markers
 	// of its kind when the party enters it, in marker order, so a row's index is its marker's in the floor's Places
 	plates:       sim.Table(Plate, MAX_PLATES),
@@ -48,8 +43,12 @@ State :: struct {
 	hoard:        Hoard, // the floor's gold chest
 	lift:         Lift, // the floor's exit
 	depth:        u32, // the floors the party has gone down this run, a save's included
-	saved_depth:  u32, // `depth` at the last save point (a surge's rise, the descent): what the save holds
-	_pad_depth:   u32,
+	// ---- the run (run.odin, arena.odin, saves.odin)
+	run:          Run, // the run: its mode, difficulty, phase and lives (in the hub: the shrines' settings)
+	shrines:      [Shrine_Setting]sim.Timer, // each hub shrine's cooldown, from its last turn (press_shrines)
+	pit:          Pit, // the Pit's lulls (arena.odin)
+	_pad_run:     u32,
+	saved:        Setup, // what the last save point marked: the save (saves.odin; version 0: none yet)
 }
 
 // What a hero is doing, for the view to pose (a one-shot clip at its age).
@@ -100,7 +99,7 @@ Hero :: struct {
 	warp:           u8,
 	heave:          Heave_Phase, // while down: held up by a Barbarian, or thrown by one (barbarian.odin)
 	// ---- the hoard and boons (hoard.odin, boons.odin)
-	picked:         u32, // the depth it last picked a boon at, plus one (0: never): a pick counts once a depth
+	picked:         u32, // the run's choice it last picked a boon at (Run.offers then; 0: none): a pick counts once a choice
 	boons:          Boons, // its rank in each boon, kept through a leave and a wipe
 	handle:         Haul_Handle, // the hoard's handle it holds, on `hold` (None: none)
 	// ---- ragdolls (ragdolls.odin)

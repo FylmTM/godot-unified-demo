@@ -117,7 +117,8 @@ scripted_commands :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Set
 	}
 }
 
-// The scripted player in slot k plays class k + 1, so the reference run and the scenarios cover every class.
+// The scripted player in slot k plays class k + 1, so the reference run and the scenarios cover every class, and is
+// profile id k + 1, so their saves keep each one's boons.
 scripted_profile :: proc(seed: u64, slot: int) -> Profile {
-	return {class = Class(slot % (len(Class) - 1) + 1)}
+	return {id = u64(slot + 1), class = Class(slot % (len(Class) - 1) + 1)}
 }

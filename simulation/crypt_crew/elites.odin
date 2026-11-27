@@ -3,7 +3,7 @@
 // the crossbow's rewound ray meet them through Box3D. They walk the heroes' navigation fields as minions do, but by
 // their own drive, and minions are pushed out of them (obstacles_of). Each kind's approach and attack is its own file
 // (elite_warrior, elite_rogue, elite_mage); this file is what they share: where they come from (a level's `elite`
-// markers, asleep until a hero comes into sight or one is hit; every ELITE_SURGE_EVERY-th surge; a dev command), their
+// markers, asleep until a hero comes into sight or one is hit; every elite_every-th surge; a dev command), their
 // drive and facing, the attack's clock, damage and knocks (damage_elite, the only way in), the guard's break
 // (break_guard, the one entry a charge, a fireball and a thrown prop call), and dying.
 //
@@ -145,7 +145,7 @@ spawn_elite :: proc(
 		pos    = feet,
 		facing = facing,
 		since  = now,
-		hp     = ELITE_SPECS[kind].hp,
+		hp     = elite_hp(state, kind), // the difficulty's (run.odin)
 		kind   = kind,
 		phase  = phase,
 	}
@@ -225,11 +225,12 @@ elite_room :: proc(t: ^Tick, point: [3]f32) -> bool {
 	return true
 }
 
-// The director's hook (raise_surges): every ELITE_SURGE_EVERY-th surge on a floor brings an elite, the kinds in turn
+// The director's hook (raise_surges): every elite_every-th surge on a floor brings an elite (run.odin), the kinds in turn
 // (Warrior, Rogue, Mage), rising at one of the surge's graves (indices into the floor's), the graves taken in turn too.
 raise_surge_elite :: proc(t: ^Tick, graves: []int) {
-	if len(graves) == 0 || t.state.floor_surges % ELITE_SURGE_EVERY != 0 do return
-	turn := int(t.state.floor_surges / ELITE_SURGE_EVERY - 1)
+	every := elite_every(t)
+	if len(graves) == 0 || t.state.floor_surges % every != 0 do return
+	turn := int(t.state.floor_surges / every - 1)
 	grave := sim.slice(&floor_of(t).places.graves)[graves[turn % len(graves)]]
 	raise_elite(t, Elite_Kind(turn % len(Elite_Kind)), grave.point, {0, 1})
 }

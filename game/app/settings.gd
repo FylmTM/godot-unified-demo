@@ -17,7 +17,8 @@ extends Node
 ##
 ## The player's name goes to every other player, so it is never read from the system: a new player gets one of the
 ## game's own names (NAMES), saved with the first run's file; a tool run's is always TOOL_NAME, so shots and logs read
-## the same on every machine.
+## the same on every machine. Likewise the profile id a save keeps this player's boons by (profile_id): made at random
+## on the first run and kept; a tool run makes its own and keeps nothing.
 
 ## A setting changed (its property's name).
 signal changed(setting: StringName)
@@ -155,6 +156,14 @@ const UI_SCALE_FLOOR: float = 0.6
 		hero_picks = picks
 		_changed(&"hero_picks")
 
+## The stable id this player's boons are saved by (the sim's Profile.id, plus the couch place: Heroes.profile): a
+## random 62-bit number, made on the first run, kept as its decimal digits (a JSON number would lose its low bits). One
+## that is no positive whole number is made anew.
+@export var profile_id: String = "":
+	set(value):
+		profile_id = value if value.is_valid_int() and value.to_int() > 0 else _new_profile_id()
+		_changed(&"profile_id")
+
 @export_category("play_together")
 ## What this machine last joined (a lobby code, or an address as `host:port`), once it was in: Play together's Rejoin
 ## last game joins it again.
@@ -211,6 +220,7 @@ func _init() -> void:
 			path = arg.trim_prefix("--settings-path=")
 	_default_name = TOOL_NAME if isolated else NAMES.pick_random()
 	player_name = _default_name  # a file's name replaces it; a tool script may name its player before _ready
+	profile_id = _new_profile_id()  # a file's id replaces it
 
 
 func _ready() -> void:
@@ -226,6 +236,7 @@ func _ready() -> void:
 		player_name = picked  # unless a tool script named its player already
 	_default_name = picked
 	var named: bool = false
+	var identified: bool = false
 	if not isolated:
 		var saved: Dictionary = _read()
 		for setting: Dictionary in _settings():
@@ -233,10 +244,11 @@ func _ready() -> void:
 			var section: Variant = saved.get(setting["section"])
 			var values: Dictionary = section if section is Dictionary else {}
 			named = named or (setting_name == &"player_name" and values.get(setting_name) is String)
+			identified = identified or (setting_name == &"profile_id" and values.get(setting_name) is String)
 			set(setting_name, _valid(setting, values.get(setting_name)))  # applies it
 	_loading = false
-	if not isolated and not named:
-		save()  # the first run: the name picked for this player is theirs from now on
+	if not isolated and not (named and identified):
+		save()  # the first run (or the first with an id): the name and the id picked are theirs from now on
 
 
 ## The interface's scale on the root: ui_scale, raised so the window's stretch of the canvas times it is never below
@@ -374,3 +386,9 @@ static func _set_bus_volume(bus: StringName, linear: float) -> void:
 		return
 	AudioServer.set_bus_volume_db(index, linear_to_db(maxf(linear, 0.0001)))
 	AudioServer.set_bus_mute(index, linear <= 0.001)
+
+
+## A new profile id: a random 62-bit number, never 0, as decimal digits.
+static func _new_profile_id() -> String:
+	var id: int = (randi() & 0x3FFFFFFF) << 32 | randi()
+	return str(id if id > 0 else 1)

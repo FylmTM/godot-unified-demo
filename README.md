@@ -36,7 +36,8 @@ cd godot-unified-demo
 ./uni help                           # every command
 ```
 
-**From the menus.** The title offers Continue (the saved crypt), New game, Play together, Settings and Quit. To play
+**From the menus.** The title offers Continue (the saved run), New game (the hub: set the run at its two shrines,
+then everyone onto the crypt's lift), Play together, Settings and Quit. To play
 two windows together on one machine, run `./uni run` twice: Play together, Host on this network in one, Join an
 address (`127.0.0.1`) in the other.
 
@@ -67,9 +68,11 @@ from then on the first player keeps the device they last played with. A guest's 
 opens a card to drop out (A drops out, B stays). A toast names who joined or left, and as which hero. Four play at
 most. Players joining over the LAN join the same session beside them.
 
-**Saves and pauses.** The crypt saves itself each time a surge rises (the floor, the surges faced, the skeletons
-felled, the gold in the purse), in one slot; Continue on the title starts it again from there. Only the host, or a player alone, keeps it: a
-player in someone else's game keeps the host's last save in memory (from the start, when the host continued a crypt),
+**Saves and pauses.** A run saves itself as it begins, at each lift's descent, at each life lost and as it ends (the
+floor, the run's difficulty and lives, the tally, and each player's boons by their profile id), in one slot; Continue
+on the title starts it again from there (a run that ended, or the Pit, leaves nothing to continue). Only the host, or a
+player alone, keeps it: a player in someone else's game keeps the host's last save in memory (from the start, when the
+host continued a run),
 and is offered "Continue on your own" if the host leaves: it takes that save as its own (asking first if it replaces
 one) and continues it through hero select. Alone (couch included) the pause menu pauses the game; online (hosted or
 joined, on the LAN too) the game runs on under it, and "Pause for everyone" pauses it for every player (anyone may
@@ -141,7 +144,8 @@ Then `./uni setup` (it says whether the SDK is found), `./uni tool online_check`
   for everyone is the co-op pause (`pause.odin`), the game clock standing for every peer, and the State keeps who
   paused, so a late joiner's banner names them too (`game/play/pause_menu.gd`). A game opened while paused alone is
   paused for everyone at once. Alone, the game also pauses when its window loses the focus (`game/app/game.gd`).
-- **Setup and save**: a new game or a save is the session's Setup; the sim gives a save at each surge (`saves.odin`),
+- **Setup and save**: a new game or a save is the session's Setup; the sim gives a save at each of the run's save
+  points (`saves.odin`),
   unified hands it over from verified ticks only, and the app keeps it as JSON in one slot (`game/app/saves.gd`);
   Continue starts a session on it, and a joiner whose host left continues its last one alone (`game/app/game.gd`).
 - **Menus over a running game**: while a menu shows, the session reads no game input (`game_input`), and a button
@@ -312,11 +316,27 @@ edge. The first grab on a floor brings the surges every HAUL_SURGE_S. Once the h
 holding it and every present hero is aboard (the downed too), at least one up, the lift goes down LIFT_HOLD_S later
 (anyone stepping off waits it again): LIFT_DROP in LIFT_RIDE_S, nobody taking damage and no wipe from then. At the
 bottom each present hero picks one of three boons (Thick Hide, Swift Boots, Keen Edge, Quick Hands, Strong Back, Field
-Medic, each up to BOON_RANK_MAX ranks), offered by a keyed roll of the seed, the depth and the player, its input driving
+Medic, each up to BOON_RANK_MAX ranks), offered by a keyed roll of the seed, the run and its choice, and the player, its input driving
 the boon panel alone; once all have picked, or at BOON_TIMEOUT_S (the first offer for whoever hasn't), the party goes
 down to the next floor: the depth up, HOARD_GOLD in the purse, the downed up at REVIVE_HP, and the save made there. A
 hero arriving while the lift is busy lands on its deck, clear of the hoard and the others, and is waited for. Boons are
-kept through a leave and a wipe; the save holds the depth, not yet the boons.
+kept through a leave and a wipe until the next run begins; the save holds them by each player's profile id, and a
+member's first arrival in a continued session takes its own back once.
+
+## The run
+
+A session starts in the hub (`run.odin`), the graveyard between runs: nothing hurts, no skeleton rises, nobody wipes.
+Its two shrines (`shrine` markers) set the next run's mode (the crypt, or the Pit) and difficulty: an Interact press
+nothing else would take turns one, at most once every SHRINE_COOLDOWN_S, until the hub's lift boards. The hub's lift
+(`hoard = false`) goes with everyone aboard and no hoard, and at its bottom the run begins: the tally and the boons go,
+the lives are the difficulty's (DIFFICULTY), and the party is on the crypt's first floor. A wipe costs a life: the
+floor starts over from its save point, the purse and the felled back at the save's; the last life ends the run.
+Either ending shows the results for RUN_END_S, then the party is back in the hub. Hard (DIFFICULTY) has fewer lives
+and tougher, harder-hitting, more numerous skeletons that pay more; each floor down adds SURGE_PER_DEPTH to a surge and
+DEPTH_HP to a skeleton's health. The Pit (`arena.odin`) is the arena's endless waves with one life: wave n every
+PIT_SURGE_S, PIT_BASE + PIT_GROWTH × n and SURGE_PER_HERO a hero; after every PIT_BOON_EVERY-th the next holds until at
+most PIT_LULL stand (or PIT_LULL_MAX_S), then the rest fall, the downed rise and a boon choice opens. The Pit keeps no
+save; its score is the results panel's.
 
 ## The crowd
 

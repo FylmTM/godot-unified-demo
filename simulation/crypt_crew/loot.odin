@@ -50,14 +50,14 @@ drop_minion_loot :: proc(t: ^Tick, at: [3]f32) {
 	if t.setup.crowd != .None do return
 	key := u64(t.state.drops)
 	t.state.drops += 1
-	if value := minion_drop(t.seed, key); value > 0 do drop_loot(t, at, 1, value)
+	if value := minion_drop(t.seed, key); value > 0 do drop_loot(t, at, 1, run_gold(t, value)) // the difficulty's
 }
 
 // A felled elite's drop (damage_elite, at its death): ELITE_COINS coins worth ELITE_GOLD of its kind between them, on
 // the LOOT_SPREAD ring round where it fell. None under a held crowd, as a minion's.
 drop_elite_loot :: proc(t: ^Tick, at: [3]f32, kind: Elite_Kind) {
 	if t.setup.crowd != .None do return
-	drop_loot(t, at, ELITE_COINS, ELITE_GOLD[kind])
+	drop_loot(t, at, ELITE_COINS, run_gold(t, ELITE_GOLD[kind])) // the difficulty's (run.odin)
 }
 
 // What the minion death behind drop roll `key` drops: the gold of its coin, 0 for none. A pure function of the

@@ -82,8 +82,8 @@ Places :: struct {
 	// ---- the hoard and the lift (hoard.odin, lift.odin): one of each at most, a floor's exit and what it is for
 	hoard:       Hoard_Def,
 	lift:        Lift_Def,
-	// ---- the run (docs/plan.md, milestone 7): read and kept, no rule uses them yet
-	braziers:    sim.List(Brazier_Def, MAX_BRAZIERS), // braziers.odin
+	// ---- the run (docs/plan.md, milestone 7)
+	braziers:    sim.List(Brazier_Def, MAX_BRAZIERS), // braziers.odin: read and kept, no rule uses them yet
 	shrines:     [Shrine_Setting]Shrine_Def, // run.odin: the hub's, one for each setting at most
 	boss:        Boss_Def, // boss.odin: the vault's, one a floor at most
 }
@@ -410,7 +410,10 @@ read_places :: proc(places: ^Places, floor: ^level.Level) {
 	for has_spawn in spawned do assert(has_spawn, "crypt_crew: a floor needs a hero_spawn per slot")
 	link_plates(places) // plates.odin
 	link_braziers(places) // braziers.odin
-	assert(places.graves.count > 0, "crypt_crew: a floor needs a grave for its surges to rise from")
+	assert(
+		places.graves.count > 0 || (!places.hoard.placed && !places.boss.placed),
+		"crypt_crew: a floor with a hoard or a boss needs a grave for its surges to rise from",
+	)
 }
 
 // The walkable floor's place nearest `near` within `reach` (on the floor's island: never a wall's top); false for none.
@@ -446,10 +449,14 @@ extra :: proc(world: ^World) -> sim.Extra {
 	return physics.extra(world.phys, State)
 }
 
-// The tick-0 state: the party starts on the Setup's floor, a save's with its tally (saves.odin), holding the Setup's
-// crowd if it names one (director.odin); heroes arrive as their players do (presence.odin).
+// The tick-0 state: the party starts on the Setup's floor, a save's with its tally (saves.odin) and its run (run.odin),
+// holding the Setup's crowd if it names one (director.odin); heroes arrive as their players do (presence.odin). A new
+// game on any floor but the hub plays a run from here, so this is its save point.
 init :: proc(t: ^Tick) {
-	enter_level(t, start_from_setup(t))
+	floor := start_from_setup(t)
+	start_run(t) // before the floor: what rises on it is the run's difficulty's
+	enter_level(t, floor)
+	if t.setup.version != SAVE_VERSION && t.state.run.phase == .Playing do mark_save_point(t)
 	if t.setup.crowd != .None do place_crowd(t, floor_of(t).minion_cap)
 }
 
@@ -500,8 +507,8 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 	}
 }
 
-// The whole party stayed down (check_wipe): the floor starts over (enter_level, the same floor), every hero up at its
-// hero_spawn.
+// The whole party stayed down with a life left (party_fell, run.odin): the floor starts over (enter_level, the same
+// floor), every hero up at its hero_spawn.
 restart_floor :: proc(t: ^Tick) {
 	enter_level(t, t.state.level.id)
 	sim.emit(t, Event_Floor_Restarted{})

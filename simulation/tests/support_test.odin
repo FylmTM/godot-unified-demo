@@ -183,3 +183,27 @@ on_floor :: proc(run: ^headless.Run(g.Game), near: [3]f32) -> [3]f32 {
 	assert(found, "a test's spot is off the floor")
 	return spot.point
 }
+
+// ---- the run (run.odin, saves.odin)
+
+// Boards the floor's lift (Command_Dev_Board) and rides it to the bottom: a crypt floor's lift waits on picks there
+// (Choosing); the hub's has begun the run.
+ride_lift :: proc(run: ^headless.Run(g.Game)) {
+	began := headless.run_events(run, g.Event_Run_Began)
+	headless.run_command(run, 0, g.Command_Dev_Board{})
+	for _ in 0 ..< 10 * g.TICK_HZ {
+		if run.simulation.state.lift.phase == .Choosing || headless.run_events(run, g.Event_Run_Began) > began do break
+		headless.run_step(run)
+	}
+}
+
+// Rides the floor's lift down and has every present hero pick its first card: the party descends.
+descend :: proc(run: ^headless.Run(g.Game)) {
+	ride_lift(run)
+	assert(run.simulation.state.lift.phase == .Choosing, "the lift didn't reach the bottom")
+	inputs := headless.run_inputs(run)
+	for slot in 0 ..< g.PLAYERS {
+		if sim.slot_data(run.simulation, slot) != nil do sim.add_command(&inputs, slot, g.Command_Pick_Boon{0})
+	}
+	headless.run_step(run, &inputs)
+}

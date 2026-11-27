@@ -4,7 +4,8 @@
 // goes down: it lets go of what it carries, falls as a ragdoll knocked away from the blow (ragdolls.odin), and minions
 // stop chasing it. It stays down until an ally revives it (revive.odin): there is no bleeding out and no rising on its
 // own. When every hero present is down, the wipe's WIPE_S runs (a hero up again, a joiner arriving, stops it), and then
-// the floor starts over (restart_floor).
+// a life goes (party_fell, run.odin: the floor starts over, or the run is lost). Nothing hurts the party while it is
+// harmless (run.odin: the hub, a run's end, the Pit's choice).
 package crypt_crew
 
 import "unified:dmath"
@@ -37,11 +38,12 @@ hero_up :: proc(t: ^Tick, player: sim.Player) -> bool {
 }
 
 // `player`'s hero takes `damage` from something at `from`, unless it is down or in its grace, or a crowd is held but
-// for Wipe (director.odin, Crowd), or the lift has gone down (lift_gone: the floor is won); a roll's safe start lets it
+// for Wipe (director.odin, Crowd), or the lift has gone down (lift_gone: the floor is won), or nothing can hurt the
+// party now (harmless, run.odin: the hub, a run's end, the Pit's choice); a roll's safe start lets it
 // all by, a shield takes its share (guarded_damage). A hurt hero tending an ally breaks off the revive. At 0 HP it goes
 // down.
 damage_hero :: proc(t: ^Tick, player: sim.Player, damage: i16, from: [3]f32) {
-	if damage <= 0 || !hero_up(t, player) || lift_gone(t) do return
+	if damage <= 0 || !hero_up(t, player) || lift_gone(t) || harmless(t) do return
 	if t.setup.crowd != .None && t.setup.crowd != .Wipe do return
 	hero := sim.player_data(t, player)
 	if sim.timer_running(t, hero.grace) || rolled_clear(t, hero) do return
@@ -59,12 +61,13 @@ damage_hero :: proc(t: ^Tick, player: sim.Player, damage: i16, from: [3]f32) {
 	sim.emit(t, Event_Hero_Downed{player = player, position = sim.Position(feet)})
 }
 
-// Every hero present down (the wipe): WIPE_S after the last one fell, the floor starts over. A hero up again, by a
-// revive or a joiner's arrival, stops the wipe; so does nobody being present, the lift going down (lift_gone: the
-// party left with its downed aboard, and the one up leaving the ride wipes nobody), and a held crowd (a restart would
-// empty the floor of it: director.odin, Crowd).
+// Every hero present down (the wipe): WIPE_S after the last one fell, a life goes (party_fell, run.odin: the floor
+// starts over, or the run is lost). A hero up again, by a revive or a joiner's arrival, stops the wipe; so does nobody
+// being present, the lift going down (lift_gone: the party left with its downed aboard, and the one up leaving the ride
+// wipes nobody), nothing being able to hurt the party (harmless: the hub, a run's end, the Pit's choice), and a held
+// crowd (a restart would empty the floor of it: director.odin, Crowd).
 check_wipe :: proc(t: ^Tick) {
-	if sim.present_count(t) == 0 || lift_gone(t) || t.setup.crowd != .None {
+	if sim.present_count(t) == 0 || lift_gone(t) || harmless(t) || t.setup.crowd != .None {
 		sim.timer_stop(&t.state.wipe)
 		return
 	}
@@ -79,6 +82,6 @@ check_wipe :: proc(t: ^Tick) {
 		sim.timer_start_ticks(t, &t.state.wipe, WIPE_TICKS)
 		sim.emit(t, Event_Party_Wiped{})
 	} else if !sim.timer_running(t, t.state.wipe) {
-		restart_floor(t) // enter_level stops the wipe
+		party_fell(t) // run.odin: a restart (enter_level stops the wipe), or the run's end (harmless from then)
 	}
 }
