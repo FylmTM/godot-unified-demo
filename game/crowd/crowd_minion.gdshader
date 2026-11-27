@@ -34,6 +34,8 @@ uniform float eye_energy = 4.0;
 // A hit's flash: hit_flash.tres's colour, added for flash_s after the blow (MinionCrowd.FLASH_TICKS).
 uniform vec3 flash_color : source_color = vec3(0.9, 0.75, 0.55);
 uniform float flash_s = 0.125;
+// How bright the flash is: 1, or a half with Settings.flashes off (MinionCrowd).
+uniform float flash_strength = 1.0;
 // The dying sink into the floor over their last moments, out of sight before their row is freed: the death clip, from
 // and until when (seconds into it), and how deep (deeper than its last pose's top).
 uniform int death_clip = 4;
@@ -59,5 +61,5 @@ void fragment() {
 	float eye = UV2.x;
 	ALBEDO = mix(texture(palette, UV).rgb, eye_color, eye);
 	ROUGHNESS = roughness;
-	EMISSION = eye_emission * eye_energy * eye + flash_color * flash;
+	EMISSION = eye_emission * eye_energy * eye + flash_color * flash * flash_strength;
 }

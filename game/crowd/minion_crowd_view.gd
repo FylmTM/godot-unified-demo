@@ -4,7 +4,7 @@ extends MultiMeshInstance3D
 ## custom data: its clip, its clip's age and its last hit's age, which the host writes at the shown time.
 ##
 ## The shader draws all a minion does: the rise, the walk and the stance, the swing, the fall and the sink, the eyes, a
-## hit's flash. What is set here is the art's timing: where in a clip an action starts, so that the sim's moments land
+## hit's flash (as bright as Settings.flashes says: Flashes). What is set here is the art's timing: where in a clip an action starts, so that the sim's moments land
 ## on the clip's (the swing's blow on the windup's end; the art checks hold both offsets to the sim's numbers).
 
 ## Where in the rise clip a minion starts: its last RISE_S (1.5 s) of 2.3, from the hand breaking the floor.
@@ -21,4 +21,8 @@ func _ready() -> void:
 	offsets[MinionCrowd.Clip.RISE] = RISE_FROM
 	offsets[MinionCrowd.Clip.ATTACK] = BLOW_AT - Unified.constants.minion_windup
 	crowd.set_shader_parameter("clip_offset", offsets)
+	crowd.set_shader_parameter("flash_strength", Flashes.strength(Settings.flashes))
 	material_override = crowd
+	Settings.changed.connect(func(setting: StringName) -> void:
+		if setting == &"flashes":
+			crowd.set_shader_parameter("flash_strength", Flashes.strength(Settings.flashes)))

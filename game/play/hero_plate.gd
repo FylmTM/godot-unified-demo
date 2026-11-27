@@ -90,8 +90,10 @@ func player() -> int:
 	return _player
 
 
-## Pulses the HP bar: the hero was hurt. A pulse running starts over.
+## Pulses the HP bar: the hero was hurt. A pulse running starts over. None with Settings.flashes off.
 func pulse() -> void:
+	if not Settings.flashes:
+		return  # Settings.flashes off: no pulse
 	if _pulse != null:
 		_pulse.kill()
 	_health.modulate = PULSE_TINT

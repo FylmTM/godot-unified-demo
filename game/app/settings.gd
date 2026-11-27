@@ -29,6 +29,9 @@ enum PromptStyle { AUTO, XBOX, PLAYSTATION, SWITCH }
 ## When the HUD shows each local hero's controls: for a few seconds after the player joins or changes device, always,
 ## or never.
 enum Hints { BRIEFLY, ALWAYS, NEVER }
+## How Interact tends a revive or a kindling: held down for as long as it lasts, or toggled (a press latches it while
+## the HUD offers the revive or the light; InteractLatch).
+enum HoldActions { HOLD, TOGGLE }
 
 ## The settings file, unless `--settings-path=` names another.
 const PATH: String = "user://settings.json"
@@ -208,6 +211,27 @@ const UI_SCALE_FLOOR: float = 0.6
 		effects_volume = value
 		_set_bus_volume(&"World", value)
 		_changed(&"effects_volume")
+
+# The gameplay section again: accessibility (docs/ART.md, The look: colour never alone).
+@export_category("gameplay")
+## Flashes and pulses of light: off halves a hit's flash and drops the light pulses (a fireball's, the King's fall) and
+## the hero plate's hurt pulse.
+@export var flashes: bool = true:
+	set(value):
+		flashes = value
+		_changed(&"flashes")
+## Reviving and lighting a brazier: hold Interact for as long as it takes, or press it once to keep it going
+## (InteractLatch: until the prompt goes, a second press, or the hero is hurt).
+@export_enum("Hold:0", "Toggle:1") var hold_actions: int = HoldActions.HOLD:
+	set(value):
+		hold_actions = value
+		_changed(&"hold_actions")
+## Captions for what is heard more than seen: a toast for a surge rising, the King's roar, its ward breaking, a hero
+## going down, a gate opening (Captions), each once it is certain (CONFIRMED).
+@export var captions: bool = false:
+	set(value):
+		captions = value
+		_changed(&"captions")
 
 ## The file read and written: PATH, or `--settings-path=`. Set before the node enters the tree to use another.
 var path: String = PATH

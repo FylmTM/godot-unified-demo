@@ -66,6 +66,7 @@ var _meshes: Array[MeshInstance3D] = []
 var _shield: MeshInstance3D = null
 var _moving: bool = false
 var _flashing: bool = false
+var _dimmed: StandardMaterial3D = null
 
 @onready var _view: UnifiedView = $UnifiedView
 @onready var _bar: MeshInstance3D = $Bar
@@ -197,5 +198,15 @@ func _set_flash(on: bool) -> void:
 	if on == _flashing:
 		return
 	_flashing = on
+	var overlay: Material = flash if Flashes.on else _dimmed_flash()
 	for mesh: MeshInstance3D in _meshes:
-		mesh.material_overlay = flash if on else null
+		mesh.material_overlay = overlay if on else null
+
+
+## The hit's flash with flashes off (Flashes.on, Settings.flashes): half as bright, the additive overlay with its
+## colour scaled, made once.
+func _dimmed_flash() -> Material:
+	if _dimmed == null:
+		_dimmed = flash.duplicate() as StandardMaterial3D
+		_dimmed.albedo_color = (flash as StandardMaterial3D).albedo_color * Flashes.DIMMED
+	return _dimmed

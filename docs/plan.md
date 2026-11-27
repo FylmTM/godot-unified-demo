@@ -13,8 +13,9 @@ braziers, and haul its treasure up to the lift.
 
 ## The look and sound
 
-The look is decided and lives in `docs/ART.md`. Still to come: a cutaway of walls between the camera and the heroes
-(milestone 8). Sound: Kenney's (CC0) effects; music: CC0 tracks, picked by the developer from candidates.
+The look and the sound are decided: the look lives in `docs/ART.md`, the sound in `game/app/sfx.gd`, `game/play/sounds.gd`
+and `game/app/music.gd`. Still to come: the music's tracks for its contexts (title, hub, floor, the King, the Pit,
+results: CC0, picked by the developer from candidates); Music plays silence over the room's tone until then.
 
 ## What it shows of unified
 
@@ -31,7 +32,6 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 
 | # | What lands |
 |---|---|
-| 8 | Polish: effects, audio, music, lighting, accessibility |
 | 9 | The testing showcase complete, `docs/testing.md` |
 | 10 | macOS in CI, release builds, videos, the final README |
 

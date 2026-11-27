@@ -13,6 +13,12 @@ added, matte surfaces. Glow is for what gives light (fire, magic, the skeletons'
 Readability comes first, in this order: heroes, enemies, what can be picked up or moved, the room. A hero must read
 against any floor and in any crowd, so each carries a soft light of its own; a wall is only ever background.
 
+Colour never alone: whatever a colour says, a shape or a word says too, so the game reads the same to a player who
+doesn't tell the colours apart, and there is no colourblind mode to switch. The floor's rings differ by their drawing:
+the revive's fills round as it comes, the fireball's landing is a plain band, the King's slam is dashed with waves
+crawling inward (`game/fx/ground_ring.gdshader`; the `fx_rings` shot sets them side by side). A sound's news has its
+caption (Settings, captions), and a flash is never the only sign of a hit (the sparks, the plate's bar).
+
 `game/lookdev/lookdev.tscn` is where the look is decided: the crypt and hub stages, every character posed, and the
 camera's shots. `./uni tool lookdev --window --shots` takes the shots into `.out/shots/lookdev/` and reports what each
 one costs the renderer (draw calls, objects, primitives).

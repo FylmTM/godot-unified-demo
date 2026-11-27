@@ -36,3 +36,18 @@ label = "Pause when the window is in the background"
 layout_mode = 2
 setting = &"hints"
 label = "Control hints on the HUD"
+
+[node name="Flashes" parent="Margin/Rows" instance=ExtResource("setting_row")]
+layout_mode = 2
+setting = &"flashes"
+label = "Flashes and light pulses"
+
+[node name="HoldActions" parent="Margin/Rows" instance=ExtResource("setting_row")]
+layout_mode = 2
+setting = &"hold_actions"
+label = "Revive and light braziers by"
+
+[node name="Captions" parent="Margin/Rows" instance=ExtResource("setting_row")]
+layout_mode = 2
+setting = &"captions"
+label = "Captions for sounds"

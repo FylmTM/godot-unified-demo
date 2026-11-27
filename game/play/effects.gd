@@ -108,6 +108,8 @@ const BOSS_FLASH_RANGE: float = 12.0
 ## The shock ring's material (game/fx/ground_ring.gdshader).
 @export var ring_material: Material
 
+## Whether light pulses play (play.gd keeps it Settings.flashes; the look-dev and the checks leave it on).
+var pulses: bool = true
 ## Its own clock (seconds): what its decals, rings, pulses and tracers move by.
 var _clock: float = 0.0
 var _pools: Array[Pool] = []
@@ -229,8 +231,10 @@ func crack(at: Vector3, id: int) -> void:
 
 
 ## A light pulse at `at` dying away over `seconds` (`energy` at first, reaching `reach` metres): one longer than
-## LINGER_S lingers for the event `id`.
+## LINGER_S lingers for the event `id`. None while `pulses` is off.
 func pulse(at: Vector3, color: Color, energy: float, reach: float, seconds: float, id: int) -> void:
+	if not pulses:
+		return  # flashes off: no light pulses
 	var slot: Slot = _take(_pulses, id, seconds)
 	slot.lingers = seconds > LINGER_S
 	slot.peak = energy

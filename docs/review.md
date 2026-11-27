@@ -1112,3 +1112,45 @@ Step 4, the joins (beyond the design's decided calls):
   on Floor 1); the ward's beat takes the party down by dev_board, kindles three braziers (the host two, the joiner
   one), then drives the King into its third stage so it stands warded through the pause; the joiner continues the
   vault's save at the end.
+## Milestone 8: polish
+
+Step A, the audio (beyond the design's decided calls):
+
+- Buses: Master (a hard limiter) over Music (with its Duck), World and Interface. Sfx keeps its 4 interface voices
+  and grows 16 positional World voices (play_at, play_world) under a priority cap (crowd, action, critical): a full
+  pool steals the oldest voice of the lowest priority at or below the new sound's, else drops it; at most 3 voices a
+  sound and none within 50 ms; a view-only pitch spread; cancel and forget by event id for sounds over 0.5 s.
+- The play scene's Sounds hears sim_event itself: instant and lingering sounds on EMITTED (a CANCELLED fades a
+  lingering one), the news (stingers, the music's context, the revive's chime, the surge's toll) on CONFIRMED, and the
+  heroes' footsteps from their view data. metalLatch is no longer used.
+- Music (autoload): per-context tracks, empty (silence over the bed), crossfading 1.5 s; Kenney's Music Jingles as
+  stingers; a generated low-passed noise bed (dark in the crypt, airy in the hub) and sparse crypt noises; ducking
+  under critical sounds and open menus.
+
+Step B, the effects and the light (beyond the design's decided calls):
+
+- Effects takes every event in each state (on_event): instant on EMITTED, lingering ones (decals, long pulses) keyed
+  by the event's id and faded in 80 ms on CANCELLED, news (the revive's stars) on CONFIRMED; its own scene, cleared on
+  a level change; the budgets as designed (8 starts a kind a frame, hits within 1 m merged).
+- Lighting maps levels to environments; the vault's ambient follows the brazier views' lit count (0.14 to 0.30,
+  easing at 2/s); the vault keeps 4 dimmer torches, and an art check holds every level to 4 shadowed omni lights.
+- The cutaway dithers a wall between the camera and any hero (its shadow whole) and brings it back.
+
+At the merge: both validate.gd blocks kept (FxChecks, then AudioChecks once the main scene has run); every world sound
+is Sounds' (play.gd's Sfx calls went with step B; each has its event in sounds.gd, the revive's chime on CONFIRMED
+among them), none doubled. Godot gave bus_layout.tres a uid on its first save: kept.
+
+Step C, accessibility (beyond the design's decided calls):
+
+- `flashes` (on by default): off halves a hit's flash (the crowd's shader's flash_strength, an elite's dimmer
+  overlay) and drops Effects' light pulses and the plate's hurt pulse. Views can't reach the autoloads, so play.gd
+  keeps the setting in Flashes.on and Effects.pulses.
+- `hold_actions` (Hold by default): Toggle's latch (InteractLatch, a pure step) holds Interact through a new extension
+  input value (Input_Values.interact; the Input and the sim untouched) while the HUD offers a revive or a light, and
+  lets go when the offer goes, on a second press or on a hurt. A press counts for a local player only from its own
+  device (DEVICE_ANY: every one).
+- `captions` (off by default): Captions.of gives the toast for a surge, the King's roar, its ward breaking, a hero
+  down and a gate opening, each on CONFIRMED.
+- The King's slam ring is dashed with waves crawling inward as it fills (a function of the ring's fill, so a pause or
+  a seek holds them); the revive's and the fireball's rings stay plain bands. A new look-dev shot, fx_rings, sets the
+  three side by side; ART.md says colour never alone.

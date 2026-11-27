@@ -31,6 +31,9 @@ extends RefCounted
 ##
 ## Each problem is reported through the validate run's log capture, named by the file it is in.
 
+## The hero plate and the camera rig the accessibility check plays (flashes off, a shake of 0).
+const HERO_PLATE: String = "res://game/play/hero_plate.tscn"
+const CAMERA_RIG: String = "res://game/play/camera_rig.gd"
 const AUTOLOADS: Array[StringName] = [&"LibraryCheck", &"Settings", &"Sfx", &"Music", &"Prompts", &"Game"]
 const PAD_ACTIONS: Array[StringName] = [&"ui_accept", &"ui_cancel"]
 const THEME: String = "res://game/ui/theme.tres"
@@ -68,6 +71,7 @@ func run() -> void:
 	_check_prompts()
 	_check_portraits()
 	_check_settings()
+	_check_accessibility()
 	_check_saves()
 
 
@@ -359,6 +363,72 @@ func _check_settings() -> void:
 	var live_deadzone: float = _tree_root.get_node(^"Settings").get(&"move_deadzone")
 	for action: StringName in Bindings.MOVE_ACTIONS:
 		InputMap.action_set_deadzone(action, live_deadzone)
+
+
+## The accessibility settings: each round-trips through the file and falls back or clamps like any; the Toggle latch
+## (InteractLatch) holds Interact on a press while a revive or a light is offered and lets go on each of its three
+## ends (the offer gone, a second press, a hurt), and Hold latches nothing; captions off show none, on show a surge's;
+## with flashes off a plate's hurt pulse doesn't play and a light pulse makes no light, and a shake of 0 shakes nothing.
+func _check_accessibility() -> void:
+	var engine: Dictionary = _engine_values()
+	var settings: Node = _settings_from_file()
+	settings.set(&"flashes", false)
+	settings.set(&"hold_actions", Settings.HoldActions.TOGGLE)
+	settings.set(&"captions", true)
+	settings.call(&"save")
+	settings.free()
+	settings = _settings_from_file()
+	var flashes: bool = settings.get(&"flashes")
+	var hold: int = settings.get(&"hold_actions")
+	var captions: bool = settings.get(&"captions")
+	_expect(not flashes and hold == Settings.HoldActions.TOGGLE and captions,
+		"the accessibility settings read back (%s, %s, %s)" % [flashes, hold, captions])
+	settings.free()
+	_write_settings_file(JSON.stringify({"gameplay": {"flashes": "off", "hold_actions": 7, "captions": 2}}))
+	settings = _settings_from_file()
+	flashes = settings.get(&"flashes")
+	hold = settings.get(&"hold_actions")
+	captions = settings.get(&"captions")
+	_expect(flashes and hold in [Settings.HoldActions.HOLD, Settings.HoldActions.TOGGLE] and not captions,
+		"bad accessibility values fall back or clamp (%s, %s, %s)" % [flashes, hold, captions])
+	settings.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_FILE))
+	_restore_engine_values(engine)
+	var latch := InteractLatch.new()
+	_expect(latch.step(true, true, true, false), "Toggle: a press with a revive or a light offered latches Interact")
+	_expect(latch.step(true, false, true, false), "Toggle: it stays latched with no key held")
+	_expect(not latch.step(true, false, false, false), "Toggle: the offer gone lets go")
+	latch.step(true, true, true, false)
+	_expect(not latch.step(true, true, true, false), "Toggle: a second press lets go")
+	latch.step(true, true, true, false)
+	_expect(not latch.step(true, false, true, true), "Toggle: a hurt lets go")
+	_expect(not latch.step(true, true, false, false), "Toggle: a press with nothing offered latches nothing")
+	var hold_latch := InteractLatch.new()
+	_expect(not hold_latch.step(false, true, true, false) and not hold_latch.step(false, false, true, false),
+		"Hold: nothing latches")
+	var surge := EventSurge.new()
+	_expect(Captions.toast(surge, Unified.session, false) == "", "captions off show none")
+	_expect(Captions.toast(surge, Unified.session, true) == "A surge rises", "captions on show a surge's")
+	var live: Node = _tree_root.get_node(^"Settings")
+	var was: bool = live.get(&"flashes")
+	live.set(&"flashes", false)
+	var plate: Control = (load(HERO_PLATE) as PackedScene).instantiate()
+	_tree_root.add_child(plate)
+	plate.call(&"pulse")
+	var health: Control = plate.find_child("Health", true, false) as Control
+	_expect(health.modulate == Color.WHITE, "flashes off: the plate's hurt pulse doesn't play")
+	plate.free()
+	live.set(&"flashes", was)
+	var effects := Effects.new()
+	effects.pulses = false
+	effects.pulse(Vector3.ZERO, Color.WHITE, 1.0, 1.0, 1.0, 0)  # pulses off: it returns before any pool
+	_expect(effects.get_child_count() == 0, "flashes off: a light pulse makes no light")
+	effects.free()
+	var rig: Node3D = (load(CAMERA_RIG) as GDScript).new()
+	rig.call(&"shake", 0.0 * 1.0)
+	var shaking: float = rig.get(&"_shake")
+	_expect(shaking == 0.0, "a screen shake of 0 shakes nothing")
+	rig.free()
 
 
 ## The name and the picks as Settings keeps them: a name cleaned and cut to what the other players get (on a

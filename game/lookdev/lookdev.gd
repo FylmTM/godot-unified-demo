@@ -40,6 +40,14 @@ const FX_SHEET_COLUMNS: int = 5
 const FX_SHEET_SPACING: float = 3.0
 ## The boss sheet (the stage's Boss effects): where the slam strikes and the fireball bursts.
 const FX_SLAM_AT: Vector3 = Vector3(-2.5, 0, 0)
+## The three floor rings side by side (fx_rings): the revive's, where a fireball lands, the King's slam (each its own
+## view's ring and material, at the given fill), apart along x from the boss's stage, and each drawn this wide (metres).
+const FX_RINGS: Array[Array] = [
+	["res://game/views/hero.tscn", "ReviveRing", -3.2, 0.6],
+	["res://game/views/fireball_target.tscn", "Ring", 0.0, 1.0],
+	["res://game/views/elite.tscn", "SlamRing", 3.2, 0.6],
+]
+const FX_RING_SIZE: float = 2.6
 const FX_BLAST_AT: Vector3 = Vector3(3.5, 0, 1.0)
 
 ## Each cast member's pose, by node name under Cast; a member without one idles.
@@ -90,6 +98,7 @@ var shots: Array[Shot] = [
 	Shot.new("vault_lit", Vector3(2, 21, 19), Vector3(2, 0, 4), Stage.VAULT, "vault", 4),
 	Shot.new("fx_sheet", Vector3(0, 13, 12), Vector3(0, 0.6, 0.5), Stage.FX, "crypt"),
 	Shot.new("fx_boss", Vector3(22.5, 12, 11), Vector3(22.5, 0, 0.5), Stage.FX, "crypt"),
+	Shot.new("fx_rings", Vector3(22.5, 9, 7), Vector3(22.5, 0, 0.5), Stage.FX, "crypt"),
 ]
 
 var _time: float = 0.0
@@ -111,6 +120,7 @@ var _idle: Pose = Pose.new(Clips.IDLE, 0.0)
 @onready var _fx_sheet: Effects = $FxStage/Sheet
 @onready var _fx_boss: Effects = $FxStage/Boss
 @onready var _crowd_clips: UnifiedCrowdClips = load(MinionCrowd.TABLE)
+var _rings: Node3D = null
 
 
 func _ready() -> void:
@@ -182,6 +192,7 @@ func show_shot(index: int) -> void:
 		_show_fx_sheet()
 	elif shot.shot_name == "fx_boss":
 		_show_fx_boss()
+	_show_fx_rings(shot.shot_name == "fx_rings")
 
 
 ## Every one-shot kind, a tracer, the shock ring and a fireball's flash on a grid, held at FX_HELD of their lives.
@@ -214,6 +225,35 @@ func _show_fx_boss() -> void:
 		Effects.FIREBALL_FLASH_RANGE, Effects.FIREBALL_FLASH_S, 0)
 	_fx_boss.scorch(blast, 0)
 	_fx_boss.hold_at(FX_HELD)
+
+
+## The floor rings (FX_RINGS) on the boss's stage for the fx_rings shot (`shown`), the stage's effects cleared, so the
+## three are told apart by their shape alone (docs/ART.md: colour never alone): the revive's solid band, the fireball's,
+## the slam's dashes with its waves crawling inward. Made once, from the views' own scenes.
+func _show_fx_rings(shown: bool) -> void:
+	if _rings == null:
+		_rings = Node3D.new()
+		_fx.add_child(_rings)
+		for ring: Array in FX_RINGS:
+			var scene: String = ring[0]
+			var node_name: String = ring[1]
+			var view: Node = (load(scene) as PackedScene).instantiate()
+			var source: MeshInstance3D = view.find_child(node_name, true, false) as MeshInstance3D
+			var copy := MeshInstance3D.new()
+			copy.mesh = source.mesh
+			copy.material_override = source.material_override
+			copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var x: float = ring[2]
+			var size: float = FX_RING_SIZE / 2.0  # the views' quads are 2 m across
+			copy.transform = Transform3D(Basis.IDENTITY.scaled(Vector3(size, 1.0, size)),
+				_fx_boss.position + Vector3(x, 0.05, 0.5))
+			var fill: float = ring[3]
+			copy.set_instance_shader_parameter(&"fill", fill)
+			_rings.add_child(copy)
+			view.free()
+	_rings.visible = shown
+	if shown:
+		_fx_boss.clear()
 
 
 ## Where the effects sheet's cell `cell` stands, from the sheet's middle: FX_SHEET_COLUMNS a row, from the far row.

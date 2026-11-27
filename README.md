@@ -52,7 +52,10 @@ it is ready again. Esc, or Start on a pad that plays, opens the pause menu.
 Attack, Grab and Ability can be rebound on both the keyboard and mouse and a pad, and the moves on the keyboard (Settings,
 Controls: two bindings each; a pad's sticks and D-pad stay); the HUD shows each player's controls in the glyphs of the
 device they use: for a few seconds after a player joins or picks up another device, or always, or never (Settings,
-Gameplay).
+Gameplay). Settings, Gameplay also holds the accessibility settings: screen shake, flashes (off halves a hit's flash
+and drops the light pulses and the plate's hurt pulse), reviving and lighting a brazier by holding Interact or by a
+toggle (a press latches it while the prompt shows), and captions for what is heard more than seen; Settings, Audio
+the master, interface, music and effects volumes.
 
 **Hero select.** Every new game starts there: four seats, the device that came there in the first; another pad's
 Start or A takes the next free one. The keyboard and mouse sit only in the first seat: they are the first player's.
@@ -389,7 +392,7 @@ to the sim's (`docs/ART.md`, Crowds).
 - `simulation/headless/`: the same simulation without Godot, for tests, sync-tests, replays and benchmarks.
 - `simulation/tests/`: every test of the sim.
 - `game/`: the Godot side (the project is the repo root, `project.godot`): the app (`game/app/`: the `Game`,
-  `Settings`, `Sfx`, `Prompts` and `LibraryCheck` autoloads, and `Bindings`), the title, hero select and Play
+  `Settings`, `Sfx`, `Music`, `Prompts` and `LibraryCheck` autoloads, and `Bindings`), the title, hero select and Play
   together (`game/menu/`), the interface's theme, screens, settings, overlays and widgets (`game/ui/`), and the play
   scene with its views, effects, HUD and pause menu (`game/play/`, `game/views/`). GDScript shows the simulation and
   never changes it; input and commands are the only way in.

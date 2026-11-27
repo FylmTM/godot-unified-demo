@@ -46,6 +46,11 @@ const ROAR_SHAKE: float = 0.4
 var _mouse_aims: bool = false
 ## The pause menu while it shows (null: closed).
 var _pause_menu: PauseMenu = null
+## The Toggle way of holding Interact (Settings.hold_actions), by local index: each local player's latch, its Interact
+## presses since the last sample (by device, _input) and whether its hero was hurt since (a local hero's EMITTED hurt).
+var _latches: Array[InteractLatch] = []
+var _pressed: Array[bool] = []
+var _hurt: Array[bool] = []
 
 @onready var _session: UnifiedSession = Unified.session
 @onready var _camera_rig: CameraRig = $CameraRig
@@ -66,6 +71,10 @@ func _ready() -> void:
 	_session.level_changing.connect(func(_to: int) -> void: _hud.fade_out())
 	Game.listen(self, _session.input_wanted, _set_aims)
 	_session.sim_event.connect(_on_sim_event)
+	_set_flashes()
+	Game.listen(self, Settings.changed, func(setting: StringName) -> void:
+		if setting == &"flashes":
+			_set_flashes())
 	_couch.idle_pad_changed.connect(_hud.show_join_hint)
 	_hud.show_join_hint(_couch.idle_pad())
 	var cards: JoinCards = _hud.join_cards()
@@ -88,6 +97,31 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		_mouse_aims = true
+	if event.is_action_pressed(&"interact") and not event.is_echo():
+		for local: int in _session.local_indices:
+			if _plays_on(local, event):
+				_grow_latches(local)
+				_pressed[local] = true
+
+
+## Whether `event` came from local player `local`'s device: every device for DEVICE_ANY, the keyboard and mouse for
+## DEVICE_KEYBOARD, else its pad's.
+func _plays_on(local: int, event: InputEvent) -> bool:
+	var device: int = _session.get_local_device(local)
+	if device == UnifiedSession.DEVICE_ANY:
+		return true
+	var pad: bool = event is InputEventJoypadButton or event is InputEventJoypadMotion
+	if device == UnifiedSession.DEVICE_KEYBOARD:
+		return not pad
+	return pad and event.device == device
+
+
+## The latch arrays reach local index `local`.
+func _grow_latches(local: int) -> void:
+	while _latches.size() <= local:
+		_latches.append(InteractLatch.new())
+		_pressed.append(false)
+		_hurt.append(false)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -96,6 +130,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"pause"):
 		get_viewport().set_input_as_handled()
 		open_pause_menu()
+
+
+## Settings.flashes where the effects and the views read it: Effects' light pulses, the elites' flash (Flashes.on).
+func _set_flashes() -> void:
+	_effects.pulses = Settings.flashes
+	Flashes.on = Settings.flashes
 
 
 ## Opens the pause menu (it is open already: nothing).
@@ -118,7 +158,8 @@ func pause_menu() -> PauseMenu:
 
 ## Every local player's mouse aim, for this frame's sample: toward the cursor for the one who holds the keyboard (or
 ## every device, while the keyboard and mouse are what was used last: a solo pad player never aims at the cursor
-## left where it was), none for the others, and none while game input is off.
+## left where it was), none for the others, and none while game input is off; and its Interact as the Toggle latch
+## holds it (InteractLatch: Settings.hold_actions).
 func _set_aims() -> void:
 	for local: int in _session.local_indices:
 		var device: int = _session.get_local_device(local)
@@ -126,6 +167,22 @@ func _set_aims() -> void:
 			or device == UnifiedSession.DEVICE_ANY and Prompts.last_kind == Bindings.Kind.KEYBOARD)
 		var aims: bool = keyboard and _mouse_aims and _session.game_input
 		Unified.local_input(local).aim = _cursor_aim(local) if aims else Vector2.ZERO
+		_grow_latches(local)
+		var toggle: bool = Settings.hold_actions == Settings.HoldActions.TOGGLE and _session.game_input
+		var held: bool = _latches[local].step(toggle, _pressed[local], _offered(local), _hurt[local])
+		Unified.local_input(local).interact = held
+		_pressed[local] = false
+		_hurt[local] = false
+
+
+## Whether the HUD offers local player `local`'s hero a revive or a brazier's light now (Hud_Hero.revive, .kindle):
+## what the Toggle latch holds Interact for.
+func _offered(local: int) -> bool:
+	var player: int = _session.get_local_player_key(local)
+	for hero: DataHudHero in Unified.data.hud.heroes:
+		if hero.player == player:
+			return hero.revive != 0 or hero.kindle != 0
+	return false
 
 
 ## From local player `local`'s shown hero to where the cursor's ray meets the aim plane, on the floor (x, z); zero
@@ -184,9 +241,12 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 func _on_sim_event_emitted(event: UnifiedEvent) -> void:
 	if event is EventHeroHurt:
 		var player: int = (event as EventHeroHurt).player
-		if _session.get_local_index(player) >= 0:
+		var local: int = _session.get_local_index(player)
+		if local >= 0:
 			_camera_rig.shake(HURT_SHAKE * Settings.screen_shake)
 			_hud.pulse_hurt(player)
+			_grow_latches(local)
+			_hurt[local] = true  # a blow lets go of the Toggle latch
 	elif event is EventFireballBurst:
 		_camera_rig.shake(FIREBALL_SHAKE * Settings.screen_shake)
 	elif event is EventHeaveLanded:
@@ -198,8 +258,12 @@ func _on_sim_event_emitted(event: UnifiedEvent) -> void:
 
 
 ## What must not be taken back once shown, on its CONFIRMED showing: a revive's toast, and the wipe's banner (a revive
-## or a wipe a rollback undid would have hung for nothing); the run's beginning, a life lost and the run's end.
+## or a wipe a rollback undid would have hung for nothing); the run's beginning, a life lost and the run's end; and
+## with Settings.captions on, the caption of what is heard more than seen (Captions).
 func _on_sim_event_confirmed(event: UnifiedEvent) -> void:
+	var caption: String = Captions.toast(event, _session, Settings.captions)
+	if caption != "":
+		Game.toast(caption)
 	if event is EventHeroRevived:
 		var revived := event as EventHeroRevived
 		var risen: String = _session.get_player_name(revived.player)
