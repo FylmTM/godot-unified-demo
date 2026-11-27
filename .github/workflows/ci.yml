@@ -97,7 +97,7 @@ jobs:
           key: ${{ steps.pick.outputs.canary_key }}
           lookup-only: true
       - if: ${{ steps.tested.outputs.cache-hit == 'true' }}
-        run: echo "this pair was tested by an earlier nightly: the long tier on the pin" | tee -a "$GITHUB_STEP_SUMMARY"
+        run: 'echo "this pair was tested by an earlier nightly: the long tier on the pin" | tee -a "$GITHUB_STEP_SUMMARY"'
 
   ci:
     name: ${{ matrix.platform }}
