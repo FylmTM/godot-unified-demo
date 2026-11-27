@@ -7,7 +7,7 @@ the tool prints (real output, trimmed). Commands and their options: `./uni help`
 |---|---|---|---|---|
 | 1 Rules under rollback | each rule, rolled back over on every step | `uni test` | `simulation/tests/*_test.odin`, `support_test.odin` | push |
 | 2 Scenarios | sessions agree: rollback every tick, churn, bad network, late join | `uni test` (`--long`: all, full length) | `suite_test.odin`, `crowd_test.odin` | push, nightly `--long` |
-| 3 Reference runs | the same results on every platform | `uni test` (`--bless`) | `reference_test.odin`, `crowd_test.odin` | push, 3 platforms |
+| 3 Reference runs | the same results on every platform | `uni test` (`--bless`) | `reference_test.odin`, `crowd_test.odin` | push, 4 platforms |
 | 4 Replay regressions | a recorded session computes what was blessed | `uni test`, `uni coop --rerecord <name>` | `replays/lan_pair`, `replays/haul`, `replays/king`, `replays/note_swift_boots`, `game/tools/coop_lan_pair.gd`, `coop_haul.gd`, `coop_king.gd`, `plays_test.odin` | push |
 | 5 Planted bugs | the nets catch a desync and a rule change, and name them | `uni test` | `planted_test.odin` | push |
 | 6 Random inputs | noise from four players breaks nothing | `uni test` (`--long`: 16 seeds) | `soak_test.odin` | push, nightly |
@@ -21,8 +21,9 @@ the tool prints (real output, trimmed). Commands and their options: `./uni help`
 | 14 Clips | a recording as a GIF or a video; the README's media | `uni render`, `uni clips` | any recording, `tools/clips.odin` | |
 | 15 CI | all of it, per push and nightly | | `.github/workflows/ci.yml` | |
 
-Also in `uni test`: unified's determinism lint and the extension's install check (`suite_test.odin`), the levels
-(`levels_test.odin`), and the Box3D debug library under the same tests (`--suite box3d-debug`, CI's linux-arm64).
+Also in `uni test`: unified's determinism lint, the extension's install check and every relative link in the README and
+`docs/` (`suite_test.odin`), the levels (`levels_test.odin`), and the Box3D debug library under the same tests
+(`--suite box3d-debug`, CI's linux-arm64).
 Render cost and the look, by hand: `game/tools/crowd_frames.gd`, `lookdev.gd` (`uni tool --window`).
 
 ## CI
@@ -77,7 +78,7 @@ test: odin passed (21.2s)
 
 ## 3 Reference runs and --bless
 
-A pinned run's checkpoints, trace, snapshot and log hashes: every platform computes the same bytes (CI's three).
+A pinned run's checkpoints, trace, snapshot and log hashes: every platform computes the same bytes (CI's four).
 
 - `./uni test` checks them; after a meant rule change, bump `Game.version`, then `./uni test --bless` (the
   `unified-sim-change` skill).

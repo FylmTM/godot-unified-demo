@@ -2,7 +2,7 @@
 
 Crypt Crew (this repo, `godot-unified-demo`) is unified's demo game: a top-down co-op dungeon crawler for 1–4 players,
 and the answer to "what does a real game built on unified look like?". It is also unified's testing ground (Workflow,
-below). What is decided and not built yet is `docs/plan.md`.
+below).
 
 ## Roles
 
@@ -30,7 +30,7 @@ This repo is shown to people as the example of a game on unified. Everything in 
   it is and why it is shaped this way. Every public Odin declaration has a doc comment. Comments say why, and how it
   works under the hood, enough to orient a reader; none narrates what a line plainly does.
 - **Nothing half-done on `main`.** No dead or commented-out code; a workaround or a TODO links the godot-unified issue
-  or the `docs/plan.md` item it waits on.
+  it waits on.
 
 ## Rules
 
@@ -56,8 +56,8 @@ This repo is shown to people as the example of a game on unified. Everything in 
 
 ## Workflow
 
-- **Changes go straight to `main`**: `./uni verify` passes, the reviews are done, then commit and push. No PRs, no
-  issues: rewrite `docs/plan.md` as work lands, and drop what is done once the code and README say it.
+- **Changes go straight to `main`**: `./uni verify` passes, the reviews are done, then commit and push. No PRs and no
+  issues here: what the game needs from unified is an issue on godot-unified (below).
 - **CI** (`.github/workflows/ci.yml`; its header says what runs when). A red push run on `main` is fixed before
   anything else lands. A red nightly canary means unified's `main` broke this game: fix it in unified, or file it on
   godot-unified; it doesn't block work here.
@@ -80,10 +80,13 @@ verbs, `./uni drive -h`). A changed level: `./uni bake`.
 
 ## Docs
 
-One home per fact: README.md (what the game is, how to play, how it works, the view contract), `docs/ART.md` (the
-look and the art pipeline), `docs/plan.md` (what is decided and not built yet), `docs/review.md` (the calls made
-without asking, one line each, for the developer's end review). History lives in git. Commit messages end with the
-co-author line.
+One home per fact: README.md (what the game is and how to try it, shown in clips and snippets; its media in
+`docs/media/`, made by `./uni clips`), `docs/playing.md` (controls, menus, couch co-op, saves, playing together, EOS),
+`docs/rules.md` (the rules, in tick order, by their tuning constants), `docs/unified.md` (each of unified's features as
+the game uses it, with its files; the view contract), `docs/testing.md` (every layer of testing, its command and files),
+`docs/ART.md` (the look and the art pipeline), `docs/review.md` (the calls made without asking, one line each, for the
+developer's end review). A rule change updates `docs/rules.md`; a relative link in README.md or `docs/` must resolve
+(`the_readme_links_resolve`). History lives in git. Commit messages end with the co-author line.
 
 <!-- unified: begin: managed by `./uni refresh`, edit outside it -->
 This game is built on unified, the pinned `unified/` submodule. Before writing code or running tools, read

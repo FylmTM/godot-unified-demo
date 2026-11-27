@@ -33,7 +33,7 @@ Level_Id :: enum u8 {
 	Floor_1,
 	Arena, // one great hall where a crowd of hundreds fits: the crowd's benchmark rows and scale tests play it
 	Workshop, // a small hall holding each mechanism: the mechanisms' tests and look-dev play it
-	// ---- the run (docs/plan.md, milestone 7): one-room stubs laid by game/tools/lay_floor.gd until their floors are built
+	// ---- the run (run.odin): the hub and the crypt below Floor 1, laid by game/tools/lay_floor.gd
 	Hub, // the graveyard between runs, where the party sets its shrines and boards the crypt's lift
 	Floor_2,
 	Floor_3,
@@ -82,7 +82,7 @@ Places :: struct {
 	// ---- the hoard and the lift (hoard.odin, lift.odin): one of each at most, a floor's exit and what it is for
 	hoard:       Hoard_Def,
 	lift:        Lift_Def,
-	// ---- the run (docs/plan.md, milestone 7)
+	// ---- the run (run.odin)
 	braziers:    sim.List(Brazier_Def, MAX_BRAZIERS), // braziers.odin: each a row of the State's `braziers`
 	shrines:     [Shrine_Setting]Shrine_Def, // run.odin: the hub's, one for each setting at most
 	boss:        Boss_Def, // boss.odin: the vault's, one a floor at most

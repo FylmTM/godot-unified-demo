@@ -1,9 +1,9 @@
 // crypt_crew's end-to-end suite: the standard scenarios of unified:headless/scenarios (unified/src/headless/README.md),
 // its replay regressions (the recorded sessions in replays/) and what two of them hold (a LAN session's play, an F3
-// note's fact), unified's determinism lint, the extension's install check, the session's byte budget, and that
-// docs/testing.md names every test file, replay and check script. The reference run is in reference_test.odin, the
-// planted bugs the harness catches in planted_test.odin, the soak in soak_test.odin, the rule tests in a file per system
-// (heroes_test.odin).
+// note's fact), unified's determinism lint, the extension's install check, the session's byte budget, that
+// docs/testing.md names every test file, replay and check script, and that the README's and docs' links resolve. The
+// reference run is in reference_test.odin, the planted bugs the harness catches in planted_test.odin, the soak in
+// soak_test.odin, the rule tests in a file per system (heroes_test.odin).
 package test_crypt_crew
 
 import "core:os"
@@ -173,6 +173,73 @@ the_testing_doc_names_every_layer :: proc(t: ^testing.T) {
 	unnamed(t, #directory, ".odin", "", false)
 	unnamed(t, #directory + "/replays", "", "replays/", true)
 	unnamed(t, #directory + "/../../game/tools", ".gd", "", false, makers[:])
+}
+
+// Every relative link and image in README.md and docs/*.md names a file or folder that exists, and a link's #anchor a
+// heading of the doc it points at (GitHub's slug: lower case, spaces as hyphens, punctuation dropped), so a moved
+// doc, a renamed file or a clip `uni clips` stopped making breaks this test rather than the page. Links inside fenced
+// code are text; web links are not checked.
+@(test)
+the_readme_links_resolve :: proc(t: ^testing.T) {
+	ROOT :: #directory + "/../../"
+	docs_dir := #load_directory("../../docs")
+	slug :: proc(heading: string) -> string {
+		b := strings.builder_make(context.temp_allocator)
+		for r in strings.to_lower(heading, context.temp_allocator) {
+			switch r {
+			case 'a' ..= 'z', '0' ..= '9', '_', '-':
+				strings.write_rune(&b, r)
+			case ' ':
+				strings.write_byte(&b, '-')
+			}
+		}
+		return strings.to_string(b)
+	}
+	has_heading :: proc(doc, anchor: string) -> bool {
+		lines := doc
+		for line in strings.split_lines_iterator(&lines) {
+			if strings.has_prefix(line, "#") && slug(strings.trim_left(line, "# ")) == anchor do return true
+		}
+		return false
+	}
+	check :: proc(t: ^testing.T, name, dir, doc: string) {
+		lines, fenced := doc, false
+		for line in strings.split_lines_iterator(&lines) {
+			if strings.has_prefix(line, "```") do fenced = !fenced
+			if fenced do continue
+			rest := line
+			for {
+				open := strings.index(rest, "](")
+				if open < 0 do break
+				rest = rest[open + 2:]
+				close := strings.index_byte(rest, ')')
+				if close < 0 do break
+				target := rest[:close]
+				rest = rest[close + 1:]
+				if strings.contains(target, "://") do continue
+				path, _, anchor := strings.partition(target, "#")
+				linked := doc
+				if path != "" {
+					file := strings.concatenate({ROOT, dir, path}, context.temp_allocator)
+					if !testing.expectf(t, os.exists(file), "%s links %s: no such file", name, target) do continue
+					if anchor == "" do continue
+					data, err := os.read_entire_file(file, context.temp_allocator)
+					if !testing.expectf(t, err == nil, "%s links %s: cannot read it: %v", name, target, err) do continue
+					linked = string(data)
+				}
+				if anchor == "" do continue
+				testing.expectf(t, has_heading(linked, anchor), "%s links %s: no heading #%s", name, target, anchor)
+			}
+		}
+	}
+	check(t, "README.md", "", #load("../../README.md", string))
+	docs := 0
+	for doc in docs_dir {
+		if !strings.has_suffix(doc.name, ".md") do continue
+		check(t, strings.concatenate({"docs/", doc.name}, context.temp_allocator), "docs/", string(doc.data))
+		docs += 1
+	}
+	testing.expectf(t, docs >= 6, "docs/ holds %d Markdown files: fewer than README.md links", docs)
 }
 
 // The session's bytes stay in their budget (tuning.odin, Bandwidth): four clients on the bad network, the last joining

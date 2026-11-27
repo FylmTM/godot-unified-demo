@@ -11,7 +11,7 @@ const UNIFIED_KIND := "lift"
 const MODEL: String = "res://assets/kaykit/dungeon/floor_wood_large.gltf"
 
 ## Whether the floor's hoard must be aboard before it goes down: the crypt's floors' lifts; the hub's, which takes the
-## party into the crypt, goes without one (docs/plan.md, milestone 7: not yet used).
+## party into the crypt, goes without one (lift.odin).
 @export var hoard: bool = true
 
 

@@ -1,4 +1,4 @@
-// The run's levels (docs/plan.md, milestone 7: the hub, Floor 2, Floor 3 and the vault): each is laid on the kit's grid
+// The run's levels (the hub, Floor 2, Floor 3 and the vault): each is laid on the kit's grid
 // (game/tools/lay_floor.gd), baked with its navigation (uni bake --nav), and loads as a session's floor.
 package test_crypt_crew
 

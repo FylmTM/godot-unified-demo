@@ -1,6 +1,6 @@
 extends Marker3D
-## Level marker: a hub shrine, where the party sets the next run's mode or difficulty (docs/plan.md, milestone 7: no
-## rule uses it yet). A floor holds one for each setting at most.
+## Level marker: a hub shrine, where the party sets the next run's mode or difficulty (run.odin). A floor holds one for
+## each setting at most.
 
 const UNIFIED_KIND := "shrine"
 

@@ -7,7 +7,7 @@ extends VBoxContainer
 ## They open when the choice is certain: its Event_Choice (open) CONFIRMED (a prediction of it a rollback takes back
 ## never shows a panel). A player whose session starts while the party chooses (a late joiner, a rejoiner) never heard
 ## that event: the panels open from the HUD data's `choosing` as it first shows, the picks already made marked from the
-## data's `picked` (the one prediction they take, as the purse takes its start: plan.md, verified session data). A
+## data's `picked` (the one prediction they take, as the purse takes its start: unified has no verified session data). A
 ## local player joining mid-choice gets its panel as it appears in the data, and every panel's party row follows the
 ## data's players as they join and leave. They close when the choice's end (the descent, the lull's, the run's) is
 ## CONFIRMED. Every pick event goes to every panel (BoonPanel.on_pick, whose rule counts CONFIRMED only).

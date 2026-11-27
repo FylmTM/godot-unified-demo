@@ -695,11 +695,11 @@ STRONG_BACK :: f32(0.6) // Strong_Back: what a rank leaves of the slowdown from 
 FIELD_MEDIC :: f32(0.3) // Field_Medic: this much faster a revive a rank (REVIVE_UNIT: in tenths of a tick of tending)
 #assert(QUICK_HANDS * BOON_RANK_MAX < 1)
 
-// ---- the run (docs/plan.md, milestone 7)
+// ---- the run (run.odin)
 
 MAX_BRAZIERS :: 8 // the most brazier markers a level holds (braziers.odin)
 
-// ---- the run, the difficulty and the Pit (run.odin, arena.odin; docs/plan.md, milestone 7 step 1)
+// ---- the run, the difficulty and the Pit (run.odin, arena.odin)
 
 // A difficulty's numbers (DIFFICULTY): the run's lives, and what each scales by (1: as written above).
 Difficulty_Spec :: struct {
@@ -764,7 +764,7 @@ PIT_LULL :: 6
 PIT_LULL_MAX_S :: f32(20)
 PIT_LULL_MAX_TICKS :: u32(PIT_LULL_MAX_S * TICK_HZ)
 PIT_LIVES :: 1
-// ---- braziers and the boss (braziers.odin, boss.odin, elite_king.odin; docs/plan.md, milestone 7 step 2)
+// ---- braziers and the boss (braziers.odin, boss.odin, elite_king.odin)
 
 // Braziers: kindled by holding Interact beside one (as a revive), or lit at once by a fireball's burst.
 BRAZIER_RANGE :: f32(1.6) // a hero this close to a brazier's foot (feet to its marker, on the floor plan) kindles it ...
