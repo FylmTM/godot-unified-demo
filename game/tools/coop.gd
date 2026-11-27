@@ -108,8 +108,8 @@ const REVIVE_WITHIN: float = 1.0
 const HEAVE_WITHIN: float = 1.4
 const ABILITY_S: float = 0.5
 const BEAT_S: float = 20.0
-## A revive whose ring hasn't filled any further for this long (milliseconds; a round trip on a bad link and more) was
-## broken off: the reviver presses again.
+## A revive whose ring (or a kindling whose ember) hasn't grown any further for this long (milliseconds; a round trip on
+## a bad link and more) was broken off: the reviver (the kindler) presses again.
 const RING_STALL_MS: int = 1500
 ## The vault: how near a hero walks to its plate or a point of its way (metres), how often a walk asks the navigation
 ## for its path again (frames), how often the host fells the skeletons and elites from the vault's beat on (seconds),
@@ -130,19 +130,21 @@ const MOVE_DEADZONE: float = 0.25
 const QUIET_S: float = 1.0
 const FELL_ELITES: int = 1000
 ## The hub's beat and the ward's: how near a hero walks to its shrine (and how long it presses Interact there), to the
-## hub lift's deck (its side's corner, this far
-## out from the middle) and to a brazier it kindles (metres); how long a kindling may go unlit before it is pressed
-## again (seconds: a blow broke it off); the depth of the vault; the vault's braziers each side kindles, by marker order
-## (game/levels/vault.tscn: the joiner the one by the spawns' west, the host the east two), and the King's ward stage.
+## hub lift's deck (its side's corner, this far out from the middle); where a hero kindles a brazier from (this far off
+## its foot, on the side it comes from: the stand is a column of 0.45 m radius that the hero's 0.45 m can't walk into,
+## and BRAZIER_RANGE is 1.6 m) and how near that spot it walks (metres); the depth of the vault; the vault's braziers
+## each side kindles, by marker order (game/levels/vault.tscn: the host, spawned west of the joiner, the two west ones,
+## the joiner the east one by the spawns, so their ways never cross: two heroes walking head-on along one line push
+## against each other for good), and the King's ward stage.
 const SHRINE_WITHIN: float = 1.3
 const TURN_PRESS_S: float = 0.15
 const TURN_GAP_S: float = 0.75  # past the sim's SHRINE_COOLDOWN_S (0.5) between a shrine's two turns
 const DECK_CORNER: float = 1.0
-const KINDLE_WITHIN: float = 1.1
-const KINDLE_STALL_S: float = 4.0
+const KINDLE_STAND: float = 1.2
+const KINDLE_WITHIN: float = 0.3
 const VAULT_DEPTH: int = 3
-const HOST_BRAZIERS: Array[int] = [3, 1]
-const JOINER_BRAZIERS: Array[int] = [2]
+const HOST_BRAZIERS: Array[int] = [2, 0]
+const JOINER_BRAZIERS: Array[int] = [3]
 const WARD_STAGE: int = 2
 ## How near the floor's start each walks back to, and waits for the other (metres), before the combat beats.
 const MEET_WITHIN: float = 2.0
@@ -665,10 +667,9 @@ func _shrine_prompt(player: int) -> int:
 ## crypt (dev_board on each floor, each side picking its boon with Interact) into the vault; there it wakes the King and
 ## drives it into its second stage (dev hurts: warded, its braziers out), and the two break the ward together: each
 ## kindles its braziers (HOST_BRAZIERS, JOINER_BRAZIERS: three, the need for two heroes), holding Interact beside each
-## until its lighting is CONFIRMED (pressed again after KINDLE_STALL_S: a blow broke it off), and both see the
-## confirmed ward fall. The host then drives the King into its third stage, warded again and standing in the vault's
-## middle, so nothing hurts the party through the pause; from the descents on it fells the skeletons the floors and the
-## stages raise (dev), until its pause.
+## until its lighting is CONFIRMED (_kindle), and both see the confirmed ward fall. The host then drives the King into
+## its third stage, warded again and standing in the vault's middle, so nothing hurts the party through the pause; from
+## the descents on it fells the skeletons the floors and the stages raise (dev), until its pause.
 func _ward_beat(hosting: bool) -> void:
 	if failed():
 		return
@@ -728,20 +729,53 @@ func _pick_boon(depth: int) -> void:
 		"the party goes down past %d" % depth)
 
 
-## Walks to the brazier whose foot is `at` and holds Interact until this side's lighting is CONFIRMED, pressing again
-## after KINDLE_STALL_S without one.
+## Kindles the brazier whose foot is `at` until this side's lighting is CONFIRMED. A press kindles only with the rules'
+## "[E] Light" prompt up (within BRAZIER_RANGE of the foot), and a kindling breaks off for good on a blow or a step out
+## of range: then only a new press starts it again. So it walks to a spot KINDLE_STAND off the foot (the stand is a
+## column it can't walk into) until the prompt names this brazier, presses and holds, and walks over and presses again
+## whenever the brazier's ember (its view's `kindled`) stops growing before the lighting is confirmed.
 func _kindle(at: Vector3) -> void:
 	var me: int = session.local_player
-	await _nav_walk_to(func() -> Vector3: return at, KINDLE_WITHIN, "a brazier")
+	var from: Vector3 = _hero(me).global_position
+	var off: Vector2 = Vector2(from.x - at.x, from.z - at.z).normalized() * KINDLE_STAND
+	var spot: Vector3 = at + Vector3(off.x, 0.0, off.y)
 	var lit: int = _tally(_lit, me)
-	while not failed() and _tally(_lit, me) == lit:
-		Input.action_press(&"interact")
-		var until: int = Time.get_ticks_msec() + int(KINDLE_STALL_S * 1000.0)
-		while not failed() and _tally(_lit, me) == lit and Time.get_ticks_msec() < until:
-			await frames(1)
+	var until: int = Time.get_ticks_msec() + int(BEAT_S * 1000.0)
+	var first_press: int = 0
+	var presses: int = 0
+	while _tally(_lit, me) == lit and not failed() and Time.get_ticks_msec() < until:
 		Input.action_release(&"interact")
-		await frames(2)
-	step("kindled a brazier, CONFIRMED")
+		await _nav_walk_to(func() -> Vector3: return spot, KINDLE_WITHIN, "the spot beside a brazier")
+		await wait_for(func() -> bool: return _light_prompt(at) != null or _tally(_lit, me) > lit, BEAT_S,
+			"the [E] Light prompt names the brazier")
+		if failed() or _tally(_lit, me) > lit:
+			break
+		var brazier: BrazierView = _light_prompt(at)
+		Input.action_press(&"interact")
+		if presses == 0:
+			first_press = Time.get_ticks_msec()
+		presses += 1
+		var ember: Array[int] = [-1, Time.get_ticks_msec()]  # the brazier's ember as last seen growing, and when
+		await wait_for(func() -> bool:
+			var shown: int = brazier.data.kindled if is_instance_valid(brazier) else -1
+			if shown > ember[0]:
+				ember[0] = shown
+				ember[1] = Time.get_ticks_msec()
+			return _tally(_lit, me) > lit or Time.get_ticks_msec() - ember[1] > RING_STALL_MS, BEAT_S,
+			"the kindling grows or stalls")
+	Input.action_release(&"interact")
+	expect(_tally(_lit, me) > lit, "the lighting is confirmed")
+	step("kindled a brazier, CONFIRMED %.1f s after its first press (%d presses)" % [
+		(Time.get_ticks_msec() - first_press) / 1000.0, presses])
+
+
+## The brazier whose foot is `at` while this side's "[E] Light" prompt names it (Hud_Hero.kindle), else null.
+func _light_prompt(at: Vector3) -> BrazierView:
+	var handle: int = _hud_hero(session.local_player).kindle
+	var brazier := Unified.session.get_view(EnumView.BRAZIER, handle) as BrazierView if handle != 0 else null
+	if brazier == null or Vector2(brazier.global_position.x - at.x, brazier.global_position.z - at.z).length() > 0.5:
+		return null
+	return brazier
 
 
 ## While `running[0]` holds, the host fells every skeleton (dev) every QUIET_S, and leaves the King be.
