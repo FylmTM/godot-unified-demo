@@ -3,6 +3,9 @@
 Small calls made without asking, and loose ends worth a look, collected for the end-of-development review. Each line
 says what was decided or noticed and where. Delete a line once it is reviewed; delete the file when it is empty.
 
+Per-change reviews stopped after demo f19a776 (unified a04345eb), the end of milestone 6. Everything after is reviewed
+in one pass at the end, with the developer.
+
 ## Repo and CI
 
 - The repo has GitHub Issues and outside PRs enabled, and the README takes no stance on them (the workflow uses

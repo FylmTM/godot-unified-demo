@@ -9,4 +9,4 @@ bones = ExtResource("1_pa2r1")
 clips = Array[StringName]([&"Special/Skeletons_Idle", &"Special/Skeletons_Walking", &"CombatMelee/Melee_1H_Attack_Chop", &"Special/Skeletons_Awaken_Floor", &"Special/Skeletons_Death"])
 last_bounds = Array[AABB]([AABB(-1.3222728, 8.906751e-05, -0.34516495, 2.0433192, 1.9646074, 1.2137265), AABB(-0.7553056, -0.013697017, -0.35838073, 1.5521104, 2.0286639, 1.8810928), AABB(-0.688002, 0.00011599865, -0.45829138, 1.3483131, 2.1523716, 1.7194601), AABB(-1.3222733, 8.8973036e-05, -0.34516498, 2.0433197, 1.964608, 1.2137265), AABB(-1.5618191, -0.09245941, -3.4714694, 2.756621, 0.9743937, 3.7550683)])
 bounds = AABB(-2.603845, -0.8267498, -3.530036, 4.0814805, 3.2739007, 5.1610503)
-sources = "fd4ad2a20844c96628aa3f2b375931abd080b8549376d94b47a8f0b9e0f30cb2"
+sources = "90304bb337adf04579f19ea6d5d55ccaa75f5078bd73f4e755d8fa7cdfc0c5d5"
