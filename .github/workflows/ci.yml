@@ -1,17 +1,16 @@
 # One job per platform plus one for Godot, every step one uni command, as in unified's own CI: together what
-# `./uni verify` runs locally, plus `uni bench` (reported in each job's summary, not gated).
+# `./uni verify` runs locally, plus `uni bench` (reported in each job's summary, not gated); and the release builds.
 #
 # Runs per event:
-#   push to main        linux-x64, linux-arm64, windows-x64 and godot, against the pinned unified submodule. Every
-#                       push gets its full run (no cancelling): each commit's check and benchmarks stay on record.
+#   push to main        linux-x64, linux-arm64, windows-x64, macos-arm64, godot and release (windows-x64 and
+#                       macos-arm64), against the pinned unified submodule. Every push gets its full run (no
+#                       cancelling): each commit's check and benchmarks stay on record.
 #   nightly (schedule)  the canary: linux-x64 and godot against unified's `main` when it differs from the pin, so a
 #                       unified change that breaks this game shows before the bump. Once per pair of (this repo's
 #                       commit, unified's main): a red canary is not repeated every night. Nothing is committed.
 #                       GitHub pauses schedules after 60 days without commits here; re-enable it in the Actions tab.
 #   manual dispatch     the push set; `-f unified_ref=<branch, tag or full commit SHA>` tests against that unified
 #                       instead of the pin (a unified branch, before it merges).
-# macOS (macos-arm64) joins when development is done: its runners are slow to get, and it adds nothing to each push
-# while the game changes daily.
 #
 # Security: read-only, no secrets: no EOS SDK and no EOS credentials (Epic's licence keeps the SDK out). Checkouts
 # keep no credentials (a dispatch builds code from any unified ref). Actions are pinned by commit, runner images by
@@ -106,14 +105,14 @@ jobs:
     if: ${{ needs.unified.outputs.run == 'true' }}
     runs-on: >-
       ${{ fromJSON('{"linux-x64": "ubuntu-24.04", "linux-arm64": "ubuntu-24.04-arm",
-      "windows-x64": "windows-2025"}')[matrix.platform] }}
+      "windows-x64": "windows-2025", "macos-arm64": "macos-15"}')[matrix.platform] }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         platform: >-
           ${{ fromJSON(github.event_name == 'schedule' && '["linux-x64"]' ||
-          '["linux-x64", "linux-arm64", "windows-x64"]') }}
+          '["linux-x64", "linux-arm64", "windows-x64", "macos-arm64"]') }}
     env:
       # Windows runs the cmd shim (it proves uni.cmd too); elsewhere the sh one.
       UNI: ${{ matrix.platform == 'windows-x64' && './uni.cmd' || './uni' }}
@@ -225,6 +224,85 @@ jobs:
         if: ${{ !cancelled() && steps.ready.outcome == 'success' }}
         run: |
           if [ -f .out/test.txt ]; then printf '### test\n```\n%s\n```\n' "$(cat .out/test.txt)"; fi >> "$GITHUB_STEP_SUMMARY"
+
+  # The playable builds a developer makes with `./uni release` (no EOS: CI has neither the SDK nor the IDs), each
+  # proved by uni's own smoke test and then played headless from the unpacked zip: a crowd fight in the arena, and a
+  # host and a joiner over UDP on this machine, each run ending at its tick with no error line. The zips are thrown
+  # away: no artifacts. Not on the nightly (the canary checks the sim and the Godot side, not the export).
+  release:
+    name: release / ${{ matrix.platform }}
+    needs: unified
+    if: ${{ needs.unified.outputs.run == 'true' && github.event_name != 'schedule' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: windows-x64, os: windows-2025, uni: ./uni.cmd }
+          - { platform: macos-arm64, os: macos-15, uni: ./uni }
+    env:
+      UNIFIED_REF: ${{ needs.unified.outputs.ref }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          persist-credentials: false
+      - name: unified at the ref under test
+        if: ${{ env.UNIFIED_REF != '' }}
+        run: |
+          git -C unified fetch --quiet --depth 1 origin "$UNIFIED_REF"
+          git -C unified checkout --quiet --detach FETCH_HEAD
+          git -C unified log -1 --format='unified: %H %s'
+      # The per-user cache's Odin and Godot editor, keyed by unified's pins; the export templates are fetched into
+      # Godot's own folder each run, checked against pins.cfg.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/unified/odin
+            ~/.cache/unified/godot
+            ~/AppData/Local/unified/odin
+            ~/AppData/Local/unified/godot
+          key: release-${{ matrix.platform }}-${{ hashFiles('unified/pins.cfg') }}
+      - id: ready
+        name: uni version (the pinned Odin, the CLI)
+        run: ${{ matrix.uni }} version
+      - name: refresh (what unified ships into the game)
+        if: ${{ steps.ready.outcome == 'success' && env.UNIFIED_REF != '' }}
+        run: ${{ matrix.uni }} refresh
+      - name: release --no-eos (export, sign, zip, smoke test)
+        run: ${{ matrix.uni }} release --no-eos
+      - name: play the build (a crowd fight; a host and a joiner)
+        run: |
+          zip=$(ls "$PWD"/.out/release/*.zip)
+          mkdir .out/play && cd .out/play
+          if [ "$RUNNER_OS" = macOS ]; then
+            ditto -x -k "$zip" . && game=(*/crypt_crew.app/Contents/MacOS/*)
+          else
+            unzip -q "$zip" && game=(*/crypt_crew.exe)
+          fi
+          # A run passes when it exits 0 with no ERROR line and its session result says ok at the tick it ends on.
+          check() {
+            local log=$1 ticks=$2 status=$3
+            echo "== $log: exit $status"; grep -v '^unified: result' "$log" || true
+            [ "$status" = 0 ] && ! grep -q ERROR "$log" &&
+              grep '^unified: result' "$log" | grep -q "\"final_tick\":$ticks,.*\"ok\":true"
+          }
+          crowd=0 host=0 join=0
+          "${game[0]}" --headless -- --autostart --setup floor=arena,crowd=fight --ticks 600 --quit-at-end > crowd.log 2>&1 || crowd=$?
+          "${game[0]}" --headless -- --host-port 17777 --ticks 900 --quit-at-end > host.log 2>&1 &
+          host_pid=$!
+          sleep 5
+          "${game[0]}" --headless -- --join 127.0.0.1:17777 --quit-at-end > join.log 2>&1 || join=$?
+          wait $host_pid || host=$?
+          ok=0
+          check crowd.log 600 $crowd || ok=1
+          check host.log 900 $host || ok=1
+          check join.log 900 $join || ok=1
+          exit $ok
 
   # The nightly remembers the pair it tested, pass or fail, so the next night skips it unless either side moved.
   canary:

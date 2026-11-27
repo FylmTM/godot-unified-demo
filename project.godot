@@ -14,6 +14,7 @@ config/name="Crypt Crew"
 config/description="A top-down co-op dungeon crawler for 1-4 players: the demo game of unified."
 config/version="dev"
 run/main_scene="res://game/menu/menu.tscn"
+config/icon="res://game/icon.png"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="crypt_crew"
 config/features=PackedStringArray("4.7")

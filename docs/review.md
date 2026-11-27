@@ -1154,3 +1154,14 @@ Step C, accessibility (beyond the design's decided calls):
 - The King's slam ring is dashed with waves crawling inward as it fills (a function of the ring's fill, so a pause or
   a seek holds them); the revive's and the fireball's rings stay plain bands. A new look-dev shot, fx_rings, sets the
   three side by side; ART.md says colour never alone.
+
+## Milestone 10: builds
+
+- export_presets.cfg's include_filter is empty: no file is read raw at runtime (the sim `#load`s the .level files
+  into the extension, simulation/crypt_crew/game.odin), so shipping them would only mislead. The exclude_filter
+  also drops game/lookdev/ (only `uni tool lookdev` opens it).
+- The icon (game/icon.png, application/config/icon) is the Knight's portrait at 512 px on a transparent background,
+  rendered by game/tools/render_portraits.gd with the four portraits. Windows keeps Godot's icon on the .exe file
+  itself (modify_resources=false: no rcedit); the window and the macOS app use ours.
+- CI's release job plays each built zip headless after `uni release`'s own smoke test: a crowd fight in the arena
+  (600 ticks) and a host and a joiner over UDP on the runner (900 ticks), on fixed port 17777.

@@ -2,9 +2,13 @@ extends UnifiedTool
 ## Renders each hero's portrait (`./uni tool render_portraits --window`: it needs a renderer) into
 ## Heroes.portrait_path(), from the hero scenes as the game poses them: head and shoulders, idling, lit as the
 ## look-dev scene lights a hero, on a transparent background. Run it again when a hero's look changes; the app checks
-## hold every class to having one.
+## hold every class to having one. The Knight's portrait, larger, is also the game's icon (application/config/icon,
+## which the exports turn into the Windows and macOS icons).
 
 const SIZE: int = 256
+## The icon's side (pixels): the largest the macOS icon set takes from it without scaling up.
+const ICON_SIZE: int = 512
+const ICON: String = "res://game/icon.png"
 const HEROES: String = "res://game/characters/heroes/%s.tscn"
 ## Where the camera stands and looks, from a hero standing at the origin facing +Z (metres): nearly face on, the head
 ## and shoulders filling the frame, the head a little above its middle.
@@ -20,17 +24,22 @@ func _run() -> void:
 		fail("portraits need a renderer: run with --window")
 		return
 	for hero_class: int in Heroes.classes():
-		var image: Image = await _render(EnumClass.name(hero_class).to_lower())
+		var image: Image = await _render(EnumClass.name(hero_class).to_lower(), SIZE)
 		if failed():
 			return
-		var path: String = Heroes.portrait_path(hero_class)
-		expect(image.save_png(ProjectSettings.globalize_path(path)) == OK, "saved " + path)
-		step(path)
+		_save(image, Heroes.portrait_path(hero_class))
+	var icon: Image = await _render(EnumClass.name(EnumClass.KNIGHT).to_lower(), ICON_SIZE)
+	_save(icon, ICON)
 
 
-func _render(hero_name: String) -> Image:
+func _save(image: Image, path: String) -> void:
+	expect(image.save_png(ProjectSettings.globalize_path(path)) == OK, "saved " + path)
+	step(path)
+
+
+func _render(hero_name: String, size: int) -> Image:
 	var viewport := SubViewport.new()
-	viewport.size = Vector2i(SIZE, SIZE)
+	viewport.size = Vector2i(size, size)
 	viewport.transparent_bg = true
 	viewport.own_world_3d = true
 	viewport.msaa_3d = Viewport.MSAA_4X
