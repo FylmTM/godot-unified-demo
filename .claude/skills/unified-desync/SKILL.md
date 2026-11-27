@@ -10,8 +10,10 @@ symptom: `unified/docs/gameplay.md` (Gotchas). The headless modes: `./uni headle
 
 ## Read the failure
 
-- A **sync-test** failure (one machine: a rollback re-simulated a tick differently) names the tick: `tick` reads state
-  the rollback doesn't restore.
+- A **sync-test** failure (one machine: a rollback re-simulated a tick differently) names the tick and the first
+  State field that differs, forward vs re-simulated ("tick 1 re-simulated differently at 8: heroes[2].warp 0 vs 1";
+  `headless.Synctest_Result.first_diff`): `tick` reads state the rollback doesn't restore. "The State agrees" means
+  the Extra (the physics world) or the tick's events differ.
 - A **session desync** names the tick, and with typed reports the field (`unified/src/netcode/README.md`, Checksums
   and desyncs). Run the sync-test first: most reproduce on one machine.
 - A **reference run failing on one platform only**: a float trap (`unified/src/dmath/README.md`).

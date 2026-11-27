@@ -24,7 +24,9 @@ Play what you built, beside its tests (verbs: `./uni drive -h`):
 2. `pause`, then `press <action> <ticks>` or `step <n>`: paused, every tick is accounted for, so a check can say
    where a thing must be after n ticks. `values yaw=0.25` holds an input value (a first-person look) until
    `values clear`.
-3. `state <path>` and `events` for what the sim computed; `shot`, then read the PNG, for what the player sees.
+3. `state <path>` and `events` for what the sim computed; `shot`, then read the PNG, for what the player sees. A
+   bug worth keeping: `note "<text>" --bug` saves it as an F3 note with its recording (the `unified-feedback` skill,
+   Your own note).
 4. `stop`: it fails on errors or leaks in the game's log. An instance runs the code it started with: after a change,
    `stop` and `start` again.
 
@@ -36,8 +38,8 @@ Two at once: `start --name host -- --host-port 7000` and `start --name joiner --
 A clip is a recording the game plays back, so it is made again whenever the game changes and stays true to it:
 
 1. Record what to show: play it (`./uni drive start -- --autostart`, then `press` and `step`; `stop` saves the
-   session's recording under `.out/user/`, `UnifiedSession.recording` names it), or take a replay regression or the
-   developer's F3 note (`./uni feedback`).
+   session's recording in the instance's own user data, `.out/user/<name>/`, `UnifiedSession.recording` names it),
+   or take a replay regression or the developer's F3 note (`./uni feedback`).
 2. `./uni render <recording> --out docs/clip.gif --from 2s --to 12s` (`--player n`: whose view; `--speed`; `.avi` for
    a video with sound, a directory for PNG frames). The window opens like any agent's; the clip is frame-exact.
 3. Read a frame or two (`--out .out/frames/`, then the PNGs) before committing the GIF. Keep it short and small:
