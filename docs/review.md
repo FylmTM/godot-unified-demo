@@ -990,3 +990,13 @@ Step 4, the joins (beyond the design's decided calls):
   frame), which is what an earlier attempt's beats met (the joiner's hero view freed under it, a marker freed). Each
   crosses the spike gallery on its north lane (out of the roller's reach) as the spikes fall; the carry takes 2.5 m
   north, both holds confirmed first, the chest clear and level, neither let go nor slipped.
+
+## Milestone 7: the run
+
+- `game/tools/lay_floor.gd` owns a level's `Nav/Laid` and replaces it whole on each run; the map is kept in the
+  scene root's metadata (`lay_floor_map`), so a part's change is re-laid without the map file. Its grid lines are on
+  multiples of 4 m with the middle one through the origin, so a map an odd number of cells wide sits 2 m off centre.
+- The four stub levels each carry a grave (read_places asserts one on every floor until the run's rules say otherwise)
+  and the hub's stub a lift with `hoard = false` on a shaft cell. Adding levels re-pinned the reference runs' snapshot,
+  log and compat (the levels' hash and Box3D's static bodies), not their checkpoints or traces, and lan_pair was
+  recorded again (its snapshot's layout moved); no VERSION bump, since no tick computes anything else.

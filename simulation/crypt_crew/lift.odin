@@ -46,7 +46,10 @@ Lift_Def :: struct {
 	path:   physics.Path, // the deck body's centre: at the top, then LIFT_DROP below (Once, smoothstepped)
 	rot:    [4]f32,
 	placed: bool, // the floor has one
-	_pad:   [3]u8,
+	// Whether the floor's hoard must be aboard before it goes (the marker's `hoard`): the crypt's floors' lifts; the
+	// hub's, which takes the party into the crypt, goes without one. Read, not yet used (docs/plan.md, milestone 7).
+	hoard:  bool,
+	_pad:   [2]u8,
 }
 
 // The lift's phase changed to `phase`.

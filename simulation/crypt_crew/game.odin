@@ -12,7 +12,8 @@
 // (the co-op pause), saves (the Setup a save is, and the tally it carries), dev (the dev commands) and script (the
 // scripted player); loot (coins dropped and the party's purse); the mechanisms: plates, gates, barricades and traps
 // (spikes and the roller); ragdolls (a downed hero falls as one, and gets up); hoard (the gold chest hauled by its
-// handles), lift (the floor's exit) and boons (picked at the lift).
+// handles), lift (the floor's exit) and boons (picked at the lift); braziers, run (the hub's shrines) and boss, whose
+// markers are read and kept for the run's rules to come (docs/plan.md, milestone 7).
 package crypt_crew
 
 import "unified:physics"
@@ -41,6 +42,10 @@ GAME := Game {
 		{"floor_1", #load("../../game/levels/floor_1.level")},
 		{"arena", #load("../../game/levels/arena.level")},
 		{"workshop", #load("../../game/levels/workshop.level")},
+		{"hub", #load("../../game/levels/hub.level")},
+		{"floor_2", #load("../../game/levels/floor_2.level")},
+		{"floor_3", #load("../../game/levels/floor_3.level")},
+		{"vault", #load("../../game/levels/vault.level")},
 	},
 	world_create      = world_create,
 	world_destroy     = world_destroy,

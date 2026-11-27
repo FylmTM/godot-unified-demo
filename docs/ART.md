@@ -142,7 +142,9 @@ minion at the row's ends.
 ## Kit parts
 
 A part is one piece of a kit as levels place it, never scaled. Floors and walls sit on the grid (a wall's origin on a
-grid line, a floor's edges on them), turned in 90° steps; everything else stands anywhere, at any angle.
+grid line, a floor's edges on them), turned in 90° steps; everything else stands anywhere, at any angle. A level's floor
+and walls are laid from an ASCII room map by `game/tools/lay_floor.gd` (`./uni tool lay_floor`; its header has the
+map's format), which owns its scene's `Nav/Laid`.
 
 - **Collidable:** the root is a `StaticBody3D` with its `unified_category` and box or cylinder shapes, the model under
   it. The categories: floor (1), wall (2: blocks walking, sight and shots; its collider stands at least 1.4 m high,

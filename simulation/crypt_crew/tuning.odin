@@ -686,3 +686,7 @@ QUICK_HANDS :: f32(0.12) // Quick_Hands: this much shorter an ability cooldown a
 STRONG_BACK :: f32(0.6) // Strong_Back: what a rank leaves of the slowdown from carrying a prop or hauling the hoard
 FIELD_MEDIC :: f32(0.3) // Field_Medic: this much faster a revive a rank (REVIVE_UNIT: in tenths of a tick of tending)
 #assert(QUICK_HANDS * BOON_RANK_MAX < 1)
+
+// ---- the run (docs/plan.md, milestone 7)
+
+MAX_BRAZIERS :: 8 // the most brazier markers a level holds (braziers.odin)

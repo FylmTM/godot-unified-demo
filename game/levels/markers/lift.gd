@@ -10,6 +10,10 @@ const UNIFIED_KIND := "lift"
 ## The deck's model (the sim's deck is LIFT_HALF, a hand short of it all round).
 const MODEL: String = "res://assets/kaykit/dungeon/floor_wood_large.gltf"
 
+## Whether the floor's hoard must be aboard before it goes down: the crypt's floors' lifts; the hub's, which takes the
+## party into the crypt, goes without one (docs/plan.md, milestone 7: not yet used).
+@export var hoard: bool = true
+
 
 func _ready() -> void:
 	if not Engine.is_editor_hint() or get_child_count() > 0:

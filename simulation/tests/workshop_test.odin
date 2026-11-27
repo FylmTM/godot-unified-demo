@@ -118,9 +118,9 @@ WORKSHOP_REFERENCE :: scenarios.Reference {
 	setup         = "floor=workshop",
 	checkpoints   = {0x93ec1e28cb309c5e, 0xfe0a37e8e292b2ca, 0x09b63c6c842844ba, 0xb73deb71a6de516b},
 	trace         = 0xcbdb994ec4ce5f7f,
-	snapshot      = 0xec099035e1e8bb87,
-	log           = 0xa0167320176dcf66,
-	compat        = 0xbe0c534e799093d4,
+	snapshot      = 0xec35842260a3fae7,
+	log           = 0xde33992769beac69,
+	compat        = 0x3d3f79e81198b0a5,
 }
 
 @(test)

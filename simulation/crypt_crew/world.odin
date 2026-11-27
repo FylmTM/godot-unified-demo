@@ -33,6 +33,11 @@ Level_Id :: enum u8 {
 	Floor_1,
 	Arena, // one great hall where a crowd of hundreds fits: the crowd's benchmark rows and scale tests play it
 	Workshop, // a small hall holding each mechanism: the mechanisms' tests and look-dev play it
+	// ---- the run (docs/plan.md, milestone 7): one-room stubs laid by game/tools/lay_floor.gd until their floors are built
+	Hub, // the graveyard between runs, where the party sets its shrines and boards the crypt's lift
+	Floor_2,
+	Floor_3,
+	Vault, // the boss's
 }
 
 // What a prop marker places (game/levels/markers/prop.gd's `kind`, by name).
@@ -77,6 +82,10 @@ Places :: struct {
 	// ---- the hoard and the lift (hoard.odin, lift.odin): one of each at most, a floor's exit and what it is for
 	hoard:       Hoard_Def,
 	lift:        Lift_Def,
+	// ---- the run (docs/plan.md, milestone 7): read and kept, no rule uses them yet
+	braziers:    sim.List(Brazier_Def, MAX_BRAZIERS), // braziers.odin
+	shrines:     [Shrine_Setting]Shrine_Def, // run.odin: the hub's, one for each setting at most
+	boss:        Boss_Def, // boss.odin: the vault's, one a floor at most
 }
 
 // A level's floor as the sim reads it, built once in world_create.
@@ -367,6 +376,32 @@ read_places :: proc(places: ^Places, floor: ^level.Level) {
 				path   = lift_path(marker.pos),
 				rot    = marker.rot,
 				placed = true,
+				hoard  = level.prop_bool(&marker, "hoard"),
+			}
+		// ---- the run (braziers.odin, run.odin, boss.odin)
+		case "brazier":
+			brazier := Brazier_Def {
+				pos    = marker.pos,
+				target = i32(level.prop_ref(&marker, "target")),
+			}
+			added := sim.append(&places.braziers, brazier) // its target is resolved below, once every marker is read
+			assert(added, "crypt_crew: more braziers than MAX_BRAZIERS")
+		case "shrine":
+			setting, known := level.prop_enum(&marker, "sets", Shrine_Setting.Mode) // shrine.gd's export_enum
+			assert(known, "crypt_crew: a shrine's sets is no Shrine_Setting")
+			assert(!places.shrines[setting].placed, "crypt_crew: a floor holds one shrine for each setting at most")
+			places.shrines[setting] = {
+				pos    = marker.pos,
+				placed = true,
+			}
+		case "boss":
+			assert(!places.boss.placed, "crypt_crew: a floor holds one boss at most")
+			facing := dmath.normalize(dmath.quat_rotate(marker.rot, {0, 0, 1}).xz) // the marker's +Z, as an elite's
+			assert(facing != {}, "crypt_crew: a boss marker facing straight up")
+			places.boss = {
+				pos    = marker.pos,
+				facing = facing,
+				placed = true,
 			}
 		case:
 			assert(false, "crypt_crew: a marker of a kind the sim doesn't know (game/levels/markers/)")
@@ -374,6 +409,7 @@ read_places :: proc(places: ^Places, floor: ^level.Level) {
 	}
 	for has_spawn in spawned do assert(has_spawn, "crypt_crew: a floor needs a hero_spawn per slot")
 	link_plates(places) // plates.odin
+	link_braziers(places) // braziers.odin
 	assert(places.graves.count > 0, "crypt_crew: a floor needs a grave for its surges to rise from")
 }
 
