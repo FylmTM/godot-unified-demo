@@ -5,6 +5,7 @@
 // plates, the barricade broken), and every re-simulation agrees; then, the floor quiet, they take the whole way out.
 package test_crypt_crew
 
+import "core:slice"
 import "core:testing"
 import "unified:headless"
 import "unified:headless/scenarios"
@@ -126,4 +127,62 @@ the_bots_take_the_run_floors_ways_out :: proc(t: ^testing.T) {
 		testing.expect_value(t, headless.run_events(&run, g.Event_Boon_Picked), g.PLAYERS)
 		scenarios.expect_synced(t, &run)
 	}
+}
+
+// The bots play a whole run: from the hub (everyone boards its lift, which begins the run) down Floor 1, the Ossuary and
+// the Deep Halls (each floor's way out done by the bots: the plates stood on, the braziers kindled, the barricade
+// blasted, the hoard hauled, everyone aboard, a boon each) to the vault, where they fight the King to its fall, lighting
+// its braziers through each ward and stepping out of its blows' reach; the run ends won, three floors down. The fight
+// is the King's alone: each crypt floor is quieted as the party enters it (no skeleton, no elite, its surges held off,
+// and again after a lighting brings them on: the_bot_plays_three_minutes holds the fight), the vault's stage skeletons
+// and surges are taken as they come, and the Deep Halls' held gate, whose braziers' way runs through it, is latched
+// open. Synced.
+@(test)
+the_bots_play_a_whole_run :: proc(t: ^testing.T) {
+	game := g.GAME
+	game.scripted_input, game.scripted_commands = bot_input, bot_picks
+	// a shallow re-simulation window: a run this long re-simulating eight ticks a step would be the suite's slowest test
+	// by far; every tick is still restored and played again
+	run := headless.run_begin(&game, 3, g.Setup{floor = .Hub}, window = 2)
+	defer headless.run_end(&run)
+	bot_world = run.simulation.world
+	state := &run.simulation.state
+	visited: [dynamic]g.Level_Id
+	defer delete(visited)
+	append(&visited, state.level.id)
+	for _ in 0 ..< 20 * 60 * g.TICK_HZ {
+		headless.run_scripted(&run, g.PLAYERS)
+		if headless.run_events(&run, g.Event_Run_Ended) > 0 do break
+		if state.level.id == visited[len(visited) - 1] {
+			// a lighting brings the surges on (BRAZIER_SURGE_S): a crypt floor stays quiet
+			if _, lit := headless.run_last_event(&run, g.Event_Brazier); lit && state.level.id != .Vault do hold_surges(&run)
+			// and neither a stage's skeletons nor its surges rise: the vault is the King's fight
+			_, surged := headless.run_last_event(&run, g.Event_Surge)
+			if _, staged := headless.run_last_event(&run, g.Event_Boss_Stage); staged || surged {
+				state.rising = 0
+				hold_surges(&run)
+			}
+			continue
+		}
+		append(&visited, state.level.id)
+		if state.level.id == .Vault do continue
+		state.hoard.hauled = true // as if hauled already: the first grab doesn't bring the haul's surges on
+		if state.level.id == .Floor_3 {
+			if held, _, found := sim.item_at(&state.gates, 1); found do held.latched = true
+		}
+		clear_elites(&run)
+		clear_minions(&run)
+		hold_surges(&run)
+	}
+	testing.expectf(
+		t,
+		slice.equal(visited[:], []g.Level_Id{.Hub, .Floor_1, .Floor_2, .Floor_3, .Vault}),
+		"the run went %v",
+		visited,
+	)
+	ended, found := headless.run_last_event(&run, g.Event_Run_Ended)
+	testing.expectf(t, found && ended.won, "the run ended won (%v, %v)", found, ended)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Boss_Defeated), 1)
+	testing.expect_value(t, state.depth, 3)
+	scenarios.expect_synced(t, &run)
 }

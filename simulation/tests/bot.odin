@@ -53,6 +53,8 @@ BOT_TRAP_STEP :: f32(0.9) // a bot looks this far ahead along its way for a trap
 BOT_SPIKES_AHEAD :: u32(48) // ... and waits for spikes that rise within this many ticks (a crossing's time and more)
 BOT_ROLLER_BERTH :: f32(0.3) // ... and for a roller whose sides are this near (m)
 BOT_FENCE_BERTH :: f32(1.5) // a standing barricade is in the way of a line crossing this far past its ends too (m)
+BOT_SLAM_BERTH :: f32(1.5) // a bot walks out of the King's slam's ring or cleave's reach, and this much more (m)
+BOT_KINDLE_STAND :: f32(1) // a kindler stands this far from a brazier's foot (inside BRAZIER_RANGE, clear of its stand)
 
 // The World whose props' bodies the bot looks at (the state holds only their refs): the test's sim's.
 @(thread_local)
@@ -62,7 +64,7 @@ bot_world: ^g.World
 bot_input :: proc(seed: u64, slot: int, tick: u32, state: ^g.State, _: g.Setup) -> (input: g.Input) {
 	hero := sim.slot_data(&state.players, slot)
 	if hero == nil || hero.action == .Down || hero.body == {} do return
-	target, distance, found := nearest_minion(state, hero.pos.xz)
+	target, distance, found := nearest_foe(state, hero.pos.xz)
 	if found {
 		input.aim = dmath.dir2(dmath.normalize(target - hero.pos.xz))
 		input.reach = g.reach_steps(distance) // where a Mage's fireball lands: on it
@@ -72,13 +74,17 @@ bot_input :: proc(seed: u64, slot: int, tick: u32, state: ^g.State, _: g.Setup) 
 		return
 	}
 	if state.lift.phase == .Choosing do return // its boon is a command (bot_commands)
+	if away, slamming := slam_ring(state, hero.pos.xz); slamming { 	// out of the King's blow's reach before it lands
+		walk(&input, away)
+		return
+	}
 	if ally, near := downed_ally(state, slot, hero.pos.xz); near {
 		offset := ally.xz - hero.pos.xz
 		input.aim = {}
-		// into its reach, then tend it: the first tick in reach is the press that starts the revive
+		// into its reach, then tend it: a press starts the revive (one every other tick until it has), then held
 		if dmath.length(offset) > 0.7 * g.REVIVE_RANGE {
 			walk(&input, way(state, hero.pos, ally))
-		} else {
+		} else if hero.action == .Revive || tick % 2 == 0 {
 			input.buttons += {.Interact}
 		}
 		return
@@ -154,9 +160,11 @@ bot_commands :: proc(seed: u64, slot: int, tick: u32, state: ^g.State, _: g.Setu
 }
 
 // The bot's part of the floor's way out, if it has one now (true: `input` is set for it): with the hoard resting on
-// the waiting deck, everyone walks to its corner of the deck and stands there; while the vault's gate is shut, the
-// BOT_PLATE_SLOTS stand on its plates; while the barricade stands, the BOT_BLAST_SLOT Mage walks up to it and casts at
-// it; once the gate is open, the BOT_HAUL_SLOT takes the hoard's Left handle and drags it to the lift (bot_haul),
+// the waiting deck (or none to wait for: the hub's lift), everyone walks to its corner of the deck and stands there;
+// while the vault's gate is shut, the BOT_PLATE_SLOTS stand on its plates; while the barricade stands, the
+// BOT_BLAST_SLOT Mage walks up to it and casts at it (before its plate, when the barricade stands in the way there);
+// the others kindle the braziers the vault's gate or the King's
+// ward needs (kindle); once the gate is open, the BOT_HAUL_SLOT takes the hoard's Left handle and drags it to the lift (bot_haul),
 // and once the gate is open every other bot with no skeleton to fight waits by the lift, off the deck and out of the
 // hauler's way.
 @(private = "file")
@@ -164,8 +172,10 @@ bot_duty :: proc(input: ^g.Input, state: ^g.State, slot: int, hero: ^g.Hero, tic
 	phys := bot_world.phys
 	places := &bot_world.floors[state.level.id].places
 	lift, hoard := &state.lift, &state.hoard
-	if lift.body != {} && hoard.body != {} && lift.phase <= .Boarding && hoard.haulers == {} {
-		if _, wholly := g.hoard_on_deck(phys, hoard, lift, &bot_world.overlaps); wholly {
+	if lift.body != {} && lift.phase <= .Boarding && hoard.haulers == {} {
+		aboard := hoard.body == {} // a lift that takes no hoard (the hub's): everyone boards at once
+		if !aboard do _, aboard = g.hoard_on_deck(phys, hoard, lift, &bot_world.overlaps)
+		if aboard {
 			corner := [3]f32{f32(slot & 1) * 2 - 1, 0, f32(slot >> 1) * 2 - 1} * g.LIFT_SLOT_SPREAD
 			if go(input, state, hero, physics.body_world_point(phys, lift.body, corner)) do fight_in_place(input, state, hero)
 			return true
@@ -173,8 +183,11 @@ bot_duty :: proc(input: ^g.Input, state: ^g.State, slot: int, hero: ^g.Hero, tic
 	}
 	if gate, _, found := sim.item_at(&state.gates, 0); found && !gate.open {
 		for plate_slot, k in BOT_PLATE_SLOTS {
-			if slot == plate_slot && k < int(places.plates.count) {
-				if go(input, state, hero, sim.slice(&places.plates)[k].pos) do fight_in_place(input, state, hero)
+			if slot == plate_slot && k < int(places.plates.count) && sim.slice(&places.plates)[k].gate == 0 {
+				plate := sim.slice(&places.plates)[k].pos
+				// the blaster's plate past the barricade: the blast first (below), then the plate
+				if slot == BOT_BLAST_SLOT && barricade_between(state, hero.pos, plate) do break
+				if go(input, state, hero, plate) do fight_in_place(input, state, hero)
 				return true
 			}
 		}
@@ -192,11 +205,12 @@ bot_duty :: proc(input: ^g.Input, state: ^g.State, slot: int, hero: ^g.Hero, tic
 		}
 		return true
 	}
+	if kindle(input, state, slot, hero, tick) do return true
 	if gate, _, found := sim.item_at(&state.gates, 0); found && gate.open && slot == BOT_HAUL_SLOT {
 		return bot_haul(input, state, hero, tick)
 	}
 	vault, _, gated := sim.item_at(&state.gates, 0)
-	if lift.phase == .Waiting && (hoard.haulers != {} || !gated || vault.open) {
+	if lift.body != {} && lift.phase == .Waiting && (hoard.haulers != {} || !gated || vault.open) {
 		if _, _, near := nearest_minion(state, hero.pos.xz); !near {
 			// the hoard free to go and nothing to fight: wait by the lift, out of the hauler's way (never standing
 			// where its duty left it, which may be the doorway the haul comes through)
@@ -206,6 +220,52 @@ bot_duty :: proc(input: ^g.Input, state: ^g.State, slot: int, hero: ^g.Hero, tic
 		}
 	}
 	return false
+}
+
+// A kindler's part, if it has one now (true: `input` is set for it): the braziers that open the floor's vault gate
+// (gate 0) while it is shut, and every brazier while the King stands warded. Every bot on no vault plate goes to the
+// nearest such brazier unlit (more than one at a brazier kindle it faster, and none stands idle in another's way),
+// walks toward BOT_KINDLE_STAND from its foot until it is the bot's kindle_target, and holds Interact, pressing it again
+// whenever its kindling broke off (a blow); a Mage with its fireball ready casts it at the brazier instead (its burst
+// lights it at once). Several kindling one together light it the sooner, so a blow breaking one off costs little.
+@(private = "file")
+kindle :: proc(input: ^g.Input, state: ^g.State, slot: int, hero: ^g.Hero, tick: u32) -> bool {
+	places := &bot_world.floors[state.level.id].places
+	gate, _, gated := sim.item_at(&state.gates, 0)
+	warded := state.boss.warded && state.boss.stage > 0
+	if !warded && (!gated || gate.open) do return false
+	if !warded {
+		for plate_slot, i in BOT_PLATE_SLOTS {
+			if slot == plate_slot && i < int(places.plates.count) && sim.slice(&places.plates)[i].gate == 0 do return false
+		}
+	}
+	defs := sim.slice(&places.braziers)
+	nearest := max(f32)
+	target: sim.Handle(g.Brazier)
+	braziers := sim.iterate(&state.braziers)
+	for brazier, handle in sim.next(&braziers) {
+		if brazier.lit || (!warded && defs[handle.index].gate != 0) do continue
+		if apart := dmath.length(defs[handle.index].pos.xz - hero.pos.xz); apart < nearest do nearest, target = apart, handle
+	}
+	if target == {} do return false
+	def := defs[target.index]
+	if hero.class == .Mage && !sim.timer_running(state.clock.time, hero.ability_ready) && nearest < g.FIREBALL_RANGE {
+		// a fireball's burst lights it at once: cast at the brazier's foot
+		input.aim = dmath.dir2(dmath.normalize(def.pos.xz - hero.pos.xz))
+		input.reach = g.reach_steps(nearest)
+		if tick % BOT_GRAB_EVERY == 0 do input.buttons += {.Ability}
+		return true
+	}
+	away := dmath.normalize(hero.pos.xz - def.pos.xz)
+	if away == {} do away = {0, 1}
+	player := sim.player_in_slot(&state.players, slot)
+	if g.kindle_target(&state.players, &state.braziers, defs, player) != target {
+		go(input, state, hero, def.pos + {away.x, 0, away.y} * BOT_KINDLE_STAND)
+		return true
+	}
+	input.aim = dmath.dir2(-away)
+	if hero.action == .Kindle || tick % 2 == 0 do input.buttons += {.Interact}
+	return true
 }
 
 // The hauler's part: the lift waiting and the hoard not yet wholly on its deck, it walks to the hoard's Left handle and
@@ -375,6 +435,40 @@ nearest_minion :: proc(state: ^g.State, from: [2]f32) -> (at: [2]f32, distance: 
 	return
 }
 
+// The nearest foe: the nearest skeleton alive (nearest_minion), or the vault's King if it is nearer, alive and not
+// warded (asleep too: walking up to it wakes it), and how far it is.
+@(private = "file")
+nearest_foe :: proc(state: ^g.State, from: [2]f32) -> (at: [2]f32, distance: f32, found: bool) {
+	at, distance, found = nearest_minion(state, from)
+	boss := &state.boss
+	if boss.stage == 0 || boss.warded do return
+	king := sim.get(&state.elites, boss.elite)
+	if king == nil || king.phase == .Dying do return
+	if apart := dmath.length(king.pos.xz - from); !found || apart < distance do at, distance, found = king.pos.xz, apart, true
+	return
+}
+
+// Whether the King is winding up a blow the bot stands in: its slam (within its ring and BOT_SLAM_BERTH more) or its
+// cleave (within its reach and BOT_SLAM_BERTH more), and the way out of it.
+@(private = "file")
+slam_ring :: proc(state: ^g.State, from: [2]f32) -> (away: [2]f32, inside: bool) {
+	if state.boss.stage == 0 do return
+	king := sim.get(&state.elites, state.boss.elite)
+	if king == nil do return
+	reach: f32
+	#partial switch king.phase {
+	case .Slam:
+		reach = g.BOSS_SLAM_RADIUS
+	case .Attack:
+		reach = g.BOSS_CLEAVE_REACH
+	case:
+		return
+	}
+	offset := from - king.pos.xz
+	if dmath.length(offset) > reach + BOT_SLAM_BERTH do return
+	return dmath.normalize(offset) if offset != {} else {0, 1}, true
+}
+
 // The nearest ally down within BOT_RESCUE_REACH of `from` that nobody heaves (the bot in `slot` is not its own ally).
 @(private = "file")
 downed_ally :: proc(state: ^g.State, slot: int, from: [2]f32) -> (at: [3]f32, near: bool) {
@@ -387,12 +481,14 @@ downed_ally :: proc(state: ^g.State, slot: int, from: [2]f32) -> (at: [3]f32, ne
 	return
 }
 
-// The nearest live elite on its feet (awake or asleep, not rising or heaved) within `reach` of `from`.
+// The nearest live elite on its feet (awake or asleep, not rising or heaved) within `reach` of `from`; never the King,
+// whom no heave takes.
 @(private = "file")
 nearest_elite :: proc(state: ^g.State, from: [2]f32, reach: f32) -> (at: [3]f32, near: bool) {
 	nearest := reach
 	elites := sim.iterate(&state.elites)
 	for elite in sim.next(&elites) {
+		if elite.kind == .King do continue
 		if elite.phase != .Idle && elite.phase != .Chase && elite.phase != .Attack && elite.phase != .Retreat do continue
 		if apart := dmath.length(elite.pos.xz - from); apart < nearest do at, nearest, near = elite.pos, apart, true
 	}
