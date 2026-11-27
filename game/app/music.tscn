@@ -1,0 +1,24 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/app/music.gd" id="music"]
+[ext_resource type="AudioStream" path="res://assets/kenney/music_jingles/jingles_PIZZI07.ogg" id="run_began"]
+[ext_resource type="AudioStream" path="res://assets/kenney/music_jingles/jingles_PIZZI03.ogg" id="boss_stage"]
+[ext_resource type="AudioStream" path="res://assets/kenney/music_jingles/jingles_PIZZI01.ogg" id="victory"]
+[ext_resource type="AudioStream" path="res://assets/kenney/music_jingles/jingles_PIZZI12.ogg" id="run_lost"]
+[ext_resource type="AudioStream" path="res://assets/kenney/music_jingles/jingles_PIZZI09.ogg" id="life_lost"]
+[ext_resource type="AudioStream" path="res://assets/kenney/music_jingles/jingles_PIZZI14.ogg" id="descent"]
+[ext_resource type="AudioStream" path="res://assets/kenney/rpg_audio/creak2.ogg" id="creak"]
+[ext_resource type="AudioStream" path="res://assets/kenney/rpg_audio/metalPot1.ogg" id="pot_1"]
+[ext_resource type="AudioStream" path="res://assets/kenney/rpg_audio/metalPot2.ogg" id="pot_2"]
+
+[node name="Music" type="Node"]
+script = ExtResource("music")
+stingers = Dictionary[StringName, AudioStream]({
+&"boss_stage": ExtResource("boss_stage"),
+&"descent": ExtResource("descent"),
+&"life_lost": ExtResource("life_lost"),
+&"run_began": ExtResource("run_began"),
+&"run_lost": ExtResource("run_lost"),
+&"victory": ExtResource("victory")
+})
+ambience = Array[AudioStream]([ExtResource("creak"), ExtResource("pot_1"), ExtResource("pot_2")])

@@ -4,7 +4,7 @@ extends RefCounted
 ## checks, so a broken promise between the app's parts fails the suite instead of a player's evening.
 ##
 ## - The autoloads stand in the order they need each other: LibraryCheck first (it must run without the library),
-##   then Settings, Sfx and Prompts, then Game, which uses them. The buses the code names exist.
+##   then Settings, Sfx, Music and Prompts, then Game, which uses them. (The buses are the audio checks'.)
 ## - A pad can press and back out: ui_accept and ui_cancel each carry a pad button.
 ## - The project's theme is game/ui/theme.tres, and every type variation a scene names is in it: Godot silently draws a
 ##   missing one with the plain type's look.
@@ -31,8 +31,7 @@ extends RefCounted
 ##
 ## Each problem is reported through the validate run's log capture, named by the file it is in.
 
-const AUTOLOADS: Array[StringName] = [&"LibraryCheck", &"Settings", &"Sfx", &"Prompts", &"Game"]
-const BUSES: Array[StringName] = [&"Master", &"Interface"]
+const AUTOLOADS: Array[StringName] = [&"LibraryCheck", &"Settings", &"Sfx", &"Music", &"Prompts", &"Game"]
 const PAD_ACTIONS: Array[StringName] = [&"ui_accept", &"ui_cancel"]
 const THEME: String = "res://game/ui/theme.tres"
 const HUD: String = "res://game/play/hud.tscn"
@@ -80,9 +79,6 @@ func _check_project() -> void:
 			found.append(StringName(property_name.trim_prefix("autoload/")))
 	if found != AUTOLOADS:
 		_problem("the autoloads are %s, want %s in that order" % [found, AUTOLOADS], "res://project.godot")
-	for bus: StringName in BUSES:
-		if AudioServer.get_bus_index(bus) < 0:
-			_problem("no audio bus %s, which the code plays on" % bus, "res://game/app/bus_layout.tres")
 	for action: StringName in PAD_ACTIONS:
 		var pad: bool = InputMap.action_get_events(action).any(func(e: InputEvent) -> bool:
 			return e is InputEventJoypadButton and e.device == -1)
@@ -485,10 +481,9 @@ func _write_settings_file(text: String) -> void:
 
 ## What a Settings applies to the engine, to put back after the check's ones did.
 func _engine_values() -> Dictionary:
-	var buses: Dictionary = {}
-	for bus: StringName in BUSES:
-		var index: int = AudioServer.get_bus_index(bus)
-		buses[bus] = [AudioServer.get_bus_volume_db(index), AudioServer.is_bus_mute(index)]
+	var buses: Array = []
+	for index: int in AudioServer.bus_count:
+		buses.append([AudioServer.get_bus_volume_db(index), AudioServer.is_bus_mute(index)])
 	return {"max_fps": Engine.max_fps, "scale_3d": _tree_root.scaling_3d_scale, "msaa": _tree_root.msaa_3d,
 		"content_scale": _tree_root.content_scale_factor, "buses": buses}
 
@@ -498,10 +493,9 @@ func _restore_engine_values(values: Dictionary) -> void:
 	_tree_root.scaling_3d_scale = values["scale_3d"]
 	_tree_root.msaa_3d = values["msaa"]
 	_tree_root.content_scale_factor = values["content_scale"]
-	var buses: Dictionary = values["buses"]
-	for bus: StringName in BUSES:
-		var index: int = AudioServer.get_bus_index(bus)
-		var state: Array = buses[bus]
+	var buses: Array = values["buses"]
+	for index: int in buses.size():
+		var state: Array = buses[index]
 		var volume_db: float = state[0]
 		var mute: bool = state[1]
 		AudioServer.set_bus_volume_db(index, volume_db)

@@ -2,8 +2,18 @@ extends UnifiedValidate
 ## Crypt Crew's project check: unified's UnifiedValidate (every script compiles typed, every scene loads, the main
 ## scene runs), plus the game's own contract: its art, the rules docs/ART.md sets for assets, materials, characters,
 ## clips and kit parts (ArtChecks), and its app layer, the promises between the autoloads, the theme, the HUD and the
-## menus (AppChecks).
+## menus (AppChecks); then, once the main scene has run (they need the autoloads and frames), its audio: the buses,
+## Sfx's cap and cancels, Sounds' event-state rule and Music's tracks (AudioChecks).
 
+
+func _run() -> void:
+	await super()
+	if failed():
+		return
+	var audio := AudioChecks.new(self)
+	await audio.run()
+	step("audio: %s" % ("ok" if audio.problems == 0 else "%d problem(s)" % audio.problems))
+	result["audio"] = audio.problems
 
 ## The scene the game plays in: the main scene is the menu, so the play scene is named here for the checks that hold
 ## the play scene to what a background load needs (no preload()) and to its MultiMesh views.

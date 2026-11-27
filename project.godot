@@ -27,6 +27,7 @@ buses/default_bus_layout="res://game/app/bus_layout.tres"
 LibraryCheck="*res://game/app/library_check.tscn"
 Settings="*res://game/app/settings.gd"
 Sfx="*res://game/app/sfx.tscn"
+Music="*res://game/app/music.tscn"
 Prompts="*res://game/app/prompts.tscn"
 Game="*res://game/app/game.tscn"
 

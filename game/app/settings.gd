@@ -194,6 +194,21 @@ const UI_SCALE_FLOOR: float = 0.6
 		hints = value
 		_changed(&"hints")
 
+# The audio section again (the file's section is the category's name): the mix's own buses (bus_layout.tres).
+@export_category("audio")
+## The music: its tracks, its stingers and the room's tone (the Music bus).
+@export_range(0.0, 1.0, 0.05) var music_volume: float = 0.6:
+	set(value):
+		music_volume = value
+		_set_bus_volume(&"Music", value)
+		_changed(&"music_volume")
+## The world's sounds: the fights, the mechanisms, the footsteps and the crypt's noises (the World bus).
+@export_range(0.0, 1.0, 0.05) var effects_volume: float = 0.8:
+	set(value):
+		effects_volume = value
+		_set_bus_volume(&"World", value)
+		_changed(&"effects_volume")
+
 ## The file read and written: PATH, or `--settings-path=`. Set before the node enters the tree to use another.
 var path: String = PATH
 ## Nothing is read, written or applied at load (`--no-settings`). Set before the node enters the tree to change it.

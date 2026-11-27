@@ -20,6 +20,7 @@
 [ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/coin.gltf" id="coin_model"]
 [ext_resource type="Shader" path="res://game/views/coin.gdshader" id="coin_shader"]
 [ext_resource type="Material" path="res://game/materials/dungeon.tres" id="dungeon"]
+[ext_resource type="Script" path="res://game/play/sounds.gd" id="sounds"]
 
 [sub_resource type="StandardMaterial3D" id="bolt_glow"]
 transparency = 1
@@ -130,3 +131,8 @@ environment = ExtResource("crypt")
 
 [node name="Menus" type="CanvasLayer" parent="."]
 layer = 10
+
+[node name="Sounds" type="Node" parent="." node_paths=PackedStringArray("menus", "hud")]
+script = ExtResource("sounds")
+menus = NodePath("../Menus")
+hud = NodePath("../Hud")
