@@ -616,8 +616,13 @@ func _hide_connecting() -> void:
 ## script first preloads on a worker thread is reported as leaked at exit, so the play scene's scripts load() what
 ## they need (game/tools/validate.gd names the play scene, and the check holds them to it). Only while the menu is the
 ## scene: a tool script run with `-s` (uni bake, uni tool) has no main scene and may quit at any frame, which would
-## cut the load off mid-parse.
+## cut the load off mid-parse. Never headless: Godot 4.7's dummy renderer keeps its textures in an owner that isn't
+## thread-safe, so a texture the load makes on its thread while the main thread makes one (a glyph's, a UI image's)
+## can corrupt it ("Parameter "t" is null" in texture_2d_initialize, a texture leaked at exit); headless has no
+## shaders to warm up either, and the switch loads the scene itself.
 func _preload_play_scene() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
 	for i: int in 2:  # the menu's first frames first
 		await get_tree().process_frame
 	var idle: bool = ResourceLoader.load_threaded_get_status(PLAY_SCENE) == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE
