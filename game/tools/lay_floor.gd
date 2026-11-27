@@ -17,9 +17,11 @@ extends UnifiedTool
 ##
 ## Cells: `.` a stone tile, `r` stone with rocks, `g` a grate, `s` a spike tile (a trap marker goes on it), `d` dirt,
 ## `w` wood, `,` the graveyard's dirt, `L` a lift's shaft (the floor there left out: the lift marker goes on it), and a
-## space for none. Edges: `-` or `|` a wall, `D` a doorway, `f` a fence, and a space for open floor between two cells;
-## an edge between a cell and none is a wall unless drawn as something else. The grid's lines are on multiples of 4 m,
-## its middle line (rounded down) through the origin.
+## space for none. Edges: `-` or `|` a wall, `D` a doorway, `f` a fence, `b` a barrier (low cover, for a room's side
+## toward the camera: at the floor's rim it also gets a `Rim`, an invisible wall to a wall's height above it, so a throw
+## over it never leaves the level), `o` nothing even at the floor's rim (where a part the author places closes it, as the
+## hub's crypt), and a space for open floor between two cells; an edge between a cell and none is a wall unless drawn as
+## something else. The grid's lines are on multiples of 4 m, its middle line (rounded down) through the origin.
 
 ## The scene root's metadata holding the map the floor was laid from.
 const MAP_META := &"lay_floor_map"
@@ -44,10 +46,16 @@ const EDGES: Dictionary[String, String] = {
 	"|": "res://game/levels/parts/crypt/wall.tscn",
 	"D": "res://game/levels/parts/crypt/wall_doorway.tscn",
 	"f": "res://game/levels/parts/hub/fence.tscn",
+	"b": "res://game/levels/parts/crypt/barrier.tscn",
+	"o": "",
 }
+## A barrier's edge at the floor's rim: its Rim's box (a wall's height above the barrier's collider, as thick as it).
+const RIM_SIZE := Vector3(CELL, 2.9, 0.5)
+const RIM_BOTTOM := 1.1
 
 var _lines: PackedStringArray
 var _parts: Dictionary[String, PackedScene] = {}
+var _rim_shape: BoxShape3D
 
 
 func _run() -> void:
@@ -135,18 +143,24 @@ func _lay(scene: Node3D, map: String) -> void:
 	for row in rows + 1:  # the edges along x, at the grid's lines across z
 		for column in columns:
 			var at := Vector3(west + (column + 0.5) * CELL, 0, north + row * CELL)
-			var part := _edge(_at(2 * row, 2 * column + 1), _cell(row - 1, column), _cell(row, column))
+			var drawn := _at(2 * row, 2 * column + 1)
+			var part := _edge(drawn, _cell(row - 1, column), _cell(row, column))
 			if part != "":
 				_place(scene, laid, part, "Edge_%d_%d_x" % [column, row], Transform3D(Basis.IDENTITY, at))
 				walls += 1
+				if drawn == "b" and _cell(row - 1, column) != _cell(row, column):
+					_rim(scene, laid, "Rim_%d_%d_x" % [column, row], Transform3D(Basis.IDENTITY, at))
 	var across := Basis(Vector3(0, 0, -1), Vector3.UP, Vector3(1, 0, 0))  # a quarter turn about y: along z
 	for row in rows:  # the edges along z, at the grid's lines across x
 		for column in columns + 1:
 			var at := Vector3(west + column * CELL, 0, north + (row + 0.5) * CELL)
-			var part := _edge(_at(2 * row + 1, 2 * column), _cell(row, column - 1), _cell(row, column))
+			var drawn := _at(2 * row + 1, 2 * column)
+			var part := _edge(drawn, _cell(row, column - 1), _cell(row, column))
 			if part != "":
 				_place(scene, laid, part, "Edge_%d_%d_z" % [column, row], Transform3D(across, at))
 				walls += 1
+				if drawn == "b" and _cell(row, column - 1) != _cell(row, column):
+					_rim(scene, laid, "Rim_%d_%d_z" % [column, row], Transform3D(across, at))
 	if failed():
 		return
 	if tiles == 0:
@@ -178,7 +192,24 @@ func _edge(drawn: String, one: bool, other: bool) -> String:
 	if not EDGES.has(drawn):
 		fail("an edge is `%s`, no edge kind" % drawn)
 		return ""
-	return EDGES[drawn]
+	return EDGES[drawn]  # "" for `o`: nothing
+
+
+## A Rim over a barrier at the floor's rim, at `at` (the barrier's): an invisible wall from the barrier's collider up to a
+## wall's height (docs/review.md: a throw over low cover at a level's edge fell out of the level). Not a kit part: it has
+## no model to hold a collider to.
+func _rim(scene: Node3D, parent: Node3D, rim_name: String, at: Transform3D) -> void:
+	if _rim_shape == null:
+		_rim_shape = BoxShape3D.new()
+		_rim_shape.size = RIM_SIZE
+	var body := StaticBody3D.new()
+	body.transform = at
+	body.set_meta(&"unified_category", 2)  # a wall: blocks walking, sight and shots
+	_add(scene, parent, body, rim_name)
+	var shape := CollisionShape3D.new()
+	shape.shape = _rim_shape
+	shape.position = Vector3(0, RIM_BOTTOM + RIM_SIZE.y / 2, 0)
+	_add(scene, body, shape, "Shape")
 
 
 ## An instance of the part at `path`, named and placed under `parent`.
