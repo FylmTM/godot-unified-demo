@@ -11,6 +11,10 @@ extends Node3D
 ## Its focus never sinks below the walking surface (y = 0 on every floor: docs/ART.md): heroes below it ride the
 ## lift down its shaft, and a focus following them would put the floor's edge between the camera and the party. Held at
 ## the rim, the camera pitches down toward PITCH_DEEP_DEG as they go deeper, so it looks into the shaft at the deck.
+##
+## The world's sounds are heard from the rig, not the camera: its Listener (the current AudioListener3D) stands at the
+## focus on the floor, among the heroes, turned with the camera's yaw, so a sound pans by where it is on the screen and
+## fades by how far it is from the party, not from a camera many metres up.
 
 ## The camera's angle down from the horizon, and the steepest it pitches to look down a shaft at heroes DEEP_AT metres
 ## or more below the walking surface.
@@ -52,6 +56,11 @@ var _shake: float = 0.0
 var _shake_time: float = 0.0
 
 @onready var _camera: Camera3D = $Camera3D
+@onready var _listener: AudioListener3D = $Listener
+
+
+func _ready() -> void:
+	_listener.make_current()
 
 
 func _process(delta: float) -> void:
@@ -89,6 +98,7 @@ func _process(delta: float) -> void:
 	var jolt := Vector3(sin(t * 47.0), sin(t * 39.0 + 1.3), sin(t * 53.0 + 2.1)) * (_shake * _shake * SHAKE_MAX)
 	_camera.position = focus + Vector3(0, sin(pitch), cos(pitch)) * _distance + jolt
 	_camera.look_at(global_position + focus + jolt * 0.5, Vector3.UP)
+	_listener.global_basis = Basis(Vector3.UP, _camera.global_rotation.y)
 
 
 ## Jolts the camera by `amount` (0 to 1; a stronger shake than the one running replaces it).

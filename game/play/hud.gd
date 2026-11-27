@@ -285,6 +285,13 @@ func _place_revive_prompts() -> void:
 		(prompts[i] as Control).visible = false
 
 
+## Local hero `player`'s hurt (the sim's Event_Hero_Hurt, EMITTED): its plate's HP bar pulses.
+func pulse_hurt(player: int) -> void:
+	for plate: Node in _heroes.get_children():
+		if plate is HeroPlate and (plate as HeroPlate).visible and (plate as HeroPlate).player() == player:
+			(plate as HeroPlate).pulse()
+
+
 ## The pause menu opened (`open`) or closed: the co-op pause's banner hides under it.
 func set_menu_open(open: bool) -> void:
 	_menu_open = open

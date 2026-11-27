@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://game/views/brazier.gd" id="brazier"]
 [ext_resource type="PackedScene" path="res://game/fx/fire.tscn" id="fire"]
+[ext_resource type="PackedScene" path="res://game/fx/smoke_wisp.tscn" id="smoke"]
 
 [node name="Brazier" type="Node3D"]
 script = ExtResource("brazier")
@@ -13,3 +14,6 @@ kind = "brazier"
 transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, 0, 3, 0)
 visible = false
 strength = 1.6
+
+[node name="Smoke" parent="." instance=ExtResource("smoke")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.9, 0)

@@ -14,6 +14,9 @@
 [ext_resource type="PackedScene" path="res://game/characters/skeletons/rogue.tscn" id="12_uldh0"]
 [ext_resource type="PackedScene" path="res://game/characters/skeletons/mage.tscn" id="13_x830j"]
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/floor_tile_large.tscn" id="14_floor"]
+[ext_resource type="PackedScene" path="res://game/levels/vault.tscn" id="vault"]
+[ext_resource type="PackedScene" path="res://game/fx/fire.tscn" id="fire"]
+[ext_resource type="PackedScene" path="res://game/play/effects.tscn" id="effects"]
 
 [node name="Lookdev" type="Node3D" unique_id=1967373511]
 script = ExtResource("1_nfcuv")
@@ -83,6 +86,25 @@ transform = Transform3D(0.90630776, 0, -0.42261827, 0, 1, 0, 0.42261827, 0, 0.90
 
 [node name="HeroLight" parent="Cast/HubMage" unique_id=327529875 instance=ExtResource("6_p30y0")]
 
+[node name="VaultKnight" parent="Cast" instance=ExtResource("5_u5u4w")]
+transform = Transform3D(0.9396926, 0, 0.34202012, 0, 1, 0, -0.34202012, 0, 0.9396926, 0.5, 0, 87.5)
+
+[node name="HeroLight" parent="Cast/VaultKnight" instance=ExtResource("6_p30y0")]
+
+[node name="VaultMage" parent="Cast" instance=ExtResource("8_me4gl")]
+transform = Transform3D(0.90630776, 0, -0.42261827, 0, 1, 0, 0.42261827, 0, 0.90630776, 3.5, 0, 88.5)
+
+[node name="HeroLight" parent="Cast/VaultMage" instance=ExtResource("6_p30y0")]
+
+[node name="VaultMinion" parent="Cast" instance=ExtResource("10_cc424")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 1.5, 0, 84)
+
+[node name="VaultMinion2" parent="Cast" instance=ExtResource("10_cc424")]
+transform = Transform3D(-0.8660254, 0, -0.5, 0, 1, 0, 0.5, 0, -0.8660254, -1.5, 0, 83.5)
+
+[node name="VaultWarrior" parent="Cast" instance=ExtResource("11_db516")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 4.5, 0, 83)
+
 [node name="ParityStage" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 0, 0)
 
@@ -145,3 +167,94 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.4, 0, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.8, 0, 0)
 
 [node name="Crowd" type="MultiMeshInstance3D" parent="ParityStage"]
+
+[node name="VaultStage" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 80)
+
+[node name="Vault" parent="VaultStage" instance=ExtResource("vault")]
+
+[node name="Fires" type="Node3D" parent="VaultStage"]
+
+[node name="Fire1" parent="VaultStage/Fires" instance=ExtResource("fire")]
+transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, -8, 3, -8)
+strength = 1.6
+
+[node name="Fire2" parent="VaultStage/Fires" instance=ExtResource("fire")]
+transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, 12, 3, -8)
+strength = 1.6
+
+[node name="Fire3" parent="VaultStage/Fires" instance=ExtResource("fire")]
+transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, -8, 3, 12)
+strength = 1.6
+
+[node name="Fire4" parent="VaultStage/Fires" instance=ExtResource("fire")]
+transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, 12, 3, 12)
+strength = 1.6
+
+[node name="FxStage" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -80)
+
+[node name="Key" type="DirectionalLight3D" parent="FxStage"]
+transform = Transform3D(0.8660254, -0.38302222, 0.3213938, 0, 0.64278764, 0.76604444, -0.5, -0.66341394, 0.5566704, 0, 6, 0)
+light_color = Color(1, 0.85, 0.7, 1)
+light_energy = 0.3
+shadow_enabled = true
+
+[node name="Floor1" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, -4)
+
+[node name="Floor2" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 0)
+
+[node name="Floor3" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 4)
+
+[node name="Floor4" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -4)
+
+[node name="Floor5" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0)
+
+[node name="Floor6" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 4)
+
+[node name="Floor7" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -4)
+
+[node name="Floor8" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0)
+
+[node name="Floor9" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 4)
+
+[node name="Floor10" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, -4)
+
+[node name="Floor11" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 0)
+
+[node name="Floor12" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 4)
+
+[node name="Floor13" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, -2)
+
+[node name="Floor14" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 2)
+
+[node name="Floor15" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, -2)
+
+[node name="Floor16" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 2)
+
+[node name="Floor17" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 0, -2)
+
+[node name="Floor18" parent="FxStage" instance=ExtResource("14_floor")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 0, 2)
+
+[node name="Sheet" parent="FxStage" instance=ExtResource("effects")]
+
+[node name="Boss" parent="FxStage" instance=ExtResource("effects")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 0)

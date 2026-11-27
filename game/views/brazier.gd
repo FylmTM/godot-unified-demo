@@ -4,8 +4,9 @@ extends Node3D
 ## level's stand, at whose foot the host poses this root). Lit, the fire burns (a shadowed light: the braziers are the
 ## lights a room is built round, docs/ART.md, Lighting), flaring up over FLARE_S from when it lit; unlit, an ember grows
 ## in the bowl as it is kindled. Both are functions of the view data and the shown time, so a rollback or a replay seek
-## shows the fire as the state has it. Its whoosh is the play scene's, on the sim's Event_Brazier; the "[E] Light"
-## prompt is the HUD's (Hud_Hero.kindle).
+## shows the fire as the state has it; a lit fire's thin smoke rises over it while the data says it is lit. Its
+## lighting's embers and its going out's smoke are the Effects', on the sim's Event_Brazier; the "[E] Light" prompt is
+## the HUD's (Hud_Hero.kindle).
 
 ## How long a fire takes to flare up from nothing once lit (seconds).
 const FLARE_S: float = 0.35
@@ -21,6 +22,7 @@ var _fire_energy: float = 0.0
 
 @onready var _fire: Fire = $Fire
 @onready var _light: Flicker = $Fire/Light
+@onready var _smoke: GPUParticles3D = $Smoke
 
 
 func _ready() -> void:
@@ -39,4 +41,6 @@ func _process(_delta: float) -> void:
 		size = EMBER_SCALE * kindled
 		_light.base_energy = _fire_energy * EMBER_LIGHT * kindled
 	_fire.visible = size > 0.0
+	if _smoke.emitting != data.lit:
+		_smoke.emitting = data.lit
 	_fire.scale = _fire_scale * maxf(size, 0.01)

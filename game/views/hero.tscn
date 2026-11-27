@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://game/characters/heroes/rogue.tscn" id="rogue"]
 [ext_resource type="PackedScene" path="res://game/fx/hero_light.tscn" id="light"]
 [ext_resource type="Shader" path="res://game/fx/ground_ring.gdshader" id="ground_ring"]
+[ext_resource type="PackedScene" path="res://game/fx/dust_trail.tscn" id="dust_trail"]
 
 [sub_resource type="ShaderMaterial" id="revive_ring"]
 render_priority = 1
@@ -33,3 +34,6 @@ visible = false
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.04, 0)
 cast_shadow = 0
 mesh = SubResource("revive_quad")
+
+[node name="Trail" parent="." instance=ExtResource("dust_trail")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)

@@ -21,7 +21,8 @@ extends Node3D
 ## character and shows only its light and a ring on the floor under the pelvis as wide as the reach an ally revives
 ## from (Unified.constants.revive_range), which fills as its revive comes on (ground_ring.gdshader, turned with the
 ## world, not the hero), and none while it is heaved (no ally tends it then); one just revived blinks while its grace
-## lasts.
+## lasts. A Knight's charge and a Rogue's dodge kick up a trail of dust for as long as the view data says the hero is
+## charging or rolling (its Trail emits then), so a rollback or a seek never leaves a trail running.
 
 ## A standing hero walks from this speed, and a walking one stands below the lower (metres per second).
 const WALK_FROM: float = 0.5
@@ -74,6 +75,7 @@ var _dodge_length: float = 0.0
 
 @onready var _view: UnifiedView = $UnifiedView
 @onready var _revive_ring: MeshInstance3D = $ReviveRing
+@onready var _trail: GPUParticles3D = $Trail
 
 
 func _ready() -> void:
@@ -112,6 +114,9 @@ func _process(_delta: float) -> void:
 	_rig.rotation.y = ROGUE_SHOT_TURN if shooting else 0.0
 	_rig.visible = not data.ragdoll and (not data.grace or fposmod(now, 2.0 * GRACE_BLINK_TICKS) < GRACE_BLINK_TICKS)
 	_show_revive_ring()
+	var dusting: bool = data.action == EnumAction.CHARGE or data.action == EnumAction.ROLL
+	if _trail.emitting != dusting:
+		_trail.emitting = dusting
 
 
 ## While the hero is down and not heaved: the ring round it, filled as far as its revive has come, its arc starting up

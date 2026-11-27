@@ -8,12 +8,16 @@ extends PanelContainer
 ##
 ## The hints show as Settings.hints says: Briefly (the default) shows them for HINTS_S after the plate's player joins or
 ## turns to another kind of device (a pad's family, or the keyboard), so four players' plates don't cover the crypt;
-## Always and Off as they say. The HUD gives each local hero a plate, in slot order.
+## Always and Off as they say. The HUD gives each local hero a plate, in slot order. A hurt pulses the HP bar (pulse):
+## bright, then back over PULSE_S, on the bar's own modulate (never the theme's styles).
 
 ## How long the hints stay up after a join or a change of device, in seconds (Settings.Hints.BRIEFLY).
 const HINTS_S: float = 6.0
 ## How a downed hero's plate is tinted: still readable, plainly out of the fight.
 const DOWN_TINT: Color = Color(1, 1, 1, 0.55)
+## How a hurt pulses the HP bar: its tint at the blow, easing back to none over PULSE_S seconds.
+const PULSE_TINT: Color = Color(2.2, 1.5, 1.5, 1)
+const PULSE_S: float = 0.3
 ## How the ability's pip is tinted while its cooldown runs: the fill dimmer than a ready one's.
 const PIP_COOLING: Color = Color(0.6, 0.6, 0.6, 0.8)
 ## What each class's ability does, as its hint says (EnumClass).
@@ -27,6 +31,8 @@ var _family: int = -1
 var _hints_until: int = 0
 ## The local player whose hero this plate shows.
 var _local: int = 0
+## The HP bar's pulse while it runs.
+var _pulse: Tween = null
 
 @onready var _portrait: TextureRect = %Portrait
 @onready var _who: NameLabel = %Who
@@ -77,6 +83,20 @@ func show_hero(hero: DataHudHero, local: int) -> void:
 			prompt.local = local
 			prompt.refresh()
 	_show_hints()
+
+
+## The player whose hero this plate shows (its key; -1: none yet).
+func player() -> int:
+	return _player
+
+
+## Pulses the HP bar: the hero was hurt. A pulse running starts over.
+func pulse() -> void:
+	if _pulse != null:
+		_pulse.kill()
+	_health.modulate = PULSE_TINT
+	_pulse = create_tween()
+	_pulse.tween_property(_health, ^"modulate", Color.WHITE, PULSE_S).set_ease(Tween.EASE_OUT)
 
 
 ## The player turned to another kind of device (or just arrived): the hints show for HINTS_S. Asked as the HUD's data
