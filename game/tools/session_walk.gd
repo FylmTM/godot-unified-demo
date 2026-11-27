@@ -248,9 +248,7 @@ func _walk_replay_pause() -> void:
 	if failed():
 		return
 	recordings.sort()
-	session.replay("user://recordings/" + recordings[recordings.size() - 1])
-	await wait_for(func() -> bool: return scene_is("Play") and session.mode == UnifiedSession.MODE_REPLAY, 8.0,
-		"a replay plays")
+	await _replay(recordings[recordings.size() - 1])
 	if failed():
 		return
 	await frames(10)
@@ -267,6 +265,17 @@ func _walk_replay_pause() -> void:
 	await wait_for_scene("Menu", 5.0)
 	expect(not overlay("Dialog").visible and flow_name() == "MENU", "Leave goes to the title, no question")
 	step("the pause menu over a replay")
+
+
+## Replays the recording in user://recordings/`folder` and waits until it shows its first frame. The mode says
+## REPLAY from the request on, but the last game's session is still leaving then, and until the replay's first frame
+## the session's tick is that game's last (the replay's own last tick, when it is that game's recording) and its replay
+## ticks are 0: a seek read from them goes nowhere, and a wait for its tick passes at once.
+func _replay(folder: String) -> void:
+	session.replay("user://recordings/" + folder)
+	await wait_for(func() -> bool:
+		return scene_is("Play") and session.mode == UnifiedSession.MODE_REPLAY and session.replay_last_tick > 0, 8.0,
+		"a replay plays")
 
 
 ## A UDP port nobody uses now, for the walk's own host.

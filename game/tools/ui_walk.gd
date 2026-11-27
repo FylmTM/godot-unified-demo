@@ -556,9 +556,7 @@ func _walk_replay_purse() -> void:
 	expect(recordings.size() > 0, "the first game was recorded")
 	if failed():
 		return
-	session.replay("user://recordings/" + recordings[recordings.size() - 1])
-	await wait_for(func() -> bool: return scene_is("Play") and session.mode == UnifiedSession.MODE_REPLAY, 8.0,
-		"a replay plays")
+	await _replay(recordings[recordings.size() - 1])
 	if failed():
 		return
 	var purse: Control = find(current_scene, ^"Hud/%Purse") as Control
