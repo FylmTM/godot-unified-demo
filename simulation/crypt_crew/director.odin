@@ -291,8 +291,9 @@ place_more :: proc(t: ^Tick, rng: ^sim.Rng, count: int) -> (placed: int) {
 }
 
 // The standard benchmarks' population (sim.Game.bench_prepare), `count` minions held alive: the Setup's held crowd at
-// that count instead of the floor's cap (the crowd rows); without one, a held surge among the props (the floor's own
-// row): chasers from places within BENCH_SPREAD of slot 0's spawn, beside the floor's sleeping packs.
+// that count instead of the floor's cap (the crowd rows); without one, a held surge among the props (a floor's own
+// row): chasers from places within BENCH_SPREAD of slot 0's spawn, beside the floor's sleeping packs, and on the vault
+// the King roused (its row is the fight's).
 bench_prepare :: proc(t: ^Tick, count: int) {
 	if t.setup.crowd != .None {
 		sim.despawn_all(&t.state.minions)
@@ -312,4 +313,5 @@ bench_prepare :: proc(t: ^Tick, count: int) {
 		if _, ok := spawn_minion(t.state, spot.point, spot.poly, {0, 1}, .Chase, 0); !ok do break
 		placed += 1
 	}
+	if king := boss_elite(t); king != nil do rouse_elite(t.world.phys, king, t.time)
 }

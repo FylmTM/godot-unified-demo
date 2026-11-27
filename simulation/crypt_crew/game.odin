@@ -60,12 +60,33 @@ GAME := Game {
 	save              = save,
 	setup_check       = setup_check, // saves.odin
 	bench_prepare     = bench_prepare,
-	// The game's row (today's play on Floor 1), and the crowd's on the arena (director.odin, Crowd): what sleepers,
-	// a crowd on the move, a crowd in a fight and a fight that downs the party into ragdolls cost at the most any floor
-	// holds.
+	// The game's row (today's play on Floor 1), a row for each other floor of the run (the vault's with the King
+	// awake), and the crowd's on the arena (director.odin, Crowd): what sleepers, a crowd on the move, a crowd in a
+	// fight and a fight that downs the party into ragdolls cost at the most any floor holds.
 	benches           = {
 		{
 			what     = "floor 1: four heroes against a held surge among the props",
+			entities = BENCH_FLOOR_MINIONS,
+			ticks    = 600,
+		},
+		{
+			name     = "floor_2",
+			what     = "the Ossuary: four heroes against a held surge among its props, braziers and traps",
+			setup    = "floor=floor_2",
+			entities = BENCH_FLOOR_MINIONS,
+			ticks    = 600,
+		},
+		{
+			name     = "floor_3",
+			what     = "the Deep Halls: four heroes against a held surge, its two rollers going",
+			setup    = "floor=floor_3",
+			entities = BENCH_FLOOR_MINIONS,
+			ticks    = 600,
+		},
+		{
+			name     = "vault",
+			what     = "the vault: four heroes against the King, awake, and a held surge",
+			setup    = "floor=vault",
 			entities = BENCH_FLOOR_MINIONS,
 			ticks    = 600,
 		},
