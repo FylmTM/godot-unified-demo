@@ -41,11 +41,11 @@ CROWD_REFERENCE :: scenarios.Reference {
 	ticks         = 1200,
 	snapshot_tick = 600,
 	setup         = "floor=arena,crowd=fight",
-	checkpoints   = {0x82a9b9d599563836, 0x4017818c04cd847e, 0x7597f13fc8d1f720, 0x8ddab877ef0a16a8},
-	trace         = 0x3e612847acbda7ef,
-	snapshot      = 0xfaa4f3c4b7280216,
-	log           = 0x77b2a590b18e504b,
-	compat        = 0x70302a06f3bf9bbb,
+	checkpoints   = {0xa6427933dd0ae5d9, 0xadb16ff2ea844b39, 0xe33bd80849db98be, 0xb966230eed6f7c4c},
+	trace         = 0x727ebd4b4b62e49b,
+	snapshot      = 0xadf658894b64446d,
+	log           = 0x9d88e51e503738c5,
+	compat        = 0xe0402c11913ea3e9,
 }
 
 // What a chaser closes on a neighbour or a spawn in the tick a run seats its heroes.
