@@ -42,6 +42,11 @@ A clip is a recording the game plays back, so it is made again whenever the game
    or take a replay regression or the developer's F3 note (`./uni feedback`).
 2. `./uni render <recording> --out docs/clip.gif --from 2s --to 12s` (`--player n`: whose view; `--speed`; `.avi` for
    a video with sound, a directory for PNG frames). The window opens like any agent's; the clip is frame-exact.
+   Better for a moment that matters: cut it around the game's own event, `--at Event_Boss_Slam#2 --before 2s
+   --after 3s`, so a re-recorded session keeps its clip on that moment (`./uni headless -- replay --log
+   <recording>/inputs.unil --events --any-build`, plus `--snapshot <recording>/snapshot.unis` when it has one, lists
+   a recording's events with their ticks). `--player 1,2` shows each player's view of the same moment side by side
+   (GIF or PNG frames; each view `--size`, default the size split across them).
 3. Read a frame or two (`--out .out/frames/`, then the PNGs) before committing the GIF. Keep it short and small:
    a camera that moves changes every pixel, so a few seconds at 15 fps is a few MB.
 

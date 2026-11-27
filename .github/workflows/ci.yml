@@ -282,13 +282,6 @@ jobs:
       - name: refresh (what unified ships into the game)
         if: ${{ steps.ready.outcome == 'success' && env.UNIFIED_REF != '' }}
         run: ${{ matrix.uni }} refresh
-      # Workaround: on a fresh checkout `uni release`'s own import counts the error lines Godot prints while loading
-      # the project theme before its textures are imported; `bake --check` imports first, as every other uni
-      # command does. Only its import matters here (the levels are the godot job's, and a failed import fails the
-      # release step): on macOS bake fails on a renderer leak at exit. Waits on docs/plan.md's "uni release on a
-      # fresh checkout".
-      - name: import the project (through bake --check)
-        run: ${{ matrix.uni }} bake --check || true
       - name: release --no-eos (export, sign, zip, smoke test)
         run: ${{ matrix.uni }} release --no-eos
       - name: play the build (a crowd fight; a host and a joiner)

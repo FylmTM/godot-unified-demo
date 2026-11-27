@@ -42,9 +42,6 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
   by the gate's front (`simulation/tests/bot.odin`, gate_front). Later.
 - A packed bones view field (`godot.Bones(N)`, a PackedFloat32Array), if the ragdoll's bone Array shows in a frame's
   cost (`simulation/extension/frame.odin`, View_Ragdoll). Later.
-- `uni release` on a fresh checkout: its strict import fails on the error lines Godot prints while it loads the
-  project theme before the theme's textures are imported (exit 0). Run unified's tolerant import (`ensure_imported`)
-  first, as every other command does. CI's release job runs `./uni bake --check` first meanwhile. Milestone 10.
 - `uni bake --check` on macOS: headless Godot reports a leaked RID at exit (`RendererDummy` ... `DummyShader`) and
   bake fails on that line, though every level is current. Milestone 10.
 - A Linux x64 zip from `uni release` on Linux (the demo's macOS arm64 and Windows x64 zips are `./uni release`'s,

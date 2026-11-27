@@ -28,10 +28,11 @@ imports `unified:eos` needs `UNIFIED_EOS_SDK` and the five `UNIFIED_EOS_*` IDs (
   killed (Ctrl-C) leaves the originals in `.out/release/restore/`; the next `uni release` puts them back first.
   Never commit a stamped `project.godot` or `export_presets.cfg`.
 - **The steps**, each failing the build on any error line: the release extension (`--no-devui` builds it without the
-  dev UI), Godot's headless import and export, ad-hoc codesign on macOS (the universal template thinned to arm64), a
-  check that the export carries the version and every library the extension needs, a zip that unpacks to one folder
-  of its own name with the game inside, its `.sha256` (LF line endings, so `shasum -a 256 -c` works on macOS), and a
-  headless smoke test of the unpacked zip.
+  dev UI), Godot's headless import and export (the import cache made first, its output unread: a fresh checkout's
+  first import reports a theme's not-yet-imported textures as errors), ad-hoc codesign on macOS (the universal
+  template thinned to arm64), a check that the export carries the version and every library the extension needs, a
+  zip that unpacks to one folder of its own name with the game inside, its `.sha256` (LF line endings, so
+  `shasum -a 256 -c` works on macOS), and a headless smoke test of the unpacked zip.
 - **Downloads.** Godot is the pinned editor in the per-user cache (`./uni setup` prints where; or `UNIFIED_GODOT` at
   exactly that version); the export templates go to Godot's standard folder, only this platform's files, pulled out
   of the official archive by range requests and checked against unified's `pins.cfg`.
