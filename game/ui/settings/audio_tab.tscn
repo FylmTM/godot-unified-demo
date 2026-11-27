@@ -22,6 +22,16 @@ layout_mode = 2
 setting = &"master_volume"
 label = "Master volume"
 
+[node name="MusicVolume" parent="Margin/Rows" instance=ExtResource("setting_row")]
+layout_mode = 2
+setting = &"music_volume"
+label = "Music volume"
+
+[node name="EffectsVolume" parent="Margin/Rows" instance=ExtResource("setting_row")]
+layout_mode = 2
+setting = &"effects_volume"
+label = "Effects volume"
+
 [node name="InterfaceVolume" parent="Margin/Rows" instance=ExtResource("setting_row")]
 layout_mode = 2
 setting = &"interface_volume"

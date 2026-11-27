@@ -340,7 +340,7 @@ func leave() -> void:
 
 
 ## Quits the app: from the menus, the window's close button, and every tool run's end. Settings are written, the
-## interface goes quiet, and UnifiedSession.quit ends the session, stops every sound and quits once the audio server
+## sounds and the music go quiet, and UnifiedSession.quit ends the session, stops every sound and quits once the audio server
 ## has let go of them. It always gets through, a run that quits at its session's end included.
 func quit_app(exit_code: int = 0) -> void:
 	if _quit_asked:
@@ -349,6 +349,7 @@ func quit_app(exit_code: int = 0) -> void:
 	flow = Flow.QUITTING
 	Settings.save()
 	Sfx.close()
+	Music.close()
 	_collect_play_scene()
 	session.quit(exit_code)
 
@@ -413,6 +414,7 @@ func _on_status_changed(status: UnifiedSession.Status, detail: String) -> void:
 	if ended and _quits_at_end:
 		flow = Flow.QUITTING  # the session quits the app now: no menu, and no sound to outlive the quit
 		Sfx.close()
+		Music.close()
 		return
 	if _abandoned:
 		_abandoned = false  # what follows a left start: its goodbye, or a start queued over it
