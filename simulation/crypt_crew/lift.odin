@@ -7,7 +7,7 @@
 // while it boards puts it back to waiting. Going down, nobody takes damage and the party can't wipe: the floor is won.
 // The hub's lift, at its bottom, begins the run (begin_run, run.odin). A crypt floor's opens a boon choice there
 // (boons.odin), and once every present hero has picked, or BOON_TIMEOUT_S has run, the party descends: the depth goes
-// up, the hoard's HOARD_GOLD (as the difficulty pays it) goes in the purse, the next floor is entered (FLOOR_ORDER) with
+// up, the hoard's HOARD_GOLD (as the difficulty pays it) goes in the purse, the next floor is entered (floor_at) with
 // everyone present on it, the downed up at REVIVE_HP, and the save point is marked there. A hero arriving while the
 // lift is busy appears on its deck (lift_arrival) and is offered its boons too.
 //
@@ -17,13 +17,19 @@
 // (a character on a kinematic body is carried by it); the hoard and the downed ride it as any body on a floor does.
 package crypt_crew
 
+import "unified:dmath"
 import "unified:physics"
 import "unified:sim"
 
-// The floors a run goes down, in order: entering FLOOR_ORDER[depth % len] at each descent. Floor 1 alone until the
-// run's floors are built (docs/plan.md, milestone 7: the boss after the last).
+// The floors a run goes down, in order: begin_run enters the first, each descent the next (floor_at). The last is the
+// boss's vault, which has no lift: the run ends there, won at the King's fall or lost.
 @(rodata)
-FLOOR_ORDER := [?]Level_Id{.Floor_1}
+FLOOR_ORDER := [?]Level_Id{.Floor_1, .Floor_2, .Floor_3, .Vault}
+
+// The floor a run is on at `depth`: FLOOR_ORDER's, never past its last (no wrap: the vault ends a run).
+floor_at :: proc(depth: u32) -> Level_Id {
+	return FLOOR_ORDER[dmath.min(int(depth), len(FLOOR_ORDER) - 1)]
+}
 
 // Where the lift is in taking the party down.
 Lift_Phase :: enum u8 {
@@ -253,7 +259,7 @@ descend :: proc(t: ^Tick) {
 	sim.emit(t, Event_Choice{open = false})
 	t.state.depth += 1
 	t.state.gold += u32(run_gold(t, HOARD_GOLD))
-	enter_level(t, FLOOR_ORDER[t.state.depth % len(FLOOR_ORDER)])
+	enter_level(t, floor_at(t.state.depth))
 	arrived := sim.iterate_present(t)
 	for hero, player in sim.next(&arrived) do hero.hp = kept[sim.player_slot(t, player)]
 	mark_save_point(t)

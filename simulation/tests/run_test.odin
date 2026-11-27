@@ -289,3 +289,31 @@ each_run_deals_its_own_offers :: proc(t: ^testing.T) {
 	testing.expect(t, offers[0].boons != offers[1].boons, "the second run deals the first's cards")
 	scenarios.expect_synced(t, &run)
 }
+
+// The run goes down the crypt's floors in order and ends in the vault: floor_at gives Floor 1, the Ossuary, the Deep
+// Halls and the vault for depths 0 to 3, and the vault for every depth past it (never wrapping to Floor 1); and a
+// descent from the Deep Halls lands the party in the vault, saved there.
+@(test)
+the_run_goes_down_to_the_vault_and_no_further :: proc(t: ^testing.T) {
+	testing.expect_value(t, g.floor_at(0), g.Level_Id.Floor_1)
+	testing.expect_value(t, g.floor_at(1), g.Level_Id.Floor_2)
+	testing.expect_value(t, g.floor_at(2), g.Level_Id.Floor_3)
+	for depth in ([?]u32{3, 4, 5, 8, 100}) do testing.expect_value(t, g.floor_at(depth), g.Level_Id.Vault)
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Floor_3}, seated = 1)
+	defer headless.run_end(&run)
+	run.simulation.state.depth = 2 // two floors down already, as a run reaching the Deep Halls is
+	clear_minions(&run)
+	clear_elites(&run)
+	hold_surges(&run)
+	headless.run_command(&run, 0, g.Command_Dev_Board{})
+	for _ in 0 ..< 10 * g.TICK_HZ {
+		if run.simulation.state.lift.phase == .Choosing do break
+		headless.run_step(&run)
+	}
+	testing.expect_value(t, run.simulation.state.lift.phase, g.Lift_Phase.Choosing)
+	headless.run_command(&run, 0, g.Command_Pick_Boon{0})
+	testing.expect_value(t, run.simulation.state.level.id, g.Level_Id.Vault)
+	testing.expect_value(t, run.simulation.state.depth, 3)
+	testing.expect_value(t, run.simulation.state.saved.floor, g.Level_Id.Vault)
+	scenarios.expect_synced(t, &run)
+}

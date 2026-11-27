@@ -400,7 +400,7 @@ the_party_descends_with_the_hoard :: proc(t: ^testing.T) {
 	testing.expect_value(t, second.hp, g.REVIVE_HP)
 	testing.expect(t, sim.save_changed(run.simulation, run.simulation.tick, &saved), "the descent saves")
 	testing.expect_value(t, saved.depth, 1)
-	testing.expect_value(t, saved.floor, g.FLOOR_ORDER[1 % len(g.FLOOR_ORDER)])
+	testing.expect_value(t, saved.floor, g.Level_Id.Floor_2)
 	testing.expect_value(t, saved.gold, gold + g.HOARD_GOLD)
 	scenarios.expect_synced(t, &run)
 }

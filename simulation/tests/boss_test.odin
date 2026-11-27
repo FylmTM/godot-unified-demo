@@ -283,6 +283,78 @@ the_kings_fall_wins :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
+// The King's fall ends the run, won: the run's phase is Won, Event_Run_Ended says so, the save becomes the hub's (no run
+// to continue: the vault's save goes), and the director raises nothing more (a surge due right after the fall never
+// comes) until the party is back in the hub.
+@(test)
+the_kings_fall_ends_the_run :: proc(t: ^testing.T) {
+	run := vault()
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	testing.expect_value(t, state.saved.floor, g.Level_Id.Vault) // a run begun on the vault saved there
+	hurt_king(&run, 1)
+	to_stage(&run, 3)
+	headless.run_command(&run, 0, g.Command_Dev_Light_Braziers{})
+	hurt_king(&run, state.boss.hp_max)
+	ended, found := headless.run_last_event(&run, g.Event_Run_Ended)
+	testing.expect(t, found && ended.won && ended.depth == state.depth, "the fall ends the run, won")
+	testing.expect_value(t, state.run.phase, g.Run_Phase.Won)
+	testing.expect_value(t, state.saved.floor, g.Level_Id.Hub)
+	state.surge = {
+		start  = state.clock.time,
+		target = state.clock.time + 2,
+	}
+	headless.run_pin(&run)
+	surges := headless.run_events(&run, g.Event_Surge)
+	play(&run, {}, 2)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Surge), surges)
+	scenarios.expect_synced(t, &run)
+}
+
+// A late joiner in the vault mid-ward: a snapshot taken while the King stands warded in its second stage, a brazier lit
+// and its stage's skeletons rising, continues to the same checksums as the run it came from, its refs clean, through a
+// new hero's arrival there (the ward's need rising with it) and the braziers lit that break the ward for the three.
+@(test)
+a_late_joiner_in_the_vault_mid_ward :: proc(t: ^testing.T) {
+	run := vault(2)
+	defer headless.run_end(&run)
+	boss := &run.simulation.state.boss
+	hurt_king(&run, 1)
+	for _ in 0 ..< 3 {
+		if boss.stage >= 2 do break
+		hurt_king(&run, boss.hp_max)
+	}
+	testing.expect(t, boss.stage == 2 && boss.warded, "the King warded in its second stage")
+	light_braziers(&run, 1)
+	play(&run, {}, 0.5) // its skeletons on their way up
+	snapshot := sim.snapshot_encode(run.simulation, run.simulation.tick)
+	defer delete(snapshot)
+	late, err := headless.run_begin_from_snapshot(&g.GAME, snapshot)
+	defer headless.run_end(&late)
+	testing.expect_value(t, err, sim.Snap_Error.None)
+	testing.expect_value(t, physics.check_refs(late.simulation.world.phys, &late.simulation.state), "")
+	headless.run_seat(&run, 2, 3) // the joiner, on both
+	headless.run_seat(&late, 2, 3)
+	agreed := true
+	for tick in 0 ..< 2 * g.TICK_HZ {
+		if tick == g.TICK_HZ { 	// the three's need lit, on both
+			light_braziers(&run, int(g.BOSS_WARD_NEED[2]))
+			light_braziers(&late, int(g.BOSS_WARD_NEED[2]))
+		}
+		inputs := headless.run_inputs(&run)
+		headless.run_step(&run, &inputs)
+		headless.run_step(&late, &inputs)
+		if agreed && sim.checksum(late.simulation) != sim.checksum(run.simulation) {
+			testing.expectf(t, false, "the late joiner differs %d ticks on", tick + 1)
+			agreed = false
+		}
+	}
+	testing.expect(t, !boss.warded && !late.simulation.state.boss.warded, "the three's need broke the ward on both")
+	testing.expect_value(t, sim.present_count(&late.simulation.state.players), 3)
+	scenarios.expect_synced(t, &run)
+	scenarios.expect_synced(t, &late)
+}
+
 // A wipe in the vault starts it over: the King asleep at its marker, whole, in its first stage, unwarded, and the
 // braziers out.
 @(test)
