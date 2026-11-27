@@ -1,0 +1,45 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/play/effects.gd" id="effects"]
+[ext_resource type="PackedScene" path="res://game/fx/sparks.tscn" id="sparks"]
+[ext_resource type="PackedScene" path="res://game/fx/bolt_burst.tscn" id="bolt_burst"]
+[ext_resource type="PackedScene" path="res://game/fx/dust.tscn" id="dust"]
+[ext_resource type="PackedScene" path="res://game/fx/fireball_burst.tscn" id="fireball_burst"]
+[ext_resource type="PackedScene" path="res://game/fx/glint.tscn" id="glint"]
+[ext_resource type="PackedScene" path="res://game/fx/bone_puff.tscn" id="bone_puff"]
+[ext_resource type="PackedScene" path="res://game/fx/bone_burst.tscn" id="bone_burst"]
+[ext_resource type="PackedScene" path="res://game/fx/dust_ring.tscn" id="dust_ring"]
+[ext_resource type="PackedScene" path="res://game/fx/smoke.tscn" id="smoke"]
+[ext_resource type="PackedScene" path="res://game/fx/embers.tscn" id="embers"]
+[ext_resource type="PackedScene" path="res://game/fx/stars.tscn" id="stars"]
+[ext_resource type="PackedScene" path="res://game/fx/slam_dust.tscn" id="slam_dust"]
+[ext_resource type="PackedScene" path="res://game/fx/tracer.tscn" id="tracer"]
+[ext_resource type="Texture2D" path="res://assets/kenney/particles/scorch_02.png" id="scorch"]
+[ext_resource type="Texture2D" path="res://assets/kenney/particles/spark_04.png" id="crack"]
+[ext_resource type="Shader" path="res://game/fx/ground_ring.gdshader" id="ground_ring"]
+
+[sub_resource type="ShaderMaterial" id="shock_ring"]
+render_priority = 1
+shader = ExtResource("ground_ring")
+shader_parameter/color = Color(0.85, 0.78, 0.62, 0.7)
+shader_parameter/inner = 0.9
+shader_parameter/outer = 0.98
+
+[node name="Effects" type="Node3D"]
+script = ExtResource("effects")
+sparks_scene = ExtResource("sparks")
+burst_scene = ExtResource("bolt_burst")
+dust_scene = ExtResource("dust")
+fireball_scene = ExtResource("fireball_burst")
+glint_scene = ExtResource("glint")
+bone_puff_scene = ExtResource("bone_puff")
+bone_burst_scene = ExtResource("bone_burst")
+dust_ring_scene = ExtResource("dust_ring")
+smoke_scene = ExtResource("smoke")
+embers_scene = ExtResource("embers")
+stars_scene = ExtResource("stars")
+slam_dust_scene = ExtResource("slam_dust")
+tracer_scene = ExtResource("tracer")
+scorch_texture = ExtResource("scorch")
+crack_texture = ExtResource("crack")
+ring_material = SubResource("shock_ring")

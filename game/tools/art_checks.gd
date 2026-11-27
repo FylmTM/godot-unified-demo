@@ -2,8 +2,8 @@ class_name ArtChecks
 extends RefCounted
 ## The rules docs/ART.md sets for the game's art, checked: the godot suite's validate step runs them
 ## (game/tools/validate.gd), so a pack file nobody uses, a mesh that lost its pack's material, a character missing a
-## bone or a clip, a kit part whose collision the sim couldn't use, or a stage whose floor doesn't walk in one piece
-## fails the suite instead of the look.
+## bone or a clip, a kit part whose collision the sim couldn't use, a stage whose floor doesn't walk in one piece, or a
+## level lit by more shadowed lights than a frame affords fails the suite instead of the look.
 ##
 ## Each problem is reported through the validate run's log capture, named by the file it is in. The characters and the
 ## look-dev scene are run, not only loaded: every clip is posed on every character, and every shot is shown. The
@@ -38,6 +38,11 @@ const ANIMATIONS: String = "res://game/characters/rig_animations.tscn"
 const LOOKDEV: String = "res://game/lookdev/lookdev.tscn"
 ## The stages a game camera walks: each has one walkable floor.
 const STAGES: Array[String] = ["res://game/lookdev/crypt_stage.tscn", "res://game/lookdev/hub_stage.tscn"]
+## The most shadowed omni lights a level shows at once (docs/ART.md, Lighting): its own shadowed fires and lights,
+## and its braziers' fires (each brazier marker's view, BRAZIER_VIEW, brings its own).
+const SHADOWED_MAX: int = 4
+const BRAZIER_MARKER: String = "res://game/levels/markers/brazier.gd"
+const BRAZIER_VIEW: String = "res://game/views/brazier.tscn"
 ## The stage that places every kit part, so the level exporter sees each one.
 const KIT_STAGE: String = "res://game/lookdev/kit_stage.tscn"
 ## How far a baked crowd vertex may stand from where the minion scene puts it, in metres, at any time in a clip
@@ -80,6 +85,7 @@ func run() -> void:
 	_check_clips()
 	_check_parts()
 	_check_stages()
+	_check_shadows()
 	_check_lookdev()
 	_check_crowd()
 
@@ -431,6 +437,37 @@ func _check_placed(state: SceneState, node: int, path: String, gridded: bool) ->
 	var on_grid: bool = _on_grid(corner.x) and _on_grid(corner.z)
 	if not on_grid or not is_zero_approx(fposmod(roundf(yaw), 90.0)) or absf(yaw - roundf(yaw)) > 0.01:
 		_problem("%s is off the grid: floors and walls sit on 2 m steps, turned by 90°" % where, path)
+
+
+## No level shows more than SHADOWED_MAX shadowed omni lights: a shadowed light redraws a cube map every frame.
+func _check_shadows() -> void:
+	var view: Node = (load(BRAZIER_VIEW) as PackedScene).instantiate()
+	var per_brazier: int = _shadowed_lights(view)
+	view.free()
+	for path: String in _files(LEVELS, "tscn"):
+		var level: Node = (load(path) as PackedScene).instantiate()
+		var shadowed: int = _shadowed_lights(level)
+		for marker: Node in level.find_children("*", "Marker3D", true, false):
+			var script: Script = marker.get_script()
+			if script != null and script.resource_path == BRAZIER_MARKER:
+				shadowed += per_brazier
+		if shadowed > SHADOWED_MAX:
+			_problem("%d shadowed lights (its own and its braziers'): a level affords %d" % [shadowed, SHADOWED_MAX],
+				path)
+		level.free()
+
+
+## The shadowed omni and spot lights under `node`: a Fire's light by its casts_shadows (it sets the light's shadow when
+## it is ready), any other by its own.
+func _shadowed_lights(node: Node) -> int:
+	var count: int = 0
+	for found: Node in node.find_children("*", "Light3D", true, false):
+		if found is DirectionalLight3D:
+			continue
+		var fire := found.get_parent() as Fire
+		if fire.casts_shadows if fire != null else (found as Light3D).shadow_enabled:
+			count += 1
+	return count
 
 
 ## The look-dev scene runs: every shot shows, and every cast member poses, each pose naming a member that exists.

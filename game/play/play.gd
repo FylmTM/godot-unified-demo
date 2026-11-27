@@ -2,24 +2,20 @@ class_name Play
 extends Node3D
 ## The play scene: the level root the session instances the floor under (its meshes are the crypt), the views root it
 ## spawns the heroes and the elites under, the bolts' MultiMeshes (the heroes' and the skeleton Mages'), the local
-## players' devices (Couch), the camera, the effects, the crypt's environment and the HUD. The session is the app's
-## (Game's), already running when this scene loads: this hands it the two roots, which leave with the scene. It turns
-## the sim's events into effects as soon as they are predicted (EMITTED): sparks on a hit (a skeleton's, an elite's, a
-## bone bolt's; and dust where a guard breaks), a bolt's burst, a crossbow's tracer (from the crossbow as drawn to where
-## the sim's shot ended), dust where a prop lands hard, and a shake when a local hero is hurt; a shield's clang and
-## sparks, a fireball's blast (with a shake), dust and a smaller shake where a heaved body lands, a hero going down; a
-## plate's click, a gate's creak as it opens and latch as it shuts, a barricade's crack and dust, a trap's slice; the
-## hoard's thud as it is put down, and the deck's as it stops at the shaft's bottom; a brazier's whoosh as it lights;
-## the boss's roar and a long shake as a stage begins, its slam's crash, dust and shake, and its ward's shatter. What
-## must be certain shows once CONFIRMED: a revive's chime and its toast ("X revived Y"), the wipe's banner (the HUD),
-## the descent's toast, and the King's fall's toast. A coin
-## picked up glints as predicted too (its coin gone with it, as the state has it); the purse counts it once confirmed
-## (the HUD's Purse), and the hoard's gold once the descent is. The crypt fades to black and back as the verified level
-## changes (the HUD's fade).
+## players' devices (Couch), the camera, the effects, the light, the wall cutaway and the HUD. The session is the app's
+## (Game's), already running when this scene loads: this hands it the two roots, which leave with the scene.
 ##
-## The run: the crypt's environment gives way to the graveyard's moonlight in the hub (hub_environment, as the level
-## changes); a shrine turned clicks as predicted; once CONFIRMED, a run's beginning and a life lost say so in a toast
-## (and the HUD counts the felled anew), and a run's end shows its results (the HUD's).
+## It hands every sim event, in each of its states, to the Effects, which show it by the event-state rule (Effects'
+## header), and adds what the scene itself owns: a shake as a local hero is hurt (and its plate's HP bar pulses), as a
+## fireball bursts, a heaved body lands, the boss's slam strikes and a stage begins (on EMITTED, as soon as predicted);
+## and what must be certain, once CONFIRMED: a revive's toast ("X revived Y"), the wipe's banner (the HUD), the
+## descent's toast, and the King's fall's toast. A coin's pickup counts in the purse once confirmed (the HUD's Purse),
+## and the hoard's gold once the descent is. The crypt fades to black and back as the verified level changes (the
+## HUD's fade), and the new floor gets its light (Lighting: its Environment, the vault's ambient following its lit
+## braziers) and its walls to cut away (Cutaway); the last floor's effects end with it.
+##
+## The run: once CONFIRMED, a run's beginning and a life lost say so in a toast (and the HUD counts the felled anew),
+## and a run's end shows its results (the HUD's).
 ##
 ## The mouse's aim reaches the sim through it, as only a script knows it: just before the session samples (its
 ## input_wanted, so this frame's sample takes it), the cursor's ray meets a plane at chest height, and the direction
@@ -33,12 +29,6 @@ extends Node3D
 const AIM_PLANE_HEIGHT: float = 1.2
 ## A cursor this close to the hero (metres, on the floor) doesn't aim: its direction would swing wildly.
 const AIM_DEAD_RADIUS: float = 0.5
-## Where on a skeleton its hit's sparks fly from, above its feet.
-const HIT_HEIGHT: float = 1.1
-## Where on an elite its hit's sparks fly from, above its feet (a Warrior's shield, struck).
-const ELITE_HIT_HEIGHT: float = 1.3
-## A prop landing faster than this (metres per second) raises dust.
-const DUST_SPEED: float = 5.0
 ## How hard a local hero's hurt shakes the camera (0 to 1), at the player's full screen shake (Settings).
 const HURT_SHAKE: float = 0.5
 ## How hard a fireball's blast shakes the camera (0 to 1), at the player's full screen shake.
@@ -48,21 +38,14 @@ const LANDING_SHAKE: float = 0.2
 ## How hard the boss's slam and its roar shake the camera (0 to 1), at the player's full screen shake.
 const SLAM_SHAKE: float = 0.6
 const ROAR_SHAKE: float = 0.4
-## Where a picked-up coin's glint shines from, above where it lay (its hover: game/views/coin.gdshader).
-const GLINT_HEIGHT: float = 0.4
 
 ## The pause menu (game/play/pause_menu.tscn), made when it opens.
 @export var pause_menu_scene: PackedScene
-## The hub's environment (game/environments/hub.tres): the graveyard's sky and moonlight; every other level keeps the
-## scene's own (the crypt's).
-@export var hub_environment: Environment
 
 ## Whether the mouse aims for the keyboard's player: once it has moved.
 var _mouse_aims: bool = false
 ## The pause menu while it shows (null: closed).
 var _pause_menu: PauseMenu = null
-## The scene's own environment (the crypt's), for every level but the hub.
-var _crypt_environment: Environment = null
 
 @onready var _session: UnifiedSession = Unified.session
 @onready var _camera_rig: CameraRig = $CameraRig
@@ -72,11 +55,11 @@ var _crypt_environment: Environment = null
 @onready var _couch: Couch = $Couch
 @onready var _hud: Hud = $Hud
 @onready var _menus: CanvasLayer = $Menus
-@onready var _world_environment: WorldEnvironment = $WorldEnvironment
+@onready var _lighting: Lighting = $Lighting
+@onready var _cutaway: Cutaway = $Cutaway
 
 
 func _ready() -> void:
-	_crypt_environment = _world_environment.environment
 	_session.level_root = _level
 	_session.view_root = _views
 	_session.level_changed.connect(_on_level_changed)
@@ -170,10 +153,12 @@ func _remembered_pick() -> int:
 	return pick
 
 
-## The floor is on screen: the crypt fades back in under its environment (the hub's in the hub), and the camera frames
-## its hero spawns until a local hero is there.
+## The floor is on screen: the crypt fades back in under its light, the last floor's effects gone and its walls ready
+## to be cut away, and the camera frames its hero spawns until a local hero is there.
 func _on_level_changed(level_id: int) -> void:
-	_world_environment.environment = hub_environment if level_id == EnumLevel.HUB else _crypt_environment
+	_lighting.show_level(EnumLevel.name(level_id))
+	_effects.clear()
+	_cutaway.track(_level)
 	_hud.fade_in()
 	var sum := Vector3.ZERO
 	var count: int = 0
@@ -185,97 +170,38 @@ func _on_level_changed(level_id: int) -> void:
 		_camera_rig.fallback = sum / count
 
 
-## The effects of the sim's events, on their first showing (EMITTED), and what waits until it is certain (CONFIRMED:
-## _on_sim_event_confirmed).
+## Every sim event to the Effects in each of its states; on its first showing (EMITTED) the shakes and the plate's
+## pulse, and what waits until it is certain (CONFIRMED: _on_sim_event_confirmed).
 func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
+	_effects.on_event(event, state)
 	if state == UnifiedSession.EVENT_CONFIRMED:
 		_on_sim_event_confirmed(event)
-	if state != UnifiedSession.EVENT_EMITTED:
-		return
-	if event is EventMinionHit:
-		_effects.sparks((event as EventMinionHit).position + Vector3(0, HIT_HEIGHT, 0))
-	elif event is EventBoltBurst:
-		var bolt := event as EventBoltBurst
-		if bolt.bone:
-			_effects.sparks(bolt.position)  # a skeleton Mage's: bone splinters, not the hero's violet burst
-		else:
-			_effects.burst(bolt.position)
-	elif event is EventCrossbowShot:
-		var shot := event as EventCrossbowShot
-		var shooter := _session.get_player_view(EnumView.HERO, shot.player) as HeroView
-		_effects.tracer(shooter.weapon_position() if shooter != null else shot.from, shot.to)
-	elif event is EventPropImpact:
-		var impact := event as EventPropImpact
-		if impact.speed >= DUST_SPEED:
-			_effects.dust(impact.position)
-	elif event is EventHeroHurt:
-		if _session.get_local_index((event as EventHeroHurt).player) >= 0:
+	elif state == UnifiedSession.EVENT_EMITTED:
+		_on_sim_event_emitted(event)
+
+
+## The camera's shakes, at the player's screen shake (Settings), and a local hero's hurt on its plate.
+func _on_sim_event_emitted(event: UnifiedEvent) -> void:
+	if event is EventHeroHurt:
+		var player: int = (event as EventHeroHurt).player
+		if _session.get_local_index(player) >= 0:
 			_camera_rig.shake(HURT_SHAKE * Settings.screen_shake)
-	# the abilities, and going down
-	elif event is EventBlocked:
-		_effects.sparks((event as EventBlocked).position)
-		Sfx.play(&"block")
+			_hud.pulse_hurt(player)
 	elif event is EventFireballBurst:
-		_effects.fireball((event as EventFireballBurst).position)
-		Sfx.play(&"fireball")
 		_camera_rig.shake(FIREBALL_SHAKE * Settings.screen_shake)
-	elif event is EventHeroDowned:
-		Sfx.play(&"downed")
 	elif event is EventHeaveLanded:
-		_effects.dust((event as EventHeaveLanded).position)
 		_camera_rig.shake(LANDING_SHAKE * Settings.screen_shake)
-	# Elites
-	elif event is EventEliteHit:
-		_effects.sparks((event as EventEliteHit).position + Vector3(0, ELITE_HIT_HEIGHT, 0))
-	elif event is EventGuardBroken:
-		var broken := event as EventGuardBroken
-		_effects.sparks(broken.position + Vector3(0, ELITE_HIT_HEIGHT, 0))
-		_effects.dust(broken.position)
-	# Loot
-	elif event is EventLootCollected:
-		_effects.glint((event as EventLootCollected).position + Vector3(0, GLINT_HEIGHT, 0))
-	# Mechanisms
-	elif event is EventPlate:
-		if (event as EventPlate).pressed:
-			Sfx.play(&"plate")
-	elif event is EventGate:
-		Sfx.play(&"gate_open" if (event as EventGate).open else &"gate_shut")
-	elif event is EventBarricadeBroken:
-		_effects.dust((event as EventBarricadeBroken).position)
-		Sfx.play(&"barricade")
-	elif event is EventTrapHit:
-		Sfx.play(&"trap")
-	# The hoard and the lift: the chest put down, the deck's stop at the bottom
-	elif event is EventHoardDropped:
-		Sfx.play(&"thud")
-	elif event is EventLift and (event as EventLift).phase == EnumLiftPhase.CHOOSING:
-		Sfx.play(&"thud")
-	# The run: a shrine turned
-	elif event is EventShrine:
-		Sfx.play(&"plate")
-	# Braziers and the boss
-	elif event is EventBrazier:
-		if (event as EventBrazier).lit:
-			Sfx.play(&"kindle")
 	elif event is EventBossStage:
-		Sfx.play(&"roar")
 		_camera_rig.shake(ROAR_SHAKE * Settings.screen_shake)
 	elif event is EventBossSlam:
-		_effects.dust((event as EventBossSlam).position)
-		Sfx.play(&"slam")
 		_camera_rig.shake(SLAM_SHAKE * Settings.screen_shake)
-	elif event is EventBossWard:
-		if not (event as EventBossWard).up:
-			Sfx.play(&"ward_broken")
 
 
-## What must not be taken back once shown, on its CONFIRMED showing: a revive's chime and its toast, and the wipe's
-## banner (a revive or a wipe a rollback undid would have rung or hung for nothing); the run's beginning, a life lost
-## and the run's end.
+## What must not be taken back once shown, on its CONFIRMED showing: a revive's toast, and the wipe's banner (a revive
+## or a wipe a rollback undid would have hung for nothing); the run's beginning, a life lost and the run's end.
 func _on_sim_event_confirmed(event: UnifiedEvent) -> void:
 	if event is EventHeroRevived:
 		var revived := event as EventHeroRevived
-		Sfx.play(&"revived")
 		var risen: String = _session.get_player_name(revived.player)
 		if revived.by == 0:  # nobody's hands: the Pit's lull raises the downed
 			Game.toast("%s is up again" % risen)

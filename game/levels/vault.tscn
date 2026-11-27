@@ -305,29 +305,29 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 12)
 
 [node name="Decor" type="Node3D" parent="." unique_id=1774698778]
 
-[node name="Torch1" parent="Decor" unique_id=2097998435 instance=ExtResource("torch")]
+[node name="TorchN" parent="Decor" unique_id=2097998435 instance=ExtResource("torch")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 2.2, -11.5)
 
-[node name="Torch2" parent="Decor" unique_id=895141889 instance=ExtResource("torch")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 2.2, -11.5)
+[node name="Fire" parent="Decor/TorchN" index="1"]
+strength = 0.55
 
-[node name="Torch3" parent="Decor" unique_id=1656041817 instance=ExtResource("torch")]
-transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, -4, 2.2, 15.5)
-
-[node name="Torch4" parent="Decor" unique_id=188260998 instance=ExtResource("torch")]
+[node name="TorchS" parent="Decor" unique_id=188260998 instance=ExtResource("torch")]
 transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 8, 2.2, 15.5)
 
-[node name="Torch5" parent="Decor" unique_id=311160703 instance=ExtResource("torch")]
+[node name="Fire" parent="Decor/TorchS" index="1"]
+strength = 0.55
+
+[node name="TorchW" parent="Decor" unique_id=311160703 instance=ExtResource("torch")]
 transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -11.5, 2.2, -4)
 
-[node name="Torch6" parent="Decor" unique_id=1274538578 instance=ExtResource("torch")]
-transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -11.5, 2.2, 8)
+[node name="Fire" parent="Decor/TorchW" index="1"]
+strength = 0.55
 
-[node name="Torch7" parent="Decor" unique_id=731096216 instance=ExtResource("torch")]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 15.5, 2.2, -4)
-
-[node name="Torch8" parent="Decor" unique_id=1866888022 instance=ExtResource("torch")]
+[node name="TorchE" parent="Decor" unique_id=1866888022 instance=ExtResource("torch")]
 transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 15.5, 2.2, 8)
+
+[node name="Fire" parent="Decor/TorchE" index="1"]
+strength = 0.55
 
 [node name="Rubble" parent="Decor" unique_id=1448269204 instance=ExtResource("rubble")]
 transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -10.6, 0, -10.6)
