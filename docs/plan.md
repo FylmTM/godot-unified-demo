@@ -51,6 +51,8 @@ Each becomes an issue on FylmTM/godot-unified when a milestone needs it:
 - `uni release` on a fresh checkout: its strict import fails on the error lines Godot prints while it loads the
   project theme before the theme's textures are imported (exit 0). Run unified's tolerant import (`ensure_imported`)
   first, as every other command does. CI's release job runs `./uni bake --check` first meanwhile. Milestone 10.
+- `uni bake --check` on macOS: headless Godot reports a leaked RID at exit (`RendererDummy` ... `DummyShader`) and
+  bake fails on that line, though every level is current. Milestone 10.
 - A Linux x64 zip from `uni release` on Linux (the demo's macOS arm64 and Windows x64 zips are `./uni release`'s,
   built and played in CI). Later.
 - Rendering a recorded session to video (Godot's movie writer at a fixed frame rate), for the videos. Milestone 10.
