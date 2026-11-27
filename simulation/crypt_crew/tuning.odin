@@ -445,6 +445,14 @@ ELITE_SPECS := [Elite_Kind]Elite_Spec {
 	.Warrior = {hp = 150, max_speed = 2.8, damage = 25, windup = u32(0.75 * TICK_HZ), duration = u32(1.5 * TICK_HZ)},
 	.Rogue = {hp = 70, max_speed = 5.5, damage = 20, windup = u32(0.375 * TICK_HZ), duration = u32(0.625 * TICK_HZ)},
 	.Mage = {hp = 60, max_speed = 3, damage = 12, windup = u32(0.5 * TICK_HZ), duration = u32(0.875 * TICK_HZ)},
+	// The boss (elite_king.odin): its attack is the cleave (0.9 s windup, in whole ticks), BOSS_HP its health alone.
+	.King = {
+		hp        = BOSS_HP,
+		max_speed = 2.6,
+		damage    = 35,
+		windup    = u32(0.90625 * TICK_HZ),
+		duration  = u32(1.59375 * TICK_HZ),
+	},
 }
 
 // The Warrior's shield (elite_warrior.odin): a blow from its front takes ELITE_GUARD_TAKE of its damage and neither
@@ -508,6 +516,7 @@ ELITE_GOLD := [Elite_Kind]int {
 	.Warrior = 15,
 	.Rogue   = 20,
 	.Mage    = 25,
+	.King    = 0, // the boss drops no coins: its fall puts BOSS_GOLD straight in the purse (boss.odin)
 }
 
 // ---- mechanisms: plates, gates, barricades and traps, Box3D bodies made from a floor's markers (plates.odin,
@@ -690,3 +699,73 @@ FIELD_MEDIC :: f32(0.3) // Field_Medic: this much faster a revive a rank (REVIVE
 // ---- the run (docs/plan.md, milestone 7)
 
 MAX_BRAZIERS :: 8 // the most brazier markers a level holds (braziers.odin)
+
+// ---- braziers and the boss (braziers.odin, boss.odin, elite_king.odin; docs/plan.md, milestone 7 step 2)
+
+// Braziers: kindled by holding Interact beside one (as a revive), or lit at once by a fireball's burst.
+BRAZIER_RANGE :: f32(1.6) // a hero this close to a brazier's foot (feet to its marker, on the floor plan) kindles it ...
+BRAZIER_LIGHT_S :: f32(2) // ... and lights it after this long of one hero's kindling (two together, twice as fast)
+BRAZIER_LIGHT_TICKS :: u16(BRAZIER_LIGHT_S * TICK_HZ)
+KINDLE_SPEED :: f32(0.3) // a hero kindling moves at this fraction of its speed (as REVIVE_SPEED)
+BRAZIER_BLAST :: f32(3) // a fireball bursting this close to a brazier's foot (on the floor plan) lights it at once
+// The stand's reach round its marker: the fireball's wall ray stops this short of the foot, since the stand (a wall's
+// category) would meet it.
+BRAZIER_STAND :: f32(0.6)
+BRAZIER_SURGE_S :: f32(3) // a lighting brings the next surge this soon, at the latest: the crypt answers the light
+BRAZIER_SURGE_TICKS :: u32(BRAZIER_SURGE_S * TICK_HZ)
+
+// The boss, the Bone King: a skeleton Warrior BOSS_SCALE times as big, an elite of its own kind (ELITE_SPECS[.King]).
+BOSS_SCALE :: f32(1.9) // its model's size against a skeleton's, and its capsule's height against an elite's
+BOSS_RADIUS :: f32(0.75)
+BOSS_HEIGHT :: ELITE_HEIGHT * BOSS_SCALE // the capsule, end to end
+BOSS_HALF_HEIGHT :: BOSS_HEIGHT / 2 - BOSS_RADIUS
+// Its pogo's rest (from its capsule's lower sphere's centre, as a hero's): a hand more than its radius, as a hero's is,
+// so its capsule floats clear of the floor rather than dragging on it.
+BOSS_POGO_REST :: BOSS_RADIUS + (HERO_POGO_REST - HERO_RADIUS)
+BOSS_CENTRE_ABOVE_FEET :: BOSS_HALF_HEIGHT + BOSS_POGO_REST
+BOSS_GROUND_FORCE :: f32(60000) // its drive's push: an elite's for its weight (its capsule holds about 2.4 elites' volume)
+BOSS_HP :: i16(1200) // its health with one hero present as it wakes ...
+BOSS_HP_PER_HERO :: i16(400) // ... and this much more for each other hero present then (times the difficulty's)
+BOSS_GUARD_DOWN_S :: f32(4) // a broken guard (a thrown prop, a charge, a fireball) stays down this long: the window
+BOSS_GUARD_DOWN_TICKS :: u32(BOSS_GUARD_DOWN_S * TICK_HZ)
+// The cleave: its axe's arc meets every hero up whose capsule comes within BOSS_CLEAVE_REACH of its centre and within
+// BOSS_CLEAVE_COS of its facing, in sight, at its windup (ELITE_SPECS[.King]); it swings once its target is
+// BOSS_CLEAVE_SURE inside that reach and in front of it.
+BOSS_CLEAVE_REACH :: f32(2.8)
+BOSS_CLEAVE_COS :: f32(0.34202014) // 70° either side of its facing (cos 70°)
+BOSS_CLEAVE_SURE :: f32(0.6)
+// The slam, from its second stage on: every BOSS_SLAM_EVERY_S (BOSS_SLAM_FAST_S in the third) it raises its axe for
+// BOSS_SLAM_WINDUP_S over a ring of BOSS_SLAM_RADIUS on the ground, then strikes the floor: every hero up within the
+// ring that no wall shields takes BOSS_SLAM_DAMAGE and is thrown back at BOSS_SLAM_KNOCK, and Box3D's explosion
+// (physics.world_explode) blows the props and the downed heroes' ragdolls away, BOSS_SLAM_PUSH an area of what faces
+// it, fading to nothing over BOSS_SLAM_FALLOFF past the ring. The whole slam takes BOSS_SLAM_S.
+BOSS_SLAM_EVERY_S :: f32(9)
+BOSS_SLAM_EVERY_TICKS :: u32(BOSS_SLAM_EVERY_S * TICK_HZ)
+BOSS_SLAM_FAST_S :: f32(6)
+BOSS_SLAM_FAST_TICKS :: u32(BOSS_SLAM_FAST_S * TICK_HZ)
+BOSS_SLAM_WINDUP_S :: f32(1.203125) // 77 ticks
+BOSS_SLAM_WINDUP_TICKS :: u32(BOSS_SLAM_WINDUP_S * TICK_HZ)
+BOSS_SLAM_S :: f32(2)
+BOSS_SLAM_TICKS :: u32(BOSS_SLAM_S * TICK_HZ)
+BOSS_SLAM_RADIUS :: f32(5)
+BOSS_SLAM_DAMAGE :: i16(30)
+BOSS_SLAM_KNOCK :: f32(8) // metres per second, away from the King along the floor
+BOSS_SLAM_PUSH :: f32(150) // newton-seconds per square metre (Explosion_Def.impulse_per_area)
+BOSS_SLAM_FALLOFF :: f32(1.5)
+BOSS_SLAM_HEIGHT :: f32(0.2) // the explosion's heart above its feet: low, so what lies on the floor is blown along it
+#assert(BOSS_SLAM_WINDUP_TICKS < BOSS_SLAM_TICKS && BOSS_SLAM_TICKS < BOSS_SLAM_FAST_TICKS)
+// Its stages: at two thirds and at one third of its health it roars, every brazier goes out and it is warded (no
+// damage) while it walks to the middle (its marker) and stands; BOSS_SUMMON skeletons rise at the rim graves and the
+// surges come every BOSS_SURGE_S, until BOSS_WARD_NEED (by the heroes present) of the braziers are lit. No blow takes
+// it past its stage's end: each stage's health is dealt in that stage.
+BOSS_SUMMON :: 12
+BOSS_SURGE_S :: f32(10)
+BOSS_SURGE_TICKS :: u32(BOSS_SURGE_S * TICK_HZ)
+@(rodata)
+BOSS_WARD_NEED := [PLAYERS]i32{2, 3, 4, 4} // braziers lit that break the ward, for 1, 2, 3 and 4 heroes present
+BOSS_ROAR_S :: f32(1.5) // a stage begins with its roar: it stands this long before it walks to the middle
+BOSS_ROAR_TICKS :: u32(BOSS_ROAR_S * TICK_HZ)
+BOSS_MIDDLE_NEAR :: f32(0.5) // warded, it walks to the middle until this close, then stands
+BOSS_STAGE_SPEED :: f32(1.25) // its third stage moves this much faster
+BOSS_GOLD :: 300 // its fall puts this much in the purse
+#assert(SURGE_EVERY_TICKS > BOSS_SURGE_TICKS)

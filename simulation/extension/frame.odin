@@ -33,6 +33,8 @@ View :: union {
 	// The floor's hoard and lift, one of each: alone of their kinds (hoard.odin, lift.odin)
 	View_Hoard,
 	View_Lift,
+	// ---- braziers (braziers.odin)
+	View_Brazier, // keyed by its handle (its events' `brazier`), posed at its stand's foot
 }
 
 // The MultiMesh views (a MultiMeshInstance3D with a UnifiedMultiView each), keyed by their handles: the Mage's bolts
@@ -128,7 +130,8 @@ MINION_NEVER_STRUCK :: f32(-1e9)
 
 // An elite, posed at its feet and turned to its facing; a pooled kind (game/views/elite.tscn). Its animation is a
 // function of this data (game/views/elite.gd): its phase at its age, a stagger's hit at the last hit's, else a gait
-// picked from its velocity; its health bar is hp of hp_max, and a Warrior's shield glints while it guards.
+// picked from its velocity; its health bar is hp of hp_max, and a Warrior's shield glints while it guards. The King
+// (the boss) shows its slam's ring from its phase's start and its ward while warded; its bar is the HUD's.
 View_Elite :: struct {
 	velocity:  [2]f32, // metres per second in its frame: x to its right, y ahead
 	since:     sim.Game_Time, // when `phase` began: a one-shot's clip time is (shown_time - since) / tick_hz
@@ -139,6 +142,9 @@ View_Elite :: struct {
 	phase:     g.Elite_Phase, // EnumElitePhase
 	guard:     bool, // a Warrior whose shield is up (the rules' shield_up): the view's glint
 	staggered: bool, // reeling from a knock (ELITE_STAGGER_KNOCK)
+	// ---- the boss (boss.odin)
+	warded:    bool, // the King, warded: no blow hurts it (the view's ward)
+	_pad:      [3]u8,
 }
 
 // A minion's crowd instance: at its feet, turned to its facing, keyed by its handle; its custom data the contract of
@@ -189,7 +195,8 @@ loot_instance :: proc(coin: ^g.Loot, handle: sim.Handle(g.Loot)) -> godot.Multi_
 }
 
 // Every present hero, every prop, every bolt, every fireball and where a local Mage's would land, every minion, every
-// elite, every mechanism, every downed hero's ragdoll, the hoard and the lift, every coin, then the HUD's data.
+// elite, every mechanism, every downed hero's ragdoll, the hoard and the lift, every brazier, every coin, then the HUD's
+// data.
 fill_frame :: proc(f: ^Frame) {
 	fill_heroes(f)
 	fill_props(f)
@@ -207,6 +214,7 @@ fill_frame :: proc(f: ^Frame) {
 	fill_pieces(f)
 	fill_ragdolls(f)
 	fill_hoard_and_lift(f)
+	fill_braziers(f)
 	coins := sim.iterate(&f.state.loot)
 	for coin, handle in sim.next(&coins) do godot.push_multi_view(f, loot_instance(coin, handle))
 	fill_hud(f)
@@ -260,10 +268,15 @@ fill_fireballs :: proc(f: ^Frame) {
 	}
 }
 
-// Every elite (a dying one as it fell: its body is gone, its feet stay where they were).
+// Every elite (a dying one as it fell: its body is gone, its feet stay where they were); the King's full health is the
+// boss's, set as it woke (its spec's while asleep).
 fill_elites :: proc(f: ^Frame) {
+	boss := &f.state.boss
 	elites := sim.iterate(&f.state.elites)
 	for elite, handle in sim.next(&elites) {
+		hp_max := g.ELITE_SPECS[elite.kind].hp
+		is_boss := elite.kind == .King && handle == boss.elite
+		if is_boss && boss.hp_max > 0 do hp_max = boss.hp_max
 		right := [2]f32{-elite.facing.y, elite.facing.x} // a model faces +Z: its right is -X
 		godot.push_view(f, handle, {
 			pos = sim.Position(elite.pos),
@@ -273,11 +286,12 @@ fill_elites :: proc(f: ^Frame) {
 			since     = elite.since,
 			struck    = elite.struck,
 			hp        = elite.hp,
-			hp_max    = g.ELITE_SPECS[elite.kind].hp,
+			hp_max    = hp_max,
 			kind      = elite.kind,
 			phase     = elite.phase,
 			guard     = g.shield_up(f.time, elite),
 			staggered = sim.timer_running(f.time, elite.stagger),
+			warded    = is_boss && boss.warded,
 		})
 	}
 }
@@ -470,5 +484,30 @@ fill_hoard_and_lift :: proc(f: ^Frame) {
 			pos = sim.Position(physics.body_world_point(f.world.phys, lift.body, {0, g.LIFT_HALF.y, 0})),
 			rot = physics.body_rotation(f.world.phys, lift.body),
 		}, View_Lift{phase = lift.phase})
+	}
+}
+
+// ---- braziers (braziers.odin)
+
+// A brazier, posed at its stand's foot (its marker); game/views/brazier.gd draws its fire at the bowl while it is lit,
+// an ember growing as it is kindled, and plays its sound as it lights.
+View_Brazier :: struct {
+	lit_at:  sim.Game_Time, // when it lit: the fire flares from then (shown_time - lit_at)
+	kindled: u8, // while unlit: how far its kindling has come, 0 (none) to 255 (lit)
+	lit:     bool,
+	_pad:    [2]u8,
+}
+
+// Every brazier on the floor, at its marker.
+fill_braziers :: proc(f: ^Frame) {
+	defs := sim.slice(&f.world.floors[f.state.level.id].places.braziers)
+	braziers := sim.iterate(&f.state.braziers)
+	for brazier, handle in sim.next(&braziers) {
+		kindled := dmath.min(u32(brazier.progress), u32(g.BRAZIER_LIGHT_TICKS)) * 255 / u32(g.BRAZIER_LIGHT_TICKS)
+		godot.push_view(f, handle, {pos = sim.Position(defs[handle.index].pos)}, View_Brazier {
+			lit_at  = brazier.lit_at,
+			kindled = u8(kindled),
+			lit     = brazier.lit,
+		})
 	}
 }

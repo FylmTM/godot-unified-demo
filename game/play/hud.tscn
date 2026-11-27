@@ -371,3 +371,80 @@ layout_mode = 2
 theme_type_variation = &"HudText"
 text = "The hoard must be wholly on the lift"
 horizontal_alignment = 1
+
+[node name="KindlePrompts" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="KindlePrompt1" parent="KindlePrompts" instance=ExtResource("action_prompt")]
+visible = false
+layout_mode = 0
+actions = Array[StringName]([&"interact"])
+text = "Light"
+
+[node name="KindlePrompt2" parent="KindlePrompts" instance=ExtResource("action_prompt")]
+visible = false
+layout_mode = 0
+actions = Array[StringName]([&"interact"])
+text = "Light"
+
+[node name="KindlePrompt3" parent="KindlePrompts" instance=ExtResource("action_prompt")]
+visible = false
+layout_mode = 0
+actions = Array[StringName]([&"interact"])
+text = "Light"
+
+[node name="KindlePrompt4" parent="KindlePrompts" instance=ExtResource("action_prompt")]
+visible = false
+layout_mode = 0
+actions = Array[StringName]([&"interact"])
+text = "Light"
+
+[node name="BossBar" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_top = -40.0
+offset_bottom = -40.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"Plate"
+
+[node name="Rows" type="VBoxContainer" parent="BossBar"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="BossName" type="Label" parent="BossBar/Rows"]
+layout_mode = 2
+theme_type_variation = &"HudText"
+text = "The Bone King"
+horizontal_alignment = 1
+
+[node name="BossHealth" type="ProgressBar" parent="BossBar/Rows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(720, 28)
+layout_mode = 2
+mouse_filter = 2
+step = 1.0
+value = 100.0
+show_percentage = false
+
+[node name="Ward" type="Label" parent="BossBar/Rows"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"HudSmall"
+text = "Warded: light 0 of 2 braziers"
+horizontal_alignment = 1

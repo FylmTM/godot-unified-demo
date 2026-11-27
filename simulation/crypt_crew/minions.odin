@@ -363,7 +363,7 @@ obstacles_of :: proc(t: ^Tick) -> (obstacles: sim.List(Obstacle, MAX_OBSTACLES))
 	}
 	elites := sim.iterate(&t.state.elites)
 	for elite in sim.next(&elites) {
-		if elite.phase != .Dying do sim.append(&obstacles, Obstacle{elite.pos.xz, ELITE_RADIUS})
+		if elite.phase != .Dying do sim.append(&obstacles, Obstacle{elite.pos.xz, elite_radius(elite.kind)})
 	}
 	gate_obstacles(t, &obstacles) // gates.odin
 	barricade_obstacles(t, &obstacles) // barricades.odin

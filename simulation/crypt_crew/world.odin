@@ -82,9 +82,9 @@ Places :: struct {
 	// ---- the hoard and the lift (hoard.odin, lift.odin): one of each at most, a floor's exit and what it is for
 	hoard:       Hoard_Def,
 	lift:        Lift_Def,
-	// ---- the run (docs/plan.md, milestone 7): read and kept, no rule uses them yet
-	braziers:    sim.List(Brazier_Def, MAX_BRAZIERS), // braziers.odin
-	shrines:     [Shrine_Setting]Shrine_Def, // run.odin: the hub's, one for each setting at most
+	// ---- the run (docs/plan.md, milestone 7)
+	braziers:    sim.List(Brazier_Def, MAX_BRAZIERS), // braziers.odin: each a row of the State's `braziers`
+	shrines:     [Shrine_Setting]Shrine_Def, // run.odin: the hub's, one for each setting at most (no rule uses them yet)
 	boss:        Boss_Def, // boss.odin: the vault's, one a floor at most
 }
 
@@ -213,6 +213,11 @@ build_floor :: proc(floor: ^Floor, data: ^level.Level, seed: u64) {
 		assert(on_floor, "crypt_crew: an elite marker is off the walkable floor")
 		elite.pos = spot.point
 	}
+	if boss := &floor.places.boss; boss.placed {
+		spot, on_floor := floor_spot(floor, boss.pos, HERO_NAV_REACH)
+		assert(on_floor, "crypt_crew: the boss marker is off the walkable floor")
+		boss.pos = spot.point
+	}
 	pack_places(floor, seed)
 }
 
@@ -333,7 +338,10 @@ read_places :: proc(places: ^Places, floor: ^level.Level) {
 			assert(added, "crypt_crew: more props than MAX_PROPS")
 		case "elite":
 			kind, known := level.prop_enum(&marker, "kind", Elite_Kind.Warrior) // elite.gd's export_enum
-			assert(known, "crypt_crew: an elite's kind is no Elite_Kind")
+			assert(
+				known && kind != .King,
+				"crypt_crew: an elite's kind is no risen Elite_Kind (the King is a boss marker's)",
+			)
 			facing := dmath.normalize(dmath.quat_rotate(marker.rot, {0, 0, 1}).xz) // the marker's +Z, as a model's front
 			added := sim.append(&places.elites, Elite_Def{pos = marker.pos, facing = facing, kind = kind})
 			assert(added && facing != {}, "crypt_crew: more elites than MAX_ELITE_MARKERS, or one facing straight up")
@@ -457,8 +465,8 @@ init :: proc(t: ^Tick) {
 // goes (a ragdoll with it), the props, the mechanisms, the minions, the bolts and fireballs in flight, the elites (their
 // bodies with them), the hoard and the lift go, a wipe ends, the static geometry is swapped (physics.level_change), then
 // the new level's props and mechanisms are made in marker order, then its hoard and its lift, its packs and its elite
-// markers' elites put to sleep (neither under a held crowd), its surge clock started, and every present hero gets a
-// body at its slot's spawn. The coins on the floor go too. What the block keeps across it (the heroes' classes and
+// markers' elites put to sleep (neither under a held crowd), its braziers unlit, its boss asleep, its surge clock
+// started, and every present hero gets a body at its slot's spawn. The coins on the floor go too. What the block keeps across it (the heroes' classes and
 // boons, the clock, the session's counts, the purse, the depth) stays.
 enter_level :: proc(t: ^Tick, to: Level_Id) {
 	holding := sim.iterate_present(t)
@@ -481,6 +489,7 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 	// ---- the hoard and the lift (hoard.odin, lift.odin): their bodies go, every hold on the hoard let go above
 	despawn_hoard(t)
 	despawn_lift(t)
+	sim.despawn_all(&t.state.braziers) // braziers.odin: they have no body
 	physics.level_change(t, t.world.phys, to)
 	spawn_props(t)
 	spawn_plates(t) // the mechanisms, each kind in marker order
@@ -492,6 +501,8 @@ enter_level :: proc(t: ^Tick, to: Level_Id) {
 	spawn_lift(t)
 	if t.setup.crowd == .None do spawn_packs(t) // a held crowd is the floor's whole population
 	if t.setup.crowd == .None do spawn_marker_elites(t) // and none under a held crowd
+	spawn_braziers(t) // braziers.odin: unlit, in marker order
+	spawn_boss(t) // boss.odin: the King asleep at its marker (none under a held crowd), or no boss
 	sim.timer_start_ticks(t, &t.state.surge, SURGE_FIRST_TICKS)
 	t.state.rising, t.state.floor_surges = 0, 0 // a surge owed on the old floor, or before the wipe, is gone with it
 	entering := sim.iterate_present(t)

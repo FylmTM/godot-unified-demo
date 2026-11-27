@@ -51,4 +51,10 @@ Event :: union {
 	Event_Lift,
 	Event_Boon_Picked,
 	Event_Descended,
+	// Braziers and the boss (braziers.odin, boss.odin, elite_king.odin)
+	Event_Brazier,
+	Event_Boss_Stage,
+	Event_Boss_Slam,
+	Event_Boss_Ward,
+	Event_Boss_Defeated,
 }

@@ -100,7 +100,7 @@ scripted_commands :: proc(seed: u64, slot: int, tick: u32, _: ^State, setup: Set
 	if slot == 3 {
 		switch tick % SCRIPT_ELITE_EVERY {
 		case SCRIPT_ELITE_AT:
-			sim.send_command(out, Command_Dev_Spawn_Elite{Elite_Kind(tick / SCRIPT_ELITE_EVERY % len(Elite_Kind))})
+			sim.send_command(out, Command_Dev_Spawn_Elite{Elite_Kind(tick / SCRIPT_ELITE_EVERY % RISEN_KINDS)})
 		case SCRIPT_BREAK_AT:
 			sim.send_command(out, Command_Dev_Break_Guards{})
 		}

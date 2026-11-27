@@ -190,7 +190,7 @@ strike_roller :: proc(t: ^Tick, trap: ^Trap, handle: sim.Handle(Trap)) -> bool {
 	elites := sim.iterate(&t.state.elites)
 	for elite, elite_handle in sim.next(&elites) {
 		if elite.phase == .Dying do continue
-		if !within_square(centre, rot, ROLLER_HALF.x + ELITE_RADIUS + ROLLER_TOUCH, elite.pos) do continue
+		if !within_square(centre, rot, ROLLER_HALF.x + elite_radius(elite.kind) + ROLLER_TOUCH, elite.pos) do continue
 		away := away_from(centre, elite.pos)
 		damage_elite(t, elite_handle, ROLLER_DAMAGE, away, ROLLER_KNOCK, {}, .Trap, centre.xz)
 		struck = true

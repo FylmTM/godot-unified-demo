@@ -19,7 +19,8 @@ extends VBoxContainer
 ## In a replay every tick is final and a seek or a loop moves the state back and forth, so the purse shows the data's
 ## gold at every change (the chime and the "+N" still play on each confirmed pickup).
 ##
-## The hoard's gold comes the same way: the descent's CONFIRMED event carries the purse's total with it.
+## The hoard's gold comes the same way: the descent's CONFIRMED event carries the purse's total with it; so does the
+## boss's, its fall's (with a chime and its "+N" over where it fell).
 ##
 ## on_pickup is the whole rule, a pure function of a pickup's state and fields; the walk drives it with made-up
 ## EMITTED, CANCELLED and CONFIRMED pickups (game/tools/ui_walk.gd), since a solo session confirms in the frame it
@@ -97,6 +98,9 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 		var descended := event as EventDescended  # the hoard's gold: the total it carries, as a pickup's
 		if _session.mode != UnifiedSession.MODE_REPLAY:
 			_show(descended.gold)
+	elif event is EventBossDefeated and state == UnifiedSession.EVENT_CONFIRMED:
+		var fell := event as EventBossDefeated
+		on_pickup(state, fell.gold, Unified.constants.boss_gold, fell.position)
 
 
 func _show(gold: int) -> void:

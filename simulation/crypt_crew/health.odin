@@ -38,8 +38,8 @@ hero_up :: proc(t: ^Tick, player: sim.Player) -> bool {
 
 // `player`'s hero takes `damage` from something at `from`, unless it is down or in its grace, or a crowd is held but
 // for Wipe (director.odin, Crowd), or the lift has gone down (lift_gone: the floor is won); a roll's safe start lets it
-// all by, a shield takes its share (guarded_damage). A hurt hero tending an ally breaks off the revive. At 0 HP it goes
-// down.
+// all by, a shield takes its share (guarded_damage). A hurt hero tending an ally breaks off the revive, and one kindling
+// a brazier the kindling. At 0 HP it goes down.
 damage_hero :: proc(t: ^Tick, player: sim.Player, damage: i16, from: [3]f32) {
 	if damage <= 0 || !hero_up(t, player) || lift_gone(t) do return
 	if t.setup.crowd != .None && t.setup.crowd != .Wipe do return
@@ -47,7 +47,8 @@ damage_hero :: proc(t: ^Tick, player: sim.Player, damage: i16, from: [3]f32) {
 	if sim.timer_running(t, hero.grace) || rolled_clear(t, hero) do return
 	taken := guarded_damage(t, hero, player, damage, from)
 	if taken <= 0 do return
-	if hero.action == .Revive do hero.action = .None // and a new press of Interact is needed to tend again
+	// a revive and a kindling break off, and a new press of Interact is needed to start either again
+	if hero.action == .Revive || hero.action == .Kindle do hero.action = .None
 	hero.hp = dmath.max(hero.hp - taken, 0)
 	sim.emit(t, Event_Hero_Hurt{player = player, position = sim.Position(from), damage = taken, hp = hero.hp})
 	if hero.hp > 0 do return

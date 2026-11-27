@@ -85,6 +85,7 @@ burst_fireball :: proc(t: ^Tick, fireball: ^Fireball) {
 		breaks_guard = true,
 	)
 	blast_bodies(t, heart, fireball.caster)
+	fireball_lights(t, fireball.to, heart, fireball.caster) // a brazier it reaches lights (braziers.odin)
 	sim.emit(t, Event_Fireball_Burst{position = sim.Position(fireball.to)})
 }
 

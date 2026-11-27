@@ -20,7 +20,12 @@ Elite_Kind :: enum u8 {
 	Warrior, // shielded: blows from its front barely hurt it until its guard is broken (elite_warrior.odin)
 	Rogue, // a flanker: it circles behind its target, lunges and backs off (elite_rogue.odin)
 	Mage, // keeps its distance, casts bone bolts and raises minions (elite_mage.odin)
+	King, // the boss, the vault's alone (boss.odin, elite_king.odin): never raised by a surge or a dev spawn
 }
+
+// The kinds a surge or a dev spawn raises, in turn: every kind but the King.
+RISEN_KINDS :: 3
+#assert(Elite_Kind(RISEN_KINDS) == .King)
 
 // What an elite is doing (Elite.phase), since Elite.since.
 Elite_Phase :: enum u8 {
@@ -35,6 +40,7 @@ Elite_Phase :: enum u8 {
 	Held,
 	Thrown,
 	Dying, // falling, DEATH_S, its body already gone (heroes walk over it); then the row is freed
+	Slam, // the King's slam (elite_king.odin): BOSS_SLAM_WINDUP_S over its ring, the blow, then the rest of BOSS_SLAM_S
 }
 
 // An elite, a row of the State's `elites`.
@@ -111,18 +117,30 @@ Elite_Def :: struct {
 // walking into one barely moves it), its own max_speed, in CAT_ELITE.
 // It reports no hits of its own: a prop's shape does (props.odin), which is all elite_impacts reads, and an elite's
 // would add a hit for every wall or hero it is knocked into.
+// The King's is BOSS_SCALE as tall, BOSS_RADIUS wide, floats on BOSS_POGO_REST and pushes with BOSS_GROUND_FORCE.
 elite_def :: proc(kind: Elite_Kind) -> physics.Character_Def {
 	def := physics.CHARACTER_DEFAULT
-	def.radius = ELITE_RADIUS
-	def.half_height = ELITE_HALF_HEIGHT
-	def.pogo_rest = HERO_POGO_REST
+	def.radius = elite_radius(kind)
+	def.half_height = BOSS_HALF_HEIGHT if kind == .King else ELITE_HALF_HEIGHT
+	def.pogo_rest = BOSS_POGO_REST if kind == .King else HERO_POGO_REST
 	def.density = ELITE_DENSITY
-	def.max_ground_force = ELITE_GROUND_FORCE
+	def.max_ground_force = BOSS_GROUND_FORCE if kind == .King else ELITE_GROUND_FORCE
 	def.accelerate = HERO_ACCELERATE
 	def.category = CAT_ELITE
 	def.sensor_events = true // spikes feel it (traps.odin)
 	def.max_speed = ELITE_SPECS[kind].max_speed
 	return def
+}
+
+// An elite's capsule's radius: ELITE_RADIUS, the King's BOSS_RADIUS.
+elite_radius :: proc(kind: Elite_Kind) -> f32 {
+	return BOSS_RADIUS if kind == .King else ELITE_RADIUS
+}
+
+// How far an elite's capsule's centre floats above its feet: ELITE_CENTRE_ABOVE_FEET, the King's
+// BOSS_CENTRE_ABOVE_FEET.
+elite_centre :: proc(kind: Elite_Kind) -> f32 {
+	return BOSS_CENTRE_ABOVE_FEET if kind == .King else ELITE_CENTRE_ABOVE_FEET
 }
 
 // An elite of `kind` standing at `feet` on the floor, facing `facing`, in `phase` since `now` (Idle: asleep; Rise:
@@ -154,7 +172,7 @@ spawn_elite :: proc(
 		world.phys,
 		&elite.body,
 		world.elite_defs[kind],
-		feet + {0, ELITE_CENTRE_ABOVE_FEET, 0},
+		feet + {0, elite_centre(kind), 0},
 		tag = sim.handle_key(handle),
 	)
 	// A sleeper is a dormant character (no joints, a kinematic capsule Box3D lets sleep) until rouse_elite wakes it: a
@@ -225,13 +243,13 @@ elite_room :: proc(t: ^Tick, point: [3]f32) -> bool {
 	return true
 }
 
-// The director's hook (raise_surges): every ELITE_SURGE_EVERY-th surge on a floor brings an elite, the kinds in turn
-// (Warrior, Rogue, Mage), rising at one of the surge's graves (indices into the floor's), the graves taken in turn too.
+// The director's hook (raise_surges): every ELITE_SURGE_EVERY-th surge on a floor brings an elite, the risen kinds in
+// turn (Warrior, Rogue, Mage), rising at one of the surge's graves (indices into the floor's), the graves taken in turn too.
 raise_surge_elite :: proc(t: ^Tick, graves: []int) {
 	if len(graves) == 0 || t.state.floor_surges % ELITE_SURGE_EVERY != 0 do return
 	turn := int(t.state.floor_surges / ELITE_SURGE_EVERY - 1)
 	grave := sim.slice(&floor_of(t).places.graves)[graves[turn % len(graves)]]
-	raise_elite(t, Elite_Kind(turn % len(Elite_Kind)), grave.point, {0, 1})
+	raise_elite(t, Elite_Kind(turn % RISEN_KINDS), grave.point, {0, 1})
 }
 
 // An elite's first chase (it woke, or rose): a sleeper's dormant character wakes (spawn_elite), so move_elites drives
@@ -293,8 +311,9 @@ move_elites :: proc(t: ^Tick) {
 		if !on_floor do spot.poly = nav.NO_POLY // on a crate's top, say: it stands until it is down
 		retarget_elite(t, floor, elite, handle, spot)
 		heading, look, scale := elite_drive(t, floor, elite, spot)
-		// an attack holds the facing it locked, but a Rogue's lunge homes (elite_drive's look)
-		if elite.phase != .Attack || look != {} do elite.facing = turn_toward(elite.facing, look if look != {} else heading)
+		// an attack (a slam too) holds the facing it locked, but a Rogue's lunge homes (elite_drive's look)
+		locked := elite.phase == .Attack || elite.phase == .Slam
+		if !locked || look != {} do elite.facing = turn_toward(elite.facing, look if look != {} else heading)
 		def := t.world.elite_defs[elite.kind]
 		physics.character_update(t.world.phys, &elite.body, def, heading, false, scale)
 	}
@@ -313,6 +332,11 @@ elite_drive :: proc(t: ^Tick, floor: ^Floor, elite: ^Elite, spot: Nav_Point) -> 
 		to_target = dmath.normalize(offset)
 		near = dmath.length_sq(offset) < ELITE_FACE_NEAR * ELITE_FACE_NEAR
 	}
+	if elite.kind == .King && t.state.boss.warded && elite.phase == .Chase {
+		heading = king_ward_heading(t, floor, elite, spot) // warded, it walks to the middle, target or none
+		if heading == {} && near do look = to_target
+		return
+	}
 	#partial switch elite.phase {
 	case .Chase:
 		if elite.target == {} do return
@@ -323,6 +347,8 @@ elite_drive :: proc(t: ^Tick, floor: ^Floor, elite: ^Elite, spot: Nav_Point) -> 
 			heading = rogue_heading(t, floor, elite, spot)
 		case .Mage:
 			heading, look = mage_heading(t, floor, elite, spot)
+		case .King:
+			heading, scale = king_heading(t, floor, elite, spot)
 		}
 		if look == {} && near do look = to_target
 	case .Attack:
@@ -395,7 +421,7 @@ read_back_elites :: proc(t: ^Tick) {
 	elites := sim.iterate(&t.state.elites)
 	for elite in sim.next(&elites) {
 		if elite.phase == .Dying do continue
-		elite.pos = physics.body_position(t.world.phys, elite.body.body) - {0, ELITE_CENTRE_ABOVE_FEET, 0}
+		elite.pos = physics.body_position(t.world.phys, elite.body.body) - {0, elite_centre(elite.kind), 0}
 		elite.vel = physics.body_linear_velocity(t.world.phys, elite.body.body)
 	}
 }
@@ -421,6 +447,8 @@ age_elites :: proc(t: ^Tick) {
 				rogue_ready(t, elite)
 			case .Mage:
 				mage_ready(t, elite, handle)
+			case .King:
+				king_ready(t, elite)
 			}
 		case .Attack:
 			if age == spec.windup {
@@ -429,6 +457,8 @@ age_elites :: proc(t: ^Tick) {
 					elite_swing_lands(t, elite)
 				case .Mage:
 					cast_bone_bolt(t, elite, handle)
+				case .King:
+					king_cleave_lands(t, elite)
 				}
 			}
 			if age >= spec.duration do elite.phase, elite.since = Elite_Phase.Retreat if elite.kind == .Rogue else .Chase, t.time
@@ -438,6 +468,9 @@ age_elites :: proc(t: ^Tick) {
 			if age >= SUMMON_CAST_TICKS do mage_summons(t, elite)
 		case .Dying:
 			if age >= DEATH_TICKS do physics.despawn(t.world.phys, &t.state.elites, handle)
+		case .Slam:
+			if age == BOSS_SLAM_WINDUP_TICKS do king_slam_lands(t, elite)
+			if age >= BOSS_SLAM_TICKS do elite.phase, elite.since = .Chase, t.time
 		case .Idle, .Held, .Thrown:
 		}
 	}
@@ -475,7 +508,9 @@ elite_swing_lands :: proc(t: ^Tick, elite: ^Elite) {
 // wakes (a sleeper doesn't guard: that blow lands whole). A Warrior's guard (warrior_guards) takes all but
 // ELITE_GUARD_TAKE of a blow from its front, which then neither knocks nor staggers it; otherwise the knock moves it
 // (knock_elite). At 0 it dies: Dying, its body gone (a held one let go of first), and its coins fall
-// (drop_elite_loot). A dying elite takes nothing. The only way an elite takes damage or dies.
+// (drop_elite_loot). A dying elite takes nothing. The only way an elite takes damage or dies. The King takes what its
+// ward and its stage let through (boss_takes; a blow it takes none of is announced as guarded), is never knocked, its
+// stage moves on as its health falls (boss_hurt), and its fall wins the run (boss_defeated) instead of dropping coins.
 damage_elite :: proc(
 	t: ^Tick,
 	handle: sim.Handle(Elite),
@@ -492,9 +527,23 @@ damage_elite :: proc(
 	guarded := warrior_guards(t, elite, from) // before it wakes: a sleeper's shield is down
 	if elite.phase == .Idle do rouse_elite(t.world.phys, elite, t.time)
 	taken := guard_take(dealt) if guarded else dealt
+	if elite.kind == .King {
+		taken = boss_takes(t, elite, taken) // boss.odin
+		if taken <= 0 {
+			warded := Event_Elite_Hit {
+				elite    = handle,
+				position = sim.Position(elite.pos),
+				player   = player,
+				source   = source,
+				guarded  = true,
+			}
+			sim.emit(t, warded)
+			return
+		}
+	}
 	elite.hp -= taken
 	elite.struck = t.time
-	if !guarded do knock_elite(t, elite, knock_dir, knock)
+	if !guarded && elite.kind != .King do knock_elite(t, elite, knock_dir, knock)
 	hit := Event_Elite_Hit {
 		elite    = handle,
 		position = sim.Position(elite.pos),
@@ -504,6 +553,7 @@ damage_elite :: proc(
 		guarded  = guarded,
 	}
 	sim.emit(t, hit)
+	if elite.kind == .King do boss_hurt(t, elite) // its stage, at two thirds and one third (boss.odin)
 	if elite.hp > 0 do return
 	// the hold lets go before the body goes
 	if elite.phase == .Held do release_heave(t, elite.heaved_by, thrown = false)
@@ -518,7 +568,11 @@ damage_elite :: proc(
 		elite_kind = elite.kind,
 	}
 	sim.emit(t, died)
-	drop_elite_loot(t, elite.pos, elite.kind) // loot.odin
+	if elite.kind == .King {
+		boss_defeated(t, elite) // boss.odin
+	} else {
+		drop_elite_loot(t, elite.pos, elite.kind) // loot.odin
+	}
 }
 
 // A knock: `knock` times ELITE_KNOCK_TAKE along `dir` (shove_elite); a knock of ELITE_STAGGER_KNOCK or more staggers
@@ -543,14 +597,16 @@ shove_elite :: proc(t: ^Tick, elite: ^Elite, change: [3]f32) {
 	physics.body_set_linear_velocity(t.world.phys, elite.body.body, {along.x, velocity.y, along.y})
 }
 
-// `elite`'s guard breaks for GUARD_BREAK_TICKS (a Warrior's; the other kinds carry no shield): what a Knight's charge,
-// a Mage's fireball, a thrown prop and a heaved body's landing do (knock_elites, elite_impacts), and
-// `dev_break_guards`. Announced when it was up. A break of a broken guard starts its clock again.
+// `elite`'s guard breaks for GUARD_BREAK_TICKS (a Warrior's; the King's, for BOSS_GUARD_DOWN_TICKS; the other kinds
+// carry no shield): what a Knight's charge, a Mage's fireball, a thrown prop and a heaved body's landing do
+// (knock_elites, elite_impacts), and `dev_break_guards`. Announced when it was up. A break of a broken guard starts its
+// clock again.
 break_guard :: proc(t: ^Tick, handle: sim.Handle(Elite), player: sim.Player) {
 	elite := sim.get(&t.state.elites, handle)
-	if elite == nil || elite.kind != .Warrior || elite.phase == .Dying do return
+	if elite == nil || (elite.kind != .Warrior && elite.kind != .King) || elite.phase == .Dying do return
 	was_up := !sim.timer_running(t, elite.guard_down)
-	sim.timer_start_ticks(t, &elite.guard_down, GUARD_BREAK_TICKS)
+	down := BOSS_GUARD_DOWN_TICKS if elite.kind == .King else GUARD_BREAK_TICKS
+	sim.timer_start_ticks(t, &elite.guard_down, down)
 	if was_up do sim.emit(t, Event_Guard_Broken{elite = handle, position = sim.Position(elite.pos), player = player})
 }
 

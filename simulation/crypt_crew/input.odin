@@ -120,6 +120,10 @@ Command_Pick_Boon :: struct {
 // so the lift boards (a look at the descent and the boons, and the walks' way to them).
 Command_Dev_Board :: struct {}
 
+// `dev_light_braziers` (dev builds): every unlit brazier on the floor lights, lit by the sender (light_brazier, as a
+// kindling's end does).
+Command_Dev_Light_Braziers :: struct {}
+
 // Every command a player can send.
 Command :: union {
 	Command_Set_Paused,
@@ -136,4 +140,6 @@ Command :: union {
 	// The lift and boons (lift.odin, boons.odin)
 	Command_Pick_Boon,
 	Command_Dev_Board,
+	// Braziers (braziers.odin)
+	Command_Dev_Light_Braziers,
 }

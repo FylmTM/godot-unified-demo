@@ -12,11 +12,11 @@ REFERENCE :: scenarios.Reference {
 	players       = 4,
 	ticks         = 2400,
 	snapshot_tick = 1200,
-	checkpoints   = {0x6605397d3204672e, 0x1e240f4263d54a2f, 0xe30f2b3d720b2b6d, 0x09a430c7c41b93b5},
-	trace         = 0x8fc4340df3dea143,
-	snapshot      = 0x669505f77855b9e0,
-	log           = 0xbd6ac31c3d3757c1,
-	compat        = 0x3d3f79e81198b0a5,
+	checkpoints   = {0xddecc843178dcb6c, 0xcb125af97d419843, 0x2a1777e6ce45039b, 0xf58b48e8995a5961},
+	trace         = 0xe37ea70fcc6be2ac,
+	snapshot      = 0x1a4cbb667f3598a6,
+	log           = 0xe52812f2092950bc,
+	compat        = 0xcb56708be85d4269,
 }
 
 @(test)

@@ -77,7 +77,7 @@ strike_arc :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, spec: ^Class_Spec)
 	elites := sim.iterate(&t.state.elites)
 	for elite, handle in sim.next(&elites) {
 		if elite.phase == .Dying do continue
-		away, inside := in_arc(hero, elite.pos.xz, ELITE_RADIUS, spec)
+		away, inside := in_arc(hero, elite.pos.xz, elite_radius(elite.kind), spec)
 		if !inside || walled_off(t, hero, elite.pos.xz) do continue
 		damage_elite(t, handle, spec.damage, away, spec.knock, player, .Blow, hero.pos.xz)
 	}

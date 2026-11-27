@@ -75,8 +75,8 @@ hands_target :: proc(
 }
 
 // Per present hero, in slot order: a throw winding up lets go at THROW_WINDUP_S and ends at THROW_S, reading no other
-// input meanwhile; a pick-up ends at PICK_UP_S; a hero down, attacking, in an ability or reviving reads none (so the
-// press that starts a revive grabs nothing: revive_heroes runs first). Interact's press lets go of the hoard's handle
+// input meanwhile; a pick-up ends at PICK_UP_S; a hero down, attacking, in an ability, reviving or kindling reads none
+// (so the press that starts a revive or a kindling grabs nothing: revive_heroes and kindle_braziers run first). Interact's press lets go of the hoard's handle
 // held, or takes the handle haul_target names (before any prop: hoard.odin), or drops the prop held (ending a
 // pick-up), or grabs hands_target's; Attack's press while holding starts a throw.
 use_hands :: proc(t: ^Tick) {
@@ -90,7 +90,7 @@ use_hands :: proc(t: ^Tick) {
 			continue
 		case .Pick_Up:
 			if age >= PICK_UP_TICKS do hero.action = .None
-		case .Down, .Attack, .Block, .Charge, .Roll, .Cast, .Revive, .Heave, .Hurl:
+		case .Down, .Attack, .Block, .Charge, .Roll, .Cast, .Revive, .Heave, .Hurl, .Kindle:
 			continue
 		case .Haul:
 			if .Interact in sim.buttons(t, player).pressed do release_haul(t, player, slipped = false)

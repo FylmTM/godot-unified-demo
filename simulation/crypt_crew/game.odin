@@ -12,8 +12,9 @@
 // (the co-op pause), saves (the Setup a save is, and the tally it carries), dev (the dev commands) and script (the
 // scripted player); loot (coins dropped and the party's purse); the mechanisms: plates, gates, barricades and traps
 // (spikes and the roller); ragdolls (a downed hero falls as one, and gets up); hoard (the gold chest hauled by its
-// handles), lift (the floor's exit) and boons (picked at the lift); braziers, run (the hub's shrines) and boss, whose
-// markers are read and kept for the run's rules to come (docs/plan.md, milestone 7).
+// handles), lift (the floor's exit) and boons (picked at the lift); braziers (kindled, or lit by a fireball, a second
+// way to open a gate), boss (the vault's fight round the Bone King) with elite_king (its approach, cleave and slam),
+// and run (the hub's shrines), whose markers are read and kept for the run's rules to come (docs/plan.md, milestone 7).
 package crypt_crew
 
 import "unified:physics"
@@ -24,7 +25,7 @@ TICK_HZ :: 64 // ticks per second of game time
 
 // The game's version (sim.Game.version, part of the netcode's compat): bump it when a rule or constant changes what a
 // tick computes without changing the State or Input layout, or two builds desync instead of refusing each other.
-VERSION :: "29"
+VERSION :: "30"
 
 // The game's types for unified:sim: a physics World, a Setup (a new game or a save), a Profile per player.
 Game :: sim.Game(State, Input, World, Event, Command, Setup, Profile, PLAYERS)
@@ -131,6 +132,7 @@ tick :: proc(t: ^Tick) {
 		sim.zone(t, Zone.Heroes)
 		if !choosing(t) { 	// at the lift's bottom a hero's input is its boon panel's: it only picks (lift.odin)
 			revive_heroes(t) // first: the press that starts a revive grabs nothing
+			kindle_braziers(t) // then a brazier's kindling, which that press doesn't start (braziers.odin)
 			face_heroes(t)
 			use_hands(t) // after facing: a grab takes what the hero now faces
 			use_abilities(t) // after the hands: hands full start none
@@ -201,6 +203,7 @@ tick :: proc(t: ^Tick) {
 		sim.zone(t, Zone.Health)
 		age_minions(t) // after the step: a swing lands on where the hero is now
 		age_elites(t)
+		update_boss(t) // after the elites age: the King woken, its ward broken by the braziers lit (boss.odin)
 		check_wipe(t)
 	}
 	{

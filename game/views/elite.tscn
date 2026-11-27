@@ -4,6 +4,9 @@
 [ext_resource type="PackedScene" path="res://game/characters/skeletons/warrior.tscn" id="warrior"]
 [ext_resource type="PackedScene" path="res://game/characters/skeletons/rogue.tscn" id="rogue"]
 [ext_resource type="PackedScene" path="res://game/characters/skeletons/mage.tscn" id="mage"]
+[ext_resource type="PackedScene" path="res://game/characters/skeletons/king.tscn" id="king"]
+[ext_resource type="Shader" path="res://game/fx/ward.gdshader" id="ward_shader"]
+[ext_resource type="Shader" path="res://game/fx/ground_ring.gdshader" id="ground_ring"]
 [ext_resource type="Material" path="res://game/fx/hit_flash.tres" id="flash"]
 [ext_resource type="Material" path="res://game/fx/guard_glint.tres" id="glint"]
 [ext_resource type="Shader" path="res://game/views/elite_bar.gdshader" id="bar_shader"]
@@ -15,11 +18,31 @@ shader = ExtResource("bar_shader")
 material = SubResource("bar")
 size = Vector2(1, 0.14)
 
+[sub_resource type="ShaderMaterial" id="ward"]
+render_priority = 1
+shader = ExtResource("ward_shader")
+
+[sub_resource type="SphereMesh" id="ward_sphere"]
+radius = 1.6
+height = 4.6
+
+[sub_resource type="ShaderMaterial" id="slam_ring"]
+render_priority = 1
+shader = ExtResource("ground_ring")
+shader_parameter/color = Color(1, 0.25, 0.12, 0.85)
+shader_parameter/dim = 0.3
+shader_parameter/inner = 0.9
+shader_parameter/outer = 0.99
+
+[sub_resource type="PlaneMesh" id="slam_quad"]
+size = Vector2(2, 2)
+
 [node name="Elite" type="Node3D"]
 script = ExtResource("elite")
 warrior = ExtResource("warrior")
 rogue = ExtResource("rogue")
 mage = ExtResource("mage")
+king = ExtResource("king")
 flash = ExtResource("flash")
 glint = ExtResource("glint")
 
@@ -31,3 +54,17 @@ pool = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.6, 0)
 cast_shadow = 0
 mesh = SubResource("bar_quad")
+
+[node name="Ward" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0)
+visible = false
+cast_shadow = 0
+material_override = SubResource("ward")
+mesh = SubResource("ward_sphere")
+
+[node name="SlamRing" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+visible = false
+cast_shadow = 0
+material_override = SubResource("slam_ring")
+mesh = SubResource("slam_quad")
