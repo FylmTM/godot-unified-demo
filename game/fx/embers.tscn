@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Texture2D" path="res://assets/kenney/particles/spark_01.png" id="spark"]
+[ext_resource type="Shader" path="res://game/fx/particles/sphere_turbulence.gdshader" id="process"]
 
 [sub_resource type="Gradient" id="fade"]
 offsets = PackedFloat32Array(0, 0.5, 1)
@@ -9,22 +10,28 @@ colors = PackedColorArray(1, 0.85, 0.5, 1, 1, 0.5, 0.15, 1, 0.8, 0.25, 0.05, 0)
 [sub_resource type="GradientTexture1D" id="fade_texture"]
 gradient = SubResource("fade")
 
-[sub_resource type="ParticleProcessMaterial" id="motion"]
-emission_shape = 1
-emission_sphere_radius = 0.25
-direction = Vector3(0, 1, 0)
-spread = 25.0
-initial_velocity_min = 2.0
-initial_velocity_max = 3.6
-gravity = Vector3(0, -1.0, 0)
-damping_min = 0.5
-damping_max = 1.0
-turbulence_enabled = true
-turbulence_noise_strength = 0.6
-turbulence_noise_scale = 2.0
-scale_min = 0.5
-scale_max = 0.9
-color_ramp = SubResource("fade_texture")
+[sub_resource type="ShaderMaterial" id="motion"]
+shader = ExtResource("process")
+shader_parameter/color_ramp = SubResource("fade_texture")
+shader_parameter/color_value = Color(1, 1, 1, 1)
+shader_parameter/damping_max = 1.0
+shader_parameter/damping_min = 0.5
+shader_parameter/direction = Vector3(0, 1, 0)
+shader_parameter/directional_velocity_max = 1.0
+shader_parameter/directional_velocity_min = 1.0
+shader_parameter/emission_sphere_radius = 0.25
+shader_parameter/gravity = Vector3(0, -1, 0)
+shader_parameter/initial_linear_velocity_max = 3.6
+shader_parameter/initial_linear_velocity_min = 2.0
+shader_parameter/scale_max = 0.9
+shader_parameter/scale_min = 0.5
+shader_parameter/spread = 25.0
+shader_parameter/turbulence_influence_max = 0.1
+shader_parameter/turbulence_influence_min = 0.1
+shader_parameter/turbulence_noise_scale = -1.3250389
+shader_parameter/turbulence_noise_speed = Vector3(0, 0, 0)
+shader_parameter/turbulence_noise_speed_random = 0.2
+shader_parameter/turbulence_noise_strength = 0.6
 
 [sub_resource type="StandardMaterial3D" id="glow"]
 transparency = 1

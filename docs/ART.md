@@ -43,7 +43,9 @@ relief, rocks or a decoration, is walked through). Characters face +Z.
 - `game/levels/parts/<kit>/`: the kit parts levels are built from (`crypt/`, `hub/`).
 - `game/fx/`: fire, its flicker, the light a hero carries, the highlight on the prop a hero would grab, a hit's
   flash, and the fights' one-shot effects (sparks, a bolt's burst, dust, the crossbow's tracer: a glowing beam, a
-  picked-up coin's glint).
+  picked-up coin's glint). Their particles run Godot's particle process shader from files (`game/fx/particles/`: one
+  variant per set of features, in a ShaderMaterial), never a ParticleProcessMaterial, whose run-time shaders macOS
+  reports leaked at exit (`process.gdshaderinc` says more).
 - `game/environments/`: each place's Environment (fog, glow, ambient, tonemap).
 - `game/lookdev/`: the look-dev scene and its stages.
 - `game/crowd/`: the skeleton minions drawn as one crowd: the baked mesh, bones and clip table, and the crowd's

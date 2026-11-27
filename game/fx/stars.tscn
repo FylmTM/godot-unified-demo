@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Texture2D" path="res://assets/kenney/particles/star_06.png" id="star"]
+[ext_resource type="Shader" path="res://game/fx/particles/ring_curve.gdshader" id="process"]
 
 [sub_resource type="Gradient" id="fade"]
 offsets = PackedFloat32Array(0, 0.2, 1)
@@ -16,23 +17,27 @@ point_count = 2
 [sub_resource type="CurveTexture" id="shrink_texture"]
 curve = SubResource("shrink")
 
-[sub_resource type="ParticleProcessMaterial" id="motion"]
-emission_shape = 6
-emission_ring_axis = Vector3(0, 1, 0)
-emission_ring_height = 0.2
-emission_ring_radius = 0.8
-emission_ring_inner_radius = 0.5
-direction = Vector3(0, 1, 0)
-spread = 12.0
-initial_velocity_min = 1.4
-initial_velocity_max = 2.6
-gravity = Vector3(0, 0.4, 0)
-damping_min = 0.8
-damping_max = 1.2
-scale_min = 0.7
-scale_max = 1.1
-scale_curve = SubResource("shrink_texture")
-color_ramp = SubResource("fade_texture")
+[sub_resource type="ShaderMaterial" id="motion"]
+shader = ExtResource("process")
+shader_parameter/color_ramp = SubResource("fade_texture")
+shader_parameter/color_value = Color(1, 1, 1, 1)
+shader_parameter/damping_max = 1.2
+shader_parameter/damping_min = 0.8
+shader_parameter/direction = Vector3(0, 1, 0)
+shader_parameter/directional_velocity_max = 1.0
+shader_parameter/directional_velocity_min = 1.0
+shader_parameter/emission_ring_axis = Vector3(0, 1, 0)
+shader_parameter/emission_ring_cone_angle = 90.0
+shader_parameter/emission_ring_height = 0.2
+shader_parameter/emission_ring_inner_radius = 0.5
+shader_parameter/emission_ring_radius = 0.8
+shader_parameter/gravity = Vector3(0, 0.4, 0)
+shader_parameter/initial_linear_velocity_max = 2.6
+shader_parameter/initial_linear_velocity_min = 1.4
+shader_parameter/scale_curve = SubResource("shrink_texture")
+shader_parameter/scale_max = 1.1
+shader_parameter/scale_min = 0.7
+shader_parameter/spread = 12.0
 
 [sub_resource type="StandardMaterial3D" id="shine"]
 transparency = 1

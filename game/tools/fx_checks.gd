@@ -12,6 +12,8 @@ extends RefCounted
 ##   up and down, and never changes the Environment the file holds; a level without braziers to follow keeps its own.
 ## - The cutaway: a wall between the camera and a hero is cut, and comes back whole (its own material) once the hero
 ##   has gone; a wall behind the hero is never cut.
+## - Particles: no scene of the game's processes its particles with a ParticleProcessMaterial; each runs a variant of
+##   game/fx/particles/ in a ShaderMaterial (process.gdshaderinc says why).
 ##
 ## Each check makes what it checks under the run's tree and steps it by hand (Effects.advance, Lighting.follow,
 ## Cutaway.update), in one frame. Events made here (`EventFireballBurst.new()`) carry the default fields and id 0, so
@@ -49,6 +51,7 @@ func run() -> void:
 	_check_news()
 	_check_lighting()
 	_check_cutaway()
+	_check_particles()
 
 
 func _check_budgets() -> void:
@@ -196,6 +199,12 @@ func _effects() -> Effects:
 func _free(effects: Effects) -> void:
 	_tree_root.remove_child(effects)
 	effects.free()
+
+
+func _check_particles() -> void:
+	for path: String in ArtChecks.scenes("res://game/"):
+		if FileAccess.get_file_as_string(path).contains('type="ParticleProcessMaterial"'):
+			_problem("a ParticleProcessMaterial: use a ShaderMaterial with a game/fx/particles/ variant", path)
 
 
 func _expect(cond: bool, what: String, at: String) -> void:
