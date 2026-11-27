@@ -721,7 +721,8 @@ func _pick_boon(depth: int) -> void:
 	if failed():
 		return
 	await press_action(&"interact")
-	await wait_for(func() -> bool: return Unified.data.hud.depth > depth, BEAT_S, "the party goes down past %d" % depth)
+	await wait_for(func() -> bool: return Unified.data.hud.depth > depth, BEAT_S * 2.0,  # a bad link's picks come late
+		"the party goes down past %d" % depth)
 
 
 ## Walks to the brazier whose foot is `at` and holds Interact until this side's lighting is CONFIRMED, pressing again
