@@ -5,13 +5,10 @@
 //
 // - A desync: state kept outside the block. The copy keeps a package-level counter, which a rollback doesn't restore,
 //   and adds it to every hero's warp epoch; the sync-test's first re-simulation of the first tick it touched computes
-//   other bytes, and run_synctest names that tick.
+//   other bytes, and run_synctest names that tick and the field (first_diff: the warp, forward vs re-simulated).
 // - A rule change: deterministic, so the sync-test can't see it, but the recorded session (replays/lan_pair) no longer
 //   reproduces what was blessed. From a late tick the copy counts every felled skeleton twice; regression_run names
 //   the first tick that differs and the State's field (State.kills).
-//
-// The sync-test names the tick only. To name the field of a desync too, record the run and replay it on a good and a
-// bad build (the unified-desync skill, The first field).
 package test_crypt_crew
 
 import "core:strings"
@@ -58,7 +55,7 @@ rule_tick :: proc(t: ^g.Tick) {
 }
 
 // A copy of the game with the planted tick is still a game the harness runs (sim.game_violation, what every scenario
-// checks first); the sync-test catches it, and names the planted first tick.
+// checks first); the sync-test catches it, and names the planted first tick and the field it planted in.
 @(test)
 a_planted_desync_is_caught :: proc(t: ^testing.T) {
 	planted := g.GAME
@@ -75,6 +72,7 @@ a_planted_desync_is_caught :: proc(t: ^testing.T) {
 		result.first_tick,
 		result.first_at,
 	)
+	testing.expectf(t, strings.contains(result.first_diff, ".warp "), "it names a hero's warp: %s", result.first_diff)
 }
 
 // The LAN recording replayed with a rule changed late diverges at the first tick the rule changed, and the report names

@@ -1,10 +1,16 @@
 // crypt_crew's end-to-end suite: the standard scenarios of unified:headless/scenarios (unified/src/headless/README.md),
-// its replay regressions (the recorded sessions in replays/), unified's determinism lint, the extension's install check
-// and the session's byte budget. The reference run is in reference_test.odin, the planted bugs the harness catches in
-// planted_test.odin, the soak in soak_test.odin, the rule tests in a file per system (heroes_test.odin).
+// its replay regressions (the recorded sessions in replays/) and what two of them hold (a LAN session's play, an F3
+// note's fact), unified's determinism lint, the extension's install check, the session's byte budget, and that
+// docs/testing.md names every test file, replay and check script. The reference run is in reference_test.odin, the
+// planted bugs the harness catches in planted_test.odin, the soak in soak_test.odin, the rule tests in a file per system
+// (heroes_test.odin).
 package test_crypt_crew
 
+import "core:os"
+import "core:slice"
+import "core:strings"
 import "core:testing"
+import "unified:dmath"
 import "unified:godot"
 import "unified:headless"
 import "unified:headless/scenarios"
@@ -157,6 +163,84 @@ the_lan_recording_holds_its_play :: proc(t: ^testing.T) {
 	testing.expectf(t, joiner.paused > 0 && host.resumed > 0, "the joiner pauses, the host resumes: %v", played)
 	testing.expectf(t, host.hits[.Dev] > 0 && host.downed > 0, "the host's dev kill and its downing: %v", host)
 	testing.expectf(t, surges >= 4, "four surges rise: %d", surges)
+}
+
+// An F3 note kept as a regression (docs/testing.md, F3 notes): an agent played the Knight to Floor 1's lift with
+// `uni drive`, took Swift Boots from the boon cards with the panel's own keys, walked on Floor 2 and saved
+// "on Floor 2 my Knight walks faster than on Floor 1" with `uni drive note` (replays/note_swift_boots/note.txt).
+// Replayed, the noted fact holds: slot 0 picks Swift Boots itself (no timeout's auto pick), the party descends to
+// Floor 2, and the Knight's top walking speed there is Swift_Boots' rank faster than on Floor 1.
+@(test)
+the_swift_boots_note_holds :: proc(t: ^testing.T) {
+	input_log, decoded := sim.log_decode(#load("replays/note_swift_boots/inputs.unil"), g.Game)
+	defer sim.log_destroy(&input_log)
+	if !testing.expect(t, decoded, "inputs.unil decodes") do return
+	simulation, err := sim.from_snapshot(&g.GAME, #load("replays/note_swift_boots/snapshot.unis"), any_build = true)
+	if !testing.expectf(t, err == .None, "snapshot.unis loads: %v", err) do return
+	defer sim.destroy(simulation)
+	picked: Maybe(g.Event_Boon_Picked)
+	descended: u32
+	top: [g.Level_Id]f32 // the hero's top ground speed squared on each floor
+	for k in 0 ..< len(input_log.ticks) {
+		inputs := sim.log_inputs(&input_log, k)
+		sim.step(simulation, &inputs)
+		for &raw in sim.events_at(simulation, simulation.tick) {
+			#partial switch event in sim.event_value(&raw, g.Event) {
+			case g.Event_Boon_Picked:
+				if slot, ok := sim.player_slot(simulation, event.player); ok && slot == 0 do picked = event
+			case g.Event_Descended:
+				descended = event.depth
+			}
+		}
+		hero := sim.slot_data(simulation, 0)
+		if hero == nil || hero.class != .Knight do continue
+		level := simulation.state.level.id
+		top[level] = dmath.max(top[level], hero.vel.x * hero.vel.x + hero.vel.z * hero.vel.z)
+	}
+	pick, ok := picked.?
+	if !testing.expect(t, ok, "slot 0 picks a boon") do return
+	testing.expectf(
+		t,
+		pick.boon == .Swift_Boots && pick.rank == 1 && !pick.auto,
+		"its own pick, Swift Boots: %v",
+		pick,
+	)
+	testing.expectf(t, descended == 1, "the party descends to depth 1: %d", descended)
+	testing.expectf(t, simulation.state.level.id == .Floor_2, "it ends on Floor 2: %v", simulation.state.level.id)
+	boots := 1 + g.SWIFT_BOOTS
+	testing.expectf(
+		t,
+		top[.Floor_1] > 0 &&
+		top[.Floor_2] / top[.Floor_1] > boots * boots * 0.99 &&
+		top[.Floor_2] / top[.Floor_1] < boots * boots * 1.01,
+		"the Knight walks %v times faster on Floor 2 (top speeds squared %v, %v)",
+		boots,
+		top[.Floor_1],
+		top[.Floor_2],
+	)
+}
+
+// docs/testing.md maps every layer of the game's testing to its files, and stays complete: each test file here, each
+// replay regression (as replays/<name>) and each of game/tools' check scripts is named in it. A tool that makes
+// rather than checks (a bake, an authoring tool) is listed in MAKERS instead, so a new script is a choice either way.
+@(test)
+the_testing_doc_names_every_layer :: proc(t: ^testing.T) {
+	DOC :: #load("../../docs/testing.md", string)
+	MAKERS :: [?]string{"bake_crowd.gd", "bake_glyphs.gd", "lay_floor.gd", "minion_bake.gd", "render_portraits.gd"}
+	unnamed :: proc(t: ^testing.T, dir, suffix, prefix: string, folders: bool, skip: []string = nil) {
+		entries, err := os.read_all_directory_by_path(dir, context.temp_allocator)
+		if !testing.expectf(t, err == nil, "cannot list %s: %v", dir, err) do return
+		for entry in entries {
+			if (entry.type == .Directory) != folders || !strings.has_suffix(entry.name, suffix) do continue
+			if slice.contains(skip, entry.name) do continue
+			name := strings.concatenate({prefix, entry.name}, context.temp_allocator)
+			testing.expectf(t, strings.contains(DOC, name), "docs/testing.md doesn't name %s (%s)", name, dir)
+		}
+	}
+	makers := MAKERS
+	unnamed(t, #directory, ".odin", "", false)
+	unnamed(t, #directory + "/replays", "", "replays/", true)
+	unnamed(t, #directory + "/../../game/tools", ".gd", "", false, makers[:])
 }
 
 // The slot of the LAN recording's `player` (its two players hold slots 0 and 1); false for anyone else.

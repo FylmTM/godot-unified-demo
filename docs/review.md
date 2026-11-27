@@ -1155,6 +1155,35 @@ Step C, accessibility (beyond the design's decided calls):
   a seek holds them); the revive's and the fireball's rings stay plain bands. A new look-dev shot, fx_rings, sets the
   three side by side; ART.md says colour never alone.
 
+## Milestone 9: the testing showcase
+
+Step 1, the sim's nets (beyond the design's decided calls):
+
+- The planted bugs run on copies of `g.GAME` with the bug after the game's tick, never in the sim package: a
+  package-level counter in every hero's warp from tick 120 (the sync-test names tick 120 and, since unified 500e564,
+  `players.data[0].warp`), and kills counted twice from tick 3000 of lan_pair (the replay names tick 3282 and
+  `kills`).
+- The soak's invariants: sync, the minion and elite caps, hero health in range, finite feet not below the floor;
+  every Input byte random, held 1..32 ticks, with random pauses and boon picks; each seed on one of the seven levels.
+- The byte budget is four clients on the bad network, the last joining at tick 300: ceilings in `tuning.odin`
+  (Bandwidth) at today's measures plus 15 %.
+
+Step 2, the round trip, CI and the doc (beyond the design's decided calls):
+
+- The F3 example is a note, not a bug: an agent took Swift Boots at Floor 1's lift with the boon panel's own keys and
+  noted that its Knight walks faster on Floor 2 (`replays/note_swift_boots`, its `note.txt` kept beside the
+  recording); `the_swift_boots_note_holds` checks the pick, the descent and Floor 2's top speed at 1.06 times Floor
+  1's (within 1 %).
+- The nightly now always runs: unified's `main` once per pair (the canary, as before), else the pin, so the long tier
+  and `coop --lan --crash` run every night. No bench at night.
+- The doc test counts a `game/tools` script as a check unless it is in its MAKERS list (the bakes, `lay_floor.gd`,
+  `render_portraits.gd`), so a new tool script is named in `docs/testing.md` or listed as a maker on purpose.
+- The README's testing section is three lines and the link; its rewrite is milestone 10's.
+- `uni coop --lan --crash` failed before this step: the process that comes back after the crash is a tool run, whose
+  Settings make a new random profile id, so the host's save had no boons for it ("its boons came back with it"). The
+  joiner now takes a fixed id (`FRIEND_PROFILE_ID`, `game/tools/coop.gd`), as a player's settings file keeps theirs.
+- `uni coop --lan` adds about two minutes to the godot job per push (122 s here; `--crash` 129 s, nightly only).
+
 ## Milestone 10: builds
 
 - export_presets.cfg's include_filter is empty: no file is read raw at runtime (the sim `#load`s the .level files

@@ -20,19 +20,13 @@ results: CC0, picked by the developer from candidates); Music plays silence over
 ## What it shows of unified
 
 Still to show, each where it belongs in the game, with a line in the README pointing at the file that does it: debug
-draws, recording and replay with seek, F3 notes; and every way of testing (below). What it shows already is the
-README's.
-
-## How it's tested
-
-`docs/testing.md` (milestone 9) maps each layer to its command and files, with a replay regression for each fixed F3
-note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a walk-through.
+draws, recording and replay with seek, F3 notes. What it shows already is the README's; how it is tested,
+`docs/testing.md`.
 
 ## Milestones
 
 | # | What lands |
 |---|---|
-| 9 | The testing showcase complete, `docs/testing.md` |
 | 10 | macOS in CI, release builds, videos, the final README |
 
 ## Needed from unified

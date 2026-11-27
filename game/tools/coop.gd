@@ -81,6 +81,9 @@ const HIT_WITHIN_S: float = 10.0
 const DIRS: Array[StringName] = [&"move_left", &"move_down", &"move_right", &"move_up"]
 ## The joiner's name.
 const FRIEND_NAME: String = "Friend"
+## The joiner's profile id (Settings.profile_id), the same in the process `--crash` starts after the first one died, as
+## a player's settings file keeps theirs: the host's save keeps the friend's boons by it. A tool run's own is random.
+const FRIEND_PROFILE_ID: String = "1000003"
 ## How long the host waits for the descent's save, for the friend's resume, and how long the friend waits for the
 ## host's pause.
 const SAVE_WITHIN_S: float = 15.0
@@ -1120,11 +1123,12 @@ func _check_purse() -> void:
 	step("the purse moved on confirmed pickups only, at %d (%s)" % [gold, _purse_watch.summary()])
 
 
-## Names the joiner's player as its Settings enters the tree: before the session starts, with that name, from uni's
-## flags.
+## Names the joiner's player and gives it its profile id as its Settings enters the tree: before the session starts,
+## with them, from uni's flags.
 func _name_friend(node: Node) -> void:
 	if node.name == &"Settings" and node.get_parent() == root:
 		node.set(&"player_name", FRIEND_NAME)
+		node.set(&"profile_id", FRIEND_PROFILE_ID)
 		node_added.disconnect(_name_friend)
 
 

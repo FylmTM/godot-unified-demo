@@ -2,13 +2,17 @@
 # `./uni verify` runs locally, plus `uni bench` (reported in each job's summary, not gated); and the release builds.
 #
 # Runs per event:
-#   push to main        linux-x64, linux-arm64, windows-x64, macos-arm64, godot and release (windows-x64 and
-#                       macos-arm64), against the pinned unified submodule. Every push gets its full run (no
-#                       cancelling): each commit's check and benchmarks stay on record.
-#   nightly (schedule)  the canary: linux-x64 and godot against unified's `main` when it differs from the pin, so a
-#                       unified change that breaks this game shows before the bump. Once per pair of (this repo's
-#                       commit, unified's main): a red canary is not repeated every night. Nothing is committed.
-#                       GitHub pauses schedules after 60 days without commits here; re-enable it in the Actions tab.
+#   push to main        linux-x64, linux-arm64, windows-x64, macos-arm64, godot (its suite, then a host and a joiner
+#                       in two processes: `uni coop --lan`) and release (windows-x64 and macos-arm64), against the
+#                       pinned unified submodule. Every push gets its full run (no cancelling): each commit's check
+#                       and benchmarks stay on record.
+#   nightly (schedule)  the slow tier, every night: linux-x64 with `uni test --long` (every standard scenario at full
+#                       length, sixteen soak seeds), and godot with `uni coop --lan --crash` too (the joiner's process
+#                       killed mid-match, the same player back). Against unified's `main` when it differs from the
+#                       pin (the canary: a unified change that breaks this game shows before the bump), once per pair
+#                       of (this repo's commit, unified's main), so a red canary is not repeated every night; else
+#                       against the pin. No bench. Nothing is committed. GitHub pauses schedules after 60 days without
+#                       commits here; re-enable it in the Actions tab.
 #   manual dispatch     the push set; `-f unified_ref=<branch, tag or full commit SHA>` tests against that unified
 #                       instead of the pin (a unified branch, before it merges).
 #
@@ -37,8 +41,8 @@ permissions:
   contents: read
 
 jobs:
-  # Which unified to test against: the pin (an empty ref) on a push, the input on a dispatch, unified's main on the
-  # nightly, which runs only when that main differs from the pin and this pair hasn't been tested yet.
+  # Which unified to test against: the pin (an empty ref) on a push, the input on a dispatch; on the nightly, unified's
+  # main when it differs from the pin and this pair hasn't been tested yet (the canary), else the pin.
   unified:
     name: unified ref
     runs-on: ubuntu-24.04
@@ -47,9 +51,8 @@ jobs:
       run:
         shell: bash
     outputs:
-      ref: ${{ steps.pick.outputs.ref }}
-      run: ${{ steps.pick.outputs.run == 'true' && steps.tested.outputs.cache-hit != 'true' }}
-      canary_key: ${{ steps.pick.outputs.canary_key }}
+      ref: ${{ steps.tested.outputs.cache-hit != 'true' && steps.pick.outputs.ref || '' }}
+      canary_key: ${{ steps.tested.outputs.cache-hit != 'true' && steps.pick.outputs.canary_key || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -70,13 +73,11 @@ jobs:
                 exit 1
               fi
               if [ "$main" = "$pinned" ]; then
-                echo "unified main is the pin ($pinned): nothing new to test" | tee -a "$GITHUB_STEP_SUMMARY"
-                echo "run=false" >> "$GITHUB_OUTPUT"
+                echo "unified main is the pin ($pinned): the long tier on the pin" | tee -a "$GITHUB_STEP_SUMMARY"
               else
                 echo "unified main $main, pinned $pinned: testing main" | tee -a "$GITHUB_STEP_SUMMARY"
                 echo "ref=$main" >> "$GITHUB_OUTPUT"
                 echo "canary_key=canary-$SHA-$main" >> "$GITHUB_OUTPUT"
-                echo "run=true" >> "$GITHUB_OUTPUT"
               fi ;;
             *)
               # A fetch matches a branch, a tag or a full commit id; an abbreviated one finds nothing.
@@ -85,8 +86,7 @@ jobs:
                 exit 1
               fi
               echo "unified: ${INPUT_REF:-the pin, $pinned}" | tee -a "$GITHUB_STEP_SUMMARY"
-              echo "ref=$INPUT_REF" >> "$GITHUB_OUTPUT"
-              echo "run=true" >> "$GITHUB_OUTPUT" ;;
+              echo "ref=$INPUT_REF" >> "$GITHUB_OUTPUT" ;;
           esac
       # The nightly's memory: a cache entry per tested pair, written by `canary` below.
       - id: tested
@@ -97,12 +97,11 @@ jobs:
           key: ${{ steps.pick.outputs.canary_key }}
           lookup-only: true
       - if: ${{ steps.tested.outputs.cache-hit == 'true' }}
-        run: echo "this pair was tested by an earlier nightly" | tee -a "$GITHUB_STEP_SUMMARY"
+        run: echo "this pair was tested by an earlier nightly: the long tier on the pin" | tee -a "$GITHUB_STEP_SUMMARY"
 
   ci:
     name: ${{ matrix.platform }}
     needs: unified
-    if: ${{ needs.unified.outputs.run == 'true' }}
     runs-on: >-
       ${{ fromJSON('{"linux-x64": "ubuntu-24.04", "linux-arm64": "ubuntu-24.04-arm",
       "windows-x64": "windows-2025", "macos-arm64": "macos-15"}')[matrix.platform] }}
@@ -119,6 +118,8 @@ jobs:
       LINUX_X64: ${{ matrix.platform == 'linux-x64' }}
       # The odin suite again against Box3D's debug library (its asserts trap a misused body id), on one runner.
       SUITES: ${{ matrix.platform == 'linux-arm64' && 'odin,box3d-debug' || 'odin' }}
+      # The nightly's slow tier: every standard scenario at full length, sixteen soak seeds.
+      LONG: ${{ github.event_name == 'schedule' && '--long' || '' }}
       UNIFIED_REF: ${{ needs.unified.outputs.ref }}
     defaults:
       run:
@@ -158,9 +159,9 @@ jobs:
       - name: vet (darwin_arm64, linux_amd64, linux_arm64, windows_amd64)
         if: ${{ !cancelled() && steps.ready.outcome == 'success' && env.LINUX_X64 == 'true' }}
         run: ./uni vet
-      - name: test --suite ${{ env.SUITES }}
+      - name: test --suite ${{ env.SUITES }} ${{ env.LONG }}
         if: ${{ !cancelled() && steps.ready.outcome == 'success' }}
-        run: $UNI test --suite "$SUITES" 2>&1 | tee .out/test.txt
+        run: $UNI test --suite "$SUITES" $LONG 2>&1 | tee .out/test.txt
       - name: bench (release build; reported in the summary, not gated)
         if: ${{ !cancelled() && steps.ready.outcome == 'success' && github.event_name != 'schedule' }}
         run: $UNI bench 2>&1 | tee .out/bench.txt
@@ -182,7 +183,6 @@ jobs:
   # jobs: its Godot launches are most of a run's time.
   godot:
     needs: unified
-    if: ${{ needs.unified.outputs.run == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -216,6 +216,15 @@ jobs:
       - name: test --suite godot
         if: ${{ !cancelled() && steps.ready.outcome == 'success' }}
         run: ./uni test --suite godot 2>&1 | tee .out/test.txt
+      # A host and a joiner, two headless Godot processes on 127.0.0.1: the friend's hero beside the host's, both
+      # sides' checksums agreeing (game/tools/coop.gd).
+      - name: coop --lan
+        if: ${{ !cancelled() && steps.ready.outcome == 'success' }}
+        run: ./uni coop --lan
+      # The joiner's process killed mid-match and the same player back by its LAN token: the slow one, nightly.
+      - name: coop --lan --crash
+        if: ${{ !cancelled() && steps.ready.outcome == 'success' && github.event_name == 'schedule' }}
+        run: ./uni coop --lan --crash
       # The look-dev scene's frames (fires flickering, every shot shown, the cast posing), which validate only loads.
       - name: tool lookdev (headless)
         if: ${{ !cancelled() && steps.ready.outcome == 'success' }}
@@ -232,7 +241,7 @@ jobs:
   release:
     name: release / ${{ matrix.platform }}
     needs: unified
-    if: ${{ needs.unified.outputs.run == 'true' && github.event_name != 'schedule' }}
+    if: ${{ github.event_name != 'schedule' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -315,7 +324,7 @@ jobs:
   canary:
     name: canary tested
     needs: [unified, ci, godot]
-    if: ${{ !cancelled() && needs.unified.outputs.canary_key != '' && needs.unified.outputs.run == 'true' }}
+    if: ${{ !cancelled() && needs.unified.outputs.canary_key != '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

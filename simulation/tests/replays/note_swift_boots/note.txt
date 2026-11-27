@@ -1,0 +1,2 @@
+[note]
+Took Swift Boots at the Floor 1 lift: on Floor 2 my Knight walks faster than on Floor 1 (the card says 6%)
