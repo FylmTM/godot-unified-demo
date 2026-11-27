@@ -24,6 +24,10 @@ Checking and running the game is the `unified-godot` skill.
 - `res://unified/tools_godot/` is unified's tool scripts (the submodule): changed in unified, never in a game.
 - A tool script (`-s`) is compiled before the autoloads exist: it never names a script that uses an autoload (reach
   those through the scene tree). Scripts the play scene loads never `preload()`.
+- A menu that loads the play scene in the background (`ResourceLoader.load_threaded_request`) skips it headless
+  (`DisplayServer.get_name() == "headless"`): Godot's headless (dummy) renderer stores textures without a lock, so
+  the loading thread's textures and the main thread's collide now and then (`Parameter "t" is null`, a texture
+  leaked at exit). The scene switch loads it instead.
 - Sim data is typed end to end: an event handler dispatches by class (`if event is EventRockHit: var hit := event
   as EventRockHit`) with `state: UnifiedSession.EventState`, never on `event.kind`; nested data is read as its class
   (`for p: DataHudPlayer in Unified.data.hud.players`), never with `.get("field")`. A view's data is its root
