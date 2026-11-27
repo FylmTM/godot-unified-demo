@@ -410,7 +410,12 @@ read_places :: proc(places: ^Places, floor: ^level.Level) {
 	for has_spawn in spawned do assert(has_spawn, "crypt_crew: a floor needs a hero_spawn per slot")
 	link_plates(places) // plates.odin
 	link_braziers(places) // braziers.odin
-	assert(places.graves.count > 0, "crypt_crew: a floor needs a grave for its surges to rise from")
+	// ---- the run's levels (milestone 7, step 3): the hub has no director, so only a floor with a hoard or a boss needs
+	// a grave (the run's rule, run.odin, says it again)
+	assert(
+		places.graves.count > 0 || !(places.hoard.placed || places.boss.placed),
+		"crypt_crew: a floor with a hoard or a boss needs a grave for its surges to rise from",
+	)
 }
 
 // The walkable floor's place nearest `near` within `reach` (on the floor's island: never a wall's top); false for none.

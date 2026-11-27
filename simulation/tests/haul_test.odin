@@ -883,7 +883,9 @@ an_arrival_lands_clear_of_the_hoard :: proc(t: ^testing.T) {
 
 // The ways the hoard is hauled, each level's, as points along the floor: Floor 1's out of the vault through the
 // spike gallery to the lift, and out of it through the passage (the barricade broken) to the lift; the workshop's out
-// of its vault, between its plates, to its lift.
+// of its vault, between its plates, to its lift; the Ossuary's (Floor 2) out of its vault across the hall to the lift;
+// the Deep Halls' (Floor 3) out of its vault, past the antechamber's plates, through the shortcut (the barricade
+// broken) to the lift.
 @(private = "file")
 HAUL_LANES := [?]struct {
 	level:  g.Level_Id,
@@ -901,6 +903,8 @@ HAUL_LANES := [?]struct {
 		{{30, -2}, {21.5, -2}, {20.7, -2.6}, {20.7, -6}, {14.5, -6}, {13, -4.2}, {12, -3.6}, {4, -3.6}},
 	},
 	{.Workshop, "the workshop", {{-6, -6.4}, {-6, 0.2}, {1, 0.2}, {2, 2}}},
+	{.Floor_2, "the Ossuary's hall", {{2, 16.5}, {2, 8}, {-2, 2}}},
+	{.Floor_3, "the Deep Halls' shortcut", {{6, 20.5}, {6, 13}, {0, 10}, {-6, 10}}},
 }
 
 // Every haul lane (HAUL_LANES) is clear for a dragged hoard all along: its box, lengthwise along the lane (as a hauler

@@ -1000,3 +1000,35 @@ Step 4, the joins (beyond the design's decided calls):
   and the hub's stub a lift with `hoard = false` on a shaft cell. Adding levels re-pinned the reference runs' snapshot,
   log and compat (the levels' hash and Box3D's static bodies), not their checkpoints or traces, and lan_pair was
   recorded again (its snapshot's layout moved); no VERSION bump, since no tick computes anything else.
+
+Step 3, the levels (beyond the design's decided calls):
+
+- `lay_floor` draws two more edges: `b`, a barrier (low cover) for a room's side toward the camera, which at the floor's
+  rim also gets its `Rim` (an invisible wall over it, laid with the map); `o`, nothing even at the rim (the hub's crypt
+  closes the deck's north side). Every south rim of the new floors is `b`.
+- The run levels bake only their floor: each NavigationMesh's `filter_baking_aabb` stops at 0.9 m, below every low
+  cover's and wall's top, so no wall, crate or crypt top bakes an island (each_run_level_bakes_one_island).
+- A brazier's and a shrine's marker stands on its part's middle (the part's collider round it; the hero reaches it
+  within the rule's range). The braziers burn no fire yet: their room's light is wall torches until step 2's view.
+- The hub (20 by 16 m, fenced): the crypt north of the ring, its front over the deck's north side; a shrine each side
+  of the deck, two post lanterns flanking it, two benches, graves and dead trees round the yard, a cobbled path from
+  the spawns to the deck, four barrels; the Moon (the hub stage's) in the scene.
+- Floor 2, the Ossuary (493 m², cap 197): the hall (16 by 16 m, the lift and spawns, two pillars by the haul) with the
+  west chamber through a doorway (a pack of 8, a Warrior, a brazier), the north end room up a one-cell spike corridor
+  (spikes at phases 0 and 1.5 s, a Rogue, a brazier), the east chamber behind a barricade between two open rooms (a
+  pack of 5, a Mage, a brazier), and the vault south through its gate (need 3, latched). Eleven graves, none in the
+  spike corridor.
+- Floor 3, the Deep Halls (623 m², cap 249): the start room (lift, spawns) north into a hall crossed by two rollers
+  (±1.5 m across it, opposite phases, 1.15 m to each wall at their ends), the gate room's two halves on either side of
+  the held gate (need 1, a plate each side), a corridor south to the antechamber (the Warrior and the Mage, the vault's
+  two plates on its east side off the haul), the vault south of it (need 4: its two plates and the gate room's two
+  braziers, latched), and the barricade in the wall between the antechamber and the start room: the shortcut back to
+  the lift. A pack of 6 sleeps behind the held gate (the design named none for this floor).
+- A barricade stands between two rooms that are open on both sides of it, never at a one-cell corridor's mouth: a
+  fence knocked into a corridor's mouth jams there across it (Floor 3's first layout did: the bots couldn't pass), and
+  Floor 1's passage barricade stands that way (its bot never hauls through it).
+- The bot: once the vault's gate is open, a bot with no duty and nothing to fight waits by the lift (was: only once the
+  hoard was taken), so a duty that ended in a doorway doesn't leave it blocking the hauler there.
+- Until steps 1 and 2 land, two load rules stand in for theirs: a floor needs a grave only with a hoard or a boss
+  (world.odin), and a gate's need counts the braziers naming it as well as its plates (plates.odin). The new floors'
+  routes are tested with every gate latched (as lit braziers would hold them).

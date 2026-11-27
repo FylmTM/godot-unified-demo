@@ -44,7 +44,8 @@ Event_Plate :: struct {
 UP_AXIS :: [4]f32{0, 0, 0.70710678, 0.70710678}
 
 // Resolves each plate's target marker to the gate or the spikes it works (world_create, after every marker is read).
-// A plate with no target, or one naming anything else (a roller, a prop), fails the level.
+// A plate with no target, or one naming anything else (a roller, a prop), fails the level, as does a gate needing more
+// than the plates and braziers that name it.
 link_plates :: proc(places: ^Places) {
 	for &plate in sim.slice(&places.plates) {
 		plate.gate, plate.trap = -1, -1
@@ -59,9 +60,11 @@ link_plates :: proc(places: ^Places) {
 	for gate in sim.slice(&places.gates) {
 		plates := 0
 		for plate in sim.slice(&places.plates) do plates += int(plate.target == gate.marker)
+		// ---- the run's levels (milestone 7, step 3): a brazier naming the gate counts toward its need too
+		for brazier in sim.slice(&places.braziers) do plates += int(brazier.target == gate.marker)
 		assert(
 			gate.need >= 1 && int(gate.need) <= plates,
-			"crypt_crew: a gate needs more plates than work it, or none",
+			"crypt_crew: a gate needs more plates and braziers than work it, or none",
 		)
 	}
 }
