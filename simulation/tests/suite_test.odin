@@ -1,6 +1,7 @@
 // crypt_crew's end-to-end suite: the standard scenarios of unified:headless/scenarios (unified/src/headless/README.md),
-// its replay regressions (the recorded sessions in replays/), unified's determinism lint and the extension's install
-// check. The reference run is in reference_test.odin, the rule tests in a file per system (heroes_test.odin).
+// its replay regressions (the recorded sessions in replays/), unified's determinism lint, the extension's install check
+// and the session's byte budget. The reference run is in reference_test.odin, the planted bugs the harness catches in
+// planted_test.odin, the soak in soak_test.odin, the rule tests in a file per system (heroes_test.odin).
 package test_crypt_crew
 
 import "core:testing"
@@ -8,6 +9,7 @@ import "unified:godot"
 import "unified:headless"
 import "unified:headless/scenarios"
 import "unified:lint"
+import "unified:netcode"
 import "unified:sim"
 
 import g "../crypt_crew"
@@ -162,4 +164,56 @@ the_lan_recording_holds_its_play :: proc(t: ^testing.T) {
 lan_slot :: proc(simulation: ^sim.Sim(g.Game), player: sim.Player) -> (slot: int, ok: bool) {
 	slot, ok = sim.player_slot(simulation, player)
 	return slot, ok && slot < 2
+}
+
+// The session's bytes stay in their budget (tuning.odin, Bandwidth): four clients on the bad network, the last joining
+// late; the relay's traffic each way per second of play, the joiner's join and the snapshot it restored each under its
+// ceiling. The network simulator and the clock are seeded and virtual, so the bytes are the same on every run and
+// platform: a deterministic gate on a change that grows the State, the Input, the commands or the netcode's traffic.
+@(test)
+a_session_stays_in_its_budget :: proc(t: ^testing.T) {
+	TICKS :: 600
+	LATE_TICK :: 300
+	result := headless.session_run(&g.GAME, {
+		clients   = CLIENTS,
+		profile   = netcode.PROFILES[.Bad],
+		ticks     = TICKS,
+		seed      = SUITE.seed,
+		late_slot = CLIENTS - 1,
+		late_tick = LATE_TICK,
+	})
+	defer headless.session_result_destroy(&result)
+	if !testing.expectf(t, result.ok, "the session failed: %d desyncs", result.desyncs) do return
+	seconds := f64(TICKS) / g.TICK_HZ
+	sent := int(f64(result.relay_net.bytes_sent) / seconds)
+	received := int(f64(result.relay_net.bytes_recv) / seconds)
+	snapshot := result.clients[CLIENTS - 1].snapshot_bytes
+	testing.expectf(
+		t,
+		sent <= g.BUDGET_RELAY_SENT_PER_S,
+		"the relay sends %d B/s, past %d",
+		sent,
+		g.BUDGET_RELAY_SENT_PER_S,
+	)
+	testing.expectf(
+		t,
+		received <= g.BUDGET_RELAY_RECEIVED_PER_S,
+		"the relay receives %d B/s, past %d",
+		received,
+		g.BUDGET_RELAY_RECEIVED_PER_S,
+	)
+	testing.expectf(
+		t,
+		result.join_bytes <= g.BUDGET_JOIN_BYTES,
+		"the late joiner's join takes %d bytes, past %d",
+		result.join_bytes,
+		g.BUDGET_JOIN_BYTES,
+	)
+	testing.expectf(
+		t,
+		snapshot <= g.BUDGET_SNAPSHOT_BYTES,
+		"the snapshot is %d bytes, past %d",
+		snapshot,
+		g.BUDGET_SNAPSHOT_BYTES,
+	)
 }

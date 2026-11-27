@@ -833,3 +833,13 @@ BOSS_MIDDLE_NEAR :: f32(0.5) // warded, it walks to the middle until this close,
 BOSS_STAGE_SPEED :: f32(1.25) // its third stage moves this much faster
 BOSS_GOLD :: 300 // its fall puts this much in the purse
 #assert(SURGE_EVERY_TICKS > BOSS_SURGE_TICKS)
+
+// ---- bandwidth: the budget a session stays in (simulation/tests/suite_test.odin, a_session_stays_in_its_budget)
+
+// Four clients on the bad network for 600 ticks, the last joining at tick 300: each ceiling is what it measured when it
+// was set, plus 15 %. Not a rule: the sim never reads them. A change that crosses one is either a bug or meant, and
+// then the new measure plus 15 % goes here, said in its commit.
+BUDGET_RELAY_SENT_PER_S :: 37_045 * 115 / 100 // the relay's bytes sent per second of play, to every client
+BUDGET_RELAY_RECEIVED_PER_S :: 21_234 * 115 / 100 // and received, from every client
+BUDGET_JOIN_BYTES :: 46_925 * 115 / 100 // the late joiner's bytes received from its Hello to Connected
+BUDGET_SNAPSHOT_BYTES :: 160_456 * 115 / 100 // the snapshot it restored, uncompressed
