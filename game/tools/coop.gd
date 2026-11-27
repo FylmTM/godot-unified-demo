@@ -58,6 +58,14 @@ extends UnifiedCoop
 ## on a bad link (`--lag 150 --verified-players`) the joiner must see its own pick predicted (EMITTED) frames before it
 ## is confirmed, the panel holding through the gap. Both then see the party descend to depth 1.
 ##
+## The run's beats. Begun in the hub (the menus' start, `uni coop --menus`: uni's session flags start on Floor 1), each
+## side first turns its shrine round and back (the host the mode's, the joiner the difficulty's), and the run begins
+## once both stand on the hub lift's deck. After the boons' beat the host takes the party down the rest of the crypt
+## (dev_board, a boon picked on each side each floor) into the vault, wakes the King and drives it into its second stage
+## (dev); the two break its ward together, each kindling its braziers until its lighting is CONFIRMED, and both see the
+## ward fall; the King, driven on into its third stage, stands warded through the pause. The save the joiner continues
+## at the end is the vault's, its boons back.
+##
 ## With `-- --play=lan_pair`, each side plays the script the replay regression replays/lan_pair records instead
 ## (CoopLanPair; `./uni coop --rerecord lan_pair` runs it with the folder's coop.args and keeps the host's recording).
 
@@ -118,6 +126,21 @@ const ARRIVE: float = 0.5
 const MOVE_DEADZONE: float = 0.25
 const QUIET_S: float = 1.0
 const FELL_ELITES: int = 1000
+## The hub's beat and the ward's: how near a hero walks to its shrine (and how long it presses Interact there), to the
+## hub lift's deck (its side's corner, this far
+## out from the middle) and to a brazier it kindles (metres); how long a kindling may go unlit before it is pressed
+## again (seconds: a blow broke it off); the depth of the vault; the vault's braziers each side kindles, by marker order
+## (game/levels/vault.tscn: the joiner the one by the spawns' west, the host the east two), and the King's ward stage.
+const SHRINE_WITHIN: float = 1.3
+const TURN_PRESS_S: float = 0.15
+const TURN_GAP_S: float = 0.75  # past the sim's SHRINE_COOLDOWN_S (0.5) between a shrine's two turns
+const DECK_CORNER: float = 1.0
+const KINDLE_WITHIN: float = 1.1
+const KINDLE_STALL_S: float = 4.0
+const VAULT_DEPTH: int = 3
+const HOST_BRAZIERS: Array[int] = [3, 1]
+const JOINER_BRAZIERS: Array[int] = [2]
+const WARD_STAGE: int = 2
 ## How near the floor's start each walks back to, and waits for the other (metres), before the combat beats.
 const MEET_WITHIN: float = 2.0
 ## The spike gallery's north lane, this far north of the roller's marker (metres): past its path (1.2 m), half its
@@ -166,6 +189,12 @@ var _gate_open: bool = false
 var _grabbed: Dictionary[int, int] = {}
 var _dropped: Dictionary[int, int] = {}
 var _slipped: int = 0
+## The ward's beat's CONFIRMED events: braziers lit by player, shrines turned by player, and whether the ward fell.
+var _lit: Dictionary[int, int] = {}
+var _turned: Dictionary[int, int] = {}
+var _ward_broken: bool = false
+## From the ward's beat to the host's pause: the host fells the skeletons the King's stages raise (_keep_minions_down).
+var _downing: Array[bool] = [true]
 ## The host's toasts seen since its play began (_watch_toasts), and whether it still watches them.
 var _toasts_seen: Dictionary[String, bool] = {}
 var _toasts_watched: Array[bool] = [true]
@@ -245,6 +274,7 @@ func _host_play() -> void:
 	await _check_friend(friend)
 	_watch_purse()
 	session.sim_event.connect(_count_beats)
+	await _shrine_beat(true)
 	await shot("c03_arrived_beside")
 	session.sim_event.connect(_count_hits)
 	var raise := CommandDevSpawnMinions.new()
@@ -267,11 +297,13 @@ func _host_play() -> void:
 	await _vault_beat(true)
 	await _host_beats(friend)
 	await _boon_beat(true)
+	await _ward_beat(true)
 	if failed():
 		return
 	await wait_for(func() -> bool: return Unified.data.hud.depth > 0, SAVE_WITHIN_S, "a descent (a save) before leaving")
 	if failed():
 		return
+	_downing[0] = false
 	await press_action(&"pause")
 	expect((_menu_control("Heading") as Label).text == "The game runs on",
 		"with a friend in, the pause menu is an overlay")
@@ -312,9 +344,11 @@ func _join_play() -> void:
 	session.sim_event.connect(_count_beats)
 	await seconds(STILL_S)
 	await _couch_guest()
+	await _shrine_beat(false)
 	await _vault_beat(false)
 	await _join_beats()
 	await _boon_beat(false)
+	await _ward_beat(false)
 	if failed():
 		return
 	Input.action_press(&"move_down")  # keeps moving while the host plays on
@@ -567,6 +601,150 @@ func _boon_beat(hosting: bool) -> void:
 	await wait_for(func() -> bool: return Unified.data.hud.depth >= 1, BEAT_S, "the party descends")
 	_quiet[0] = false
 	step("took a boon, shown once confirmed (%d frames predicted first); the party went down" % early)
+
+
+## The hub's beat, when the session began in the hub (a game the menus started: `uni coop --menus`; uni's session
+## flags start it on Floor 1, and there is nothing to do): each side turns its shrine twice, the host the mode's and the
+## joiner the difficulty's (a press each once its "[E] Turn" prompt shows: Hud_Hero.shrine), so each setting goes
+## round and back, both turns CONFIRMED; then both walk onto the hub lift's deck, and the run begins on Floor 1 once
+## everyone is aboard (the HUD's run phase).
+func _shrine_beat(hosting: bool) -> void:
+	if failed() or Unified.data.hud.run != EnumRunPhase.HUB:
+		return
+	var me: int = session.local_player
+	var sets: String = "mode" if hosting else "difficulty"
+	var shrine: Vector3 = Vector3.INF
+	var deck: Vector3 = Vector3.INF
+	for marker: Node in Unified.level_markers(find(current_scene, ^"Level") as Node3D):
+		var kind: Variant = marker.get(&"UNIFIED_KIND")
+		if kind == "shrine" and marker.get(&"sets") == sets:
+			shrine = (marker as Node3D).global_position
+		elif kind == "lift":
+			deck = (marker as Node3D).global_position
+	if shrine == Vector3.INF or deck == Vector3.INF:
+		fail("the hub has its %s shrine and its lift" % sets)
+		return
+	await _nav_walk_to(func() -> Vector3: return shrine, SHRINE_WITHIN, "the %s shrine" % sets)
+	await wait_for(func() -> bool: return _shrine_prompt(me) != 0, BEAT_S, "the %s shrine's prompt" % sets)
+	for turn: int in 2:
+		if turn > 0:
+			await seconds(TURN_GAP_S)  # a press within the shrine's cooldown turns nothing
+		var turned: int = _tally(_turned, me)
+		await hold(&"interact", TURN_PRESS_S)  # Input's state: the device a menu-started player plays on takes it
+		await wait_for(func() -> bool: return _tally(_turned, me) > turned, BEAT_S, "the %s shrine turned" % sets)
+	if failed():
+		return
+	step("turned the %s shrine round and back, CONFIRMED" % sets)
+	var corner := Vector3(-DECK_CORNER if hosting else DECK_CORNER, 0.0, 0.0)
+	await _nav_walk_to(func() -> Vector3: return deck + corner, WAY_WITHIN, "the hub lift's deck")
+	await wait_for(func() -> bool: return Unified.data.hud.run == EnumRunPhase.PLAYING, BEAT_S * 2.0, "the run begins")
+	await wait_for(func() -> bool: return not _hub_shown(), BEAT_S, "Floor 1 shows")  # the verified level, after a fade
+	step("both aboard the hub's lift: the run began on Floor 1")
+
+
+## Whether the level shown is still the hub (it has shrines).
+func _hub_shown() -> bool:
+	for marker: Node in Unified.level_markers(find(current_scene, ^"Level") as Node3D):
+		if marker.get(&"UNIFIED_KIND") == "shrine":
+			return true
+	return false
+
+
+## This side's "[E] Turn" prompt (Hud_Hero.shrine: its shrine setting + 1, 0 for none).
+func _shrine_prompt(player: int) -> int:
+	for hero: DataHudHero in Unified.data.hud.heroes:
+		if hero.player == player:
+			return hero.shrine
+	return 0
+
+
+## The ward's beat, once the boons' is done (the party one floor down): the host takes the party down the rest of the
+## crypt (dev_board on each floor, each side picking its boon with Interact) into the vault; there it wakes the King and
+## drives it into its second stage (dev hurts: warded, its braziers out), and the two break the ward together: each
+## kindles its braziers (HOST_BRAZIERS, JOINER_BRAZIERS: three, the need for two heroes), holding Interact beside each
+## until its lighting is CONFIRMED (pressed again after KINDLE_STALL_S: a blow broke it off), and both see the
+## confirmed ward fall. The host then drives the King into its third stage, warded again and standing in the vault's
+## middle, so nothing hurts the party through the pause; from the descents on it fells the skeletons the floors and the
+## stages raise (dev), until its pause.
+func _ward_beat(hosting: bool) -> void:
+	if failed():
+		return
+	if hosting:
+		_keep_minions_down(_downing)  # not awaited: it runs until the host pauses
+	while not failed() and Unified.data.hud.depth < VAULT_DEPTH:
+		var depth: int = Unified.data.hud.depth
+		if hosting:
+			session.send_command(CommandDevBoard.new())
+		await _pick_boon(depth)
+	if failed():
+		return
+	step("down to the vault, a boon a floor")
+	if hosting:
+		var wake := CommandDevHurtElites.new()
+		wake.damage = 1
+		session.send_command(wake)
+		await wait_for(func() -> bool: return Unified.data.hud.boss_hp_max > 0, BEAT_S, "the King wakes")
+		_drive_king()
+	await wait_for(func() -> bool: return Unified.data.hud.boss_warded and Unified.data.hud.boss_stage == WARD_STAGE,
+		BEAT_S, "the King warded in its second stage")
+	var braziers: Array[Vector3] = []
+	for marker: Node in Unified.level_markers(find(current_scene, ^"Level") as Node3D):
+		if marker.get(&"UNIFIED_KIND") == "brazier":
+			braziers.append((marker as Node3D).global_position)
+	for index: int in (HOST_BRAZIERS if hosting else JOINER_BRAZIERS):
+		if index < braziers.size():
+			await _kindle(braziers[index])
+	await wait_for(func() -> bool: return _ward_broken, BEAT_S * 2.0, "the ward breaks, CONFIRMED")
+	if failed():
+		return
+	step("broke the King's ward together: %d braziers lit here" % _tally(_lit, session.local_player))
+	if hosting:
+		_drive_king()
+	await wait_for(func() -> bool: return Unified.data.hud.boss_stage == WARD_STAGE + 1 and Unified.data.hud.boss_warded,
+		BEAT_S, "the King warded in its third stage")
+
+
+## A blow at the King for its whole health (dev: a blow never takes it past its stage's end): it roars into its next
+## stage, warded.
+func _drive_king() -> void:
+	var blow := CommandDevHurtElites.new()
+	blow.damage = Unified.data.hud.boss_hp_max
+	session.send_command(blow)
+
+
+## Waits for this side's boon panel at the lift's bottom, takes its card (Interact), and waits for the party to go down
+## past `depth`.
+func _pick_boon(depth: int) -> void:
+	var boons: Control = find(current_scene, ^"Hud/%BoonPanels") as Control
+	await wait_for(func() -> bool: return not _open_boon_panels(boons).is_empty(), BEAT_S * 2.0,
+		"this side's boon panel opens")
+	if failed():
+		return
+	await press_action(&"interact")
+	await wait_for(func() -> bool: return Unified.data.hud.depth > depth, BEAT_S, "the party goes down past %d" % depth)
+
+
+## Walks to the brazier whose foot is `at` and holds Interact until this side's lighting is CONFIRMED, pressing again
+## after KINDLE_STALL_S without one.
+func _kindle(at: Vector3) -> void:
+	var me: int = session.local_player
+	await _nav_walk_to(func() -> Vector3: return at, KINDLE_WITHIN, "a brazier")
+	var lit: int = _tally(_lit, me)
+	while not failed() and _tally(_lit, me) == lit:
+		Input.action_press(&"interact")
+		var until: int = Time.get_ticks_msec() + int(KINDLE_STALL_S * 1000.0)
+		while not failed() and _tally(_lit, me) == lit and Time.get_ticks_msec() < until:
+			await frames(1)
+		Input.action_release(&"interact")
+		await frames(2)
+	step("kindled a brazier, CONFIRMED")
+
+
+## While `running[0]` holds, the host fells every skeleton (dev) every QUIET_S, and leaves the King be.
+func _keep_minions_down(running: Array[bool]) -> void:
+	while running[0] and not failed():
+		session.send_command(CommandDevKillMinions.new())
+		await seconds(QUIET_S)
 
 
 ## The boon panels open on this side's HUD (BoonPanels.panels).
@@ -911,6 +1089,14 @@ func _count_beats(event: UnifiedEvent, state: UnifiedSession.EventState) -> void
 		var dropped := event as EventHoardDropped
 		_dropped[dropped.player] = _tally(_dropped, dropped.player) + 1
 		_slipped += int(dropped.slipped)
+	elif event is EventBrazier and (event as EventBrazier).lit:
+		var brazier := event as EventBrazier
+		_lit[brazier.player] = _tally(_lit, brazier.player) + 1
+	elif event is EventShrine:
+		var shrine := event as EventShrine
+		_turned[shrine.player] = _tally(_turned, shrine.player) + 1
+	elif event is EventBossWard:
+		_ward_broken = _ward_broken or not (event as EventBossWard).up
 
 
 ## Watches this side's purse from now on (PurseWatch).
