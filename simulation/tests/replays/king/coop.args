@@ -1,0 +1,7 @@
+--lan
+--
+--play=king
+--setup
+floor=vault
+--lag
+150

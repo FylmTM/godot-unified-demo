@@ -1,3 +1,4 @@
+class_name CryptCoop
 extends UnifiedCoop
 ## Crypt Crew's co-op play (the flow is the library's, UnifiedCoop): the friend's hero must arrive beside the host's (a
 ## late join lands by the party, not at the floor's start), as each side sees it; then the host raises skeletons around
@@ -66,8 +67,12 @@ extends UnifiedCoop
 ## ward fall; the King, driven on into its third stage, stands warded through the pause. The save the joiner continues
 ## at the end is the vault's, its boons back.
 ##
-## With `-- --play=lan_pair`, each side plays the script the replay regression replays/lan_pair records instead
-## (CoopLanPair; `./uni coop --rerecord lan_pair` runs it with the folder's coop.args and keeps the host's recording).
+## With `-- --play=<name>`, each side plays the script a replay regression records instead (`./uni coop --rerecord
+## <name>` runs it with the folder's coop.args and keeps the host's recording): replays/lan_pair (CoopLanPair),
+## replays/haul (CoopHaul) and replays/king (CoopKing). The moves the plays share with these checks are public: the
+## walks (walk_to, nav_walk_to), the floor's way to the vault (lane, cross_spikes, beyond_gate), a rescue, a kindling,
+## a boon's pick, the host's dev keepers (keep_crypt_quiet, keep_minions_down), and the confirmed events they wait on
+## (count_beats, tally).
 
 ## How far past an arrival's farther ring (twice Unified.constants.arrival_ring: the nearer one may be taken) the
 ## friend's hero may stand from the host's, in metres: the capsule settling on the floor.
@@ -107,6 +112,7 @@ const SPAWN_WITHIN: float = 0.5  # how near its spawn the host dances
 const REVIVE_WITHIN: float = 1.0
 const HEAVE_WITHIN: float = 1.4
 const ABILITY_S: float = 0.5
+const THROW_TURN_S: float = 0.25  # how long a Barbarian turns to its throw's aim before it throws
 const BEAT_S: float = 20.0
 ## A revive whose ring (or a kindling whose ember) hasn't grown any further for this long (milliseconds; a round trip on
 ## a bad link and more) was broken off: the reviver (the kindler) presses again.
@@ -198,12 +204,12 @@ var _slipped: int = 0
 var _lit: Dictionary[int, int] = {}
 var _turned: Dictionary[int, int] = {}
 var _ward_broken: bool = false
-## From the ward's beat to the host's pause: the host fells the skeletons the King's stages raise (_keep_minions_down).
+## From the ward's beat to the host's pause: the host fells the skeletons the King's stages raise (keep_minions_down).
 var _downing: Array[bool] = [true]
 ## The host's toasts seen since its play began (_watch_toasts), and whether it still watches them.
 var _toasts_seen: Dictionary[String, bool] = {}
 var _toasts_watched: Array[bool] = [true]
-## From the vault's beat to the descent: the host fells the skeletons and elites the floor raises (_keep_crypt_quiet).
+## From the vault's beat to the descent: the host fells the skeletons and elites the floor raises (keep_crypt_quiet).
 var _quiet: Array[bool] = [true]
 
 
@@ -265,9 +271,16 @@ func _start_join(code: String) -> void:
 
 
 func _host_play() -> void:
-	if _lan_pair():
-		await CoopLanPair.new(self).host()
-		return
+	match arg("play"):
+		"lan_pair":
+			await CoopLanPair.new(self).host()
+			return
+		"haul":
+			await CoopHaul.new(self).host()
+			return
+		"king":
+			await CoopKing.new(self).host()
+			return
 	var friend: int = _friend_player()
 	_watch_toasts()  # not awaited: from now until _check_friend has its toast
 	await wait_for(func() -> bool: return _hero(friend) != null, 10.0, "the friend's hero appears")
@@ -278,7 +291,7 @@ func _host_play() -> void:
 	step("friend's hero arrived %.2f m from the host's" % gap)
 	await _check_friend(friend)
 	_watch_purse()
-	session.sim_event.connect(_count_beats)
+	session.sim_event.connect(count_beats)
 	await _shrine_beat(true)
 	await shot("c03_arrived_beside")
 	session.sim_event.connect(_count_hits)
@@ -332,9 +345,16 @@ func _host_play() -> void:
 
 
 func _join_play() -> void:
-	if _lan_pair():
-		await CoopLanPair.new(self).join()
-		return
+	match arg("play"):
+		"lan_pair":
+			await CoopLanPair.new(self).join()
+			return
+		"haul":
+			await CoopHaul.new(self).join()
+			return
+		"king":
+			await CoopKing.new(self).join()
+			return
 	await wait_for(_playing, 20.0, "the joiner's hero appears")
 	if failed():
 		return
@@ -346,7 +366,7 @@ func _join_play() -> void:
 	if _asked() == EnumClass.ANY:
 		expect(Heroes.class_of(session.local_player) != host_class, "asking for Any, it plays a class the host doesn't")
 	_watch_purse()
-	session.sim_event.connect(_count_beats)
+	session.sim_event.connect(count_beats)
 	await seconds(STILL_S)
 	await _couch_guest()
 	await _shrine_beat(false)
@@ -392,7 +412,7 @@ func _join_play() -> void:
 ## it dances (the felled skeletons' own coins may lie near), and the walk out's pickup is one confirmed after it began.
 func _coin_dance() -> void:
 	session.send_command(CommandDevKillMinions.new())
-	await _walk_to(_host_spawn, SPAWN_WITHIN, "open floor: the host's spawn")  # no ring spot off the floor
+	await walk_to(host_spawn, SPAWN_WITHIN, "open floor: the host's spawn")  # no ring spot off the floor
 	await seconds(1.0)
 	var ring: Dictionary[int, bool] = {}  # the ring's coins, by their keys (their events' `loot`)
 	var on_ring: Array[int] = [0]  # the host's own pickups of them as it predicts them (EMITTED), while it dances
@@ -436,31 +456,31 @@ func _vault_beat(hosting: bool) -> void:
 	if failed():
 		return
 	if hosting:
-		_keep_crypt_quiet(_quiet)  # not awaited: it runs beside the vault and the beats, until the descent
+		keep_crypt_quiet(_quiet)  # not awaited: it runs beside the vault and the beats, until the descent
 	await wait_for(func() -> bool: return session.get_views(EnumView.ELITE).is_empty(), BEAT_S * 2.0,
 		"the elites felled (the host's)")
-	var plates: Array[Node3D] = _markers("plate")
-	expect(plates.size() == 2 and _markers("gate").size() == 1 and _markers("trap").size() == 3,
+	var plates: Array[Node3D] = markers("plate")
+	expect(plates.size() == 2 and markers("gate").size() == 1 and markers("trap").size() == 3,
 		"the floor has the vault's gate, its two plates, the gallery's spikes and roller")
 	if failed():
 		return
 	var plate: Vector3 = plates[0 if hosting else 1].global_position
-	await _nav_walk_to(func() -> Vector3: return _lane(-LANE_WAIT), WAY_WITHIN, "the gallery's lane, west")
-	await _cross_spikes(func() -> Vector3: return _lane_at_gate(), "across the gallery to the gate")
-	await _walk_to(func() -> Vector3: return plate, PLATE_WITHIN, "its plate")
+	await nav_walk_to(func() -> Vector3: return lane(-LANE_WAIT), WAY_WITHIN, "the gallery's lane, west")
+	await cross_spikes(func() -> Vector3: return lane_at_gate(), "across the gallery to the gate")
+	await walk_to(func() -> Vector3: return plate, PLATE_WITHIN, "its plate")
 	await wait_for(func() -> bool: return _gate_open, BEAT_S * 2.0, "the vault's gate opens to the two plates")
 	if failed():
 		return
 	await shot("c05_vault_open_" + ("host" if hosting else "joiner"))
 	step("stood on a plate of the vault's gate: it opened to the two (%d hp)" % _hp())
-	await _walk_to(_lane_at_gate, WAY_WITHIN, "the gallery's lane at the gate")
+	await walk_to(lane_at_gate, WAY_WITHIN, "the gallery's lane at the gate")
 	await _carry_beat(hosting)
 	if failed():
 		return
-	await _walk_to(func() -> Vector3: return _lane(LANE_WAIT), WAY_WITHIN, "the gallery's lane, east")
-	await _cross_spikes(func() -> Vector3: return _lane(-LANE_WAIT), "back across the gallery")
-	await _nav_walk_to(_host_spawn, MEET_WITHIN, "the floor's start, where the combat beats play")
-	var start: Vector3 = _host_spawn()
+	await walk_to(func() -> Vector3: return lane(LANE_WAIT), WAY_WITHIN, "the gallery's lane, east")
+	await cross_spikes(func() -> Vector3: return lane(-LANE_WAIT), "back across the gallery")
+	await nav_walk_to(host_spawn, MEET_WITHIN, "the floor's start, where the combat beats play")
+	var start: Vector3 = host_spawn()
 	await wait_for(func() -> bool:
 		var other: Node3D = _hero(_friend_player())
 		if other == null:
@@ -478,7 +498,7 @@ func _vault_beat(hosting: bool) -> void:
 ## CARRY_M, then let go. Every hold and let-go counted is a confirmed event: none let go during the carry, none slipped.
 func _carry_beat(hosting: bool) -> void:
 	var me: int = session.local_player
-	var chest: Node3D = _hoard()
+	var chest: Node3D = hoard()
 	expect(chest != null, "the hoard is on the floor")
 	if failed():
 		return
@@ -486,18 +506,18 @@ func _carry_beat(hosting: bool) -> void:
 	var along: Vector3 = chest.global_basis.x.normalized()
 	var north: Vector3 = -chest.global_basis.z.normalized()
 	var stand: Vector3 = chest.global_position + along * side * HAUL_STAND
-	await _walk_to(func() -> Vector3: return _beyond_gate(VAULT_IN), WAY_WITHIN, "into the vault")
+	await walk_to(func() -> Vector3: return beyond_gate(VAULT_IN), WAY_WITHIN, "into the vault")
 	if not hosting:
 		var round_near: Vector3 = chest.global_position - along * HAUL_STAND + north * HAUL_STAND
-		await _walk_to(func() -> Vector3: return round_near, WAY_WITHIN, "the hoard's north side")
-		await _walk_to(func() -> Vector3: return stand + north * HAUL_STAND, WAY_WITHIN, "round the hoard")
-	await _walk_to(func() -> Vector3: return stand, WAY_WITHIN, "its end of the hoard")
-	await wait_for(func() -> bool: return _haul_prompt() != EnumHaulHandle.NONE, 3.0, "its handle in reach")
+		await walk_to(func() -> Vector3: return round_near, WAY_WITHIN, "the hoard's north side")
+		await walk_to(func() -> Vector3: return stand + north * HAUL_STAND, WAY_WITHIN, "round the hoard")
+	await walk_to(func() -> Vector3: return stand, WAY_WITHIN, "its end of the hoard")
+	await wait_for(func() -> bool: return haul_prompt() != EnumHaulHandle.NONE, 3.0, "its handle in reach")
 	if failed():
 		return
 	await press_action(&"interact")
-	await wait_for(func() -> bool: return _tally(_grabbed, me) > 0, 5.0, "its hold of the hoard is confirmed")
-	await wait_for(func() -> bool: return _tally(_grabbed, _friend_player()) > 0, BEAT_S * 2.0, "the other's hold")
+	await wait_for(func() -> bool: return tally(_grabbed, me) > 0, 5.0, "its hold of the hoard is confirmed")
+	await wait_for(func() -> bool: return tally(_grabbed, _friend_player()) > 0, BEAT_S * 2.0, "the other's hold")
 	if failed():
 		return
 	var drops: int = _dropped.values().reduce(func(sum: int, n: int) -> int: return sum + n, 0)
@@ -507,7 +527,7 @@ func _carry_beat(hosting: bool) -> void:
 	var until: int = Time.get_ticks_msec() + int(CARRY_S * 1000.0)
 	Input.action_press(&"move_up")  # north (-Z): the way the hoard's -Z points on this floor
 	while not failed() and Time.get_ticks_msec() < until:
-		chest = _hoard()
+		chest = hoard()
 		if chest == null or (chest.global_position - from).dot(north) >= CARRY_M:
 			break
 		clear += int(_lowest_corner(chest) > CLEAR_Y)
@@ -521,24 +541,24 @@ func _carry_beat(hosting: bool) -> void:
 	expect(clear >= CLEAR_FRAMES, "the hoard hung clear of the floor under the two holds (%d of %d frames)"
 		% [clear, frames_carried])
 	await seconds(0.3)  # both have stopped
-	var mine: int = _tally(_dropped, me)
+	var mine: int = tally(_dropped, me)
 	await press_action(&"interact")
-	await wait_for(func() -> bool: return _tally(_dropped, me) > mine, 5.0, "its let-go is confirmed")
+	await wait_for(func() -> bool: return tally(_dropped, me) > mine, 5.0, "its let-go is confirmed")
 	expect(_slipped == 0, "no hold slipped (%d did)" % _slipped)
 	if failed():
 		return
 	step("carried the hoard together %.1f m, clear of the floor %d of %d frames, and let go"
 		% [carried, clear, frames_carried])
 	var at: Vector3 = _hero(me).global_position
-	var inside: Vector3 = _beyond_gate(VAULT_IN)
-	await _walk_to(func() -> Vector3: return Vector3(at.x, 0.0, inside.z), WAY_WITHIN, "out from the hoard")
-	await _walk_to(func() -> Vector3: return inside, WAY_WITHIN, "the vault's mouth")
+	var inside: Vector3 = beyond_gate(VAULT_IN)
+	await walk_to(func() -> Vector3: return Vector3(at.x, 0.0, inside.z), WAY_WITHIN, "out from the hoard")
+	await walk_to(func() -> Vector3: return inside, WAY_WITHIN, "the vault's mouth")
 
 
 ## While `running[0]` holds, the host fells every skeleton and elite (dev) every QUIET_S: a surge rising by the
 ## gallery's plate would down a hero standing on it, waiting for the other, the carry wakes the crypt (the haul's
 ## surges), and every few surges bring an elite.
-func _keep_crypt_quiet(running: Array[bool]) -> void:
+func keep_crypt_quiet(running: Array[bool]) -> void:
 	var fell := CommandDevHurtElites.new()
 	fell.damage = FELL_ELITES
 	while running[0] and not failed():
@@ -549,15 +569,15 @@ func _keep_crypt_quiet(running: Array[bool]) -> void:
 
 ## Waits on the gallery's lane for the north spikes to rise and fall (they stay down two of every three seconds), then
 ## walks straight to `target()` along it, across their tile before they rise again.
-func _cross_spikes(target: Callable, what: String) -> void:
-	await wait_for(func() -> bool: return _spikes_up(), BEAT_S, "the gallery's spikes rise")
-	await wait_for(func() -> bool: return not _spikes_up(), BEAT_S, "the gallery's spikes fall")
-	await _walk_to(target, WAY_WITHIN, what)
+func cross_spikes(target: Callable, what: String) -> void:
+	await wait_for(func() -> bool: return spikes_up(), BEAT_S, "the gallery's spikes rise")
+	await wait_for(func() -> bool: return not spikes_up(), BEAT_S, "the gallery's spikes fall")
+	await walk_to(target, WAY_WITHIN, what)
 
 
 ## Whether the gallery's north spikes are up, as their view shows (false while it isn't found).
-func _spikes_up() -> bool:
-	var spikes: Vector3 = _north_spikes()
+func spikes_up() -> bool:
+	var spikes: Vector3 = north_spikes()
 	for view: Node in session.get_views(EnumView.TRAP):
 		var trap := view as Node3D
 		if Vector2(trap.global_position.x - spikes.x, trap.global_position.z - spikes.z).length() < 0.5:
@@ -629,19 +649,19 @@ func _shrine_beat(hosting: bool) -> void:
 	if shrine == Vector3.INF or deck == Vector3.INF:
 		fail("the hub has its %s shrine and its lift" % sets)
 		return
-	await _nav_walk_to(func() -> Vector3: return shrine, SHRINE_WITHIN, "the %s shrine" % sets)
+	await nav_walk_to(func() -> Vector3: return shrine, SHRINE_WITHIN, "the %s shrine" % sets)
 	await wait_for(func() -> bool: return _shrine_prompt(me) != 0, BEAT_S, "the %s shrine's prompt" % sets)
 	for turn: int in 2:
 		if turn > 0:
 			await seconds(TURN_GAP_S)  # a press within the shrine's cooldown turns nothing
-		var turned: int = _tally(_turned, me)
+		var turned: int = tally(_turned, me)
 		await hold(&"interact", TURN_PRESS_S)  # Input's state: the device a menu-started player plays on takes it
-		await wait_for(func() -> bool: return _tally(_turned, me) > turned, BEAT_S, "the %s shrine turned" % sets)
+		await wait_for(func() -> bool: return tally(_turned, me) > turned, BEAT_S, "the %s shrine turned" % sets)
 	if failed():
 		return
 	step("turned the %s shrine round and back, CONFIRMED" % sets)
 	var corner := Vector3(-DECK_CORNER if hosting else DECK_CORNER, 0.0, 0.0)
-	await _nav_walk_to(func() -> Vector3: return deck + corner, WAY_WITHIN, "the hub lift's deck")
+	await nav_walk_to(func() -> Vector3: return deck + corner, WAY_WITHIN, "the hub lift's deck")
 	await wait_for(func() -> bool: return Unified.data.hud.run == EnumRunPhase.PLAYING, BEAT_S * 2.0, "the run begins")
 	await wait_for(func() -> bool: return not _hub_shown(), BEAT_S, "Floor 1 shows")  # the verified level, after a fade
 	step("both aboard the hub's lift: the run began on Floor 1")
@@ -674,12 +694,12 @@ func _ward_beat(hosting: bool) -> void:
 	if failed():
 		return
 	if hosting:
-		_keep_minions_down(_downing)  # not awaited: it runs until the host pauses
+		keep_minions_down(_downing)  # not awaited: it runs until the host pauses
 	while not failed() and Unified.data.hud.depth < VAULT_DEPTH:
 		var depth: int = Unified.data.hud.depth
 		if hosting:
 			session.send_command(CommandDevBoard.new())
-		await _pick_boon(depth)
+		await pick_boon(depth)
 	if failed():
 		return
 	step("down to the vault, a boon a floor")
@@ -688,7 +708,7 @@ func _ward_beat(hosting: bool) -> void:
 		wake.damage = 1
 		session.send_command(wake)
 		await wait_for(func() -> bool: return Unified.data.hud.boss_hp_max > 0, BEAT_S, "the King wakes")
-		_drive_king()
+		drive_king()
 	await wait_for(func() -> bool: return Unified.data.hud.boss_warded and Unified.data.hud.boss_stage == WARD_STAGE,
 		BEAT_S, "the King warded in its second stage")
 	var braziers: Array[Vector3] = []
@@ -697,20 +717,20 @@ func _ward_beat(hosting: bool) -> void:
 			braziers.append((marker as Node3D).global_position)
 	for index: int in (HOST_BRAZIERS if hosting else JOINER_BRAZIERS):
 		if index < braziers.size():
-			await _kindle(braziers[index])
+			await kindle(braziers[index])
 	await wait_for(func() -> bool: return _ward_broken, BEAT_S * 2.0, "the ward breaks, CONFIRMED")
 	if failed():
 		return
-	step("broke the King's ward together: %d braziers lit here" % _tally(_lit, session.local_player))
+	step("broke the King's ward together: %d braziers lit here" % tally(_lit, session.local_player))
 	if hosting:
-		_drive_king()
+		drive_king()
 	await wait_for(func() -> bool: return Unified.data.hud.boss_stage == WARD_STAGE + 1 and Unified.data.hud.boss_warded,
 		BEAT_S, "the King warded in its third stage")
 
 
 ## A blow at the King for its whole health (dev: a blow never takes it past its stage's end): it roars into its next
 ## stage, warded.
-func _drive_king() -> void:
+func drive_king() -> void:
 	var blow := CommandDevHurtElites.new()
 	blow.damage = Unified.data.hud.boss_hp_max
 	session.send_command(blow)
@@ -718,7 +738,7 @@ func _drive_king() -> void:
 
 ## Waits for this side's boon panel at the lift's bottom, takes its card (Interact), and waits for the party to go down
 ## past `depth`.
-func _pick_boon(depth: int) -> void:
+func pick_boon(depth: int) -> void:
 	var boons: Control = find(current_scene, ^"Hud/%BoonPanels") as Control
 	await wait_for(func() -> bool: return not _open_boon_panels(boons).is_empty(), BEAT_S * 2.0,
 		"this side's boon panel opens")
@@ -734,21 +754,21 @@ func _pick_boon(depth: int) -> void:
 ## of range: then only a new press starts it again. So it walks to a spot KINDLE_STAND off the foot (the stand is a
 ## column it can't walk into) until the prompt names this brazier, presses and holds, and walks over and presses again
 ## whenever the brazier's ember (its view's `kindled`) stops growing before the lighting is confirmed.
-func _kindle(at: Vector3) -> void:
+func kindle(at: Vector3) -> void:
 	var me: int = session.local_player
 	var from: Vector3 = _hero(me).global_position
 	var off: Vector2 = Vector2(from.x - at.x, from.z - at.z).normalized() * KINDLE_STAND
 	var spot: Vector3 = at + Vector3(off.x, 0.0, off.y)
-	var lit: int = _tally(_lit, me)
+	var lit: int = tally(_lit, me)
 	var until: int = Time.get_ticks_msec() + int(BEAT_S * 1000.0)
 	var first_press: int = 0
 	var presses: int = 0
-	while _tally(_lit, me) == lit and not failed() and Time.get_ticks_msec() < until:
+	while tally(_lit, me) == lit and not failed() and Time.get_ticks_msec() < until:
 		Input.action_release(&"interact")
-		await _nav_walk_to(func() -> Vector3: return spot, KINDLE_WITHIN, "the spot beside a brazier")
-		await wait_for(func() -> bool: return _light_prompt(at) != null or _tally(_lit, me) > lit, BEAT_S,
+		await nav_walk_to(func() -> Vector3: return spot, KINDLE_WITHIN, "the spot beside a brazier")
+		await wait_for(func() -> bool: return _light_prompt(at) != null or tally(_lit, me) > lit, BEAT_S,
 			"the [E] Light prompt names the brazier")
-		if failed() or _tally(_lit, me) > lit:
+		if failed() or tally(_lit, me) > lit:
 			break
 		var brazier: BrazierView = _light_prompt(at)
 		Input.action_press(&"interact")
@@ -761,17 +781,17 @@ func _kindle(at: Vector3) -> void:
 			if shown > ember[0]:
 				ember[0] = shown
 				ember[1] = Time.get_ticks_msec()
-			return _tally(_lit, me) > lit or Time.get_ticks_msec() - ember[1] > RING_STALL_MS, BEAT_S,
+			return tally(_lit, me) > lit or Time.get_ticks_msec() - ember[1] > RING_STALL_MS, BEAT_S,
 			"the kindling grows or stalls")
 	Input.action_release(&"interact")
-	expect(_tally(_lit, me) > lit, "the lighting is confirmed")
+	expect(tally(_lit, me) > lit, "the lighting is confirmed")
 	step("kindled a brazier, CONFIRMED %.1f s after its first press (%d presses)" % [
 		(Time.get_ticks_msec() - first_press) / 1000.0, presses])
 
 
 ## The brazier whose foot is `at` while this side's "[E] Light" prompt names it (Hud_Hero.kindle), else null.
 func _light_prompt(at: Vector3) -> BrazierView:
-	var handle: int = _hud_hero(session.local_player).kindle
+	var handle: int = hud_hero(session.local_player).kindle
 	var brazier := Unified.session.get_view(EnumView.BRAZIER, handle) as BrazierView if handle != 0 else null
 	if brazier == null or Vector2(brazier.global_position.x - at.x, brazier.global_position.z - at.z).length() > 0.5:
 		return null
@@ -779,7 +799,7 @@ func _light_prompt(at: Vector3) -> BrazierView:
 
 
 ## While `running[0]` holds, the host fells every skeleton (dev) every QUIET_S, and leaves the King be.
-func _keep_minions_down(running: Array[bool]) -> void:
+func keep_minions_down(running: Array[bool]) -> void:
 	while running[0] and not failed():
 		session.send_command(CommandDevKillMinions.new())
 		await seconds(QUIET_S)
@@ -792,7 +812,7 @@ func _open_boon_panels(boons: Control) -> Array:
 
 
 ## Where the host's hero started the floor: slot 0's hero_spawn marker.
-func _host_spawn() -> Vector3:
+func host_spawn() -> Vector3:
 	for marker: Node in Unified.level_markers(find(current_scene, ^"Level") as Node3D):
 		if marker is HeroSpawn and (marker as HeroSpawn).slot == 0:
 			return (marker as HeroSpawn).global_position
@@ -803,12 +823,12 @@ func _host_spawn() -> Vector3:
 ## (a Barbarian's comes with its rescue), downs the friend and revives it, then waits to be downed and revived in turn.
 func _host_beats(friend: int) -> void:
 	var barbarian: bool = Heroes.class_of(friend) == EnumClass.BARBARIAN  # its ability comes with its rescue
-	await wait_for(func() -> bool: return _tally(_coins, friend) > 0 and (barbarian or _tally(_abilities, friend) > 0),
+	await wait_for(func() -> bool: return tally(_coins, friend) > 0 and (barbarian or tally(_abilities, friend) > 0),
 		BEAT_S * 2.0, "the friend's coin and ability")
 	if failed():
 		return
 	await _ability_beat()
-	await _rescue(friend)
+	await rescue(friend)
 	await _rescued()
 	_check_beats()
 
@@ -819,18 +839,18 @@ func _join_beats() -> void:
 	await _coin_beat()
 	await _ability_beat()
 	await _rescued()
-	await _rescue(_friend_player())
+	await rescue(_friend_player())
 	_check_beats()
 
 
 ## Each beat of this side was confirmed: its ability, a coin, a revive given and one received.
 func _check_beats() -> void:
 	var me: int = session.local_player
-	expect(_tally(_abilities, me) > 0, "this side used its ability")
-	expect(_tally(_coins, me) > 0, "this side picked up a coin")
-	expect(_tally(_revived_by, me) > 0 and _tally(_revived, me) > 0, "this side revived and was revived")
-	step("beats: %d abilities, %d coins, revived %d and was revived %d" % [_tally(_abilities, me), _tally(_coins, me),
-		_tally(_revived_by, me), _tally(_revived, me)])
+	expect(tally(_abilities, me) > 0, "this side used its ability")
+	expect(tally(_coins, me) > 0, "this side picked up a coin")
+	expect(tally(_revived_by, me) > 0 and tally(_revived, me) > 0, "this side revived and was revived")
+	step("beats: %d abilities, %d coins, revived %d and was revived %d" % [tally(_abilities, me), tally(_coins, me),
+		tally(_revived_by, me), tally(_revived, me)])
 
 
 ## This side's ability, unless it plays the Barbarian (its heave needs a body: _rescue's): Ability held ABILITY_S (a
@@ -840,7 +860,7 @@ func _ability_beat() -> void:
 	if failed() or Heroes.class_of(me) == EnumClass.BARBARIAN:
 		return
 	await hold(&"ability", ABILITY_S)
-	await wait_for(func() -> bool: return _tally(_abilities, me) > 0, 5.0, "this side's ability is confirmed")
+	await wait_for(func() -> bool: return tally(_abilities, me) > 0, 5.0, "this side's ability is confirmed")
 	step("used its ability, the %s's" % Heroes.name_of(Heroes.class_of(me)))
 
 
@@ -861,15 +881,15 @@ func _coin_beat() -> void:
 	if failed():
 		return
 	await seconds(0.6)  # the coins armed
-	await _walk_to(func() -> Vector3: return dropped[0], COIN_WITHIN, "a coin")
-	await wait_for(func() -> bool: return _tally(_coins, me) > 0, 5.0, "the joiner's pickup is confirmed")
+	await walk_to(func() -> Vector3: return dropped[0], COIN_WITHIN, "a coin")
+	await wait_for(func() -> bool: return tally(_coins, me) > 0, 5.0, "the joiner's pickup is confirmed")
 	step("picked up a coin it laid")
 
 
 ## This side downs `ally` (dev, the skeletons felled first so nobody else falls) and revives it: walks over and holds
 ## Interact until the sim confirms the revive. A Barbarian heaves the ally first, throws it, and goes to where it
-## landed (its ability's beat).
-func _rescue(ally: int) -> void:
+## landed (its ability's beat), its throw aimed at `throw_at` on the floor (INF: along its facing).
+func rescue(ally: int, throw_at: Vector3 = Vector3.INF) -> void:
 	if failed():
 		return
 	var me: int = session.local_player
@@ -878,14 +898,21 @@ func _rescue(ally: int) -> void:
 	hurt.player = ally
 	hurt.damage = 100
 	session.send_command(hurt)
-	await wait_for(func() -> bool: return _down(ally), 5.0, "the ally is down")
+	await wait_for(func() -> bool: return down(ally), 5.0, "the ally is down")
 	var at: Callable = func() -> Vector3: return _hero(ally).global_position
 	if Heroes.class_of(me) == EnumClass.BARBARIAN:
-		await _walk_to(at, HEAVE_WITHIN, "the downed ally, to heave it")
+		await walk_to(at, HEAVE_WITHIN, "the downed ally, to heave it")
 		await press_action(&"ability")
-		await wait_for(func() -> bool: return _tally(_abilities, me) > 0, 5.0, "the heave is confirmed")
+		await wait_for(func() -> bool: return tally(_abilities, me) > 0, 5.0, "the heave is confirmed")
+		var aim: Vector2 = Vector2.ZERO
+		if throw_at != Vector3.INF:
+			var from: Vector3 = _hero(me).global_position
+			aim = Vector2(throw_at.x - from.x, throw_at.z - from.z).normalized()
+		_set_aim(aim)
+		await seconds(THROW_TURN_S)
 		await press_action(&"attack")
-		await wait_for(func() -> bool: return _tally(_landed, me) > 0, 5.0, "the thrown ally lands")
+		_set_aim(Vector2.ZERO)
+		await wait_for(func() -> bool: return tally(_landed, me) > 0, 5.0, "the thrown ally lands")
 		step("heaved the downed ally and threw it")
 	# A press tends the ally only with the rules' "[E] Revive" prompt up, and tending breaks off for good once the two
 	# come apart (a ragdoll still sliding from its fall, the reviver's own last steps): then only a new press starts it
@@ -894,12 +921,12 @@ func _rescue(ally: int) -> void:
 	# link with --verified-players): the prompt is the rules' own word on the range.
 	var until: int = Time.get_ticks_msec() + int(BEAT_S * 1000.0)
 	var presses: int = 0
-	while _tally(_revived_by, me) == 0 and not failed() and Time.get_ticks_msec() < until:
+	while tally(_revived_by, me) == 0 and not failed() and Time.get_ticks_msec() < until:
 		Input.action_release(&"interact")
-		await _walk_to(at, REVIVE_WITHIN, "the downed ally, to revive it")
-		await wait_for(func() -> bool: return _hud_hero(me).revive == ally or _tally(_revived_by, me) > 0, BEAT_S,
+		await walk_to(at, REVIVE_WITHIN, "the downed ally, to revive it")
+		await wait_for(func() -> bool: return hud_hero(me).revive == ally or tally(_revived_by, me) > 0, BEAT_S,
 			"the [E] Revive prompt names the downed ally")
-		if failed() or _tally(_revived_by, me) > 0:
+		if failed() or tally(_revived_by, me) > 0:
 			break
 		Input.action_press(&"interact")
 		presses += 1
@@ -909,10 +936,10 @@ func _rescue(ally: int) -> void:
 			if shown > ring[0]:
 				ring[0] = shown
 				ring[1] = Time.get_ticks_msec()
-			return _tally(_revived_by, me) > 0 or Time.get_ticks_msec() - ring[1] > RING_STALL_MS, BEAT_S,
+			return tally(_revived_by, me) > 0 or Time.get_ticks_msec() - ring[1] > RING_STALL_MS, BEAT_S,
 			"the revive fills or stalls")
 	Input.action_release(&"interact")
-	expect(_tally(_revived_by, me) > 0, "the revive is confirmed")
+	expect(tally(_revived_by, me) > 0, "the revive is confirmed")
 	step("revived %s (%d presses)" % [session.get_player_name(ally), presses])
 
 
@@ -921,20 +948,20 @@ func _rescued() -> void:
 	if failed():
 		return
 	var me: int = session.local_player
-	await wait_for(func() -> bool: return _down(me), BEAT_S * 2.0, "the other side downs this hero")
-	await wait_for(func() -> bool: return _tally(_revived, me) > 0, BEAT_S * 2.0, "the other side revives it")
+	await wait_for(func() -> bool: return down(me), BEAT_S * 2.0, "the other side downs this hero")
+	await wait_for(func() -> bool: return tally(_revived, me) > 0, BEAT_S * 2.0, "the other side revives it")
 	step("downed and revived by %s" % session.get_player_name(_friend_player()))
 
 
 ## Walks this side's hero toward `target()` (it may move: read each frame) on the floor until it is within `within`
 ## metres (_walk).
-func _walk_to(target: Callable, within: float, what: String) -> void:
+func walk_to(target: Callable, within: float, what: String) -> void:
 	await _walk(target, within, what, false)
 
 
 ## Walks this side's hero toward `target()` along the level's navigation (NavigationServer3D's path on the level's
 ## baked mesh, asked again every REPATH_FRAMES frames), steering at the path's next corner (_walk).
-func _nav_walk_to(target: Callable, within: float, what: String) -> void:
+func nav_walk_to(target: Callable, within: float, what: String) -> void:
 	await _walk(target, within, what, true)
 
 
@@ -970,15 +997,15 @@ func _walk(target: Callable, within: float, what: String, nav: bool) -> void:
 					next = corner
 					break
 		frame += 1
-		_steer(Vector2(next.x - at.x, next.z - at.z), clampf(gap / _slow_radius(), SLOWEST, 1.0))
+		steer(Vector2(next.x - at.x, next.z - at.z), clampf(gap / _slow_radius(), SLOWEST, 1.0))
 		await process_frame
-	_steer(Vector2.ZERO, 0.0)
+	steer(Vector2.ZERO, 0.0)
 	expect(gap < within, "walked to %s: %.2f m off" % [what, gap])
 
 
 ## Moves this side's hero toward `toward` (on the floor's x and z) at `fraction` of its speed, as a stick held that
 ## far would (past the move actions' deadzone, which the session's vector takes off again); zero lets go of the moves.
-func _steer(toward: Vector2, fraction: float) -> void:
+func steer(toward: Vector2, fraction: float) -> void:
 	var stick: Vector2 = toward.normalized() * (MOVE_DEADZONE + fraction * (1.0 - MOVE_DEADZONE)) if fraction > 0.0 \
 		else Vector2.ZERO
 	_set_move(&"move_right", maxf(stick.x, 0.0))
@@ -995,7 +1022,7 @@ func _slow_radius() -> float:
 
 
 ## The level's markers of `kind` (their UNIFIED_KIND), in marker order.
-func _markers(kind: String) -> Array[Node3D]:
+func markers(kind: String) -> Array[Node3D]:
 	var found: Array[Node3D] = []
 	for marker: Node in Unified.level_markers(find(current_scene, ^"Level") as Node3D):
 		var script: Script = marker.get_script()
@@ -1006,42 +1033,42 @@ func _markers(kind: String) -> Array[Node3D]:
 
 ## The point `metres` from the vault's gate along its passage, away from the floor's start (negative: toward it, the
 ## gallery's side). Every marker here is fetched anew each call: a wipe starts the floor over, and its scene with it.
-func _beyond_gate(metres: float) -> Vector3:
-	var gate: Node3D = _markers("gate")[0]
+func beyond_gate(metres: float) -> Vector3:
+	var gate: Node3D = markers("gate")[0]
 	var across: Vector3 = gate.global_basis.z.normalized()
-	var spawn: Vector3 = _host_spawn()
+	var spawn: Vector3 = host_spawn()
 	if (gate.global_position + across).distance_to(spawn) < (gate.global_position - across).distance_to(spawn):
 		across = -across
 	return gate.global_position + across * metres
 
 
 ## The point of the gallery's north lane (LANE_OFF_ROLLER north of the roller) `east` metres east of the north spikes.
-func _lane(east: float) -> Vector3:
-	var roller: Vector3 = _trap_marker("roller", false)
-	return Vector3(_north_spikes().x + east, 0.0, roller.z - LANE_OFF_ROLLER)
+func lane(east: float) -> Vector3:
+	var roller: Vector3 = trap_marker("roller", false)
+	return Vector3(north_spikes().x + east, 0.0, roller.z - LANE_OFF_ROLLER)
 
 
 ## Where the gallery's north lane meets the vault's gate: LANE_GATE short of it.
-func _lane_at_gate() -> Vector3:
-	return Vector3(_beyond_gate(-LANE_GATE).x, 0.0, _lane(0.0).z)
+func lane_at_gate() -> Vector3:
+	return Vector3(beyond_gate(-LANE_GATE).x, 0.0, lane(0.0).z)
 
 
 ## The gallery's north spikes: the spikes marker farthest north (least z).
-func _north_spikes() -> Vector3:
-	return _trap_marker("spikes", true)
+func north_spikes() -> Vector3:
+	return trap_marker("spikes", true)
 
 
 ## The first trap marker of `kind` ("spikes", "roller"), or with `northmost` the one of least z: its place.
-func _trap_marker(kind: String, northmost: bool) -> Vector3:
+func trap_marker(kind: String, northmost: bool) -> Vector3:
 	var found: Vector3 = Vector3.INF
-	for trap: Node3D in _markers("trap"):
+	for trap: Node3D in markers("trap"):
 		if trap.get(&"kind") == kind and (found == Vector3.INF or (northmost and trap.global_position.z < found.z)):
 			found = trap.global_position
 	return found
 
 
 ## The hoard's view (null: none), at the middle of its bottom face, turned as the chest is.
-func _hoard() -> Node3D:
+func hoard() -> Node3D:
 	var hoards: Array[Node] = session.get_views(EnumView.HOARD)
 	return null if hoards.is_empty() else hoards[0] as Node3D
 
@@ -1056,13 +1083,13 @@ func _lowest_corner(chest: Node3D) -> float:
 
 
 ## The hoard's handle this side's hero's Interact would take now, as the HUD has it (EnumHaulHandle).
-func _haul_prompt() -> int:
-	return _hud_hero(session.local_player).haul
+func haul_prompt() -> int:
+	return hud_hero(session.local_player).haul
 
 
 ## This side's hero's hit points, as the HUD has them.
 func _hp() -> int:
-	return _hud_hero(session.local_player).hp
+	return hud_hero(session.local_player).hp
 
 
 ## How far `ally`'s revive has come as its hero view's ring shows it (0 to 255; -1: no view).
@@ -1073,11 +1100,20 @@ func _revive_ring(ally: int) -> int:
 
 
 ## `player`'s hero as the HUD's data has it (an empty one while it has none).
-func _hud_hero(player: int) -> DataHudHero:
+func hud_hero(player: int) -> DataHudHero:
 	for hero: DataHudHero in Unified.data.hud.heroes:
 		if hero.player == player:
 			return hero
 	return DataHudHero.new()
+
+
+## Pushes the aim actions along `dir` on the floor (x, z), as a stick held that way; zero lets go of them (the hero
+## faces its move).
+func _set_aim(dir: Vector2) -> void:
+	_set_move(&"aim_right", maxf(dir.x, 0.0))
+	_set_move(&"aim_left", maxf(-dir.x, 0.0))
+	_set_move(&"aim_down", maxf(dir.y, 0.0))
+	_set_move(&"aim_up", maxf(-dir.y, 0.0))
 
 
 ## Presses a move action `strength` far (a stick's), or lets go of it (0).
@@ -1089,50 +1125,50 @@ func _set_move(action: StringName, strength: float) -> void:
 
 
 ## Whether `player`'s hero is down, as the HUD's data has it.
-func _down(player: int) -> bool:
+func down(player: int) -> bool:
 	for hero: DataHudHero in Unified.data.hud.heroes:
 		if hero.player == player:
 			return hero.down
 	return false
 
 
-## How many `tally` holds for `player`.
-func _tally(tally: Dictionary[int, int], player: int) -> int:
-	return tally.get(player, 0)
+## How many `counts` holds for `player`.
+func tally(counts: Dictionary[int, int], player: int) -> int:
+	return counts.get(player, 0)
 
 
 ## Counts the beats' CONFIRMED events (_abilities, _coins, _revived_by, _revived, _landed, the vault's and the hoard's).
-func _count_beats(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
+func count_beats(event: UnifiedEvent, state: UnifiedSession.EventState) -> void:
 	if state != UnifiedSession.EVENT_CONFIRMED:
 		return
 	if event is EventAbility:
 		var used := event as EventAbility
-		_abilities[used.player] = _tally(_abilities, used.player) + 1
+		_abilities[used.player] = tally(_abilities, used.player) + 1
 	elif event is EventLootCollected:
 		var collected := event as EventLootCollected
-		_coins[collected.player] = _tally(_coins, collected.player) + 1
+		_coins[collected.player] = tally(_coins, collected.player) + 1
 	elif event is EventHeroRevived:
 		var revived := event as EventHeroRevived
-		_revived_by[revived.by] = _tally(_revived_by, revived.by) + 1
-		_revived[revived.player] = _tally(_revived, revived.player) + 1
+		_revived_by[revived.by] = tally(_revived_by, revived.by) + 1
+		_revived[revived.player] = tally(_revived, revived.player) + 1
 	elif event is EventHeaveLanded:
 		var landed := event as EventHeaveLanded
-		_landed[landed.player] = _tally(_landed, landed.player) + 1
+		_landed[landed.player] = tally(_landed, landed.player) + 1
 	elif event is EventGate:
 		_gate_open = _gate_open or (event as EventGate).open
 	elif event is EventHoardGrabbed:
 		var grabbed := event as EventHoardGrabbed
-		_grabbed[grabbed.player] = _tally(_grabbed, grabbed.player) + 1
+		_grabbed[grabbed.player] = tally(_grabbed, grabbed.player) + 1
 	elif event is EventHoardDropped:
 		var dropped := event as EventHoardDropped
-		_dropped[dropped.player] = _tally(_dropped, dropped.player) + 1
+		_dropped[dropped.player] = tally(_dropped, dropped.player) + 1
 		_slipped += int(dropped.slipped)
 	elif event is EventBrazier and (event as EventBrazier).lit:
 		var brazier := event as EventBrazier
-		_lit[brazier.player] = _tally(_lit, brazier.player) + 1
+		_lit[brazier.player] = tally(_lit, brazier.player) + 1
 	elif event is EventShrine:
 		var shrine := event as EventShrine
-		_turned[shrine.player] = _tally(_turned, shrine.player) + 1
+		_turned[shrine.player] = tally(_turned, shrine.player) + 1
 	elif event is EventBossWard:
 		_ward_broken = _ward_broken or not (event as EventBossWard).up
 
@@ -1252,8 +1288,8 @@ func _host() -> void:
 ## the host's last save alone; Continue on your own keeps it in the slot (what the title's Continue offers) and goes
 ## through hero select into a single-player game on it, at the depth the joiner last saw, its boons back.
 func _host_left() -> void:
-	if _lan_pair():
-		return  # the recording ended with the host's session
+	if arg("play") != "":
+		return  # a play's recording ended with the host's session
 	var seen: int = _depth_seen
 	await wait_for(func() -> bool: return scene_is("Menu"), 5.0, "back on the title")
 	var dialog: Control = find(game, ^"Overlays/Dialog") as Control
@@ -1291,11 +1327,6 @@ func _host_left() -> void:
 				ranks += rank
 	expect(ranks > 0, "its boons came back with it (the host's save keeps its row by its profile id)")
 	step("continued on its own: depth %d, %d boon ranks" % [Unified.data.hud.depth, ranks])
-
-
-## Whether this run plays replays/lan_pair's script (--play=lan_pair) instead of the co-op checks.
-func _lan_pair() -> bool:
-	return arg("play") == "lan_pair"
 
 
 ## The title's Play together, once the menu shows the title (the run's main scene, loaded here: no session flag

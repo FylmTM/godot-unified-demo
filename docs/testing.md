@@ -8,7 +8,7 @@ the tool prints (real output, trimmed). Commands and their options: `./uni help`
 | 1 Rules under rollback | each rule, rolled back over on every step | `uni test` | `simulation/tests/*_test.odin`, `support_test.odin` | push |
 | 2 Scenarios | sessions agree: rollback every tick, churn, bad network, late join | `uni test` (`--long`: all, full length) | `suite_test.odin`, `crowd_test.odin` | push, nightly `--long` |
 | 3 Reference runs | the same results on every platform | `uni test` (`--bless`) | `reference_test.odin`, `crowd_test.odin` | push, 3 platforms |
-| 4 Replay regressions | a recorded session computes what was blessed | `uni test`, `uni coop --rerecord lan_pair` | `replays/lan_pair`, `replays/note_swift_boots`, `game/tools/coop_lan_pair.gd` | push |
+| 4 Replay regressions | a recorded session computes what was blessed | `uni test`, `uni coop --rerecord <name>` | `replays/lan_pair`, `replays/haul`, `replays/king`, `replays/note_swift_boots`, `game/tools/coop_lan_pair.gd`, `coop_haul.gd`, `coop_king.gd`, `plays_test.odin` | push |
 | 5 Planted bugs | the nets catch a desync and a rule change, and name them | `uni test` | `planted_test.odin` | push |
 | 6 Random inputs | noise from four players breaks nothing | `uni test` (`--long`: 16 seeds) | `soak_test.odin` | push, nightly |
 | 7 Bots | a whole run, played | `uni test` | `playthrough_test.odin`, `bot.odin` | push |
@@ -18,7 +18,7 @@ the tool prints (real output, trimmed). Commands and their options: `./uni help`
 | 11 Play-checking | an agent plays the real game | `uni drive` | (none: a transcript) | |
 | 12 F3 notes | a noted moment kept as a regression | `uni drive note`, `uni feedback` | `replays/note_swift_boots`, `suite_test.odin` | push |
 | 13 Benchmarks, budget | speed, and the bytes a session moves | `uni bench`, `uni test` | `game.odin` (benches), `suite_test.odin`, `tuning.odin` | push (reported) |
-| 14 Clips | a recording as a GIF or a video | `uni render` | any recording | |
+| 14 Clips | a recording as a GIF or a video; the README's media | `uni render`, `uni clips` | any recording, `tools/clips.odin` | |
 | 15 CI | all of it, per push and nightly | | `.github/workflows/ci.yml` | |
 
 Also in `uni test`: unified's determinism lint and the extension's install check (`suite_test.odin`), the levels
@@ -98,11 +98,14 @@ uni: test --bless failed: nothing re-pinned
 A recorded session replayed tick by tick against what was blessed; a difference names the tick, the events and the
 State's fields that moved.
 
-- `./uni test` (`the_replays_reproduce`); record lan_pair again: `./uni coop --rerecord lan_pair` (its `coop.args`);
+- `./uni test` (`the_replays_reproduce`); record a play again: `./uni coop --rerecord <name>` (its `coop.args`);
   replay any recording: `./uni headless -- replay --log <dir>/inputs.unil --snapshot <dir>/snapshot.unis`.
-- `replays/lan_pair` (a two-process LAN session playing `game/tools/coop_lan_pair.gd`'s script) and
-  `replays/note_swift_boots` (section 12); what each holds: `the_lan_recording_holds_its_play`,
-  `the_swift_boots_note_holds` (`suite_test.odin`).
+- Three two-process LAN sessions, each playing a script of `game/tools/` on what the shared sim confirms:
+  `replays/lan_pair` (`coop_lan_pair.gd`), and on a bad link (`--lag 150`) `replays/haul` (`coop_haul.gd`: the vault
+  opened by its two plates, the hoard carried by its two handles past the roller and onto the lift, a downed ally
+  heaved and revived, the descent) and `replays/king` (`coop_king.gd`, in the vault: the King's ward broken together
+  twice, its slam, its fall). What each holds, beat by beat: `plays_test.odin`; `replays/note_swift_boots` (section
+  12): `the_swift_boots_note_holds` (`suite_test.odin`). `uni coop --record` keeps no recording that misses a beat.
 
 The same mutant:
 
@@ -293,8 +296,11 @@ Any recording (a replay regression, an F3 note, a session) played in the game's 
 writer, frame-exact at any machine speed: a GIF, an AVI with sound, or PNG frames. The godot suite's render step
 checks it on the first replay regression.
 
-- `./uni render <recording> --out <file.gif|file.avi|dir/> [--from] [--to] [--player]` (the `unified-godot` skill,
-  A clip for a README).
+- `./uni render <recording> --out <file.gif|file.avi|dir/> [--from] [--to] [--at] [--player]` (the `unified-godot`
+  skill, A clip for a README).
+- `./uni clips [name] [--record]` (`tools/clips.odin`): the README's clips and stills in `docs/media/`, each clip cut
+  around an event of the plays' recordings (or the crowd's, a `uni drive` session); a GIF over 4 MB fails it;
+  `--record` records the plays and the crowd again first.
 
 ```
 $ ./uni render simulation/tests/replays/note_swift_boots --out .out/clips/swift_boots.gif --from 682 --to 778
