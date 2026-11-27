@@ -31,6 +31,18 @@ Play what you built, beside its tests (verbs: `./uni drive -h`):
 Two at once: `start --name host -- --host-port 7000` and `start --name joiner -- --join 127.0.0.1:7000`, then
 `--name` on every verb.
 
+## A clip for a README
+
+A clip is a recording the game plays back, so it is made again whenever the game changes and stays true to it:
+
+1. Record what to show: play it (`./uni drive start -- --autostart`, then `press` and `step`; `stop` saves the
+   session's recording under `.out/user/`, `UnifiedSession.recording` names it), or take a replay regression or the
+   developer's F3 note (`./uni feedback`).
+2. `./uni render <recording> --out docs/clip.gif --from 2s --to 12s` (`--player n`: whose view; `--speed`; `.avi` for
+   a video with sound, a directory for PNG frames). The window opens like any agent's; the clip is frame-exact.
+3. Read a frame or two (`--out .out/frames/`, then the PNGs) before committing the GIF. Keep it short and small:
+   a camera that moves changes every pixel, so a few seconds at 15 fps is a few MB.
+
 ## Windows
 
 Never disturb the developer: a window an agent opens starts muted in the top-left corner of the leftmost screen and never takes focus
