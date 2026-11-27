@@ -8,15 +8,8 @@ the doc comments, and leave this file; when the game is done, this file is gone.
 A top-down co-op dungeon crawler for 1–4 players: adventurers go down a crypt full of skeletons, relight its
 braziers, and haul its treasure up to the lift.
 
-- **A floor.** Lighting its braziers while the surges come is a second way to open the vault, beside its two plates.
-  The lift is the run's save point.
-- **A run.** A hub between runs (the lobby), three floors, and a boss vault: 20–30 minutes. A run saves at every lift
-  and continues from the menu. A player can join or rejoin at any time.
-- **Failure.** When the whole party is down, the floor restarts from the last save.
-- **Enemies.** A boss, in the boss vault, beside the skeleton crowd and its elites.
-- **Depth.** Difficulty levels (the Setup); an endless arena mode (also the stress and benchmark scene); progress
-  across runs (unlocks, best floors, gold hauled) that each player brings into a session through their Profile; each
-  floor in 2–3 authored layouts, the run's seed picking the layout and placing spawns, props, traps and loot.
+- **Depth.** Each floor in 2–3 authored layouts, the run's seed picking the layout and placing spawns, props, traps
+  and loot.
 
 ## The look and sound
 
@@ -29,10 +22,6 @@ Still to show, each where it belongs in the game, with a line in the README poin
 draws, recording and replay with seek, F3 notes; and every way of testing (below). What it shows already is the
 README's.
 
-## How it's built
-
-- **Sim:** the rule numbers get presets per difficulty and a quick preset for tests.
-
 ## How it's tested
 
 `docs/testing.md` (milestone 9) maps each layer to its command and files, with a replay regression for each fixed F3
@@ -42,7 +31,6 @@ note, `uni coop --crash`, and the F3 → `uni feedback` → regression loop as a
 
 | # | What lands |
 |---|---|
-| 7 | The run: the hub, three floors with their layouts, the boss, the run's save at each lift, difficulty, progress across runs, endless arena |
 | 8 | Polish: effects, audio, music, lighting, accessibility |
 | 9 | The testing showcase complete, `docs/testing.md` |
 | 10 | macOS in CI, release builds, videos, the final README |

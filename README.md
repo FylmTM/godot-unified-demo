@@ -330,7 +330,9 @@ A session starts in the hub (`run.odin`), the graveyard between runs: nothing hu
 Its two shrines (`shrine` markers) set the next run's mode (the crypt, or the Pit) and difficulty: an Interact press
 nothing else would take turns one, at most once every SHRINE_COOLDOWN_S, until the hub's lift boards. The hub's lift
 (`hoard = false`) goes with everyone aboard and no hoard, and at its bottom the run begins: the tally and the boons go,
-the lives are the difficulty's (DIFFICULTY), and the party is on the crypt's first floor. A wipe costs a life: the
+the lives are the difficulty's (DIFFICULTY), and the party is on the crypt's first floor. The crypt goes down Floor
+1, the Ossuary (Floor 2), the Deep Halls (Floor 3) and the vault (FLOOR_ORDER, `lift.odin`), a lift's descent each
+time and never past the vault, which has no lift: the King's fall there wins the run. A wipe costs a life: the
 floor starts over from its save point, the purse and the felled back at the save's; the last life ends the run.
 Either ending shows the results for RUN_END_S, then the party is back in the hub. Hard (DIFFICULTY) has fewer lives
 and tougher, harder-hitting, more numerous skeletons that pay more; each floor down adds SURGE_PER_DEPTH to a surge and
@@ -350,7 +352,7 @@ brazier stays lit, and each lighting brings the next surge within BRAZIER_SURGE_
 
 The vault's boss, the Bone King (its `boss` marker; boss.odin, elite_king.odin), is an elite of its own kind: a
 Warrior BOSS_SCALE times as big, never knocked, staggered or heaved, asleep until a hero comes into sight or hits it.
-It wakes with BOSS_HP and BOSS_HP_PER_HERO for each other hero present. Its guard is the Warrior's, broken for
+It wakes with BOSS_HP and BOSS_HP_PER_HERO for each other hero present, times the difficulty's. Its guard is the Warrior's, broken for
 BOSS_GUARD_DOWN_S by a thrown prop, a charge or a fireball. It cleaves every hero within BOSS_CLEAVE_REACH in front
 of it. At two thirds and one third of its health it roars, every brazier goes out, and it is warded (no blow hurts it)
 while it walks to its marker; BOSS_SUMMON skeletons rise at the graves and the surges come every BOSS_SURGE_S until
@@ -358,7 +360,8 @@ BOSS_WARD_NEED of the braziers (by the heroes present) are lit. No blow takes it
 stage it slams every BOSS_SLAM_EVERY_S (BOSS_SLAM_FAST_S in its third, where it also moves BOSS_STAGE_SPEED faster):
 a ring of BOSS_SLAM_RADIUS on the floor for BOSS_SLAM_WINDUP_S, then BOSS_SLAM_DAMAGE to every hero up inside that no
 wall shields, thrown back, and Box3D's explosion through the props and ragdolls. Its fall puts BOSS_GOLD in the purse
-and wins the run; a wipe starts the vault over.
+and wins the run (no surge rises after it; the save is the hub's again); a wipe starts the vault over, at a life's
+cost.
 
 ## The crowd
 

@@ -1050,8 +1050,8 @@ Step 2, braziers and the boss (beyond the design's decided calls):
   pillar shields), throws them back at 8 m/s, and world_explode at 0.2 m over its feet with 150 N·s/m² (falloff
   1.5 m) moves a heavy crate 3.5 m away about 2 m and a ragdoll about 0.6 m (world_explode sees through walls).
 - Its fall: no coins; Event_Boss_Defeated carries the purse's total, which the purse shows as a pickup ("+300"), and
-  the toast is CONFIRMED. `boss_hp_scale` (1) and `run_won` (nothing) are stubs in boss.odin for the run's merge; the
-  director keeps raising surges after the fall until Won stops it.
+  the toast is CONFIRMED. At the merge `boss_hp_scale` reads DIFFICULTY's boss_hp and `run_won` is end_run(won): the
+  director raises no surge after the fall, and the save is the hub's again.
 - Views: the King is the Warrior's model at boss_scale with the dungeon's gold sword and shield on its back, cleaving
   in the Knight's slash and slamming in the jump chop; its ring fills over the windup; its ward is an additive shell
   (game/fx/ward.gdshader). Its bar is at the HUD's bottom, not the top: the top's lane is the toasts' and banners'.
@@ -1089,6 +1089,26 @@ Step 3, the levels (beyond the design's decided calls):
   Floor 1's passage barricade stands that way (its bot never hauls through it).
 - The bot: once the vault's gate is open, a bot with no duty and nothing to fight waits by the lift (was: only once the
   hoard was taken), so a duty that ended in a doorway doesn't leave it blocking the hauler there.
-- Until steps 1 and 2 land, two load rules stand in for theirs: a floor needs a grave only with a hoard or a boss
-  (world.odin), and a gate's need counts the braziers naming it as well as its plates (plates.odin). The new floors'
-  routes are tested with every gate latched (as lit braziers would hold them).
+- At the merge, step 1's load rule stands (read_places: a grave only on a floor with a hoard or a boss), and link_plates
+  keeps counting the braziers naming a gate toward its need (step 2 counts them at play; no load check of its did).
+  The hub's two shrine_candles parts went (step 1's shrine view draws the model); the hub's navigation keeps the holes
+  they cut (not re-baked: nothing walks the hub but heroes).
+
+Step 4, the joins (beyond the design's decided calls):
+
+- FLOOR_ORDER is the run's four floors; a descent enters floor_at(depth), which never goes past the vault (no wrap: the
+  vault has no lift, and the King's fall or the last life ends the run).
+- Bench rows for the Ossuary, the Deep Halls and the vault, each a held surge of BENCH_FLOOR_MINIONS; bench_prepare
+  rouses the vault's King, so its row is the fight's.
+- An elite's bar is its difficulty's health (elite_hp), not its spec's.
+- The bot's whole run (the_bots_play_a_whole_run) quiets each crypt floor as the party enters it (no skeleton, no
+  elite, surges held off, again after a lighting brings them on), latches the Deep Halls' held gate open (its
+  braziers' way runs through it), and takes the vault's stage skeletons and surges as they come: the fight it proves is
+  the King's. The bot learned to board a lift that takes no hoard, kindle the braziers a vault gate or the King's ward
+  needs (the Mage casting at one), blast a barricade before a plate past it, take the King as a foe, step out of its
+  slam's ring and its cleave's reach, and press a revive or a kindling again after a blow broke it off. It runs with a
+  re-simulation window of 2 (two seconds instead of seven).
+- coop.gd: the shrines' beat runs only when the session begins in the hub (the menus' start: uni's session flags start
+  on Floor 1); the ward's beat takes the party down by dev_board, kindles three braziers (the host two, the joiner
+  one), then drives the King into its third stage so it stands warded through the pause; the joiner continues the
+  vault's save at the end.
