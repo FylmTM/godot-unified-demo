@@ -44,6 +44,13 @@ Data_Hud :: struct {
 	_pad_run:     [2]u8,
 	// When the open choice began: its countdown runs from it (constants.boon_timeout)
 	choice_since: sim.Game_Time,
+	// ---- the boss (boss.odin): its bar across the top while it is awake and alive (boss_hp_max > 0)
+	boss_hp:      i16,
+	boss_hp_max:  i16, // its full health (0: no boss awake: the bar hides)
+	boss_stage:   u8, // 1 to 3
+	boss_warded:  bool, // its ward is up: the bar says how many braziers are lit of how many it needs
+	ward_lit:     u8,
+	ward_need:    u8,
 }
 
 // One slot's hero (DataHudHero).
@@ -74,7 +81,11 @@ Hud_Hero :: struct {
 	// A local hero's: the hub's shrine its Interact would turn now (the rules' shrine_target: the "[E] Turn" prompt),
 	// EnumShrineSetting + 1 (0: none, or not a local hero)
 	shrine:      u8,
-	_pad:        u8,
+	_pad:        [3]u8,
+	// ---- braziers (braziers.odin)
+	// A local hero's: the brazier its Interact would kindle now (the rules' kindle_target, unless the press would revive
+	// an ally: the "[E] Light" prompt; the null handle: none, or not a local hero).
+	kindle:      sim.Handle(g.Brazier),
 }
 
 // The HUD's data from the frame's state.
@@ -120,8 +131,31 @@ fill_hud :: proc(f: ^Frame) {
 		offer := g.boon_offer(f.seed, g.offer_index(run), player, hero.boons) // the tick's own roll: the same cards
 		hud.heroes[slot].offer = offer.boons
 		hud.heroes[slot].offer_count = u8(offer.count)
+		if local && hud.heroes[slot].revive == {} do hud.heroes[slot].kindle = kindle_of(f, player)
 	}
+	fill_boss_hud(f, &hud)
 	godot.push_data(f, hud)
+}
+
+// The brazier `player`'s hero would kindle now (the rules' kindle_target, on the frame's state and floor).
+kindle_of :: proc(f: ^Frame, player: sim.Player) -> sim.Handle(g.Brazier) {
+	defs := sim.slice(&f.world.floors[f.state.level.id].places.braziers)
+	return g.kindle_target(&f.state.players, &f.state.braziers, defs, player)
+}
+
+// The boss's bar: the King's health once it is awake and while it lives, its stage, and its ward's braziers (lit, and
+// the need for the heroes present, as the rules' ward_need counts it).
+fill_boss_hud :: proc(f: ^Frame, hud: ^Data_Hud) {
+	boss := &f.state.boss
+	king := sim.get(&f.state.elites, boss.elite)
+	if boss.stage == 0 || boss.hp_max == 0 || king == nil || king.phase == .Dying do return
+	hud.boss_hp, hud.boss_hp_max = dmath.max(king.hp, 0), boss.hp_max
+	hud.boss_stage, hud.boss_warded = boss.stage, boss.warded
+	lit := 0
+	braziers := sim.iterate(&f.state.braziers)
+	for brazier in sim.next(&braziers) do lit += int(brazier.lit)
+	present := dmath.clamp(sim.present_count(&f.state.players), 1, g.PLAYERS)
+	hud.ward_lit, hud.ward_need = u8(lit), u8(g.BOSS_WARD_NEED[present - 1])
 }
 
 // Whether the hoard hangs over the deck's edge: the sensor over the deck sees it, its box isn't wholly over the deck,

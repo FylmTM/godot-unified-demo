@@ -47,8 +47,9 @@ const SKELETON_ATTACK: StringName = &"CombatMelee/Melee_1H_Attack_Chop"
 const SKELETON_LIMP: StringName = &"Special/Skeletons_Inactive_Standing_Pose"
 
 # Skeleton elites (the Warrior swings SKELETON_ATTACK and guards in KNIGHT_BLOCK, the Mage casts MAGE_BOLT and summons
-# in MAGE_CAST).
+# in MAGE_CAST; the boss, the Bone King, cleaves in KNIGHT_SLASH, roars in SKELETON_TAUNT and slams in BOSS_SLAM).
 const ELITE_ROGUE_STAB: StringName = &"CombatMelee/Melee_Dualwield_Attack_Stab"
+const BOSS_SLAM: StringName = &"CombatMelee/Melee_1H_Attack_Jump_Chop"
 
 ## The clips that loop: a stance or a gait, shown for as long as it lasts, each ending in the pose it starts with (the
 ## checks prove it). Every other clip is a one-shot: the Rogue's aim raises the crossbow and holds it raised.

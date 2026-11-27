@@ -57,4 +57,10 @@ Event :: union {
 	Event_Shrine,
 	Event_Life_Lost,
 	Event_Choice,
+	// Braziers and the boss (braziers.odin, boss.odin, elite_king.odin)
+	Event_Brazier,
+	Event_Boss_Stage,
+	Event_Boss_Slam,
+	Event_Boss_Ward,
+	Event_Boss_Defeated,
 }

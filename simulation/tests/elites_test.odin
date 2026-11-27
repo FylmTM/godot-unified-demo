@@ -538,11 +538,11 @@ the_floors_elites_sleep_until_seen_or_hit :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// Every DIFFICULTY.elite_every-th surge on a floor brings an elite, rising at a grave, the kinds in turn: the third surge a
-// Warrior, the sixth a Rogue, the ninth a Mage.
+// Every DIFFICULTY.elite_every-th surge on a floor brings an elite, rising at a grave, the risen kinds in turn (never
+// the King): the third surge a Warrior, the sixth a Rogue, the ninth a Mage.
 @(test)
 the_third_surge_brings_an_elite :: proc(t: ^testing.T) {
-	for kind in g.Elite_Kind {
+	for kind in g.Elite_Kind(0) ..< g.Elite_Kind(g.RISEN_KINDS) {
 		run := headless.run_begin(&g.GAME, 1, seated = 1)
 		defer headless.run_end(&run)
 		clear_minions(&run)
@@ -573,7 +573,7 @@ the_elites_alive_are_capped :: proc(t: ^testing.T) {
 	state := &run.simulation.state
 	hero := sim.slot_data(run.simulation, 0)
 	for kind in 0 ..< g.ELITES_ALIVE_MAX + 2 {
-		headless.run_command(&run, 0, g.Command_Dev_Spawn_Elite{g.Elite_Kind(kind % len(g.Elite_Kind))})
+		headless.run_command(&run, 0, g.Command_Dev_Spawn_Elite{g.Elite_Kind(kind % g.RISEN_KINDS)})
 		for i in 0 ..< int(state.elites.high_water) {
 			a, _, a_live := sim.item_at(&state.elites, i)
 			if !a_live do continue

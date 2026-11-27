@@ -244,7 +244,9 @@ haul_speed :: proc(t: ^Tick, hero: ^Hero) -> f32 {
 	return back_speed(hero, HOARD_CARRY_SPEED if carried else HOARD_DRAG_SPEED)
 }
 
-// How long until the next surge, as raise_surges restarts its clock: HAUL_SURGE_TICKS once the haul has begun.
+// How long until the next surge, as raise_surges restarts its clock: HAUL_SURGE_TICKS once the haul has begun,
+// BOSS_SURGE_TICKS while the King is warded.
 surge_every :: proc(t: ^Tick) -> u32 {
+	if boss_warded(t) do return BOSS_SURGE_TICKS // the King's ward keeps its own pace (boss.odin)
 	return HAUL_SURGE_TICKS if t.state.hoard.hauled else SURGE_EVERY_TICKS
 }

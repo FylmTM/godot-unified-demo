@@ -148,7 +148,7 @@ bot_commands :: proc(seed: u64, slot: int, tick: u32, state: ^g.State, _: g.Setu
 		sim.send_command(out, g.Command_Dev_Spawn_Minions{BOT_SPAWN_COUNT})
 	}
 	if slot == 1 && tick % BOT_ELITE_EVERY == BOT_ELITE_AT {
-		sim.send_command(out, g.Command_Dev_Spawn_Elite{g.Elite_Kind(tick / BOT_ELITE_EVERY % len(g.Elite_Kind))})
+		sim.send_command(out, g.Command_Dev_Spawn_Elite{g.Elite_Kind(tick / BOT_ELITE_EVERY % g.RISEN_KINDS)})
 	}
 	if slot == 3 && tick % BOT_DOWN_EVERY == BOT_DOWN_AT do sim.send_command(out, g.Command_Dev_Hurt{damage = g.HERO_HP})
 }

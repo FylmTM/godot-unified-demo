@@ -49,6 +49,11 @@ State :: struct {
 	pit:          Pit, // the Pit's lulls (arena.odin)
 	_pad_run:     u32,
 	saved:        Setup, // what the last save point marked: the save (saves.odin; version 0: none yet)
+	// ---- braziers and the boss (braziers.odin, boss.odin): the braziers made from the floor's markers on entering it,
+	// in marker order; the vault's King
+	braziers:     sim.Table(Brazier, MAX_BRAZIERS),
+	boss:         Boss,
+	_pad_boss:    [4]u8,
 }
 
 // What a hero is doing, for the view to pose (a one-shot clip at its age).
@@ -69,6 +74,8 @@ Action :: enum u8 {
 	Hurl, // throwing it, for THROW_S: it leaves the hands THROW_WINDUP_S into it
 	// The hoard (hoard.odin)
 	Haul, // holding a handle of the hoard (Hero.handle), until it lets go
+	// Braziers (braziers.odin)
+	Kindle, // kindling a brazier, while Interact is held beside it
 }
 
 // A player's hero (the State's sim.Players, by member): zeroed for someone new, kept while they are away. A leave

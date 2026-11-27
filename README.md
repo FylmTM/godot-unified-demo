@@ -284,7 +284,8 @@ One tick, in order (`simulation/crypt_crew/game.odin`); every number is a named 
 **Mechanisms**, a floor's Box3D pieces (plates.odin, gates.odin, barricades.odin, traps.odin): before the step each
 gate's motor is set from its plates and each roller driven along its path; after it, plates, barricades and traps are
 read. A plate is pressed once its slab sinks past PLATE_ON under anything weighing more than PLATE_LOAD, and released
-above PLATE_OFF. A gate lifts GATE_RISE while `need` of its plates are pressed (a latched one stays up), and closes
+above PLATE_OFF. A gate lifts GATE_RISE while `need` of its plates are pressed and its braziers lit (a latched one
+stays up), and closes
 pressing at most GATE_CLOSE_FORCE; below GATE_PASS it keeps minions back. A barricade breaks to a blow (a thrown prop, a
 charge, a hurled body) touching it as its weld strains past BARRICADE_BREAK_N: the blow decides, and the threshold is
 its floor, since a hero walking into the fence strains it harder than a thrown crate; a fireball's blast that reaches it
@@ -337,6 +338,27 @@ DEPTH_HP to a skeleton's health. The Pit (`arena.odin`) is the arena's endless w
 PIT_SURGE_S, PIT_BASE + PIT_GROWTH × n and SURGE_PER_HERO a hero; after every PIT_BOON_EVERY-th the next holds until at
 most PIT_LULL stand (or PIT_LULL_MAX_S), then the rest fall, the downed rise and a boon choice opens. The Pit keeps no
 save; its score is the results panel's.
+
+## Braziers and the boss
+
+A floor's braziers (its `brazier` markers, at their stands) are a second way to open a gate: a lit one counts toward
+its gate's `need` as a pressed plate does. A hero up, hands free, holding Interact within BRAZIER_RANGE kindles one
+(the "[E] Light" prompt says when; a press starts it, as a revive's does), and it lights after BRAZIER_LIGHT_S of
+kindling, two kindlers twice as fast; a blow, letting go or walking off breaks the kindling and the brazier loses its
+progress. A Mage's fireball bursting within BRAZIER_BLAST lights it at once, unless a wall stands between. A lit
+brazier stays lit, and each lighting brings the next surge within BRAZIER_SURGE_S.
+
+The vault's boss, the Bone King (its `boss` marker; boss.odin, elite_king.odin), is an elite of its own kind: a
+Warrior BOSS_SCALE times as big, never knocked, staggered or heaved, asleep until a hero comes into sight or hits it.
+It wakes with BOSS_HP and BOSS_HP_PER_HERO for each other hero present. Its guard is the Warrior's, broken for
+BOSS_GUARD_DOWN_S by a thrown prop, a charge or a fireball. It cleaves every hero within BOSS_CLEAVE_REACH in front
+of it. At two thirds and one third of its health it roars, every brazier goes out, and it is warded (no blow hurts it)
+while it walks to its marker; BOSS_SUMMON skeletons rise at the graves and the surges come every BOSS_SURGE_S until
+BOSS_WARD_NEED of the braziers (by the heroes present) are lit. No blow takes it past a stage's end. From its second
+stage it slams every BOSS_SLAM_EVERY_S (BOSS_SLAM_FAST_S in its third, where it also moves BOSS_STAGE_SPEED faster):
+a ring of BOSS_SLAM_RADIUS on the floor for BOSS_SLAM_WINDUP_S, then BOSS_SLAM_DAMAGE to every hero up inside that no
+wall shields, thrown back, and Box3D's explosion through the props and ragdolls. Its fall puts BOSS_GOLD in the purse
+and wins the run; a wipe starts the vault over.
 
 ## The crowd
 

@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://game/views/brazier.gd" id="brazier"]
+[ext_resource type="PackedScene" path="res://game/fx/fire.tscn" id="fire"]
+
+[node name="Brazier" type="Node3D"]
+script = ExtResource("brazier")
+
+[node name="UnifiedView" type="UnifiedView" parent="."]
+kind = "brazier"
+
+[node name="Fire" parent="." instance=ExtResource("fire")]
+transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, 0, 3, 0)
+visible = false
+strength = 1.6

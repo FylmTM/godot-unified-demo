@@ -6,7 +6,6 @@
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_cracked.tscn" id="4_b2ihh"]
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/wall_shelves.tscn" id="5_2vb7w"]
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/brazier.tscn" id="6_617kk"]
-[ext_resource type="PackedScene" path="res://game/fx/fire.tscn" id="7_i60vy"]
 [ext_resource type="PackedScene" path="res://assets/kaykit/dungeon/coin_stack_small.gltf" id="10_brp7d"]
 [ext_resource type="PackedScene" path="res://game/levels/parts/crypt/torch_mounted.tscn" id="11_tptji"]
 [ext_resource type="Script" path="res://game/levels/markers/hero_spawn.gd" id="12_702nl"]
@@ -19,6 +18,7 @@
 [ext_resource type="Script" path="res://game/levels/markers/prop.gd" id="18_s72pi"]
 [ext_resource type="Script" path="res://game/levels/markers/lift.gd" id="19_825d08"]
 [ext_resource type="Script" path="res://game/levels/markers/hoard.gd" id="20_6a1dd2"]
+[ext_resource type="Script" path="res://game/levels/markers/brazier.gd" id="brazier"]
 
 [sub_resource type="NavigationMesh" id="NavigationMesh_2hxcu"]
 vertices = PackedVector3Array(-4.5, 0.5, -4.75, -3, 0.5, -5, -3, 0.5, -6.75, -10.75, 0.5, -6.75, -10.75, 0.5, -5, -7.25, 0.5, -4.75, -9.25, 0.5, 5.5, -9, 0.5, 7, 0.75, 0.5, 7, 0.25, 0.5, -2.75, -4.25, 0.5, -2.75, -7.75, 0.5, -2.75, -7.25, 0.5, -3.25, 0.75, 0.5, -3.25, -10.75, 0.5, -2.75, -10.75, 0.5, 5.5, -0.75, 0.5, -6.75, -0.75, 0.5, -5, 0.75, 0.5, -4.75, 7.5, 0.5, -4.75, 11, 0.5, -5, 11, 0.5, -6.75, 7.75, 0.5, -2.75, 9.75, 0.5, 6, 11, 0.5, 6, 11, 0.5, -2.75, 9.5, 0.5, 7)
@@ -192,14 +192,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 0, 7)
 
 [node name="Decor" type="Node3D" parent="." unique_id=413690885]
 
-[node name="Fire" parent="Decor" unique_id=1485067948 instance=ExtResource("7_i60vy")]
-transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, -10, 3, 6.5)
-strength = 1.6
-
-[node name="Fire2" parent="Decor" unique_id=1059997898 instance=ExtResource("7_i60vy")]
-transform = Transform3D(1.8, 0, 0, 0, 1.8, 0, 0, 0, 1.8, 10.5, 3, 7)
-strength = 1.6
-
 [node name="CoinStackSmall" parent="Decor" unique_id=2116936622 instance=ExtResource("10_brp7d")]
 transform = Transform3D(0.9396926, 0, 0.34202012, 0, 1, 0, -0.34202012, 0, 0.9396926, -4.6, 0, -6.4)
 
@@ -330,3 +322,13 @@ script = ExtResource("20_6a1dd2")
 [node name="Lift" type="Marker3D" parent="Markers" unique_id=2051413920]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 2)
 script = ExtResource("19_825d08")
+
+[node name="BrazierWest" type="Marker3D" parent="Markers" unique_id=75627331]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, 6.5)
+script = ExtResource("brazier")
+target = NodePath("../GateStore")
+
+[node name="BrazierEast" type="Marker3D" parent="Markers" unique_id=1819537198]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 0, 7)
+script = ExtResource("brazier")
+target = NodePath("../GateStore")

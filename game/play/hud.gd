@@ -11,7 +11,10 @@ extends Control
 ## floor's restart, a revive, a joiner). A "[E] Haul" prompt hangs over the hoard's handle a local hero's Interact would
 ## take (Hud_Hero.haul: the rules' haul_target), and a line at the bottom says "The hoard must be wholly on the lift"
 ## while it rests hanging over the deck's edge (Data_Hud.overhang). At the lift's bottom the boon panels show
-## (BoonPanels). As the verified
+## (BoonPanels). A "[E] Light" prompt hangs over the brazier a local hero's Interact would kindle (Hud_Hero.kindle: the
+## rules' kindle_target), and while the boss is awake its bar shows at the bottom (the top's lane is the toasts' and the
+## banners'): its health, and while it is warded how many braziers are lit of how many break the ward
+## (Data_Hud.boss_*). As the verified
 ## level changes (a descent, a wipe's restart) the crypt fades to black and back (fade_out, fade_in: play.gd). Nothing
 ## on it takes a click or the focus: Space and a pad's A stay the game's.
 ##
@@ -31,6 +34,8 @@ extends Control
 const REVIVE_PROMPT_HEIGHT: float = 2.6
 ## How far above a hoard's handle its haul prompt hangs (metres).
 const HAUL_PROMPT_HEIGHT: float = 1.0
+## How high above a brazier's foot its light prompt hangs (metres: under its bowl, at a hero's head).
+const KINDLE_PROMPT_HEIGHT: float = 2.4
 ## How long the fade to black takes as the verified level changes, and back once the new one shows (seconds).
 const FADE_OUT_S: float = 0.25
 const FADE_IN_S: float = 0.6
@@ -79,6 +84,10 @@ var _ended: bool = false
 @onready var _results_heading: Label = %ResultsHeading
 @onready var _results_line: Label = %ResultsLine
 @onready var _results_stats: Label = %ResultsStats
+@onready var _kindle_prompts: Control = %KindlePrompts
+@onready var _boss_bar: Control = %BossBar
+@onready var _boss_health: ProgressBar = %BossHealth
+@onready var _ward: Label = %Ward
 
 
 func _ready() -> void:
@@ -136,6 +145,7 @@ func _show_data() -> void:
 	_overhang.visible = Unified.data.hud.overhang and not _menu_open
 	_show_run()
 	_wiped_banner.visible = _wiped and not _paused.visible and not _menu_open and not _results.visible
+	_show_boss()
 
 
 func _process(_delta: float) -> void:
@@ -143,6 +153,7 @@ func _process(_delta: float) -> void:
 	_place_haul_prompts()
 	_place_run_banner()
 	_place_shrine_prompts()
+	_place_kindle_prompts()
 
 
 ## The verified level is changing (the session's level_changing): the crypt fades to black.
@@ -190,6 +201,48 @@ func _place_haul_prompts() -> void:
 		var on_screen: Vector2 = get_global_transform_with_canvas().affine_inverse() * camera.unproject_position(above)
 		var row: int = stacked.get(hero.haul, 0)
 		stacked[hero.haul] = row + 1
+		prompt.position = on_screen - Vector2(prompt.size.x / 2.0, prompt.size.y * (row + 1))
+	for i: int in range(shown, prompts.size()):
+		(prompts[i] as Control).visible = false
+
+
+## The boss's bar while it is awake (Data_Hud.boss_hp_max > 0): its health, and while warded the braziers it waits on.
+func _show_boss() -> void:
+	var hud: DataHud = Unified.data.hud
+	_boss_bar.visible = hud.boss_hp_max > 0 and not _menu_open
+	if not _boss_bar.visible:
+		return
+	_boss_health.max_value = hud.boss_hp_max
+	_boss_health.value = hud.boss_hp
+	_ward.visible = hud.boss_warded
+	_ward.text = "Warded: light %d of %d braziers" % [mini(hud.ward_lit, hud.ward_need), hud.ward_need]
+
+
+## Each local hero's "[E] Light" over the brazier its Interact would kindle (Hud_Hero.kindle), in that player's glyphs;
+## two at one brazier stack. Placed every frame, as the camera moves between the data's changes.
+func _place_kindle_prompts() -> void:
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	var prompts: Array[Node] = _kindle_prompts.get_children()
+	var shown: int = 0
+	var stacked: Dictionary[int, int] = {}
+	for hero: DataHudHero in Unified.data.hud.heroes:
+		if hero.player == 0 or not hero.local or hero.kindle == 0 or camera == null or shown >= prompts.size():
+			continue
+		var brazier := Unified.session.get_view(EnumView.BRAZIER, hero.kindle) as Node3D
+		var above: Vector3 = brazier.global_position + Vector3.UP * KINDLE_PROMPT_HEIGHT if brazier != null else Vector3.ZERO
+		if brazier == null or camera.is_position_behind(above):
+			continue
+		var prompt := prompts[shown] as ActionPrompt
+		shown += 1
+		var local: int = Unified.session.get_local_index(hero.player)
+		if prompt.local != local:
+			prompt.local = local
+			prompt.refresh()
+		prompt.visible = true
+		prompt.size = prompt.get_combined_minimum_size()
+		var on_screen: Vector2 = get_global_transform_with_canvas().affine_inverse() * camera.unproject_position(above)
+		var row: int = stacked.get(hero.kindle, 0)
+		stacked[hero.kindle] = row + 1
 		prompt.position = on_screen - Vector2(prompt.size.x / 2.0, prompt.size.y * (row + 1))
 	for i: int in range(shown, prompts.size()):
 		(prompts[i] as Control).visible = false

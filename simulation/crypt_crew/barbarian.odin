@@ -75,8 +75,8 @@ barbarian_ability :: proc(t: ^Tick, hero: ^Hero, player: sim.Player, buttons: si
 	if target := heave_target(t, hero, player); target != {} do heave(t, hero, player, target)
 }
 
-// The body `player`'s hero would heave now (zero: none): the nearest live elite, awake or asleep but neither rising nor
-// heaved already, or the nearest ally down and not heaved (its ragdoll, where its pelvis lies), within
+// The body `player`'s hero would heave now (zero: none): the nearest live elite (never the King), awake or asleep but
+// neither rising nor heaved already, or the nearest ally down and not heaved (its ragdoll, where its pelvis lies), within
 // GRAB_RANGE of the hero's capsule, in its grab cone (GRAB_CONE_COS; or right against it, GRAB_ANYWHERE), within
 // GRAB_HEIGHT of its feet and no wall between their chests, as hands_target picks a prop; on a tie the elites first,
 // in table order, then the heroes in slot order.
@@ -84,6 +84,7 @@ heave_target :: proc(t: ^Tick, hero: ^Hero, player: sim.Player) -> (target: Heav
 	nearest := max(f32)
 	elites := sim.iterate(&t.state.elites)
 	for elite, handle in sim.next(&elites) {
+		if elite.kind == .King do continue // never heaved: the boss stands its ground
 		if elite.phase == .Rise || elite.phase == .Held || elite.phase == .Thrown || elite.phase == .Dying do continue
 		if gap, ok := in_grab(t, hero, elite.pos, ELITE_RADIUS); ok && gap < nearest do target, nearest = {
 				elite = handle,

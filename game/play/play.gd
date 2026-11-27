@@ -9,8 +9,10 @@ extends Node3D
 ## the sim's shot ended), dust where a prop lands hard, and a shake when a local hero is hurt; a shield's clang and
 ## sparks, a fireball's blast (with a shake), dust and a smaller shake where a heaved body lands, a hero going down; a
 ## plate's click, a gate's creak as it opens and latch as it shuts, a barricade's crack and dust, a trap's slice; the
-## hoard's thud as it is put down, and the deck's as it stops at the shaft's bottom. What must be certain shows once
-## CONFIRMED: a revive's chime and its toast ("X revived Y"), the wipe's banner (the HUD), the descent's toast. A coin
+## hoard's thud as it is put down, and the deck's as it stops at the shaft's bottom; a brazier's whoosh as it lights;
+## the boss's roar and a long shake as a stage begins, its slam's crash, dust and shake, and its ward's shatter. What
+## must be certain shows once CONFIRMED: a revive's chime and its toast ("X revived Y"), the wipe's banner (the HUD),
+## the descent's toast, and the King's fall's toast. A coin
 ## picked up glints as predicted too (its coin gone with it, as the state has it); the purse counts it once confirmed
 ## (the HUD's Purse), and the hoard's gold once the descent is. The crypt fades to black and back as the verified level
 ## changes (the HUD's fade).
@@ -43,6 +45,9 @@ const HURT_SHAKE: float = 0.5
 const FIREBALL_SHAKE: float = 0.35
 ## How hard a heaved body's landing shakes the camera (0 to 1), at the player's full screen shake.
 const LANDING_SHAKE: float = 0.2
+## How hard the boss's slam and its roar shake the camera (0 to 1), at the player's full screen shake.
+const SLAM_SHAKE: float = 0.6
+const ROAR_SHAKE: float = 0.4
 ## Where a picked-up coin's glint shines from, above where it lay (its hover: game/views/coin.gdshader).
 const GLINT_HEIGHT: float = 0.4
 
@@ -248,6 +253,20 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 	# The run: a shrine turned
 	elif event is EventShrine:
 		Sfx.play(&"plate")
+	# Braziers and the boss
+	elif event is EventBrazier:
+		if (event as EventBrazier).lit:
+			Sfx.play(&"kindle")
+	elif event is EventBossStage:
+		Sfx.play(&"roar")
+		_camera_rig.shake(ROAR_SHAKE * Settings.screen_shake)
+	elif event is EventBossSlam:
+		_effects.dust((event as EventBossSlam).position)
+		Sfx.play(&"slam")
+		_camera_rig.shake(SLAM_SHAKE * Settings.screen_shake)
+	elif event is EventBossWard:
+		if not (event as EventBossWard).up:
+			Sfx.play(&"ward_broken")
 
 
 ## What must not be taken back once shown, on its CONFIRMED showing: a revive's chime and its toast, and the wipe's
@@ -279,3 +298,5 @@ func _on_sim_event_confirmed(event: UnifiedEvent) -> void:
 		_hud.count_anew()
 	elif event is EventRunEnded:
 		_hud.show_results(event as EventRunEnded)
+	elif event is EventBossDefeated:
+		Game.toast("The Bone King has fallen")

@@ -4,7 +4,9 @@ extends Node
 ## shield's clang, a fireball's blast, a hero going down and one revived, a barricade breaking (the play scene plays them
 ## on the sim's events), and the hoard put down; and from Kenney's RPG Audio a pickup's chime once it is confirmed
 ## (Purse), a boon's once its pick is confirmed (BoonPanel), the mechanisms' click of a plate pressed, creak of a gate
-## opening and latch of one shutting, and slice of a trap striking, and the lift's creak while it goes down (LiftView).
+## opening and latch of one shutting, and slice of a trap striking, and the lift's creak while it goes down (LiftView);
+## a brazier's whoosh as it lights (RPG Audio's), and the boss's: its roar as a stage begins, its slam, and its ward
+## shattering (Impact Sounds).
 ##
 ## It only plays: which control makes which sound is Game's rule (every button of the game sounds when pressed, the
 ## focus moving between controls sounds), so no menu script plays a click by hand. The sounds are `sounds`, set in
@@ -18,7 +20,8 @@ signal played(sound: StringName)
 const VOICES: int = 4
 
 ## Every sound by name: `press`, `select`, `confirm`, `error`, `joined`, `left`; `block`, `fireball`, `downed`,
-## `revived`, `coin`; `plate`, `gate_open`, `gate_shut`, `barricade`, `trap`; `thud`, `boon`, `creak`.
+## `revived`, `coin`; `plate`, `gate_open`, `gate_shut`, `barricade`, `trap`; `thud`, `boon`, `creak`; `kindle`, `roar`,
+## `slam`, `ward_broken`.
 @export var sounds: Dictionary[StringName, AudioStream] = {}
 
 var _voices: Array[AudioStreamPlayer] = []

@@ -1023,3 +1023,40 @@ Step 4, the joins (beyond the design's decided calls):
   sessions use scripted_profile's (slot + 1).
 - The run's banner hangs over the hub lift's deck (projected, as the prompts are); the life pips sit in the counts'
   plate; the results panel is centred and stays until the party is back in the hub.
+
+Step 2, braziers and the boss (beyond the design's decided calls):
+
+- A `brazier` marker stands at its stand's foot (the marker and the brazier part share their place), so its view draws
+  the fire in the bowl; the workshop's two braziers work its store gate (need 1, so a lit one opens it as its plate
+  does) and its loose fires went. A brazier that works no gate (the vault's) is legal.
+- Kindling follows the revive: a press starts it (a revive's target wins the press, then a brazier, then a grab), two
+  kindlers light one twice as fast, KINDLE_SPEED 0.3; with nobody kindling it a brazier loses all its progress (no
+  decay). A fireball lights every unlit brazier within BRAZIER_BLAST of its landing unless a wall ray from its heart
+  (stopping BRAZIER_STAND 0.6 m short of the foot: the stand is a wall to rays) is blocked. A lighting brings the
+  surge's clock to at most BRAZIER_SURGE_S off. Event_Brazier also announces a douse; Command_Dev_Light_Braziers added.
+- The King is Elite_Kind.King (Elite_Phase.Slam added last); RISEN_KINDS 3 keeps surges, dev spawns, the script and
+  the bot to the other three. Its capsule is an elite's height × BOSS_SCALE, BOSS_RADIUS 0.75, BOSS_GROUND_FORCE 60 kN,
+  2.6 m/s, and floats on BOSS_POGO_REST 0.9 (a pogo rest under its radius dragged the capsule on the floor and it
+  stuck on tile seams: the pillar probe found it). The navigation's agent radius doesn't snag it: it walks round a
+  pillar's corner in 1.6 s (the_king_walks_round_a_pillar).
+- It is never knocked or staggered (only its guard opens it); its guard breaks for BOSS_GUARD_DOWN_S. Its health is
+  set as it wakes, the waking blow kept, and Boss carries `hp_max` for it. A blow stops at its stage's end, so each
+  stage's third is dealt in that stage; a warded King's blow is an Event_Elite_Hit of 0, guarded.
+- A stage: it roars BOSS_ROAR_S 1.5 where it stands, then walks to its marker and stands; no attack while warded. The
+  BOSS_SUMMON skeletons are the director's quota (State.rising, at the graves a surge may use), the next surge
+  BOSS_SURGE_S on and surge_every keeps that pace while warded. The slam's clock starts as the ward breaks.
+- The cleave: every hero up whose capsule is within 2.8 m of its centre and 70° of its facing, in sight, windup
+  0.90625 s, 1.59375 s in all (whole ticks). The slam's windup is 77 ticks; it hurts only heroes in sight of it (a
+  pillar shields), throws them back at 8 m/s, and world_explode at 0.2 m over its feet with 150 N·s/m² (falloff
+  1.5 m) moves a heavy crate 3.5 m away about 2 m and a ragdoll about 0.6 m (world_explode sees through walls).
+- Its fall: no coins; Event_Boss_Defeated carries the purse's total, which the purse shows as a pickup ("+300"), and
+  the toast is CONFIRMED. `boss_hp_scale` (1) and `run_won` (nothing) are stubs in boss.odin for the run's merge; the
+  director keeps raising surges after the fall until Won stops it.
+- Views: the King is the Warrior's model at boss_scale with the dungeon's gold sword and shield on its back, cleaving
+  in the Knight's slash and slamming in the jump chop; its ring fills over the windup; its ward is an additive shell
+  (game/fx/ward.gdshader). Its bar is at the HUD's bottom, not the top: the top's lane is the toasts' and banners'.
+  Sounds: RPG Audio's cloth4 (a lighting), Impact Sounds' impactMining_000 (the roar), impactPlate_heavy_000 (the
+  slam), impactGlass_heavy_000 (the ward breaking).
+- The vault: 28 m square from lay_floor, four decorated pillars 10 m apart round its middle, four braziers in its
+  corners 4 m off the walls, eight rim graves, six heavy crates by the pillars and the sides, four barrels, torches;
+  its navigation bakes the floor only (`filter_baking_aabb`: the pillars' tops made islands).

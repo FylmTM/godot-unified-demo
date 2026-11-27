@@ -14,7 +14,8 @@ import "unified:sim"
 // every one (damage_elite), `Command_Dev_Break_Guards` breaks every Warrior's guard (break_guard). The loot's
 // (loot.odin): `Command_Dev_Drop_Loot` drops coins around the hero (drop_loot, as a death does). The lift's (lift.odin):
 // `Command_Dev_Board` puts the hoard and every present hero on its deck (board_lift). The run's (run.odin):
-// `Command_Dev_End_Run` ends the run (end_run).
+// `Command_Dev_End_Run` ends the run (end_run). The braziers' (braziers.odin): `Command_Dev_Light_Braziers` lights
+// every one unlit (light_brazier).
 apply_dev_commands :: proc(t: ^Tick) {
 	heroes := sim.iterate_present(t)
 	for hero, player in sim.next(&heroes) {
@@ -45,6 +46,7 @@ apply_dev_commands :: proc(t: ^Tick) {
 				}
 			// Elites
 			case Command_Dev_Spawn_Elite:
+				if command.kind == .King do break // the boss is the vault's alone (boss.odin)
 				ahead := hero.pos + [3]f32{hero.facing.x, 0, hero.facing.y} * DEV_SPAWN_RING
 				raise_elite(t, command.kind, ahead, -hero.facing)
 			case Command_Dev_Hurt_Elites:
@@ -63,6 +65,12 @@ apply_dev_commands :: proc(t: ^Tick) {
 			// The run (run.odin)
 			case Command_Dev_End_Run:
 				end_run(t, command.won)
+			// Braziers (braziers.odin)
+			case Command_Dev_Light_Braziers:
+				braziers := sim.iterate(&t.state.braziers)
+				for brazier, handle in sim.next(&braziers) {
+					if !brazier.lit do light_brazier(t, handle, player)
+				}
 			}
 		}
 	}

@@ -9,12 +9,13 @@
 // bodies, hits, impacts and throws' ends), minions (targets, steering, swings, dying), director (sleeping packs, surges,
 // held crowds and the benchmarks' populations), elites (Box3D skeletons: the shared rules) and a file per kind
 // (elite_warrior, elite_rogue, elite_mage), health (damage, down, the wipe), revive (allies tending the downed), pause
-// (the co-op pause), saves (the Setup a save is: the run, its tally and the heroes' boons), dev (the dev commands) and script (the
-// scripted player); loot (coins dropped and the party's purse); the mechanisms: plates, gates, barricades and traps
-// (spikes and the roller); ragdolls (a downed hero falls as one, and gets up); hoard (the gold chest hauled by its
-// handles), lift (the floor's exit) and boons (picked at the lift); run (the hub, its shrines, a run's lives and end,
-// the difficulty and the depth ramp) and arena (the Pit: the endless arena's waves and lulls); braziers and boss, whose
-// markers are read and kept for the rules to come (docs/plan.md, milestone 7).
+// (the co-op pause), saves (the Setup a save is: the run, its tally and the heroes' boons), dev (the dev commands) and
+// script (the scripted player); loot (coins dropped and the party's purse); the mechanisms: plates, gates, barricades
+// and traps (spikes and the roller); ragdolls (a downed hero falls as one, and gets up); hoard (the gold chest hauled by
+// its handles), lift (the floor's exit) and boons (picked at the lift); run (the hub, its shrines, a run's lives and
+// end, the difficulty and the depth ramp) and arena (the Pit: the endless arena's waves and lulls); braziers (kindled,
+// or lit by a fireball, a second way to open a gate), boss (the vault's fight round the Bone King) with elite_king (its
+// approach, cleave and slam).
 package crypt_crew
 
 import "unified:physics"
@@ -133,6 +134,7 @@ tick :: proc(t: ^Tick) {
 		sim.zone(t, Zone.Heroes)
 		if !choosing(t) { 	// at the lift's bottom a hero's input is its boon panel's: it only picks (lift.odin)
 			revive_heroes(t) // first: the press that starts a revive grabs nothing
+			kindle_braziers(t) // then a brazier's kindling, which that press doesn't start (braziers.odin)
 			face_heroes(t)
 			press_shrines(t) // run.odin: a press the hands would take (shrine_target) turns no shrine
 			use_hands(t) // after facing: a grab takes what the hero now faces
@@ -206,6 +208,7 @@ tick :: proc(t: ^Tick) {
 		sim.zone(t, Zone.Health)
 		age_minions(t) // after the step: a swing lands on where the hero is now
 		age_elites(t)
+		update_boss(t) // after the elites age: the King woken, its ward broken by the braziers lit (boss.odin)
 		check_wipe(t)
 	}
 	{

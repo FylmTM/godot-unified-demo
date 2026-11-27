@@ -102,6 +102,8 @@ action_drive :: proc(t: ^Tick, hero: ^Hero, stick: [2]f32) -> (move: [2]f32, sca
 		return stick, BLOCK_SPEED * boots_scale(hero)
 	case .Revive:
 		return stick, REVIVE_SPEED * boots_scale(hero)
+	case .Kindle:
+		return stick, KINDLE_SPEED * boots_scale(hero)
 	case .Heave, .Hurl:
 		return stick, HEAVE_SPEED * boots_scale(hero)
 	case .Haul:

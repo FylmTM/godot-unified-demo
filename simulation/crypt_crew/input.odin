@@ -128,6 +128,9 @@ Command_Dev_Board :: struct {}
 Command_Dev_End_Run :: struct {
 	won: bool,
 }
+// `dev_light_braziers` (dev builds): every unlit brazier on the floor lights, lit by the sender (light_brazier, as a
+// kindling's end does).
+Command_Dev_Light_Braziers :: struct {}
 
 // Every command a player can send.
 Command :: union {
@@ -147,4 +150,6 @@ Command :: union {
 	Command_Dev_Board,
 	// The run (run.odin)
 	Command_Dev_End_Run,
+	// Braziers (braziers.odin)
+	Command_Dev_Light_Braziers,
 }

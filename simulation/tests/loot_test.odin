@@ -284,11 +284,12 @@ the_suite_runs_cross_a_pickup :: proc(t: ^testing.T) {
 	)
 }
 
-// A felled elite drops ELITE_COINS coins on the LOOT_SPREAD ring round where it fell, worth its kind's ELITE_GOLD
-// between them, every time (no roll); under a held crowd, none.
+// A felled elite (a risen kind: the King's fall pays into the purse, boss_test.odin) drops ELITE_COINS coins on the
+// LOOT_SPREAD ring round where it fell, worth its kind's ELITE_GOLD between them, every time (no roll); under a held
+// crowd, none.
 @(test)
 a_felled_elite_drops_its_coins :: proc(t: ^testing.T) {
-	for kind in g.Elite_Kind {
+	for kind in g.Elite_Kind(0) ..< g.Elite_Kind(g.RISEN_KINDS) {
 		run := headless.run_begin(&g.GAME, 1, seated = 1)
 		defer headless.run_end(&run)
 		clear_minions(&run)
