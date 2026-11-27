@@ -1194,3 +1194,17 @@ Step 2, the round trip, CI and the doc (beyond the design's decided calls):
   itself (modify_resources=false: no rcedit); the window and the macOS app use ours.
 - CI's release job plays each built zip headless after `uni release`'s own smoke test: a crowd fight in the arena
   (600 ticks) and a host and a joiner over UDP on the runner (900 ticks), on fixed port 17777.
+
+Step B, the media (beyond the design's decided calls):
+
+- The haul and King plays (game/tools/coop_haul.gd, coop_king.gd): the haul carries the hoard out of the vault, past
+  the roller and across the spikes into the hall, where the host steps out onto open floor and the joiner heaves it
+  and revives it; then the two carry it on to the deck by Floor 1's own waypoints (the navigation's path cuts corners
+  a chest between two haulers catches on). The spike crossing takes longer than the spikes stay down: each hauler
+  takes a hit or two there. In the King's play the host's keeper fells the stage skeletons and stands up a
+  downed hero (dev revive) every half second, and the end is a dev blow to 40 hit points and the guard broken (dev),
+  so the heroes' own blows fell the King.
+- `uni clips` sizes: the crowd at 480x270, 10 fps, 4 s (640x360, 12 fps, 6 s was 7.6 MB: every skull jostles), the
+  hero at 720x405, 10 fps, 6 s, haul_coop two 400x225 panes at 10 fps for 4.5 s, the set pieces and the ragdoll at
+  480x270, 10 fps (their camera follows the haulers). The hero clip is the Barbarian's view (the Knight's keeps the
+  vault's far wall in frame there); every clip names whose view it is.
