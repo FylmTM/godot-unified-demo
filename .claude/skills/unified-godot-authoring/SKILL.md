@@ -27,7 +27,8 @@ Checking and running the game is the `unified-godot` skill.
 - A menu that loads the play scene in the background (`ResourceLoader.load_threaded_request`) skips it headless
   (`DisplayServer.get_name() == "headless"`): Godot's headless (dummy) renderer stores textures without a lock, so
   the loading thread's textures and the main thread's collide now and then (`Parameter "t" is null`, a texture
-  leaked at exit). The scene switch loads it instead.
+  leaked at exit). The scene switch loads it instead. The library's level host does the same: headless it loads a
+  level's scene in the frame (`UnifiedSession.level_threaded` is false there), with a renderer on a thread.
 - Sim data is typed end to end: an event handler dispatches by class (`if event is EventRockHit: var hit := event
   as EventRockHit`) with `state: UnifiedSession.EventState`, never on `event.kind`; nested data is read as its class
   (`for p: DataHudPlayer in Unified.data.hud.players`), never with `.get("field")`. A view's data is its root

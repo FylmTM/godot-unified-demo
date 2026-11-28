@@ -38,14 +38,15 @@ Two at once: `start --name host -- --host-port 7000` and `start --name joiner --
 A clip is a recording the game plays back, so it is made again whenever the game changes and stays true to it:
 
 1. Record what to show: play it (`./uni drive start -- --autostart`, then `press` and `step`; `stop` saves the
-   session's recording in the instance's own user data, `.out/user/<name>/`, `UnifiedSession.recording` names it),
+   session's recording in the instance's own user data, `.out/drive/<name>/user/`, `UnifiedSession.recording` names it),
    or take a replay regression or the developer's F3 note (`./uni feedback`).
 2. `./uni render <recording> --out docs/clip.gif --from 2s --to 12s` (`--player n`: whose view; `--speed`; `.avi` for
    a video with sound, a directory for PNG frames). The window opens like any agent's; the clip is frame-exact.
    Better for a moment that matters: cut it around the game's own event, `--at Event_Boss_Slam#2 --before 2s
    --after 3s`, so a re-recorded session keeps its clip on that moment (`./uni headless -- replay --log
-   <recording>/inputs.unil --events --any-build`, plus `--snapshot <recording>/snapshot.unis` when it has one, lists
-   a recording's events with their ticks). `--player 1,2` shows each player's view of the same moment side by side
+   <recording>/inputs.unil --events --any-build --game <game>`, plus `--snapshot <recording>/snapshot.unis` when it
+   has one, lists a recording's events with their ticks: `--game` the game's name, the variant it plays, which the
+   headless binary's default may not be). `--player 1,2` shows each player's view of the same moment side by side
    (GIF or PNG frames; each view `--size`, default the size split across them).
 3. Read a frame or two (`--out .out/frames/`, then the PNGs) before committing the GIF. Keep it short and small:
    a camera that moves changes every pixel, so a few seconds at 15 fps is a few MB.
