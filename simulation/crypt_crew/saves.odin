@@ -1,15 +1,17 @@
 // The save (unified/src/sim/README.md, Saves): the Setup that continues a run in a new session. It is taken at the
 // run's save points (mark_save_point): the run's beginning, each descent, each life lost and the run's end; never between
 // them, whatever happens on the floor. It holds the floor the party is on, the run (its mode, difficulty, lives and
-// number), its tally (the surges faced, the felled, the purse, the depth) and every member's boons by a stable profile
+// number), its tally (the surges faced, the felled, the purse, the depth, the time played) and every member's boons by a stable profile
 // id (Saved_Hero), so a Continue starts that floor from its start with all of it carried on (the coins left lying go
 // with the floor). A run that ended, and the Pit (one life, no save), save the hub's floor instead: no run to continue.
 // The app keeps it as JSON (UnifiedSetup.to_json) in one slot, written by the host or the single player.
 //
 // Boons come back by profile id, never by slot: a member's first arrival of a session takes the row with its Profile's
-// id (claim_saved_hero), each row once, so a second machine with the same id (a copied settings file) gets nothing, and
-// the host's save carries a joiner's row, so a joiner continuing on its own keeps its boons. Rows of the saved party
-// that haven't come back yet are carried on into the next save, after the members.
+// id (claim_saved_hero), each row once, and the host's save carries a joiner's row, so a joiner continuing on its own
+// keeps its boons. A second machine with an id a member who arrived first already has (a copied settings file) is
+// marked a duplicate as it arrives (Hero.duplicate): it takes no row and is never saved, so the id's row stays the
+// first member's, present or away. Rows of the saved party that haven't come back yet are carried on into the next
+// save, after the members.
 //
 // A save reads over the build's default by field name, so an added field needs nothing; SAVE_VERSION moves when an old
 // save can't be read as it is (2: the run and the heroes' boons; a version 1 save is set aside by the app).
@@ -39,7 +41,7 @@ Setup :: struct {
 	gold:       u32, // the gold in its purse (loot.odin)
 	depth:      u32, // the floors it had gone down (lift.odin)
 	run_number: u32, // the runs begun (run.odin): what the boon offers are keyed by
-	_pad_run:   u32,
+	ticks:      u32, // the run's game time at the save point (run_ticks): the results' clock carries on from it
 	heroes:     sim.List(Saved_Hero, SAVED_HEROES), // each member's boons, by profile id (claim_saved_hero)
 }
 
@@ -110,19 +112,20 @@ mark_save_point :: proc(t: ^Tick) {
 	saved.kills = t.state.kills
 	saved.gold = t.state.gold
 	saved.depth = t.state.depth
+	saved.ticks = run_ticks(t)
 	saved_heroes(t, &saved.heroes)
 }
 
-// The heroes a save keeps (at most SAVED_HEROES): every known member whose Profile has an id, the present first (each
-// id once: a second machine of the same id is the first one's row), then the rows of the Setup's saved party no member
-// has taken back (they come back in a later session).
+// The heroes a save keeps (at most SAVED_HEROES): every known member whose Profile has an id and who is no duplicate
+// (mark_duplicate), the present first, then the rows of the Setup's saved party no member has taken back (they come back
+// in a later session).
 @(private = "file")
 saved_heroes :: proc(t: ^Tick, heroes: ^sim.List(Saved_Hero, SAVED_HEROES)) {
 	for pass in 0 ..< 2 {
 		present := pass == 0
 		known := sim.iterate_known(t)
 		for hero, player in sim.next(&known) {
-			if sim.player_present(t, player) != present do continue
+			if sim.player_present(t, player) != present || hero.duplicate do continue
 			add_saved_hero(heroes, {id = sim.player_profile(t, player).id, boons = hero.boons, class = hero.class})
 		}
 	}
@@ -142,13 +145,31 @@ add_saved_hero :: proc(heroes: ^sim.List(Saved_Hero, SAVED_HEROES), row: Saved_H
 	sim.append(heroes, row)
 }
 
+// `player` arrives (update_presence, before its class is set): it is a duplicate if its Profile's id is another known
+// member's who arrived before it (its class set) and is no duplicate itself. Members arriving on one tick arrive in
+// slot order, so the lower slot is the first.
+mark_duplicate :: proc(t: ^Tick, player: sim.Player) {
+	hero := sim.player_data(t, player)
+	id := sim.player_profile(t, player).id
+	hero.duplicate = false
+	if id == 0 do return
+	known := sim.iterate_known(t)
+	for other, member in sim.next(&known) {
+		if member == player || other.class == .Any || other.duplicate do continue
+		if sim.player_profile(t, member).id == id {
+			hero.duplicate = true
+			return
+		}
+	}
+}
+
 // `player`'s first arrival of the session (its hero's class still Any): the Setup's saved row with its Profile's id
 // that no member has taken yet gives it its boons, and the class it played as its own (arrival_class reads it as what
-// it played), and is taken (Run.claimed). A second member of the same id finds the row taken and gets nothing.
+// it played), and is taken (Run.claimed). A duplicate (mark_duplicate) takes nothing.
 claim_saved_hero :: proc(t: ^Tick, player: sim.Player) {
 	hero := sim.player_data(t, player)
 	id := sim.player_profile(t, player).id
-	if hero.class != .Any || id == 0 || t.setup.version != SAVE_VERSION do return
+	if hero.class != .Any || hero.duplicate || id == 0 || t.setup.version != SAVE_VERSION do return
 	for &row, i in sim.slice(&t.setup.heroes) {
 		bit := u8(1) << uint(i)
 		if row.id != id || t.state.run.claimed & bit != 0 do continue

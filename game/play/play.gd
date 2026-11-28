@@ -237,24 +237,24 @@ func _on_sim_event(event: UnifiedEvent, state: UnifiedSession.EventState) -> voi
 		_on_sim_event_emitted(event)
 
 
-## The camera's shakes, at the player's screen shake (Settings), and a local hero's hurt on its plate.
+## The camera's shakes (the rig scales each by the player's screen shake), and a local hero's hurt on its plate.
 func _on_sim_event_emitted(event: UnifiedEvent) -> void:
 	if event is EventHeroHurt:
 		var player: int = (event as EventHeroHurt).player
 		var local: int = _session.get_local_index(player)
 		if local >= 0:
-			_camera_rig.shake(HURT_SHAKE * Settings.screen_shake)
+			_camera_rig.shake(HURT_SHAKE)
 			_hud.pulse_hurt(player)
 			_grow_latches(local)
 			_hurt[local] = true  # a blow lets go of the Toggle latch
 	elif event is EventFireballBurst:
-		_camera_rig.shake(FIREBALL_SHAKE * Settings.screen_shake)
+		_camera_rig.shake(FIREBALL_SHAKE)
 	elif event is EventHeaveLanded:
-		_camera_rig.shake(LANDING_SHAKE * Settings.screen_shake)
+		_camera_rig.shake(LANDING_SHAKE)
 	elif event is EventBossStage:
-		_camera_rig.shake(ROAR_SHAKE * Settings.screen_shake)
+		_camera_rig.shake(ROAR_SHAKE)
 	elif event is EventBossSlam:
-		_camera_rig.shake(SLAM_SHAKE * Settings.screen_shake)
+		_camera_rig.shake(SLAM_SHAKE)
 
 
 ## What must not be taken back once shown, on its CONFIRMED showing: a revive's toast, and the wipe's banner (a revive

@@ -21,7 +21,7 @@ import g "../crypt_crew"
 // The planted desync's first tick: past the sync-test's window, so the forward run has ticks to roll back to.
 PLANTED_FROM :: 120
 
-// The planted rule's first tick: late in replays/lan_pair (ticks 3 to 4794), after the floor's restart at 2645.
+// The planted rule's first tick: late in replays/lan_pair (4223 ticks), skeletons still falling after it.
 RULE_FROM :: 3000
 
 // The bug: how many times the planted tick ran from PLANTED_FROM on, forward and re-simulated alike. A rollback
@@ -76,7 +76,7 @@ a_planted_desync_is_caught :: proc(t: ^testing.T) {
 }
 
 // The LAN recording replayed with a rule changed late diverges at the first tick the rule changed, and the report names
-// the field. Its expectation is never written (no bless).
+// the field. Its expectation is never written (no bless), and a recording not blessed yet is the_replays_reproduce's.
 @(test)
 a_planted_rule_change_fails_the_replay :: proc(t: ^testing.T) {
 	changed := g.GAME
@@ -85,6 +85,9 @@ a_planted_rule_change_fails_the_replay :: proc(t: ^testing.T) {
 	rule_first = 0
 	result := headless.regression_run(&changed, #directory + "/replays/lan_pair")
 	if !testing.expectf(t, rule_first != 0, "no skeleton fell from tick %d on: the rule changed nothing", RULE_FROM) do return
+	// a recording being blessed in this very run (`uni coop --rerecord lan_pair`) has no expectation yet to diverge
+	// from; the_replays_reproduce is what refuses one left without it
+	if result.status == .Unblessed do return
 	testing.expectf(t, result.status == .Diverges, "the replay %v: %s", result.status, result.report)
 	testing.expectf(
 		t,

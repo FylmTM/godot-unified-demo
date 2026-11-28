@@ -126,9 +126,9 @@ kindle_braziers :: proc(t: ^Tick) {
 	}
 }
 
-// `brazier` lights, lit by `player`: it stays lit, its gate counts it (gates.odin), and the next surge comes within
-// BRAZIER_SURGE_S. Whoever was kindling it stops (it is no longer a target), unless another unlit brazier is in range:
-// they carry on there, Interact still held.
+// `brazier` lights, lit by `player`: it stays lit, its gate counts it (gates.odin), and on a crypt floor the next surge
+// comes within BRAZIER_SURGE_S (a boss floor's wards keep their own pace: boss.odin). Whoever was kindling it stops (it
+// is no longer a target), unless another unlit brazier is in range: they carry on there, Interact still held.
 light_brazier :: proc(t: ^Tick, handle: sim.Handle(Brazier), player: sim.Player) {
 	brazier := sim.get(&t.state.braziers, handle)
 	brazier^ = {
@@ -137,7 +137,7 @@ light_brazier :: proc(t: ^Tick, handle: sim.Handle(Brazier), player: sim.Player)
 		lit    = true,
 	}
 	soon := t.time + sim.Game_Time(BRAZIER_SURGE_TICKS)
-	if t.state.surge.target > soon do t.state.surge.target = soon // a timer already done stays done
+	if !boss_floor(t) && t.state.surge.target > soon do t.state.surge.target = soon // a timer already done stays done
 	defs := sim.slice(&floor_of(t).places.braziers)
 	at := sim.Position(defs[handle.index].pos)
 	sim.emit(t, Event_Brazier{brazier = handle, position = at, player = player, lit = true})

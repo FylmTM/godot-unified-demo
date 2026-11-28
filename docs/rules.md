@@ -1,7 +1,8 @@
 # Crypt Crew's rules
 
 What the simulation does, in the order a tick does it (`simulation/crypt_crew/game.odin`); every number is a named
-constant in `tuning.odin`. How to play is [`playing.md`](playing.md).
+constant in `tuning.odin`, or in its system's file (FLOOR_ORDER, `lift.odin`). How to play is
+[`playing.md`](playing.md).
 
 ## The tick
 
@@ -37,12 +38,12 @@ constant in `tuning.odin`. How to play is [`playing.md`](playing.md).
    SURGE_BASE minions plus SURGE_PER_HERO per hero and SURGE_GROWTH per surge faced on the floor, rising one per grave
    every RISE_GAP_S where no minion stands within SEPARATION (RISE_TRIES places tried) at graves out of sight beyond
    SURGE_NEAR and within SURGE_FAR of the party, up to the floor's cap alive (CROWD_DENSITY to the square metre of
-   walkable floor, at most MINION_CAP) and never into more rows than the table has free. Every ELITE_SURGE_EVERY-th
-   surge on a floor brings an elite too (a Warrior, a Rogue, a Mage in turn) at one of its graves, while fewer than
-   ELITES_ALIVE_MAX are alive. A Setup may hold a crowd instead (`floor=arena,crowd=fight`): the floor's cap placed on
-   the first tick, asleep, chasing or fighting, the felled coming back, its heroes taking no damage (but under
-   `crowd=wipe`, where the crowd's blows down them into ragdolls), never wiping, no elite and no drop; the benchmark
-   rows and the scale tests play it.
+   walkable floor, at most MINION_CAP) and never into more rows than the table has free. Every `elite_every`-th surge on
+   a floor (DIFFICULTY: 3 on Normal, 2 on Hard; PIT_ELITE_EVERY in the Pit) brings an elite too (a Warrior, a Rogue, a
+   Mage in turn) at one of its graves, while fewer than ELITES_ALIVE_MAX are alive. A Setup may hold a crowd instead
+   (`floor=arena,crowd=fight`): the floor's cap placed on the first tick, asleep, chasing or fighting, the felled coming
+   back, its heroes taking no damage (but under `crowd=wipe`, where the crowd's blows down them into ragdolls), never
+   wiping, no elite and no drop; the benchmark rows and the scale tests play it.
 6. **Minions.** Each picks the nearest hero up by path (every RETARGET_S), steers along that hero's field (every tick
    within STEER_NEAR of it or in its chase's first ticks, else every STEER_S, walking its facing between), keeps
    SEPARATION from its neighbours (where they stood when the moves began) and out of the props' and elites' footprints,
@@ -94,7 +95,7 @@ constant in `tuning.odin`. How to play is [`playing.md`](playing.md).
     its velocity, at most RAGDOLL_CARRY_MAX, plus RAGDOLL_KICK away from the blow or RAGDOLL_TIP backwards from a blow
     from no side) that meets everything but heroes and elites, its capsule dormant and out of the world meanwhile (its
     sleep and its fall out of the level are step 8's). Every hero down for WIPE_S restarts the floor, but under a held
-    crowd.
+    crowd; the life it costs is spent, and saved, as the wipe begins, and given back if a hero gets up before it lands.
 12. **Loot.** A felled skeleton drops a coin on a roll of 1 in LOOT_ONE_IN, worth LOOT_VALUE_MIN to LOOT_VALUE_MAX gold;
     a felled elite drops ELITE_COINS coins worth its kind's ELITE_GOLD between them, on a LOOT_SPREAD ring (none under a
     held crowd). A hero up within LOOT_RADIUS of a coin that has lain LOOT_ARM_S picks it up into the party's one purse
@@ -143,7 +144,8 @@ and the player, its input driving the boon panel alone; once all have picked, or
 whoever hasn't), the party goes down to the next floor: the depth up, HOARD_GOLD in the purse, the downed up at
 REVIVE_HP, and the save made there. A hero arriving while the lift is busy lands on its deck, clear of the hoard and the
 others, and is waited for. Boons are kept through a leave and a wipe until the next run begins; the save holds them by
-each player's profile id, and a member's first arrival in a continued session takes its own back once.
+each player's profile id, and a member's first arrival in a continued session takes its own back once. A member whose
+profile id another member who arrived first has is a duplicate: it takes back nothing and is never saved.
 
 ## The run
 
@@ -153,14 +155,17 @@ nothing else would take turns one, at most once every SHRINE_COOLDOWN_S, until t
 (`hoard = false`) goes with everyone aboard and no hoard, and at its bottom the run begins: the tally and the boons go,
 the lives are the difficulty's (DIFFICULTY), and the party is on the crypt's first floor. The crypt goes down Floor 1,
 the Ossuary (Floor 2), the Deep Halls (Floor 3) and the vault (FLOOR_ORDER, `lift.odin`), a lift's descent each time and
-never past the vault, which has no lift: the King's fall there wins the run. A wipe costs a life: the floor starts over
+never past the vault, which has no lift: the King's fall there wins the run. A wipe costs a life, spent (and saved, so
+quitting keeps no life) as the wipe begins and given back if someone gets up before it lands: the floor starts over
 from its save point, the purse and the felled back at the save's; the last life ends the run. Either ending shows the
 results for RUN_END_S, then the party is back in the hub. Hard (DIFFICULTY) has fewer lives and tougher, harder-hitting,
-more numerous skeletons that pay more; each floor down adds SURGE_PER_DEPTH to a surge and DEPTH_HP to a skeleton's
-health. The Pit (`arena.odin`) is the arena's endless waves with one life: wave n every PIT_SURGE_S, PIT_BASE +
-PIT_GROWTH × n and SURGE_PER_HERO a hero; after every PIT_BOON_EVERY-th the next holds until at most PIT_LULL stand (or
-PIT_LULL_MAX_S), then the rest fall, the downed rise and a boon choice opens. The Pit keeps no save; its score is the
-results panel's.
+more numerous skeletons that pay more; each floor down adds SURGE_PER_DEPTH to a surge (but the vault's) and DEPTH_HP to
+a skeleton's health. The Pit (`arena.odin`) is the arena's endless waves with one life: wave n every PIT_SURGE_S,
+PIT_BASE, PIT_EARLY_GROWTH a wave up to wave PIT_FIRST_BOON and PIT_GROWTH a wave after it, and SURGE_PER_HERO a hero;
+every PIT_ELITE_EVERY-th brings an elite; after wave PIT_FIRST_BOON and every PIT_BOON_EVERY-th after it the next holds
+until at most PIT_LULL stand (or PIT_LULL_MAX_S), then the rest fall, the downed rise and a boon choice opens; no lull
+begins or ends while every present hero is down (the wipe decides first). The Pit keeps no save; its score is the
+results panel's. A run's time on the results is its whole (a continued run's earlier sessions too: Setup.ticks).
 
 ## Braziers and the boss
 
@@ -169,16 +174,19 @@ gate's `need` as a pressed plate does. A hero up, hands free, holding Interact w
 "[E] Light" prompt says when; a press starts it, as a revive's does), and it lights after BRAZIER_LIGHT_S of kindling,
 two kindlers twice as fast; a blow, letting go or walking off breaks the kindling and the brazier loses its progress. A
 Mage's fireball bursting within BRAZIER_BLAST lights it at once, unless a wall stands between. A lit brazier stays lit,
-and each lighting brings the next surge within BRAZIER_SURGE_S.
+and on a crypt floor each lighting brings the next surge within BRAZIER_SURGE_S.
 
 The vault's boss, the Bone King (its `boss` marker; boss.odin, elite_king.odin), is an elite of its own kind: a Warrior
 BOSS_SCALE times as big, never knocked, staggered or heaved, asleep until a hero comes into sight or hits it. It wakes
 with BOSS_HP and BOSS_HP_PER_HERO for each other hero present, times the difficulty's. Its guard is the Warrior's,
-broken for BOSS_GUARD_DOWN_S by a thrown prop, a charge or a fireball. It cleaves every hero within BOSS_CLEAVE_REACH in
-front of it. At two thirds and one third of its health it roars, every brazier goes out, and it is warded (no blow hurts
-it) while it walks to its marker; BOSS_SUMMON skeletons rise at the graves and the surges come every BOSS_SURGE_S until
-BOSS_WARD_NEED of the braziers (by the heroes present) are lit. No blow takes it past a stage's end. From its second
-stage it slams every BOSS_SLAM_EVERY_S (BOSS_SLAM_FAST_S in its third, where it also moves BOSS_STAGE_SPEED faster): a
-ring of BOSS_SLAM_RADIUS on the floor for BOSS_SLAM_WINDUP_S, then BOSS_SLAM_DAMAGE to every hero up inside that no wall
-shields, thrown back, and Box3D's explosion through the props and ragdolls. Its fall puts BOSS_GOLD in the purse and
-wins the run (no surge rises after it; the save is the hub's again); a wipe starts the vault over, at a life's cost.
+broken for BOSS_GUARD_DOWN_S by a thrown prop, a charge or a fireball, and with one hero present by every
+BOSS_SOLO_GUARD_BLOWS-th blow it takes. It cleaves every hero within BOSS_CLEAVE_REACH in front of it. At two thirds and
+one third of its health it roars, every brazier goes out, and it is warded (no blow hurts it) while it walks to its
+marker; BOSS_SUMMON skeletons (by the heroes present) rise at the graves and the surges come every BOSS_SURGE_S until
+BOSS_WARD_NEED of the braziers (by the heroes present) are lit. Outside its wards no surge rises in the vault, and a
+ward's surges are SURGE_BASE and SURGE_PER_HERO a hero alone (no SURGE_GROWTH, no SURGE_PER_DEPTH). No blow takes it
+past a stage's end. From its second stage it slams every BOSS_SLAM_EVERY_S (BOSS_SLAM_FAST_S in its third, where it also
+moves BOSS_STAGE_SPEED faster): a ring of BOSS_SLAM_RADIUS on the floor for BOSS_SLAM_WINDUP_S, then BOSS_SLAM_DAMAGE to
+every hero up inside that no wall shields, thrown back, and Box3D's explosion through the props and ragdolls. Its fall
+puts BOSS_GOLD in the purse and wins the run (no surge rises after it; the save is the hub's again); a wipe starts the
+vault over, at a life's cost.

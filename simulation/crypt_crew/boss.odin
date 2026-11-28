@@ -33,6 +33,8 @@ Boss :: struct {
 	hp_max:    i16, // its full health, set as it wakes (0: asleep)
 	stage:     u8, // 1, 2 or 3 (0: no boss)
 	warded:    bool, // it takes no damage until enough braziers are lit
+	worn:      u8, // the blows its guard took from a lone hero since it last broke (boss_guard_struck)
+	_pad:      [3]u8,
 }
 
 // The King roared into `stage` (2 or 3): its braziers went out and its ward is up.
@@ -94,6 +96,30 @@ boss_warded :: proc(t: ^Tick) -> bool {
 	return t.state.boss.warded && boss_elite(t) != nil
 }
 
+// Whether the floor is a boss's (its King asleep, fighting or fallen): its surges are the wards' alone (boss_calm) and
+// carry no ramp (surge_size).
+boss_floor :: proc(t: ^Tick) -> bool {
+	return t.state.boss.stage != 0
+}
+
+// Whether the director raises no surge now (raise_surges asks): on a boss floor outside its wards, the King's fight is
+// the King's and its stages' summons alone.
+boss_calm :: proc(t: ^Tick) -> bool {
+	return boss_floor(t) && !boss_warded(t)
+}
+
+// After a blow the King's guard took (damage_elite, the blow landed): with one hero present, every
+// BOSS_SOLO_GUARD_BLOWS-th such blow breaks the guard (break_guard), so a lone hero opens it with its own strikes, not
+// only with the throws, charges and fireballs a party splits between those who break it and those who strike.
+boss_guard_struck :: proc(t: ^Tick, handle: sim.Handle(Elite), player: sim.Player) {
+	boss := &t.state.boss
+	if sim.present_count(t) != 1 do return
+	boss.worn += 1
+	if boss.worn < BOSS_SOLO_GUARD_BLOWS do return
+	boss.worn = 0
+	break_guard(t, handle, player)
+}
+
 // The King's full health for the heroes present now: BOSS_HP, BOSS_HP_PER_HERO more for each beyond the first, times
 // the difficulty's scale, rounded.
 boss_full_hp :: proc(t: ^Tick) -> i16 {
@@ -113,7 +139,7 @@ ward_need :: proc(t: ^Tick) -> i32 {
 wake_boss :: proc(t: ^Tick, elite: ^Elite) {
 	boss := &t.state.boss
 	boss.hp_max = boss_full_hp(t)
-	elite.hp += boss.hp_max - ELITE_SPECS[.King].hp
+	elite.hp += boss.hp_max - elite_hp(t.state, .King) // it rose with its spec's health, the difficulty's scale on it
 }
 
 // What reaches the King of a blow that would take `taken` (damage_elite asks, the guard already judged): nothing while
@@ -155,7 +181,8 @@ enter_stage :: proc(t: ^Tick, elite: ^Elite, stage: u8) {
 	elite.phase, elite.since = .Chase, t.time
 	douse_braziers(t)
 	room := dmath.min(floor_of(t).minion_cap - minions_alive(&t.state.minions), free_rows(&t.state.minions))
-	t.state.rising += u32(dmath.max(dmath.min(BOSS_SUMMON, room - int(t.state.rising)), 0))
+	summon := BOSS_SUMMON[dmath.clamp(sim.present_count(t), 1, PLAYERS) - 1]
+	t.state.rising += u32(dmath.max(dmath.min(summon, room - int(t.state.rising)), 0))
 	sim.timer_start_ticks(t, &t.state.surge, BOSS_SURGE_TICKS)
 	sim.emit(t, Event_Boss_Stage{stage = stage})
 	sim.emit(t, Event_Boss_Ward{up = true})

@@ -151,8 +151,9 @@ Finished 1 test in 745.2513ms. The test was successful.
 
 ## 7 Bots
 
-Bots that read the state play Floor 1 for three minutes as the four classes, each floor's way out, and a whole run to
-the King's fall, sync-tested throughout.
+Bots that read the state play Floor 1 for three minutes as the four classes, each floor's way out, a whole run to the
+King's fall, the vault's fight as the rules play it for one to four of them, and the Pit to its first lull,
+sync-tested throughout.
 
 - `./uni test crypt_crew --only the_bot_plays_three_minutes,the_bots_play_a_whole_run`.
 - `playthrough_test.odin`, `bot.odin`.

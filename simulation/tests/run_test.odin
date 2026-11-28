@@ -213,13 +213,25 @@ a_run_ended_mid_choice_closes_it :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// Hard: a surge rises DIFFICULTY's larger, its skeletons tougher (and tougher again each floor down) and hitting
-// harder, its elites tougher, and the hoard pays more.
+// Hard: a surge rises DIFFICULTY's larger (and larger again each floor down, by SURGE_PER_DEPTH), its skeletons tougher
+// (and tougher again each floor down) and hitting harder, its elites tougher, and a coin, an elite's coins and the hoard
+// pay more. A test's Setup.lives is the run's.
 @(test)
 hard_is_harder :: proc(t: ^testing.T) {
 	heroes :: 2
-	first_surge :: proc(difficulty: g.Difficulty) -> i32 {
-		run := headless.run_begin(&g.GAME, 1, g.Setup{difficulty = difficulty}, seated = heroes)
+	first_surge :: proc(difficulty: g.Difficulty, depth: u32 = 0) -> i32 {
+		setup := g.Setup {
+			difficulty = difficulty,
+		}
+		if depth > 0 do setup = {
+			version    = g.SAVE_VERSION,
+			floor      = .Floor_1,
+			difficulty = difficulty,
+			lives      = 1,
+			depth      = depth,
+			run_number = 1,
+		}
+		run := headless.run_begin(&g.GAME, 1, setup, seated = heroes)
 		defer headless.run_end(&run)
 		for headless.run_events(&run, g.Event_Surge) == 0 do headless.run_step(&run)
 		surge, _ := headless.run_last_event(&run, g.Event_Surge)
@@ -229,6 +241,15 @@ hard_is_harder :: proc(t: ^testing.T) {
 	testing.expect_value(t, first_surge(.Normal), i32(normal))
 	testing.expect_value(t, first_surge(.Hard), i32(dmath.round(f32(normal) * g.DIFFICULTY[.Hard].surge)))
 	testing.expect(t, first_surge(.Hard) > first_surge(.Normal), "Hard's surge is larger")
+	deep := normal + g.SURGE_PER_DEPTH // a floor down
+	testing.expect_value(t, first_surge(.Normal, 1), i32(deep))
+	testing.expect_value(t, first_surge(.Hard, 1), i32(dmath.round(f32(deep) * g.DIFFICULTY[.Hard].surge)))
+	{ 	// a test's own lives
+		lives := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Floor_1, lives = 1}, seated = 1)
+		defer headless.run_end(&lives)
+		headless.run_step(&lives)
+		testing.expect_value(t, lives.simulation.state.run.lives, 1)
+	}
 
 	run := headless.run_begin(&g.GAME, 1, g.Setup{difficulty = .Hard}, seated = 1)
 	defer headless.run_end(&run)
@@ -245,6 +266,27 @@ hard_is_harder :: proc(t: ^testing.T) {
 	headless.run_command(&run, 0, g.Command_Dev_Spawn_Elite{.Warrior})
 	elite, _, _ := sim.item_at(&state.elites, 0)
 	testing.expect_value(t, elite.hp, i16(dmath.round(f32(g.ELITE_SPECS[.Warrior].hp) * g.DIFFICULTY[.Hard].elite_hp)))
+	headless.run_command(&run, 0, g.Command_Dev_Hurt_Elites{999})
+	coins := 0
+	for &raw in sim.events_at(run.simulation, run.simulation.tick) {
+		if dropped, ok := sim.event_value(&raw, g.Event).(g.Event_Loot_Dropped); ok do coins += int(dropped.value)
+	}
+	testing.expect_value(t, coins, int(dmath.round(f32(g.ELITE_GOLD[.Warrior]) * g.DIFFICULTY[.Hard].gold)))
+	clear_minions(&run)
+	paid := false
+	for _ in 0 ..< 20 * g.LOOT_ONE_IN { 	// skeletons felled until one drops a coin: Hard's worth of it
+		key := u64(state.drops)
+		place_minion(&run, spawn_of(&run, 0) + {3, 0, 0}, .Idle)
+		headless.run_command(&run, 0, g.Command_Dev_Kill_Minions{})
+		value := g.minion_drop(run.simulation.seed, key)
+		if value == 0 do continue
+		dropped, found := headless.run_last_event(&run, g.Event_Loot_Dropped)
+		testing.expect(t, found, "the coin fell")
+		testing.expect_value(t, int(dropped.value), int(dmath.round(f32(value) * g.DIFFICULTY[.Hard].gold)))
+		paid = true
+		break
+	}
+	testing.expect(t, paid, "no felled skeleton dropped a coin")
 	clear_minions(&run)
 	clear_elites(&run)
 	headless.run_command(&run, 0, g.Command_Dev_Revive{})
@@ -254,6 +296,151 @@ hard_is_harder :: proc(t: ^testing.T) {
 	ramp := g.DIFFICULTY[.Hard].minion_hp * (1 + g.DEPTH_HP * f32(state.depth))
 	testing.expect_value(t, deeper.hp, i16(dmath.round(f32(g.MINION_HP) * ramp)))
 	testing.expect(t, deeper.hp > hard_hp, "a floor down, tougher")
+	scenarios.expect_synced(t, &run)
+}
+
+// A wipe's life is spent as it begins, and the save says so at once: a quit during its countdown continues with one life
+// fewer, and a quit during the last life's leaves a save no Continue takes. A hero up again before it lands gives the
+// life back, to the run and the save, and no life is lost.
+@(test)
+a_wipes_life_is_spent_as_it_begins :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, seated = 2)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	clear_minions(&run)
+	clear_elites(&run)
+	saves := Saves {
+		last = run.simulation.setup,
+	}
+	step_saving(&run, &saves)
+	testing.expect_value(t, saves.last.lives, 3)
+	for slot in 0 ..< 2 do hurt(&run, slot, 999)
+	play(&run, {}, g.WIPE_S / 2) // the wipe's countdown
+	take_save(&run, &saves)
+	testing.expect_value(t, state.run.lives, 2)
+	testing.expect_value(t, saves.last.lives, 2)
+	{ 	// a quit now, and a Continue
+		continued := headless.run_begin(&g.GAME, 2, saves.last, seated = 1)
+		defer headless.run_end(&continued)
+		testing.expect_value(t, continued.simulation.state.run.lives, 2)
+		scenarios.expect_synced(t, &continued)
+	}
+	headless.run_command(&run, 0, g.Command_Dev_Revive{})
+	headless.run_step(&run)
+	take_save(&run, &saves)
+	testing.expect_value(t, state.run.lives, 3)
+	testing.expect_value(t, saves.last.lives, 3)
+	play(&run, {}, g.WIPE_S)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Life_Lost), 0)
+	state.run.lives = 1 // the last life
+	headless.run_pin(&run)
+	for slot in 0 ..< 2 do hurt(&run, slot, 999)
+	play(&run, {}, g.WIPE_S / 2)
+	take_save(&run, &saves)
+	testing.expect_value(t, saves.last.lives, 0)
+	testing.expect(t, g.setup_check(&saves.last) != "", "a save of no life is refused")
+	scenarios.expect_synced(t, &run)
+}
+
+// A new run starts clean, whatever the last one left: every known hero's boons, the tally (purse, felled, surges,
+// depth), the lives back to the difficulty's, the Pit's lulls; and a Continue's saved rows belong to the run it
+// continued, so the new run's save holds none of them and a member of a row's id arriving then takes nothing.
+@(test)
+a_new_run_starts_clean :: proc(t: ^testing.T) {
+	saved := g.Setup {
+		version    = g.SAVE_VERSION,
+		floor      = .Floor_1,
+		lives      = 2,
+		surges     = 3,
+		run_number = 1,
+	}
+	sim.append(&saved.heroes, g.Saved_Hero{id = 1, boons = #partial{.Keen_Edge = 1}, class = .Knight})
+	sim.append(&saved.heroes, g.Saved_Hero{id = 99, boons = #partial{.Strong_Back = 2}, class = .Mage})
+	run := headless.run_begin(&g.GAME, 1, saved)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	headless.run_seat(&run, 0, 1, profile(1, .Any))
+	headless.run_step(&run)
+	headless.run_command(&run, 0, g.Command_Dev_Kill_Minions{})
+	clear_elites(&run)
+	descend(&run) // a boon, the hoard's gold and the depth
+	testing.expect(t, state.kills > 0 && state.gold > 0 && state.surges > 0 && state.depth == 1, "the run's tally")
+	testing.expect(t, sim.slot_data(run.simulation, 0).boons != {}, "boons won")
+	headless.run_command(&run, 0, g.Command_Dev_End_Run{won = false})
+	for state.run.phase != .Hub do headless.run_step(&run)
+	saves := Saves {
+		last = run.simulation.setup,
+	}
+	ride_lift(&run) // the hub's: the next run begins
+	take_save(&run, &saves)
+	testing.expect_value(t, state.run.number, 2)
+	testing.expect_value(t, state.run.lives, g.DIFFICULTY[.Normal].lives)
+	testing.expect(t, state.gold == 0 && state.kills == 0 && state.surges == 0 && state.depth == 0, "no tally")
+	hero := sim.slot_data(run.simulation, 0)
+	testing.expect(t, hero.boons == {} && hero.picked == 0, "no boons")
+	testing.expect_value(t, saves.last.floor, g.Level_Id.Floor_1)
+	for row in sim.slice(&saves.last.heroes) do testing.expectf(t, row.id != 99, "the old run's row rides on: %v", row)
+	headless.run_seat(&run, 1, 2, profile(99, .Any)) // the row's id arrives in the new run
+	headless.run_step(&run)
+	testing.expect_value(t, sim.slot_data(run.simulation, 1).boons, g.Boons{})
+	scenarios.expect_synced(t, &run)
+}
+
+// A continued run's clock carries on: its save point keeps the time played (Setup.ticks), and its end's results count
+// the earlier sessions' time with this one's; a new run after it counts from its own start.
+@(test)
+a_continued_runs_time_carries_on :: proc(t: ^testing.T) {
+	earlier :: u32(5000)
+	saved := g.Setup {
+		version    = g.SAVE_VERSION,
+		floor      = .Floor_1,
+		lives      = 2,
+		run_number = 4,
+		ticks      = earlier,
+	}
+	run := headless.run_begin(&g.GAME, 1, saved, seated = 1)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	clear_minions(&run)
+	clear_elites(&run)
+	saves := Saves {
+		last = run.simulation.setup,
+	}
+	descend(&run)
+	take_save(&run, &saves)
+	testing.expect_value(t, saves.last.ticks, earlier + u32(state.clock.time))
+	headless.run_command(&run, 0, g.Command_Dev_End_Run{won = false})
+	ended, _ := headless.run_last_event(&run, g.Event_Run_Ended)
+	testing.expect_value(t, ended.ticks, earlier + u32(state.clock.time))
+	for state.run.phase != .Hub do headless.run_step(&run)
+	ride_lift(&run) // the next run
+	begun := state.clock.time
+	play(&run, {}, 1)
+	headless.run_command(&run, 0, g.Command_Dev_End_Run{won = false})
+	ended, _ = headless.run_last_event(&run, g.Event_Run_Ended)
+	testing.expect_value(t, ended.ticks, u32(state.clock.time - begun))
+	scenarios.expect_synced(t, &run)
+}
+
+// A shrine turns only within SHRINE_RANGE, and only on a press nothing else would take: a press a hand beyond its range
+// turns nothing, and one facing a prop in grab range grabs the prop and turns nothing.
+@(test)
+a_shrine_takes_only_its_own_press :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, HUB, seated = 1)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	headless.run_step(&run)
+	mode := shrine_at(&run, .Mode)
+	place_hero(&run, 0, on_floor(&run, mode + {g.SHRINE_RANGE + 0.2, 0, 0}), {-1, 0})
+	press(&run, 0, .Interact)
+	testing.expect_value(t, state.run.mode, g.Mode.Crypt)
+	place_hero(&run, 0, on_floor(&run, mode + {0.8, 0, 0}), {1, 0})
+	place_prop(&run, 0, on_floor(&run, mode + {2.0, 0, 0}))
+	play(&run, {}, 0.2)
+	press(&run, 0, .Interact)
+	testing.expect(t, sim.slot_data(run.simulation, 0).held != {}, "the press grabbed the prop")
+	testing.expect_value(t, state.run.mode, g.Mode.Crypt)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Shrine), 0)
 	scenarios.expect_synced(t, &run)
 }
 

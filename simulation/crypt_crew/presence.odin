@@ -31,7 +31,8 @@ ARRIVAL_FILTER :: physics.Filter {
 // go of if a Barbarian heaves it (end_hero_heave), its body goes, and its class stays with what it brings back within
 // the floor (its hit points, its ability's cooldown, down and its revive's progress); an arrival gets a class
 // (arrival_class) and a body at its arrival_spot, whole if it is new (or the floor changed since it left), else as it
-// left. A member's first arrival of the session takes back the boons a save kept for its profile id (claim_saved_hero).
+// left. A member's first arrival of the session takes back the boons a save kept for its profile id (claim_saved_hero),
+// unless another member of that id arrived first (mark_duplicate).
 update_presence :: proc(t: ^Tick) {
 	for player in t.player_changes.left {
 		drop_prop(t, player)
@@ -48,10 +49,12 @@ update_presence :: proc(t: ^Tick) {
 			warp          = hero.warp,
 			picked        = hero.picked,
 			boons         = hero.boons,
+			duplicate     = hero.duplicate,
 		}
 	}
 	for player in t.player_changes.arrived {
 		hero := sim.player_data(t, player)
+		mark_duplicate(t, player) // a second machine of an id already here (saves.odin)
 		claim_saved_hero(t, player) // a first arrival takes its saved boons back (saves.odin)
 		kept := hero^
 		hero.class = arrival_class(t, hero.class, sim.player_profile(t, player).class)
@@ -72,10 +75,11 @@ forget_leavers :: proc(t: ^Tick) {
 	known := sim.iterate_known(t)
 	for hero, player in sim.next(&known) {
 		if !sim.player_present(t, player) do hero^ = {
-			class  = hero.class,
-			warp   = hero.warp,
-			picked = hero.picked,
-			boons  = hero.boons, // a hero's boons outlive the floor (boons.odin)
+			class     = hero.class,
+			warp      = hero.warp,
+			picked    = hero.picked,
+			boons     = hero.boons, // a hero's boons outlive the floor (boons.odin)
+			duplicate = hero.duplicate,
 		}
 	}
 }
@@ -189,6 +193,7 @@ spawn_hero :: proc(t: ^Tick, player: sim.Player, feet: [3]f32, beside: bool) {
 		warp           = warp,
 		picked         = hero.picked,
 		boons          = hero.boons,
+		duplicate      = hero.duplicate,
 	}
 	hero.hp = hero_max_hp(hero)
 	physics.character_create(

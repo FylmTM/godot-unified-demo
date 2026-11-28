@@ -53,7 +53,6 @@ State :: struct {
 	// in marker order; the vault's King
 	braziers:     sim.Table(Brazier, MAX_BRAZIERS),
 	boss:         Boss,
-	_pad_boss:    [4]u8,
 }
 
 // What a hero is doing, for the view to pose (a one-shot clip at its age).
@@ -109,6 +108,10 @@ Hero :: struct {
 	picked:         u32, // the run's choice it last picked a boon at (Run.offers then; 0: none): a pick counts once a choice
 	boons:          Boons, // its rank in each boon, kept through a leave and a wipe
 	handle:         Haul_Handle, // the hoard's handle it holds, on `hold` (None: none)
+	// Its Profile's id was another member's, who had arrived first (mark_duplicate, saves.odin): it takes back no saved
+	// boons and is never saved, so the id's row stays the first member's. Set on each arrival, kept through a leave.
+	duplicate:      bool,
+	_pad:           [3]u8,
 	// ---- ragdolls (ragdolls.odin)
 	// While its ragdoll is awake: the ticks in a row every bone has been still, up to RAGDOLL_STILL_TICKS
 	// (settle_ragdolls).

@@ -108,7 +108,7 @@ CLIPS :: []Clip {
 		player    = "1",
 		budget    = 1.5,
 	},
-	// The King: its ward broken together, the Knight lighting the third brazier.
+	// The King: its ward broken together, the Knight lighting the second brazier.
 	{
 		name      = "king",
 		recording = "king",
@@ -268,9 +268,16 @@ crowd_drive :: proc() {
 	drive("stop")
 }
 
-// Where the drive instance keeps its session recordings.
+// Where the drive instance keeps its session recordings (its user data: .out/drive/<instance>/user/).
 crowd_recordings :: proc() -> string {
-	return cli.join(cli.state.project.out, "user", CROWD_INSTANCE, cli.state.project.games[0].name, "recordings")
+	return cli.join(
+		cli.state.project.out,
+		"drive",
+		CROWD_INSTANCE,
+		"user",
+		cli.state.project.games[0].name,
+		"recordings",
+	)
 }
 
 // The crowd's recording folder (the newest in crowd_recordings); stops the command when there is none.

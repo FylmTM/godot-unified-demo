@@ -101,9 +101,10 @@ func _process(delta: float) -> void:
 	_listener.global_basis = Basis(Vector3.UP, _camera.global_rotation.y)
 
 
-## Jolts the camera by `amount` (0 to 1; a stronger shake than the one running replaces it).
+## Jolts the camera by `amount` (0 to 1) times the player's screen shake (Settings.screen_shake: 0 shakes nothing); a
+## stronger shake than the one running replaces it.
 func shake(amount: float) -> void:
-	_shake = maxf(_shake, clampf(amount, 0.0, 1.0))
+	_shake = maxf(_shake, clampf(amount * Settings.screen_shake, 0.0, 1.0))
 
 
 ## The views of this machine's heroes that are in the scene.

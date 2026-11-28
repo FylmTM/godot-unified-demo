@@ -62,27 +62,37 @@ damage_hero :: proc(t: ^Tick, player: sim.Player, damage: i16, from: [3]f32) {
 	sim.emit(t, Event_Hero_Downed{player = player, position = sim.Position(feet)})
 }
 
-// Every hero present down (the wipe): WIPE_S after the last one fell, a life goes (party_fell, run.odin: the floor
-// starts over, or the run is lost). A hero up again, by a revive or a joiner's arrival, stops the wipe; so does nobody
-// being present, the lift going down (lift_gone: the party left with its downed aboard, and the one up leaving the ride
-// wipes nobody), nothing being able to hurt the party (harmless: the hub, a run's end, the Pit's choice), and a held
-// crowd (a restart would empty the floor of it: director.odin, Crowd).
+// Every hero present down (the wipe): the life it costs is spent as it begins (spend_life, run.odin: the save says so
+// at once, so quitting during it keeps no life), and WIPE_S after the last one fell the floor starts over, or the run
+// is lost (party_fell). A hero up again, by a revive or a joiner's arrival, stops the wipe and gives the life back; so
+// does nobody being present, the lift going down (lift_gone: the party left with its downed aboard, and the one up
+// leaving the ride wipes nobody), nothing being able to hurt the party (harmless: the hub, a run's end, the Pit's
+// choice), and a held crowd (a restart would empty the floor of it: director.odin, Crowd).
 check_wipe :: proc(t: ^Tick) {
 	if sim.present_count(t) == 0 || lift_gone(t) || harmless(t) || t.setup.crowd != .None {
-		sim.timer_stop(&t.state.wipe)
+		stop_wipe(t)
 		return
 	}
 	heroes := sim.iterate_present(t)
 	for _, player in sim.next(&heroes) {
 		if hero_up(t, player) {
-			sim.timer_stop(&t.state.wipe)
+			stop_wipe(t)
 			return
 		}
 	}
 	if t.state.wipe == {} { 	// stopped (the zero timer): the wipe begins
 		sim.timer_start_ticks(t, &t.state.wipe, WIPE_TICKS)
+		spend_life(t) // run.odin
 		sim.emit(t, Event_Party_Wiped{})
 	} else if !sim.timer_running(t, t.state.wipe) {
 		party_fell(t) // run.odin: a restart (enter_level stops the wipe), or the run's end (harmless from then)
 	}
+}
+
+// A wipe that had begun stops before it lands: the life it spent comes back (give_life_back, run.odin).
+@(private = "file")
+stop_wipe :: proc(t: ^Tick) {
+	if t.state.wipe == {} do return
+	sim.timer_stop(&t.state.wipe)
+	give_life_back(t)
 }

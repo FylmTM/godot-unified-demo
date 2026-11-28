@@ -19,11 +19,11 @@ import g "../crypt_crew"
 // The vault's props by marker order (game/levels/vault.tscn): its first heavy crate.
 VAULT_HEAVY_CRATE :: 0
 
-// A sync-tested run on the vault with `seated` heroes, its surges held off (hold_surges); `window` is how far back each
-// step is re-simulated.
+// A sync-tested run on the vault with `seated` heroes at `difficulty`, its surges held off (hold_surges); `window` is how
+// far back each step is re-simulated.
 @(private = "file")
-vault :: proc(seated := 1, window: u32 = 8) -> headless.Run(g.Game) {
-	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Vault}, window, seated)
+vault :: proc(seated := 1, window: u32 = 8, difficulty := g.Difficulty.Normal) -> headless.Run(g.Game) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Vault, difficulty = difficulty}, window, seated)
 	hold_surges(&run)
 	return run
 }
@@ -69,22 +69,52 @@ light_braziers :: proc(run: ^headless.Run(g.Game), count: int) {
 }
 
 // The King sleeps at its marker until it is hit (or sees a hero), and wakes with BOSS_HP and BOSS_HP_PER_HERO for each
-// other hero present then, the waking blow taken from that: 1200 alone, 2000 with three.
+// other hero present then, times the difficulty's boss_hp, the waking blow taken from that; on Hard as on Normal, a
+// blow of all its health stops at its first stage's end.
 @(test)
 the_kings_health_is_the_partys :: proc(t: ^testing.T) {
-	for seated in ([2]int{1, 3}) {
-		run := vault(seated)
-		defer headless.run_end(&run)
-		king := king_of(&run)
-		boss := &run.simulation.state.boss
-		testing.expect_value(t, king.phase, g.Elite_Phase.Idle)
-		testing.expect_value(t, boss.hp_max, 0)
-		hurt_king(&run, 10)
-		full := g.BOSS_HP + g.BOSS_HP_PER_HERO * i16(seated - 1)
-		testing.expect_value(t, boss.hp_max, full)
-		testing.expect_value(t, king.hp, full - 10)
-		testing.expect_value(t, boss.stage, 1)
-		scenarios.expect_synced(t, &run)
+	for difficulty in g.Difficulty {
+		for seated in ([2]int{1, 3}) {
+			run := vault(seated, difficulty = difficulty)
+			defer headless.run_end(&run)
+			king := king_of(&run)
+			boss := &run.simulation.state.boss
+			testing.expect_value(t, king.phase, g.Elite_Phase.Idle)
+			testing.expect_value(t, boss.hp_max, 0)
+			hurt_king(&run, 10)
+			base := f32(g.BOSS_HP + g.BOSS_HP_PER_HERO * i16(seated - 1))
+			full := i16(dmath.round(base * g.DIFFICULTY[difficulty].boss_hp))
+			testing.expectf(
+				t,
+				boss.hp_max == full,
+				"%v, %d: its full health %d, not %d",
+				difficulty,
+				seated,
+				boss.hp_max,
+				full,
+			)
+			testing.expectf(
+				t,
+				king.hp == full - 10,
+				"%v, %d: %d of %d after the blow",
+				difficulty,
+				seated,
+				king.hp,
+				full,
+			)
+			testing.expect_value(t, boss.stage, 1)
+			hurt_king(&run, boss.hp_max)
+			testing.expectf(
+				t,
+				king.hp == i16(i32(full) * 2 / 3),
+				"%v, %d: the stage ends at %d",
+				difficulty,
+				seated,
+				king.hp,
+			)
+			testing.expect_value(t, boss.stage, 2)
+			scenarios.expect_synced(t, &run)
+		}
 	}
 }
 
@@ -109,7 +139,7 @@ the_kings_guard_breaks_and_returns :: proc(t: ^testing.T) {
 
 // At two thirds of its health the King's next stage begins: it roars, every lit brazier goes out, its ward goes up and
 // no blow hurts it, BOSS_SUMMON skeletons are owed to the graves and the surges come every BOSS_SURGE_S. A blow can't
-// take it past the stage's end. The ward breaks at its need (two braziers alone), and the third stage douses them
+// take it past the stage's end. The ward breaks at its need (one brazier alone), and the third stage douses them
 // again.
 @(test)
 the_ward_holds_until_its_braziers_are_lit :: proc(t: ^testing.T) {
@@ -128,7 +158,7 @@ the_ward_holds_until_its_braziers_are_lit :: proc(t: ^testing.T) {
 	testing.expect_value(t, headless.run_events(&run, g.Event_Brazier), 4) // each one's going out
 	walk := sim.iterate(&state.braziers)
 	for brazier in sim.next(&walk) do testing.expect(t, !brazier.lit, "the stage put every brazier out")
-	testing.expect_value(t, state.rising, g.BOSS_SUMMON)
+	testing.expect_value(t, state.rising, u32(g.BOSS_SUMMON[0]))
 	testing.expect_value(t, state.surge.target - state.surge.start, sim.Game_Time(g.BOSS_SURGE_TICKS))
 	quiet(&run)
 	hp := king.hp
@@ -152,7 +182,7 @@ the_ward_holds_until_its_braziers_are_lit :: proc(t: ^testing.T) {
 	scenarios.expect_synced(t, &run)
 }
 
-// The ward's need is the heroes present now (BOSS_WARD_NEED: 2, 3, 4, 4): a ward a brazier short holds and one at its
+// The ward's need is the heroes present now (BOSS_WARD_NEED: 1, 2, 3, 4): a ward a brazier short holds and one at its
 // need breaks, for each party size; and a joiner mid-ward raises the need it must meet.
 @(test)
 the_wards_need_is_the_partys :: proc(t: ^testing.T) {
@@ -163,7 +193,7 @@ the_wards_need_is_the_partys :: proc(t: ^testing.T) {
 		hurt_king(&run, 1)
 		to_stage(&run, 2)
 		need := int(g.BOSS_WARD_NEED[seated - 1])
-		decided := [g.PLAYERS]int{2, 3, 4, 4} // the design's, by party size
+		decided := [g.PLAYERS]int{1, 2, 3, 4} // the design's, by party size
 		testing.expect_value(t, need, decided[seated - 1])
 		light_braziers(&run, need - 1)
 		headless.run_step(&run)
@@ -403,5 +433,178 @@ the_king_walks_round_a_pillar :: proc(t: ^testing.T) {
 		dmath.length((king.pos - hero.pos).xz),
 		ticks,
 	)
+	scenarios.expect_synced(t, &run)
+}
+
+// The vault is calm outside the King's wards: a surge due there raises nothing while it sleeps or fights unwarded. In a
+// ward its stage raises BOSS_SUMMON for the heroes present, its surges come, and each is SURGE_BASE and SURGE_PER_HERO
+// for each hero alone (no SURGE_GROWTH for the surges faced, no SURGE_PER_DEPTH for the floors gone down); a brazier lit
+// there leaves the ward's surge clock as it was.
+@(test)
+the_vault_is_calm_outside_its_wards :: proc(t: ^testing.T) {
+	run := vault(2)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	state.depth, state.floor_surges = 3, 4
+	due_now(&run)
+	play(&run, {}, 1)
+	testing.expect_value(t, headless.run_events(&run, g.Event_Surge), 0)
+	hurt_king(&run, 1)
+	due_now(&run)
+	play(&run, {}, 1)
+	testing.expect(
+		t,
+		headless.run_events(&run, g.Event_Surge) == 0 && state.rising == 0,
+		"awake and unwarded: no surge",
+	)
+	hurt_king(&run, state.boss.hp_max)
+	testing.expect(t, state.boss.warded, "warded")
+	testing.expect_value(t, state.rising, u32(g.BOSS_SUMMON[1]))
+	quiet(&run)
+	due_now(&run)
+	headless.run_step(&run)
+	surge, surged := headless.run_last_event(&run, g.Event_Surge)
+	testing.expect(t, surged, "a surge in the ward")
+	testing.expect_value(t, surge.count, i32(g.SURGE_BASE + 2 * g.SURGE_PER_HERO))
+	clock := state.surge
+	headless.run_command(&run, 0, g.Command_Dev_Light_Braziers{})
+	testing.expect(t, headless.run_events(&run, g.Event_Brazier) > 0, "braziers lit")
+	testing.expect_value(t, state.surge, clock)
+	scenarios.expect_synced(t, &run)
+}
+
+// The surge clock run out now (as the director reads it), the run pinned there.
+@(private = "file")
+due_now :: proc(run: ^headless.Run(g.Game)) {
+	state := &run.simulation.state
+	state.surge = {
+		start  = state.clock.time,
+		target = state.clock.time,
+	}
+	headless.run_pin(run)
+}
+
+// A lone hero wears the King's guard down: every BOSS_SOLO_GUARD_BLOWS-th blow it takes breaks it. With a second hero
+// present the same blows break nothing (the party's throws, charges and fireballs do).
+@(test)
+a_lone_heros_blows_break_the_kings_guard :: proc(t: ^testing.T) {
+	for seated in 1 ..= 2 {
+		run := vault(seated)
+		defer headless.run_end(&run)
+		headless.run_command(&run, 0, g.Command_Dev_Set_Class{.Knight})
+		king := king_of(&run)
+		hurt_king(&run, 1)
+		quiet(&run)
+		front := king.pos.xz + king.facing * (g.BOSS_RADIUS + g.HERO_RADIUS + 0.3)
+		place_hero(&run, 0, on_floor(&run, {front.x, king.pos.y, front.y}), -king.facing)
+		inputs: [g.PLAYERS]g.Input
+		inputs[0].buttons = {.Attack}
+		inputs[0].aim = dmath.dir2(-king.facing)
+		guarded := 0
+		for _ in 0 ..< 2 * g.TICK_HZ {
+			headless.run_step(&run, inputs)
+			for &raw in sim.events_at(run.simulation, run.simulation.tick) {
+				if hit, ok := sim.event_value(&raw, g.Event).(g.Event_Elite_Hit); ok && hit.guarded && hit.damage > 0 {
+					guarded += 1
+				}
+			}
+			if guarded >= int(g.BOSS_SOLO_GUARD_BLOWS) do break
+		}
+		testing.expectf(t, guarded >= int(g.BOSS_SOLO_GUARD_BLOWS), "%d heroes: %d guarded blows", seated, guarded)
+		broken := headless.run_events(&run, g.Event_Guard_Broken)
+		testing.expectf(t, (broken == 1) == (seated == 1), "%d heroes: the guard broke %d times", seated, broken)
+		scenarios.expect_synced(t, &run)
+	}
+}
+
+// The vault's Pillar1 (game/levels/vault.tscn: 1.5 m square), and a spot for the King facing it, a hand clear of it.
+@(private = "file")
+PILLAR :: [3]f32{-3, 0, -3}
+@(private = "file")
+BY_PILLAR :: [3]f32{-1.4, 0, -3}
+
+// Moves the King to stand at `feet` facing `facing`, at rest, and pins the run there.
+@(private = "file")
+place_king :: proc(run: ^headless.Run(g.Game), feet: [3]f32, facing: [2]f32) {
+	king := king_of(run)
+	physics.character_teleport(run.simulation.world.phys, &king.body, feet + {0, g.BOSS_CENTRE_ABOVE_FEET, 0})
+	king.pos, king.facing = feet, facing
+	headless.run_pin(run)
+}
+
+// A wall shields from the slam: a hero inside its ring behind a pillar takes nothing, one inside in the open takes it.
+@(test)
+a_wall_shields_from_the_slam :: proc(t: ^testing.T) {
+	run := vault(2)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	boss := &state.boss
+	hurt_king(&run, 1)
+	to_stage(&run, 2)
+	light_braziers(&run, int(g.BOSS_WARD_NEED[1]))
+	headless.run_step(&run)
+	testing.expect(t, !boss.warded, "the ward broke")
+	king := on_floor(&run, BY_PILLAR)
+	place_king(&run, king, {-1, 0})
+	place_hero(&run, 0, on_floor(&run, PILLAR + {-1.2, 0, 0}), {1, 0}) // behind the pillar, 2.8 m off
+	place_hero(&run, 1, on_floor(&run, king + {0, 0, 3}), {0, -1}) // in the open, 3 m off
+	boss.next_slam.target = state.clock.time + 1
+	headless.run_pin(&run)
+	for _ in 0 ..< g.BOSS_SLAM_WINDUP_TICKS + 2 {
+		headless.run_step(&run)
+		if headless.run_events(&run, g.Event_Boss_Slam) > 0 do break
+	}
+	testing.expect_value(t, headless.run_events(&run, g.Event_Boss_Slam), 1)
+	testing.expect_value(t, sim.slot_data(run.simulation, 0).hp, g.HERO_HP)
+	testing.expect_value(t, sim.slot_data(run.simulation, 1).hp, g.HERO_HP - g.BOSS_SLAM_DAMAGE)
+	scenarios.expect_synced(t, &run)
+}
+
+// The cleave meets every hero up in its arc within its reach and in sight, its target or not: a bystander in the arc is
+// hit; one in the arc past its reach, one behind the King and its target behind a pillar are not.
+@(test)
+the_cleave_meets_its_arc_in_reach_and_sight :: proc(t: ^testing.T) {
+	run := vault(4)
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	hurt_king(&run, 1)
+	quiet(&run)
+	at := on_floor(&run, BY_PILLAR)
+	place_king(&run, at, {-1, 0})
+	place_hero(&run, 0, on_floor(&run, PILLAR + {-1.2, 0, 0}), {1, 0}) // in the arc and reach, behind the pillar
+	place_hero(&run, 1, on_floor(&run, at + {-1, 0, 2.2})) // in the arc, 2.4 m off: hit
+	place_hero(&run, 2, on_floor(&run, at + {-1.9, 0, 3.29})) // in the arc, 3.8 m off: past its reach
+	place_hero(&run, 3, on_floor(&run, at + {2, 0, 0})) // behind it
+	king := king_of(&run)
+	king.target = sim.player_in_slot(run.simulation, 0)
+	king.phase, king.since = .Attack, state.clock.time
+	headless.run_pin(&run)
+	for _ in 0 ..< g.ELITE_SPECS[.King].windup + 1 do headless.run_step(&run)
+	hp: [g.PLAYERS]i16
+	for slot in 0 ..< g.PLAYERS do hp[slot] = sim.slot_data(run.simulation, slot).hp
+	hit := g.HERO_HP - g.ELITE_SPECS[.King].damage
+	testing.expectf(t, hp == {g.HERO_HP, hit, g.HERO_HP, g.HERO_HP}, "after the cleave: %v", hp)
+	scenarios.expect_synced(t, &run)
+}
+
+// A stage's summon owes no more than the floor's room: entered with the vault a skeleton short of its cap, one is owed.
+@(test)
+a_stages_summon_fits_the_floors_room :: proc(t: ^testing.T) {
+	run := vault()
+	defer headless.run_end(&run)
+	state := &run.simulation.state
+	hurt_king(&run, 1)
+	quiet(&run)
+	floor := floor_of(&run)
+	spot, _ := g.floor_spot(floor, floor.places.hero_spawns[1], 2)
+	for g.minions_alive(&state.minions) < floor.minion_cap - 1 {
+		_, ok := g.spawn_minion(state, spot.point, spot.poly, {0, 1}, .Idle, state.clock.time, 0)
+		if !ok do break
+	}
+	headless.run_pin(&run)
+	testing.expect(t, g.BOSS_SUMMON[0] > 1, "a summon larger than the room")
+	hurt_king(&run, state.boss.hp_max)
+	testing.expect_value(t, state.boss.stage, 2)
+	testing.expect_value(t, state.rising, 1)
 	scenarios.expect_synced(t, &run)
 }

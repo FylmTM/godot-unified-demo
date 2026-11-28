@@ -424,11 +424,15 @@ func _check_accessibility() -> void:
 	effects.pulse(Vector3.ZERO, Color.WHITE, 1.0, 1.0, 1.0, 0)  # pulses off: it returns before any pool
 	_expect(effects.get_child_count() == 0, "flashes off: a light pulse makes no light")
 	effects.free()
-	var rig: Node3D = (load(CAMERA_RIG) as GDScript).new()
-	rig.call(&"shake", 0.0 * 1.0)
-	var shaking: float = rig.get(&"_shake")
-	_expect(shaking == 0.0, "a screen shake of 0 shakes nothing")
-	rig.free()
+	var shake_was: float = live.get(&"screen_shake")
+	for strength: float in [0.0, 0.5]:
+		live.set(&"screen_shake", strength)
+		var rig: Node3D = (load(CAMERA_RIG) as GDScript).new()
+		rig.call(&"shake", 1.0)
+		var shaking: float = rig.get(&"_shake")
+		_expect(is_equal_approx(shaking, strength), "a screen shake of %s shakes %s, not %s" % [strength, strength, shaking])
+		rig.free()
+	live.set(&"screen_shake", shake_was)
 
 
 ## The name and the picks as Settings keeps them: a name cleaned and cut to what the other players get (on a

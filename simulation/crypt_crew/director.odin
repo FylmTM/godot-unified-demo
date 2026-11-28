@@ -135,14 +135,15 @@ wake_packs :: proc(t: ^Tick) {
 // SURGE_PER_DEPTH for each floor gone down, or the Pit's wave, times the difficulty's), at most up to the floor's cap
 // alive and into the table's free rows, less what earlier surges still owe. Every tick the owed rise (rise_owed) at
 // surge_graves', up to the cap alive. A held population is refilled instead (refill_held), and gets no elite. Nothing
-// rises while the director rests (director_runs, run.odin: the hub, a run's end, the Pit's lull).
+// rises while the director rests (director_runs, run.odin: the hub, a run's end, the Pit's lull), and no surge is owed on
+// a boss floor outside the King's wards (boss_calm).
 raise_surges :: proc(t: ^Tick) {
 	if t.state.held > 0 {
 		refill_held(t)
 		return
 	}
 	if !director_runs(t) do return
-	due := !sim.timer_running(t, t.state.surge)
+	due := !sim.timer_running(t, t.state.surge) && !boss_calm(t) // a boss floor's surges are its wards' (boss.odin)
 	if !due && t.state.rising == 0 do return
 	graves := surge_graves(t)
 	if due {

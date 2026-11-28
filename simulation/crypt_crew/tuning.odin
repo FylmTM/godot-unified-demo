@@ -751,14 +751,17 @@ RUN_END_S :: f32(8) // a run's end shows the results this long, then the party i
 RUN_END_TICKS :: u32(RUN_END_S * TICK_HZ)
 OFFER_RUN_STRIDE :: 64 // a run's boon offers are keyed from its number times this (offer_index): more than it opens
 
-// The Pit (arena.odin): wave n every PIT_SURGE_S, PIT_BASE + PIT_GROWTH × n and SURGE_PER_HERO a hero, an elite every
-// PIT_ELITE_EVERY-th; after every PIT_BOON_EVERY-th the next holds until at most PIT_LULL are alive (or PIT_LULL_MAX_S),
-// then a boon choice. One life.
-PIT_SURGE_S :: f32(15)
+// The Pit (arena.odin): wave n every PIT_SURGE_S, PIT_BASE, PIT_EARLY_GROWTH a wave up to wave PIT_FIRST_BOON and
+// PIT_GROWTH a wave after it, and SURGE_PER_HERO a hero; an elite every PIT_ELITE_EVERY-th; after wave PIT_FIRST_BOON
+// and every PIT_BOON_EVERY-th after it the next holds until at most PIT_LULL are alive (or PIT_LULL_MAX_S), then a boon
+// choice. One life.
+PIT_SURGE_S :: f32(20)
 PIT_SURGE_TICKS :: u32(PIT_SURGE_S * TICK_HZ)
-PIT_BASE :: 8
+PIT_BASE :: 4
+PIT_EARLY_GROWTH :: 2
 PIT_GROWTH :: 4
-PIT_ELITE_EVERY :: 2
+PIT_ELITE_EVERY :: 4
+PIT_FIRST_BOON :: 3
 PIT_BOON_EVERY :: 5
 PIT_LULL :: 6
 PIT_LULL_MAX_S :: f32(20)
@@ -788,10 +791,11 @@ BOSS_HALF_HEIGHT :: BOSS_HEIGHT / 2 - BOSS_RADIUS
 BOSS_POGO_REST :: BOSS_RADIUS + (HERO_POGO_REST - HERO_RADIUS)
 BOSS_CENTRE_ABOVE_FEET :: BOSS_HALF_HEIGHT + BOSS_POGO_REST
 BOSS_GROUND_FORCE :: f32(60000) // its drive's push: an elite's for its weight (its capsule holds about 2.4 elites' volume)
-BOSS_HP :: i16(1200) // its health with one hero present as it wakes ...
-BOSS_HP_PER_HERO :: i16(400) // ... and this much more for each other hero present then (times the difficulty's)
+BOSS_HP :: i16(400) // its health with one hero present as it wakes ...
+BOSS_HP_PER_HERO :: i16(500) // ... and this much more for each other hero present then (times the difficulty's)
 BOSS_GUARD_DOWN_S :: f32(4) // a broken guard (a thrown prop, a charge, a fireball) stays down this long: the window
 BOSS_GUARD_DOWN_TICKS :: u32(BOSS_GUARD_DOWN_S * TICK_HZ)
+BOSS_SOLO_GUARD_BLOWS :: u8(3) // with one hero present, every this many blows its guard takes break it
 // The cleave: its axe's arc meets every hero up whose capsule comes within BOSS_CLEAVE_REACH of its centre and within
 // BOSS_CLEAVE_COS of its facing, in sight, at its windup (ELITE_SPECS[.King]); it swings once its target is
 // BOSS_CLEAVE_SURE inside that reach and in front of it.
@@ -819,14 +823,16 @@ BOSS_SLAM_FALLOFF :: f32(1.5)
 BOSS_SLAM_HEIGHT :: f32(0.2) // the explosion's heart above its feet: low, so what lies on the floor is blown along it
 #assert(BOSS_SLAM_WINDUP_TICKS < BOSS_SLAM_TICKS && BOSS_SLAM_TICKS < BOSS_SLAM_FAST_TICKS)
 // Its stages: at two thirds and at one third of its health it roars, every brazier goes out and it is warded (no
-// damage) while it walks to the middle (its marker) and stands; BOSS_SUMMON skeletons rise at the rim graves and the
-// surges come every BOSS_SURGE_S, until BOSS_WARD_NEED (by the heroes present) of the braziers are lit. No blow takes
-// it past its stage's end: each stage's health is dealt in that stage.
-BOSS_SUMMON :: 12
-BOSS_SURGE_S :: f32(10)
+// damage) while it walks to the middle (its marker) and stands; BOSS_SUMMON (by the heroes present) skeletons rise at
+// the rim graves and the surges come every BOSS_SURGE_S, until BOSS_WARD_NEED (by the heroes present) of the braziers
+// are lit. No blow takes it past its stage's end: each stage's health is dealt in that stage. Outside the wards no surge
+// rises in the vault, and its surges carry neither SURGE_GROWTH nor SURGE_PER_DEPTH.
+@(rodata)
+BOSS_SUMMON := [PLAYERS]int{2, 4, 6, 8} // skeletons a stage raises, for 1, 2, 3 and 4 heroes present
+BOSS_SURGE_S :: f32(15)
 BOSS_SURGE_TICKS :: u32(BOSS_SURGE_S * TICK_HZ)
 @(rodata)
-BOSS_WARD_NEED := [PLAYERS]i32{2, 3, 4, 4} // braziers lit that break the ward, for 1, 2, 3 and 4 heroes present
+BOSS_WARD_NEED := [PLAYERS]i32{1, 2, 3, 4} // braziers lit that break the ward, for 1, 2, 3 and 4 heroes present
 BOSS_ROAR_S :: f32(1.5) // a stage begins with its roar: it stands this long before it walks to the middle
 BOSS_ROAR_TICKS :: u32(BOSS_ROAR_S * TICK_HZ)
 BOSS_MIDDLE_NEAR :: f32(0.5) // warded, it walks to the middle until this close, then stands

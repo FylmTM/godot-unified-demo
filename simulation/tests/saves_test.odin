@@ -78,9 +78,10 @@ a_save_is_made_at_each_save_point_and_never_between :: proc(t: ^testing.T) {
 }
 
 // A Continue gives each member the row of its profile's id, whichever slot it sits in, and the class it played; a
-// second machine of the same id finds the row taken and gets nothing, and a leave and a rejoin take nothing more; the
-// rows of members who haven't come back are carried into the next save. The run (its number, lives and depth) and the
-// tally go on from the save.
+// second machine of the same id is a duplicate, gets nothing, and a leave and a rejoin take nothing more; the rows of
+// members who haven't come back are carried into the next save, and so is an absent member's own, its id's row kept
+// from the duplicate present. The run (its number, lives and depth) and the tally (its surges, felled and purse) go on
+// from the save.
 @(test)
 a_continue_gives_each_id_its_boons_once :: proc(t: ^testing.T) {
 	saved := g.Setup {
@@ -112,6 +113,8 @@ a_continue_gives_each_id_its_boons_once :: proc(t: ^testing.T) {
 	testing.expect_value(t, state.run.difficulty, g.Difficulty.Hard)
 	testing.expect_value(t, state.depth, 1)
 	testing.expect_value(t, state.gold, 340)
+	testing.expect_value(t, state.surges, 7)
+	testing.expect_value(t, state.kills, 312)
 	first, second := sim.slot_data(run.simulation, 0), sim.slot_data(run.simulation, 1)
 	testing.expect_value(t, first.boons, #partial g.Boons{.Thick_Hide = 1, .Swift_Boots = 1})
 	testing.expect_value(t, first.class, g.Class.Rogue) // the class it played, its Profile wishing for none
@@ -119,6 +122,11 @@ a_continue_gives_each_id_its_boons_once :: proc(t: ^testing.T) {
 	testing.expect_value(t, second.boons, #partial g.Boons{.Keen_Edge = 2})
 	testing.expect_value(t, second.class, g.Class.Barbarian) // its wish
 	testing.expect_value(t, sim.slot_data(run.simulation, 2).boons, g.Boons{}) // the row was taken
+	testing.expect(
+		t,
+		sim.slot_data(run.simulation, 2).duplicate && !first.duplicate,
+		"the second machine is the duplicate",
+	)
 	testing.expect_value(t, state.run.claimed, 0b011)
 	headless.run_seat(&run, 2, 0)
 	headless.run_step(&run)
@@ -130,9 +138,19 @@ a_continue_gives_each_id_its_boons_once :: proc(t: ^testing.T) {
 	}
 	for _ in 0 ..< g.TICK_HZ do step_saving(&run, &saves)
 	testing.expect_value(t, saves.count, 0) // the Continue's save stands until its next save point
+	testing.expect(t, sim.slot_data(run.simulation, 2).duplicate, "a duplicate still, back again")
+	headless.run_seat(&run, 0, 0) // id 22's own member steps away: its duplicate stays
+	headless.run_step(&run)
 	clear_minions(&run)
 	clear_elites(&run)
-	descend(&run)
+	headless.run_command(&run, 1, g.Command_Dev_Board{}) // down with the two left: the duplicate picks a boon too
+	for _ in 0 ..< 10 * g.TICK_HZ {
+		if run.simulation.state.lift.phase == .Choosing do break
+		headless.run_step(&run)
+	}
+	inputs := headless.run_inputs(&run)
+	for slot in 1 ..< 3 do sim.add_command(&inputs, slot, g.Command_Pick_Boon{0})
+	headless.run_step(&run, &inputs)
 	take_save(&run, &saves)
 	testing.expect_value(t, saves.count, 1)
 	rows := sim.slice(&saves.last.heroes)
@@ -140,11 +158,14 @@ a_continue_gives_each_id_its_boons_once :: proc(t: ^testing.T) {
 	if len(rows) == 3 {
 		testing.expect(
 			t,
-			rows[0].id == 22 && rows[1].id == 11 && rows[2].id == 33,
-			"the present, each id once, then the unclaimed row",
+			rows[0].id == 11 && rows[1].id == 22 && rows[2].id == 33,
+			"the present, then the absent member, then the unclaimed row; the duplicate never",
 		)
+		testing.expect_value(t, rows[1].boons, #partial g.Boons{.Thick_Hide = 1, .Swift_Boots = 1})
 		testing.expect_value(t, rows[2].boons, #partial g.Boons{.Field_Medic = 3})
 	}
+	testing.expect_value(t, saves.last.surges, 7)
+	testing.expect_value(t, saves.last.kills, 312)
 	testing.expect_value(t, saves.last.lives, 1)
 	testing.expect_value(t, saves.last.depth, 2)
 	testing.expect_value(t, saves.last.run_number, 3)

@@ -186,3 +186,65 @@ a_lighting_brings_the_surge_near :: proc(t: ^testing.T) {
 	testing.expect_value(t, state.surge.start, due) // raise_surges started the next one as this one ran out
 	scenarios.expect_synced(t, &run)
 }
+
+// A fireball bursting within BRAZIER_BLAST of a brazier with a wall between lights nothing: on the vault, a brazier's
+// place moved behind its Pillar1 and the fireball lobbed to the pillar's other side.
+@(test)
+a_wall_keeps_a_fireball_from_a_brazier :: proc(t: ^testing.T) {
+	run := headless.run_begin(&g.GAME, 1, g.Setup{floor = .Vault}, seated = 1)
+	defer headless.run_end(&run)
+	hold_surges(&run)
+	pillar := [3]f32{-3, 0, -3} // game/levels/vault.tscn's Pillar1, 1.5 m square
+	behind := pillar + {-1.35, 0, 0}
+	sim.slice(&floor_of(&run).places.braziers)[0].pos = behind
+	headless.run_command(&run, 0, g.Command_Dev_Set_Class{.Mage})
+	from := on_floor(&run, pillar + {4.5, 0, 0})
+	place_hero(&run, 0, from, {-1, 0})
+	aim := g.Input {
+		aim   = dmath.dir2([2]f32{-1, 0}),
+		reach = g.reach_steps(from.x - (pillar.x + 1.35)),
+	}
+	press(&run, 0, .Ability, aim)
+	inputs := [g.PLAYERS]g.Input {
+		0 = aim,
+	}
+	burst: g.Event_Fireball_Burst
+	for _ in 0 ..< int((g.FIREBALL_WINDUP_S + g.FIREBALL_FLIGHT_S + 0.5) * g.TICK_HZ) {
+		headless.run_step(&run, inputs)
+		found: bool
+		burst, found = headless.run_last_event(&run, g.Event_Fireball_Burst)
+		if found do break
+	}
+	apart := dmath.length(burst.position.xz - behind.xz)
+	testing.expectf(t, apart < g.BRAZIER_BLAST, "the burst %v m from the brazier, within its blast", apart)
+	brazier, _ := brazier_at(&run, 0)
+	testing.expect(t, !brazier.lit, "the wall kept the fire off")
+	scenarios.expect_synced(t, &run)
+}
+
+// A hero carrying a prop kindles nothing: its Interact press at a brazier drops the prop, and holding it on starts no
+// kindling.
+@(test)
+full_hands_kindle_nothing :: proc(t: ^testing.T) {
+	run := at_the_brazier(1)
+	defer headless.run_end(&run)
+	hero := sim.slot_data(run.simulation, 0)
+	away := brazier_spot(&run, BRAZIER_WEST) + {0, 0, -4}
+	place_hero(&run, 0, away, {0, -1})
+	place_prop(&run, 0, away + {0, 0, -1.1})
+	play(&run, {}, 0.2)
+	press(&run, 0, .Interact) // the prop in front of it, away from the brazier: grabbed
+	testing.expect(t, hero.held != {}, "the prop is in its hands")
+	place_hero(&run, 0, brazier_spot(&run, BRAZIER_WEST) + {0, 0, -1.25}, {0, 1})
+	play(&run, {}, 1)
+	testing.expect(t, hero.held != {} && hero.action == .None, "still carried at the brazier, its pick-up done")
+	kindle(&run, {0}, int(g.TICK_HZ / 2))
+	brazier, _ := brazier_at(&run, BRAZIER_WEST)
+	testing.expect_value(t, hero.held, sim.Handle(g.Prop){})
+	testing.expect(
+		t,
+		hero.action != .Kindle && brazier.progress == 0,
+		"the press dropped the prop and kindled nothing",
+	)
+	scenarios.expect_synced(t, &run)
+}

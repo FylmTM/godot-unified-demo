@@ -8,8 +8,7 @@ extends RefCounted
 ##   1. a Knight host and a Barbarian joiner (both asked for Any) arrive in the vault; from then on the host fells the
 ##      skeletons the King's stages raise and stands up a downed hero (dev: the play is the King, not its crowd);
 ##   2. the host wakes the King and drives it into its second stage (dev): its braziers go out and its ward goes up;
-##   3. the two break the ward together, each kindling its braziers (the host two, the joiner one) until the lighting is
-##      confirmed;
+##   3. the two break the ward together, each kindling its brazier until the lighting is confirmed;
 ##   4. both fight the King until it slams, the braziers burning;
 ##   5. the host drives it into its third stage (dev), and the two break its ward again;
 ##   6. the host takes it to its last few hit points and breaks its guard (dev), and both strike until it falls.
@@ -18,9 +17,9 @@ extends RefCounted
 ## does fails there, and `uni coop --record` keeps no recording that fails it. Each step fails the run here first, with
 ## what didn't happen, and every wait fails at once when the session ends (the other side failed and left).
 
-## The vault's braziers each side kindles, by marker order (game/levels/vault.tscn: the host the east two, the joiner
-## the south-west one): three, the ward's need with two heroes.
-const HOST_BRAZIERS: Array[int] = [3, 1]
+## The vault's braziers each side kindles, by marker order (game/levels/vault.tscn: the host an east one, the joiner
+## the south-west one): two, the ward's need with two heroes (BOSS_WARD_NEED).
+const HOST_BRAZIERS: Array[int] = [3]
 const JOINER_BRAZIERS: Array[int] = [2]
 ## The King's last hit points, left by the host's dev blow for the heroes' own (a Knight's blow is 18, a Barbarian's
 ## 30).
@@ -32,7 +31,7 @@ const STRIKE_WITHIN: float = 2.2
 const GUARD_EVERY_S: float = 3.0
 const KEEP_S: float = 0.5
 ## How long a step may take before it fails the run (seconds): the first slam comes BOSS_SLAM_EVERY_S after the ward
-## breaks, and the host's two braziers are the width of the vault apart.
+## breaks.
 const STEP_S: float = 60.0
 
 var _coop: CryptCoop

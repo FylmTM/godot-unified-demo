@@ -156,10 +156,10 @@ in one pass at the end, with the developer.
 - `Event_Minion_Hit` and `Event_Minion_Died` carry a `source` (blow, bolt, crossbow, prop, dev). The minion grid's cells
   are 3 m (the cleave's reach and a minion's radius fit a 3 by 3 query).
 - Views: each attack clip is timed so its blow, sampled from the clip (the hand's fastest moment), lands at the class's
-  windup, which the extension hands the views as constants. Every bolt draws as the same violet orb, BOLT_RADIUS wide
-  (a colour per caster waits on per-instance colour in the MultiMesh). The Rogue's shoot clip stands side-on, so the
-  rig turns a quarter while the Rogue shoots (the crossbow along the facing), and its release is the recoil (0.375 s
-  into the clip), not the raise.
+  windup, which the extension hands the views as constants. Every bolt draws as the same orb, BOLT_RADIUS wide, in one
+  MultiMesh, its caster's colour the instance's (the Mage's violet, a skeleton Mage's pale yellow). The Rogue's shoot
+  clip stands side-on, so the rig turns a quarter while the Rogue shoots (the crossbow along the facing), and its
+  release is the recoil (0.375 s into the clip), not the raise.
 - The crossbow's tracer is a glowing additive beam (a gradient across a flat quad) that fades in 0.15 s; Kenney's
   dotted trace texture is gone.
 - `tests/bot.odin` fights the nearest skeleton (melee walks up, Mage and Rogue stand off at 7 m); in every other 2 s
@@ -839,7 +839,7 @@ Elites:
   worth the most). An elite counts as a skeleton felled.
 - Views: a pooled scene kind appearing on verified, with a billboard health bar, a hit's flash and a guard glint; a
   heaved elite hangs in the skeleton's limp standing pose, the Barbarian raises its arms (Ranged_Magic_Raise) and
-  throws with the prop throw's clip. Bone bolts are a second MultiView kind (plan.md: per-instance colour).
+  throws with the prop throw's clip. Bone bolts are bolts of their own instance colour (`BONE_BOLT_COLOR`).
 
 Loot:
 - Drops roll on `State.drops` (every death that rolls), never the tick; "none under a held crowd" is
@@ -1101,16 +1101,15 @@ Step 4, the joins (beyond the design's decided calls):
 - Bench rows for the Ossuary, the Deep Halls and the vault, each a held surge of BENCH_FLOOR_MINIONS; bench_prepare
   rouses the vault's King, so its row is the fight's.
 - An elite's bar is its difficulty's health (elite_hp), not its spec's.
-- The bot's whole run (the_bots_play_a_whole_run) quiets each crypt floor as the party enters it (no skeleton, no
-  elite, surges held off, again after a lighting brings them on), latches the Deep Halls' held gate open (its
-  braziers' way runs through it), and takes the vault's stage skeletons and surges as they come: the fight it proves is
-  the King's. The bot learned to board a lift that takes no hoard, kindle the braziers a vault gate or the King's ward
-  needs (the Mage casting at one), blast a barricade before a plate past it, take the King as a foe, step out of its
-  slam's ring and its cleave's reach, and press a revive or a kindling again after a blow broke it off. It runs with a
-  re-simulation window of 2 (two seconds instead of seven).
+- The bot's whole run (the_bots_play_a_whole_run) quiets each crypt floor as the party enters it (no skeleton, no elite,
+  surges held off, again after a lighting brings them on), latches the Deep Halls' held gate open (its braziers' way
+  runs through it), and fights the vault as the rules play it, its stages' skeletons and its wards' surges taken as they
+  come (the_bots_beat_the_king plays the vault for one to four bots). The bot learned to board a lift that takes no
+  hoard, kindle the braziers a vault gate or the King's ward needs (the Mage casting at one), blast a barricade before a
+  plate past it, take the King as a foe, step out of its slam's ring and its cleave's reach, and press a revive or a
+  kindling again after a blow broke it off. It runs with a re-simulation window of 2 (two seconds instead of seven).
 - coop.gd: the shrines' beat runs only when the session begins in the hub (the menus' start: uni's session flags start
-  on Floor 1); the ward's beat takes the party down by dev_board, kindles three braziers (the host two, the joiner
-  one), then drives the King into its third stage so it stands warded through the pause; the joiner continues the
+  on Floor 1); the ward's beat takes the party down by dev_board, kindles two braziers (one each, the need for two heroes), then drives the King into its third stage so it stands warded through the pause; the joiner continues the
   vault's save at the end.
 ## Milestone 8: polish
 
@@ -1208,3 +1207,30 @@ Step B, the media (beyond the design's decided calls):
   hero at 720x405, 10 fps, 6 s, haul_coop two 400x225 panes at 10 fps for 4.5 s, the set pieces and the ragdoll at
   480x270, 10 fps (their camera follows the haulers). The hero clip is the Barbarian's view (the Knight's keeps the
   vault's far wall in frame there); every clip names whose view it is.
+
+## The final review's fixes
+
+- The calmer vault, the developer's call; the numbers are mine, tuned until `the_bots_beat_the_king` won for one to four
+  bots on Normal from a Continue three floors down, with no boons: BOSS_HP 400 (was 1200) and BOSS_HP_PER_HERO 500 (was
+  400), BOSS_SUMMON 2, 4, 6, 8 by party size (was 12), BOSS_WARD_NEED 1, 2, 3, 4 (was 2, 3, 4, 4), BOSS_SURGE_S 15
+  (was 10). A lone hero's rule is the guard wearing down: every BOSS_SOLO_GUARD_BLOWS-th (3) blow it takes from one
+  hero breaks it (a counter in Boss.worn), the party's split between breakers and strikers untouched for two to four.
+- A lighting no longer pulls the next surge in on a boss floor: with it, each brazier lit brought a surge three seconds
+  on, so a ward's skeletons outlived it and fought beside the King (every party size lost there).
+- The bot learned the King: it steps out of a blow only until it lands (then back in), the Knight blocks it at the last
+  moment instead (a charge from the block when ready), nobody revives under the King's axe, and a kindler clears every
+  skeleton in sight before it kindles in a ward (the King stands warded meanwhile).
+- The Pit's gentler start, the developer's call; the numbers are mine, tuned until two bots reached the first lull on
+  Normal: PIT_BASE 4 (was 8), PIT_EARLY_GROWTH 2 a wave up to the first lull (PIT_GROWTH 4 after it), PIT_SURGE_S 20
+  (was 15, a floor's pace), PIT_ELITE_EVERY 4 (was 2: an elite at wave 2 felled every small bot party), the first
+  lull after wave PIT_FIRST_BOON 3, then every PIT_BOON_EVERY 5. One bot still falls before it.
+- A duplicate profile id is decided by arrival: the member that arrived second (the lower slot on one tick) is the
+  duplicate (Hero.duplicate), for the session.
+- A lull waits while every present hero is down: the wipe decides first.
+- A run's time on the results is its whole: the save keeps the time played (Setup.ticks, where Setup's spare u32 was),
+  and a Continue adds it to the run it continues (run_ticks); SAVE_VERSION stays (a field reads over the default).
+- The screen shake's setting is applied in CameraRig.shake, so app_checks can see it work.
+- Bone bolts are bolts with their own instance colour (one MultiMesh, the bolts' material at each channel's brightest,
+  scaled by BOLT_COLOR or BONE_BOLT_COLOR).
+- The F3 note's replay (`replays/note_swift_boots`) was played again with `uni drive`, the same steps: the State's
+  layout changed (Boss.worn, Hero.duplicate), so the old snapshot no longer loads.

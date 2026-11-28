@@ -39,15 +39,19 @@ View :: union {
 	View_Brazier, // keyed by its handle (its events' `brazier`), posed at its stand's foot
 }
 
-// The MultiMesh views (a MultiMeshInstance3D with a UnifiedMultiView each), keyed by their handles: the Mage's bolts
-// and the skeleton Mages' bone bolts, the minions, the crowd (game/crowd/: the baked minion, its shader posing each
+// The MultiMesh views (a MultiMeshInstance3D with a UnifiedMultiView each), keyed by their handles: the bolts (the
+// Mage's and the skeleton Mages', told apart by their instance colour: BOLT_COLOR, BONE_BOLT_COLOR), the minions, the crowd (game/crowd/: the baked minion, its shader posing each
 // instance from minion_instance), and the coins on the floor (game/views/coins.gd: its shader pops and spins each from loot_instance).
 MultiView :: enum u8 {
 	Bolt,
 	Minion,
-	Bone_Bolt, // a skeleton Mage's bolt: a kind of its own, so it draws in its own colour (one MultiMesh, one material)
 	Loot,
 }
+
+// A bolt's instance colour, on the bolts' material (game/play/play.tscn: its albedo the brightest of each channel, which
+// the colour scales): the Mage's violet, and a skeleton Mage's bone bolt's pale yellow.
+BOLT_COLOR :: godot.Color{0.875, 0.62068966, 1, 1}
+BONE_BOLT_COLOR :: godot.Color{1, 1, 0.28125, 1}
 
 // How each MultiMesh kind is shown. A bolt's and a minion's corrections glide like a scene view's (each keyed instance
 // a track): a bolt is few and fast and a pop would show, and a crowd round a remote hero mispredicts, its corrections a
@@ -58,7 +62,6 @@ MultiView :: enum u8 {
 MULTI_POLICY := [MultiView]godot.View_Policy {
 	.Bolt = {smoothing = godot.SMOOTHING_DEFAULT},
 	.Minion = {appear = .Verified, smoothing = godot.SMOOTHING_DEFAULT, ages = {1, 2}},
-	.Bone_Bolt = {smoothing = godot.SMOOTHING_DEFAULT},
 	.Loot = {appear = .Verified, ages = {1}},
 }
 
@@ -204,8 +207,11 @@ fill_frame :: proc(f: ^Frame) {
 	fill_props(f)
 	bolts := sim.iterate(&f.state.bolts)
 	for bolt, handle in sim.next(&bolts) {
-		kind: MultiView = .Bone_Bolt if bolt.by_elite != {} else .Bolt
-		godot.push_multi_view(f, {key = sim.handle_key(handle), kind = kind, pos = sim.Position(bolt.pos)})
+		color := BONE_BOLT_COLOR if bolt.by_elite != {} else BOLT_COLOR
+		godot.push_multi_view(
+			f,
+			{key = sim.handle_key(handle), kind = .Bolt, pos = sim.Position(bolt.pos), color = color},
+		)
 	}
 	fill_fireballs(f)
 	minions := sim.iterate(&f.state.minions)

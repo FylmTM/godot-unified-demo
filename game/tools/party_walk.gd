@@ -12,6 +12,9 @@ const STILL: float = 0.1
 const REVIVE_CLOSE: float = 1.0
 ## The name the walk gives the player: long enough to wrap on a seat card.
 const WALK_NAME: String = "Sexton of the Old Crypt"
+## A skeleton Mage's bone bolt's instance colour in the Bolts MultiMesh (simulation/extension/frame.odin's
+## BONE_BOLT_COLOR).
+const BONE_BOLT_COLOR := Color(1, 1, 0.28125, 1)
 
 
 ## The name field on the Gameplay tab, the focus on it already (the tab's first control): the focus doesn't start
@@ -614,7 +617,7 @@ static func _view_action(view: Node3D) -> int:
 ## The floor's elites (its two markers) are scene views (game/views/elite.tscn), asleep where they stand, their health
 ## bars full; a dev hurt shows on each bar as its health left (the bar's per-instance fill is the view data's hp of
 ## hp_max), and a killing one lays them down and their views go after DEATH_S. Then a dev-spawned Mage casts: its bone
-## bolt shows in the BoneBolts MultiMesh (MultiView.Bone_Bolt), never as a hero's bolt.
+## bolt shows in the Bolts MultiMesh in the bone bolt's colour (frame.odin's BONE_BOLT_COLOR), not a hero's bolt's.
 func _walk_elites() -> void:
 	var elites: Array[Node] = views(EnumView.ELITE)
 	expect(elites.size() == 2, "Floor 1 shows its two elites (%d views)" % elites.size())
@@ -641,16 +644,18 @@ func _walk_elites() -> void:
 	var mage := CommandDevSpawnElite.new()
 	mage.kind = EnumEliteKind.MAGE
 	session.send_command(mage)
-	var bone_bolts: MultiMeshInstance3D = current_scene.find_child("BoneBolts", true, false) as MultiMeshInstance3D
-	await wait_for(func() -> bool: return bone_bolts.multimesh.visible_instance_count > 0, 6.0,
-		"a skeleton Mage's bone bolt in the BoneBolts MultiMesh")
-	expect(multi_count(EnumMultiView.BOLT) == 0, "a bone bolt is no hero's bolt")
+	var bolts: MultiMeshInstance3D = current_scene.find_child("Bolts", true, false) as MultiMeshInstance3D
+	await wait_for(func() -> bool: return bolts.multimesh.visible_instance_count > 0, 6.0,
+		"a skeleton Mage's bone bolt in the Bolts MultiMesh")
+	var buffer: PackedFloat32Array = bolts.multimesh.buffer  # an instance: its 3D transform's 12 floats, then its colour
+	var color := Color(buffer[12], buffer[13], buffer[14], buffer[15]) if buffer.size() >= 16 else Color.BLACK
+	expect(color.is_equal_approx(BONE_BOLT_COLOR), "a bone bolt in its own colour, no hero's bolt's (%s)" % color)
 	hurt = CommandDevHurtElites.new()
 	hurt.damage = 500
 	session.send_command(hurt)
 	await wait_for(func() -> bool: return views(EnumView.ELITE).is_empty(), 2.0 + Unified.constants.minion_death,
 		"the felled Mage's view goes")
-	step("a skeleton Mage's bone bolt: its own MultiMesh")
+	step("a skeleton Mage's bone bolt: its own colour")
 
 
 ## Whether every elite view shows a wound.

@@ -139,8 +139,8 @@ const FELL_ELITES: int = 1000
 ## hub lift's deck (its side's corner, this far out from the middle); where a hero kindles a brazier from (this far off
 ## its foot, on the side it comes from: the stand is a column of 0.45 m radius that the hero's 0.45 m can't walk into,
 ## and BRAZIER_RANGE is 1.6 m) and how near that spot it walks (metres); the depth of the vault; the vault's braziers
-## each side kindles, by marker order (game/levels/vault.tscn: the host, spawned west of the joiner, the two west ones,
-## the joiner the east one by the spawns, so their ways never cross: two heroes walking head-on along one line push
+## each side kindles, by marker order (game/levels/vault.tscn: the host, spawned west of the joiner, a west one, the
+## joiner the east one by the spawns: two, the ward's need with two heroes, so their ways never cross: two heroes walking head-on along one line push
 ## against each other for good), and the King's ward stage.
 const SHRINE_WITHIN: float = 1.3
 const TURN_PRESS_S: float = 0.15
@@ -149,7 +149,7 @@ const DECK_CORNER: float = 1.0
 const KINDLE_STAND: float = 1.2
 const KINDLE_WITHIN: float = 0.3
 const VAULT_DEPTH: int = 3
-const HOST_BRAZIERS: Array[int] = [2, 0]
+const HOST_BRAZIERS: Array[int] = [2]
 const JOINER_BRAZIERS: Array[int] = [3]
 const WARD_STAGE: int = 2
 ## How near the floor's start each walks back to, and waits for the other (metres), before the combat beats.
@@ -686,7 +686,7 @@ func _shrine_prompt(player: int) -> int:
 ## The ward's beat, once the boons' is done (the party one floor down): the host takes the party down the rest of the
 ## crypt (dev_board on each floor, each side picking its boon with Interact) into the vault; there it wakes the King and
 ## drives it into its second stage (dev hurts: warded, its braziers out), and the two break the ward together: each
-## kindles its braziers (HOST_BRAZIERS, JOINER_BRAZIERS: three, the need for two heroes), holding Interact beside each
+## kindles its brazier (HOST_BRAZIERS, JOINER_BRAZIERS: two, the need for two heroes), holding Interact beside each
 ## until its lighting is CONFIRMED (_kindle), and both see the confirmed ward fall. The host then drives the King into
 ## its third stage, warded again and standing in the vault's middle, so nothing hurts the party through the pause; from
 ## the descents on it fells the skeletons the floors and the stages raise (dev), until its pause.

@@ -53,8 +53,10 @@ BOT_TRAP_STEP :: f32(0.9) // a bot looks this far ahead along its way for a trap
 BOT_SPIKES_AHEAD :: u32(48) // ... and waits for spikes that rise within this many ticks (a crossing's time and more)
 BOT_ROLLER_BERTH :: f32(0.3) // ... and for a roller whose sides are this near (m)
 BOT_FENCE_BERTH :: f32(1.5) // a standing barricade is in the way of a line crossing this far past its ends too (m)
-BOT_SLAM_BERTH :: f32(1.5) // a bot walks out of the King's slam's ring or cleave's reach, and this much more (m)
+BOT_SLAM_BERTH :: f32(1.5) // a bot walks out of the King's slam's ring or cleave's reach, and this much more (m) ...
+BOT_BLOCK_LEAD :: u32(16) // ... but a Knight blocks it, this many ticks before it lands, and fights on until then
 BOT_KINDLE_STAND :: f32(1) // a kindler stands this far from a brazier's foot (inside BRAZIER_RANGE, clear of its stand)
+BOT_KINDLE_CLEAR :: f32(3) // a kindler fights a skeleton this close before it kindles (a blow would break it off)
 
 // The World whose props' bodies the bot looks at (the state holds only their refs): the test's sim's.
 @(thread_local)
@@ -74,9 +76,20 @@ bot_input :: proc(seed: u64, slot: int, tick: u32, state: ^g.State, _: g.Setup) 
 		return
 	}
 	if state.lift.phase == .Choosing do return // its boon is a command (bot_commands)
-	if away, slamming := slam_ring(state, hero.pos.xz); slamming { 	// out of the King's blow's reach before it lands
-		walk(&input, away)
-		return
+	if away, left, slamming := slam_ring(state, hero.pos.xz); slamming {
+		if hero.class == .Knight {
+			// behind its shield, facing the King, as the blow lands: until then it fights on
+			if left <= BOT_BLOCK_LEAD {
+				input.aim = dmath.dir2(-away)
+				input.buttons += {.Ability}
+				// a charge from behind the shield takes the whole blow, and breaks the King's guard
+				if hero.action == .Block && !sim.timer_running(state.clock.time, hero.ability_ready) do input.buttons += {.Attack}
+				return
+			}
+		} else {
+			walk(&input, away) // out of the King's blow's reach before it lands
+			return
+		}
 	}
 	if ally, near := downed_ally(state, slot, hero.pos.xz); near {
 		offset := ally.xz - hero.pos.xz
@@ -256,6 +269,10 @@ kindle :: proc(input: ^g.Input, state: ^g.State, slot: int, hero: ^g.Hero, tick:
 		if tick % BOT_GRAB_EVERY == 0 do input.buttons += {.Ability}
 		return true
 	}
+	// fight a skeleton at hand first (a blow would break the kindling off); in a ward, every one in sight, since the King
+	// stands warded until the light and the skeletons left would fight beside it
+	clear := BOT_SIGHT if warded else BOT_KINDLE_CLEAR
+	if _, apart, near := nearest_minion(state, hero.pos.xz); near && apart < clear do return false
 	away := dmath.normalize(hero.pos.xz - def.pos.xz)
 	if away == {} do away = {0, 1}
 	player := sim.player_in_slot(&state.players, slot)
@@ -450,36 +467,52 @@ nearest_foe :: proc(state: ^g.State, from: [2]f32) -> (at: [2]f32, distance: f32
 }
 
 // Whether the King is winding up a blow the bot stands in: its slam (within its ring and BOT_SLAM_BERTH more) or its
-// cleave (within its reach and BOT_SLAM_BERTH more), and the way out of it.
+// cleave (within its reach and BOT_SLAM_BERTH more), until the blow lands: the way out of it and the ticks `left` until
+// it lands. Once it has landed the bot steps back in to strike while the King recovers, as a player would.
 @(private = "file")
-slam_ring :: proc(state: ^g.State, from: [2]f32) -> (away: [2]f32, inside: bool) {
+slam_ring :: proc(state: ^g.State, from: [2]f32) -> (away: [2]f32, left: u32, inside: bool) {
 	if state.boss.stage == 0 do return
 	king := sim.get(&state.elites, state.boss.elite)
 	if king == nil do return
 	reach: f32
+	windup: u32
 	#partial switch king.phase {
 	case .Slam:
-		reach = g.BOSS_SLAM_RADIUS
+		reach, windup = g.BOSS_SLAM_RADIUS, g.BOSS_SLAM_WINDUP_TICKS
 	case .Attack:
-		reach = g.BOSS_CLEAVE_REACH
+		reach, windup = g.BOSS_CLEAVE_REACH, g.ELITE_SPECS[.King].windup
 	case:
 		return
 	}
+	age := u32(state.clock.time - king.since)
+	if age >= windup do return
 	offset := from - king.pos.xz
 	if dmath.length(offset) > reach + BOT_SLAM_BERTH do return
-	return dmath.normalize(offset) if offset != {} else {0, 1}, true
+	return dmath.normalize(offset) if offset != {} else {0, 1}, windup - age, true
 }
 
-// The nearest ally down within BOT_RESCUE_REACH of `from` that nobody heaves (the bot in `slot` is not its own ally).
+// The nearest ally down within BOT_RESCUE_REACH of `from` that nobody heaves (the bot in `slot` is not its own ally) and
+// the King doesn't stand over (king_over: its cleave would break the revive off).
 @(private = "file")
 downed_ally :: proc(state: ^g.State, slot: int, from: [2]f32) -> (at: [3]f32, near: bool) {
 	nearest := BOT_RESCUE_REACH
 	heroes := sim.iterate_present(&state.players)
 	for hero, player in sim.next(&heroes) {
 		if player == sim.player_in_slot(&state.players, slot) || hero.action != .Down || hero.heave != .None do continue
+		if king_over(state, hero.pos.xz) do continue
 		if apart := dmath.length(hero.pos.xz - from); apart < nearest do at, nearest, near = hero.pos, apart, true
 	}
 	return
+}
+
+// Whether the King stands over `at`, awake and unwarded: within its cleave's reach and BOT_SLAM_BERTH more.
+@(private = "file")
+king_over :: proc(state: ^g.State, at: [2]f32) -> bool {
+	boss := &state.boss
+	if boss.stage == 0 || boss.warded || boss.hp_max == 0 do return false
+	king := sim.get(&state.elites, boss.elite)
+	if king == nil || king.phase == .Dying do return false
+	return dmath.length(king.pos.xz - at) < g.BOSS_CLEAVE_REACH + BOT_SLAM_BERTH
 }
 
 // The nearest live elite on its feet (awake or asleep, not rising or heaved) within `reach` of `from`; never the King,

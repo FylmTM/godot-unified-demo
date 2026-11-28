@@ -4,8 +4,8 @@
 # Runs per event:
 #   push to main        linux-x64, linux-arm64, windows-x64, macos-arm64, godot (its suite, then a host and a joiner
 #                       in two processes: `uni coop --lan`) and release (windows-x64 and macos-arm64), against the
-#                       pinned unified submodule. Every push gets its full run (no cancelling): each commit's check
-#                       and benchmarks stay on record.
+#                       pinned unified submodule. Every push gets its full run, at once (its own concurrency group:
+#                       none cancelled, queued or replaced): each commit's check and benchmarks stay on record.
 #   nightly (schedule)  the slow tier, every night: linux-x64 with `uni test --long` (every standard scenario at full
 #                       length, sixteen soak seeds), and godot with `uni coop --lan --crash` too (the joiner's process
 #                       killed mid-match, the same player back). Against unified's `main` when it differs from the
@@ -33,8 +33,10 @@ on:
         type: string
         default: ""
 
+# A push's run has a group of its own (its run id), so none waits on or replaces another; the nightly and a dispatch
+# replace their own still running.
 concurrency:
-  group: ci-${{ github.event_name }}-${{ github.ref }}-${{ inputs.unified_ref }}
+  group: ${{ github.event_name == 'push' && format('ci-push-{0}', github.run_id) || format('ci-{0}-{1}-{2}', github.event_name, github.ref, inputs.unified_ref) }}
   cancel-in-progress: ${{ github.event_name != 'push' }}
 
 permissions:

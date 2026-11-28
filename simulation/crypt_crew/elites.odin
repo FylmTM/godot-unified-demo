@@ -555,6 +555,7 @@ damage_elite :: proc(
 		guarded  = guarded,
 	}
 	sim.emit(t, hit)
+	if elite.kind == .King && guarded do boss_guard_struck(t, handle, player) // a lone hero wears it down (boss.odin)
 	if elite.kind == .King do boss_hurt(t, elite) // its stage, at two thirds and one third (boss.odin)
 	if elite.hp > 0 do return
 	// the hold lets go before the body goes

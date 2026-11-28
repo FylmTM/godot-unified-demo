@@ -30,7 +30,8 @@ On Windows, run `uni.cmd` instead of `./uni`. Controls, couch co-op, saves and o
 
 ![Both players' screens as they carry the hoard past the roller and across the spikes](docs/media/haul_coop.gif)
 
-*Both players' screens over one session, played 150 ms each way with jitter and 1% loss (a 580 ms round trip). On a
+*Both players' screens over one session, played with 150 ms of lag on each side (about 300 ms each way), jitter and 1%
+loss (a 580 ms round trip). On a
 run of this play (`./uni coop --lan -- --play=haul --lag 150`) the joiner rolled back 1,001 times, 13 ticks deep on
 average, and re-simulated 13,754 ticks, with no desync.*
 
@@ -94,7 +95,7 @@ Box3D bodies, joints, characters and ragdolls, saved, restored and re-simulated 
 
 ## The Bone King
 
-![The King's ward broken together: the Knight lights the third brazier](docs/media/king.gif)
+![The King's ward broken together: the Knight lights the second brazier](docs/media/king.gif)
 
 At two thirds and one third of its health the King roars, every brazier goes out, and no blow hurts it until the
 party lights enough of them again ([`boss.odin`](simulation/crypt_crew/boss.odin),

@@ -7,7 +7,9 @@
 // lost. Either ending (end_run: the last life, or the boss's death) holds RUN_END_S for the results, then the party is
 // back in the hub.
 //
-// The run is a value in the block (State.run) that rides in the save (saves.odin), so quitting refills no life. Its
+// The run is a value in the block (State.run) that rides in the save (saves.odin), so quitting refills no life: a
+// wipe's life is spent, and saved, as the wipe begins (spend_life), and given back only if someone gets up before it
+// lands. Its
 // number keys the boon offers (boons.offer_index), so a second run's cards are not the first's, and a Continue deals as
 // the run it continues did.
 //
@@ -73,7 +75,8 @@ Event_Run_Began :: struct {
 }
 
 // The run ended (end_run): `won` (the boss fell) or lost (the last life went), with its tally: the floors gone down,
-// the purse, the felled and the surges (the Pit's waves) faced, over `ticks` of game time. The results panel shows
+// the purse, the felled and the surges (the Pit's waves) faced, over `ticks` of game time (run_ticks: a continued run's
+// earlier sessions included). The results panel shows
 // it once CONFIRMED.
 Event_Run_Ended :: struct {
 	won:    bool,
@@ -129,7 +132,6 @@ begin_run :: proc(t: ^Tick) {
 	t.state.gold, t.state.kills, t.state.surges, t.state.depth = 0, 0, 0, 0
 	known := sim.iterate_known(t)
 	for hero in sim.next(&known) do hero.boons, hero.picked = {}, 0
-	t.state.pit = {}
 	enter_level(t, .Arena if run.mode == .Pit else FLOOR_ORDER[0])
 	mark_save_point(t)
 	sim.emit(t, Event_Run_Began{mode = run.mode, difficulty = run.difficulty})
@@ -140,14 +142,37 @@ run_lives :: proc(run: ^Run) -> u8 {
 	return PIT_LIVES if run.mode == .Pit else DIFFICULTY[run.difficulty].lives
 }
 
-// The whole party stayed down (check_wipe's WIPE_S ran out): a life goes. With lives left the floor starts over from
-// its save point (restart_floor), the purse and the felled back at the save's (boons were won at the lifts, so they
-// stay; the surges faced stay too, a count of the run's), and the save point is marked again (the lives are in it); at
+// A wipe began (check_wipe): its life is spent now, and the save says so at once (its floor and tally are the save
+// point's still, which is what the wipe gives), so a player who quits before it lands continues with the life gone.
+// The last life spent leaves a save of no life, which setup_check refuses.
+spend_life :: proc(t: ^Tick) {
+	run := &t.state.run
+	if run.phase != .Playing || run.lives == 0 do return
+	run.lives -= 1
+	save_lives(t)
+}
+
+// A wipe stopped before it landed (a hero up again): the life spend_life took comes back, and to the save.
+give_life_back :: proc(t: ^Tick) {
+	run := &t.state.run
+	if run.phase != .Playing do return
+	run.lives += 1
+	save_lives(t)
+}
+
+// The save's lives, the run's now: only a save of this run's floor carries them (the Pit's and the hub's carry none).
+@(private = "file")
+save_lives :: proc(t: ^Tick) {
+	if t.state.saved.version == SAVE_VERSION && t.state.saved.floor != .Hub do t.state.saved.lives = t.state.run.lives
+}
+
+// The whole party stayed down (check_wipe's WIPE_S ran out): the life spent as the wipe began is gone. With lives left
+// the floor starts over from its save point (restart_floor), the purse and the felled back at the save's (boons were won
+// at the lifts, so they stay; the surges faced stay too, a count of the run's), and the save point is marked again; at
 // none, the run is lost.
 party_fell :: proc(t: ^Tick) {
 	run := &t.state.run
 	if run.phase != .Playing do return
-	run.lives = run.lives - 1 if run.lives > 0 else 0
 	if run.lives == 0 {
 		sim.emit(t, Event_Life_Lost{lives = 0, gold = t.state.gold})
 		end_run(t, won = false)
@@ -173,13 +198,21 @@ end_run :: proc(t: ^Tick, won: bool) {
 		gold   = t.state.gold,
 		kills  = t.state.kills,
 		surges = t.state.surges,
-		ticks  = u32(t.time - run.since),
+		ticks  = run_ticks(t),
 	}
 	if choice_open(t.state) do sim.emit(t, Event_Choice{open = false})
 	t.state.pit = {}
 	run.phase, run.since = .Won if won else .Lost, t.time
 	mark_save_point(t)
 	sim.emit(t, ended)
+}
+
+// The run's game time so far: this session's since it began, and for the run a Continue continues, the time it had
+// played before (Setup.ticks), so a run played over several sessions shows its whole time at its end.
+run_ticks :: proc(t: ^Tick) -> u32 {
+	ticks := u32(t.time - t.state.run.since)
+	if t.setup.version == SAVE_VERSION && t.state.run.number == t.setup.run_number do ticks += t.setup.ticks
+	return ticks
 }
 
 // After the lift: a run that ended RUN_END_S ago takes the party back to the hub.
@@ -210,13 +243,15 @@ in_pit :: proc(t: ^Tick) -> bool {
 // ---- the difficulty and the depth ramp (DIFFICULTY, SURGE_PER_DEPTH, DEPTH_HP)
 
 // A surge's size before the floor's cap: the crypt's (SURGE_BASE, SURGE_PER_HERO for each hero present, SURGE_GROWTH
-// for each surge faced on the floor, SURGE_PER_DEPTH for each floor gone down) or the Pit's wave (pit_wave), times the
-// difficulty's surge scale, rounded.
+// for each surge faced on the floor, SURGE_PER_DEPTH for each floor gone down; on a boss floor, whose surges come only
+// in the King's wards, the first two alone) or the Pit's wave (pit_wave), times the difficulty's surge scale, rounded.
 surge_size :: proc(t: ^Tick) -> int {
 	heroes := SURGE_PER_HERO * sim.present_count(t)
 	size: int
 	if in_pit(t) {
 		size = pit_wave(int(t.state.floor_surges) + 1, sim.present_count(t))
+	} else if boss_floor(t) {
+		size = SURGE_BASE + heroes
 	} else {
 		size = SURGE_BASE + heroes + SURGE_GROWTH * int(t.state.floor_surges) + SURGE_PER_DEPTH * int(t.state.depth)
 	}
