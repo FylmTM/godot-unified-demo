@@ -451,7 +451,8 @@ func _on_status_changed(status: UnifiedSession.Status, detail: String) -> void:
 			else:
 				_end(Ending.new("The game ended", sentence(detail, "It stopped on an error."), ""))
 		UnifiedSession.STATUS_DISCONNECTED:
-			# The library's words say why when it says more than the link (until its end reason comes as a value).
+			# The library's words say why when it says more than the link (until its end reason comes as a value:
+			# FylmTM/godot-unified#598).
 			var ending := Ending.new("The game ended", "The host left, or the link to it was lost.", "")
 			if detail != "" and detail != "session ended":
 				ending.reason = sentence(detail, ending.reason)

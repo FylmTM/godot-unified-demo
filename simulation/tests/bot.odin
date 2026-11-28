@@ -351,7 +351,8 @@ fight_in_place :: proc(input: ^g.Input, state: ^g.State, hero: ^g.Hero) {
 
 // Walks the bot toward `to` along the floor's way, or stands still once within BOT_ON_SPOT of it: whether it is there.
 // While the floor's barricade stands across the straight line there, by way of the vault gate's front on the bot's
-// side (gate_front): the navigation knows nothing of a standing barricade, and would walk the bot into it.
+// side (gate_front): the navigation knows nothing of a standing barricade, and would walk the bot into it
+// (FylmTM/godot-unified#591).
 @(private = "file")
 go :: proc(input: ^g.Input, state: ^g.State, hero: ^g.Hero, to: [3]f32) -> bool {
 	if dmath.length(to.xz - hero.pos.xz) < BOT_ON_SPOT do return true

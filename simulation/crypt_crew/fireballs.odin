@@ -6,8 +6,8 @@
 // heroes' ragdolls and the barricades as an impulse (blast_bodies; a barricade it reaches breaks), which rolls back
 // with the rest of the physics; walls shield both, by the same ray from the blast's heart. The hoard goes where it is
 // hauled: no blast moves it. (Box3D's own explosion, physics.world_explode, sees through walls: it has no occlusion
-// option yet.) fireball_target is both what the cast reads and what the view's landing ring shows, on the newest local
-// input, so the ring is where the fireball will land.
+// option yet, FylmTM/godot-unified#590.) fireball_target is both what the cast reads and what the view's landing ring
+// shows, on the newest local input, so the ring is where the fireball will land.
 package crypt_crew
 
 import "unified:dmath"

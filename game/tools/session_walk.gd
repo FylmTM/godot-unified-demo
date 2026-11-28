@@ -270,7 +270,7 @@ func _walk_replay_pause() -> void:
 ## Replays the recording in user://recordings/`folder` and waits until it shows its first frame. The mode says
 ## REPLAY from the request on, but the last game's session is still leaving then, and until the replay's first frame
 ## the session's tick is that game's last (the replay's own last tick, when it is that game's recording) and its replay
-## ticks are 0: a seek read from them goes nowhere, and a wait for its tick passes at once.
+## ticks are 0: a seek read from them goes nowhere, and a wait for its tick passes at once (FylmTM/godot-unified#604).
 func _replay(folder: String) -> void:
 	session.replay("user://recordings/" + folder)
 	await wait_for(func() -> bool:

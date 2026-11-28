@@ -10,7 +10,7 @@ extends VBoxContainer
 ## timeline then, not a sum of events (a re-simulation may change an event's fields before it is confirmed: another
 ## hero's pickup got in first). Confirmed events arrive in tick order, so that total only grows. The HUD data, the
 ## newest prediction, never moves it but at its seeds, as unified has no verified session data to read (a `Data_*`
-## value from the newest verified tick):
+## value from the newest verified tick: FylmTM/godot-unified#599):
 ## - its start, the data's gold as it first shows and at the data's first change (a continued crypt's, a late
 ##   joiner's), never lower than what it shows: a prediction in that start holds the purse there until a confirmed
 ##   total passes it;

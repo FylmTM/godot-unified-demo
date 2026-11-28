@@ -55,3 +55,27 @@ only way in.
 | Prompts and rebinding | Each local player's prompts in the glyphs of the device the session gives them (`get_local_device`); attack, grab and the keyboard's moves rebound in the InputMap that unified's input helpers read | `game/app/prompts.gd`, `game/app/bindings.gd` |
 
 How each of unified's testing layers is used here: [`testing.md`](testing.md).
+
+## Waiting on unified
+
+What the game needs from unified, each an issue there; the game works around it meanwhile, with a comment at the
+workaround that links the issue. When one lands and the submodule is bumped, make the change in the last column and
+drop the row.
+
+| Issue | Meanwhile | When it lands |
+|---|---|---|
+| [#590 world_explode with occluders](https://github.com/FylmTM/godot-unified/issues/590) | Each blast casts a wall ray per prop, elite, ragdoll and barricade and applies its own impulse (`fireballs.odin`: `blast_bodies`, `blast_impulse`) | One `world_explode` with the walls as occluders; re-tune and re-bless |
+| [#591 nav fields round shut doors](https://github.com/FylmTM/godot-unified/issues/591) | Minions are pushed out of shut gates and standing barricades (`minions.odin`: `obstacles_of`); the bot detours by the gate's front (`simulation/tests/bot.odin`: `go`, `gate_front`) | Gates and barricades become doors, the fields take the shut ones; drop the bot's detour; re-bless |
+| [#592 packed array view fields](https://github.com/FylmTM/godot-unified/issues/592) | A ragdoll's bones reach the script as Arrays (`simulation/extension/frame.odin`: `View_Ragdoll`) | Packed fields, read as packed arrays in `game/views/ragdoll.gd` |
+| [#593 a Linux x64 zip](https://github.com/FylmTM/godot-unified/issues/593) | `uni release` builds macOS arm64 and Windows x64 (`export_presets.cfg`, the CI release job) | A Linux preset, `linux-x64` in the release matrix, the zip in `playing.md` |
+| [#594 uni drive pad, key and type](https://github.com/FylmTM/godot-unified/issues/594) | Couch checks are tool scripts with `pad_button(..., device)` (`game/tools/coop.gd`, `party_walk.gd`) | A couch play-check by hand in `testing.md` |
+| [#595 a boot step in the godot suite](https://github.com/FylmTM/godot-unified/issues/595) | Real boot is checked by hand under `uni drive` (`review.md`) | Drop that note; list the step in `testing.md` |
+| [#596 friends and invites](https://github.com/FylmTM/godot-unified/issues/596) | The join code is the invite (`game/play/friends_screen.gd`, `game/menu/join_code.gd`) | Friends with Invite, Join a friend, an invite toast |
+| [#597 LAN discovery](https://github.com/FylmTM/godot-unified/issues/597) | A LAN join types the host's address (`game/menu/join_address.gd`) | List the games heard, the address field as a fallback |
+| [#598 a typed end reason](https://github.com/FylmTM/godot-unified/issues/598) | Endings fold the library's detail into the game's sentence (`game/app/game.gd`: `_on_status_changed`, `_failed_start`) | Match on `end_reason`, the game's sentence for each |
+| [#599 verified session data](https://github.com/FylmTM/godot-unified/issues/599) | The purse seeds from the predicted HUD data; a late joiner's boon panels open from it (`game/play/purse.gd`, `boon_panels.gd`) | Show the verified gold, open from the verified choice; drop the seeding |
+| [#600 a shared app layer](https://github.com/FylmTM/godot-unified/issues/600) | The game's own flow, settings, bindings, prompts and couch seats (`game/app/`, `game/play/couch.gd`) | Move onto the shared parts, keep the crypt's words and screens |
+| [#601 levels from room scenes](https://github.com/FylmTM/godot-unified/issues/601) | Each floor laid whole from an ASCII map (`game/tools/lay_floor.gd`) | Shared rooms as room scenes the floors instance |
+| [#602 the net suite for game repos](https://github.com/FylmTM/godot-unified/issues/602) | Real UDP only through `uni coop --lan` and the release job (`.github/workflows/ci.yml`) | `uni test --suite net` in CI and `testing.md` |
+| [#603 a doc-comment lint](https://github.com/FylmTM/godot-unified/issues/603) | The doc-comment rule is kept by review | Run the check in the suite, add what it finds |
+| [#604 UnifiedSession.tick after a start request](https://github.com/FylmTM/godot-unified/issues/604) | The session walk waits for `replay_last_tick` (`game/tools/session_walk.gd`: `_replay`) | Wait on the replay's tick; drop the comment |
