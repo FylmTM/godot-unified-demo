@@ -2,8 +2,9 @@ class_name ArtChecks
 extends RefCounted
 ## The rules docs/ART.md sets for the game's art, checked: the godot suite's validate step runs them
 ## (game/tools/validate.gd), so a pack file nobody uses, a mesh that lost its pack's material, a character missing a
-## bone or a clip, a kit part whose collision the sim couldn't use, a stage whose floor doesn't walk in one piece, or a
-## level lit by more shadowed lights than a frame affords fails the suite instead of the look.
+## bone or a clip, a kit part whose collision the sim couldn't use, a stage whose floor doesn't walk in one piece, two
+## surfaces sharing the walking surface (z-fighting), or a level lit by more shadowed lights than a frame affords fails
+## the suite instead of the look.
 ##
 ## Each problem is reported through the validate run's log capture, named by the file it is in. The characters and the
 ## look-dev scene are run, not only loaded: every clip is posed on every character, and every shot is shown. The
@@ -26,6 +27,8 @@ const WALL_TOP: float = 1.4
 ## How far a part's collision may reach past its model's bounds, in metres: a shape is a simplified box, never bigger
 ## than what the player sees (the margin is the meshes' rounding).
 const SHAPE_TOLERANCE: float = 0.02
+## How near y = 0 a mesh's top must be to lie in the walking surface, in metres: a floor's flat top is there exactly.
+const SURFACE_TOLERANCE: float = 0.005
 
 const ASSETS: String = "res://assets/"
 const GAME: String = "res://game/"
@@ -85,6 +88,7 @@ func run() -> void:
 	_check_clips()
 	_check_parts()
 	_check_stages()
+	_check_surface()
 	_check_shadows()
 	_check_lookdev()
 	_check_crowd()
@@ -439,6 +443,33 @@ func _check_placed(state: SceneState, node: int, path: String, gridded: bool) ->
 		_problem("%s is off the grid: floors and walls sit on 2 m steps, turned by 90°" % where, path)
 
 
+## In no stage or level do two shown meshes' tops lie in the walking surface (y = 0) over the same ground: two faces at
+## one depth draw through each other, a flicker as the camera moves (z-fighting). Floors meet edge to edge; anything
+## else under a floor (a shaft's lining) stops below its tiles. A mesh's top is its bounds', so a floor with relief
+## (rocks, spikes) stands above the surface and is not compared.
+func _check_surface() -> void:
+	for path: String in STAGES + [KIT_STAGE] + _files(LEVELS, "tscn"):
+		var stage: Node3D = (load(path) as PackedScene).instantiate()
+		var names: Array[String] = []
+		var tops: Array[AABB] = []
+		for found: Node in stage.find_children("*", "MeshInstance3D", true, false):
+			var mesh_node: MeshInstance3D = found
+			if not _shown(mesh_node, stage):
+				continue
+			var box: AABB = _placement(mesh_node, stage) * mesh_node.get_aabb()
+			if absf(box.end.y) <= SURFACE_TOLERANCE:
+				names.append(String(stage.get_path_to(mesh_node)))
+				tops.append(box)
+		for i: int in tops.size():
+			for j: int in range(i + 1, tops.size()):
+				var across: float = minf(tops[i].end.x, tops[j].end.x) - maxf(tops[i].position.x, tops[j].position.x)
+				var along: float = minf(tops[i].end.z, tops[j].end.z) - maxf(tops[i].position.z, tops[j].position.z)
+				if across > SHAPE_TOLERANCE and along > SHAPE_TOLERANCE:
+					_problem("%s and %s both top out at the walking surface over %.1f by %.1f m: they z-fight" % [
+						names[i], names[j], across, along], path)
+		stage.free()
+
+
 ## No level shows more than SHADOWED_MAX shadowed omni lights: a shadowed light redraws a cube map every frame.
 func _check_shadows() -> void:
 	var view: Node = (load(BRAZIER_VIEW) as PackedScene).instantiate()
@@ -714,15 +745,31 @@ func _mesh_bounds(root_node: Node3D) -> AABB:
 	var first: bool = true
 	for found: Node in root_node.find_children("*", "MeshInstance3D", true, false):
 		var mesh_node: MeshInstance3D = found
-		var xform: Transform3D = Transform3D.IDENTITY
-		var current: Node = mesh_node
-		while current != root_node:
-			xform = (current as Node3D).transform * xform
-			current = current.get_parent()
-		var box: AABB = xform * mesh_node.get_aabb()
+		var box: AABB = _placement(mesh_node, root_node) * mesh_node.get_aabb()
 		bounds = box if first else bounds.merge(box)
 		first = false
 	return bounds
+
+
+## Whether a node out of the tree is shown: it and each of its parents up to `root_node` visible.
+func _shown(node: Node3D, root_node: Node) -> bool:
+	var current: Node = node
+	while current != root_node:
+		if current is Node3D and not (current as Node3D).visible:
+			return false
+		current = current.get_parent()
+	return true
+
+
+## A node's transform in `root_node`'s space, out of the tree.
+func _placement(node: Node3D, root_node: Node) -> Transform3D:
+	var xform: Transform3D = Transform3D.IDENTITY
+	var current: Node = node
+	while current != root_node:
+		if current is Node3D:
+			xform = (current as Node3D).transform * xform
+		current = current.get_parent()
+	return xform
 
 
 ## Whether `x` is on the kit's 2 m grid, to the meshes' rounding.

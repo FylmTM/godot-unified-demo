@@ -12,16 +12,16 @@ size = Vector3(0.5, 3.5, 4)
 metadata/unified_category = 2
 
 [node name="North" parent="." instance=ExtResource("model")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4, -2.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4.15, -2.5)
 
 [node name="South" parent="." instance=ExtResource("model")]
-transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, -4, 2.5)
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, -4.15, 2.5)
 
 [node name="West" parent="." instance=ExtResource("model")]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -2.5, -4, 0)
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -2.5, -4.15, 0)
 
 [node name="East" parent="." instance=ExtResource("model")]
-transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 2.5, -4, 0)
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 2.5, -4.15, 0)
 
 [node name="ShapeNorth" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2.25, -2.25)

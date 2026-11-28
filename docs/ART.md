@@ -28,7 +28,9 @@ one costs the renderer (draw calls, objects, primitives).
 One unit is one metre, KayKit's own: a hero is about 2.4 m tall, and every pack shares that scale. The kit's grid is
 4 m, with 2 m half steps: a wall is 4 m long, 4 m high and 1 m thick, centred on its grid line; a large floor tile is
 4 by 4. The walking surface is y = 0 everywhere: a floor part sinks its model so its flat top sits there (a tile's
-relief, rocks or a decoration, is walked through). Characters face +Z.
+relief, rocks or a decoration, is walked through). Nothing else tops out there under a floor: two faces at one height
+flicker through each other (z-fighting), so a part reaching up to a floor from below, a lift shaft's lining, stops under
+its tiles (the checks hold it). Characters face +Z.
 
 ## Where things live
 
